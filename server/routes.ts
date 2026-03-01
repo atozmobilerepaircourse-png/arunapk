@@ -5139,5 +5139,20 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
   });
 
   const httpServer = createServer(app);
+  app.get("/download/:filename", (req, res) => {
+    const filename = req.params.filename;
+    // Basic security check to prevent directory traversal
+    if (filename.includes("..") || filename.includes("/")) {
+      return res.status(403).send("Forbidden");
+    }
+    const filePath = path.join(process.cwd(), "public", "download", filename);
+    res.download(filePath, (err) => {
+      if (err) {
+        console.error(`[Download] Error sending ${filename}:`, err);
+        res.status(404).send("File not found");
+      }
+    });
+  });
+
   return httpServer;
 }
