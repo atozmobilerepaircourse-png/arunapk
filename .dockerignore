@@ -1,0 +1,14 @@
+node_modules
+.git
+.expo
+.metro-cache
+dist
+*.md
+.local
+attached_assets
+app/
+components/
+constants/
+hooks/
+lib/
+references/

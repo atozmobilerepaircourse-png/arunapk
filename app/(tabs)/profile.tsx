@@ -1,0 +1,1234 @@
+import React, { useState, useMemo, useEffect } from 'react';
+import {
+  View, Text, StyleSheet, ScrollView, Pressable, TextInput,
+  Alert, Platform, KeyboardAvoidingView, ActivityIndicator, Modal, Linking,
+} from 'react-native';
+import { Image } from 'expo-image';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons, Feather } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
+import { router } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
+import Colors from '@/constants/colors';
+import { openLink } from '@/lib/open-link';
+import { useApp } from '@/lib/context';
+import { getApiUrl, apiRequest } from '@/lib/query-client';
+import { ROLE_LABELS, SKILLS_LIST, UserRole, ADMIN_PHONE } from '@/lib/types';
+
+function parseSellPost(text: string): { title: string; price: string; condition: string; description: string } | null {
+  try {
+    const lines = text.split('\n');
+    const data: any = {};
+    for (const line of lines) {
+      if (line.startsWith('SELL_TITLE:')) data.title = line.replace('SELL_TITLE:', '').trim();
+      else if (line.startsWith('SELL_PRICE:')) data.price = line.replace('SELL_PRICE:', '').trim();
+      else if (line.startsWith('SELL_CONDITION:')) data.condition = line.replace('SELL_CONDITION:', '').trim();
+      else if (line.startsWith('SELL_DESC:')) data.description = line.replace('SELL_DESC:', '').trim();
+    }
+    if (data.title) return data;
+    return null;
+  } catch { return null; }
+}
+
+function formatSellText(title: string, price: string, condition: string, description: string): string {
+  return `SELL_TITLE:${title}\nSELL_PRICE:${price}\nSELL_CONDITION:${condition}\nSELL_DESC:${description}`;
+}
+
+function getImageUri(img: string): string {
+  if (img.startsWith('/')) return `${getApiUrl()}${img}`;
+  return img;
+}
+
+const CONDITIONS = ['Like New', 'Good', 'Fair', 'Used'];
+
+const C = Colors.dark;
+
+type ListingItem = {
+  id: string;
+  title: string;
+  price: string;
+  condition: string;
+  description: string;
+  image?: string;
+  createdAt: number;
+};
+
+const ListingCard = React.memo(function ListingCard({
+  listing, onEdit, onDelete, isDeleting,
+}: {
+  listing: ListingItem;
+  onEdit: (listing: ListingItem) => void;
+  onDelete: (id: string) => void;
+  isDeleting: boolean;
+}) {
+  return (
+    <View style={styles.listingCard}>
+      <View style={styles.listingRow}>
+        {listing.image ? (
+          <Image source={{ uri: listing.image }} style={styles.listingThumb} contentFit="cover" cachePolicy="memory-disk" />
+        ) : (
+          <View style={[styles.listingThumb, styles.listingThumbPlaceholder]}>
+            <Ionicons name="image-outline" size={20} color={C.textTertiary} />
+          </View>
+        )}
+        <View style={styles.listingInfo}>
+          <Text style={styles.listingTitle} numberOfLines={1}>{listing.title}</Text>
+          <Text style={styles.listingPrice}>₹{listing.price}</Text>
+          {listing.condition ? (
+            <Text style={styles.listingCondition}>{listing.condition}</Text>
+          ) : null}
+        </View>
+        <View style={styles.listingActions}>
+          <Pressable style={styles.listingActionBtn} onPress={() => onEdit(listing)}>
+            <Ionicons name="create-outline" size={18} color="#5E8BFF" />
+          </Pressable>
+          <Pressable style={styles.listingActionBtn} onPress={() => onDelete(listing.id)} disabled={isDeleting}>
+            {isDeleting ? (
+              <ActivityIndicator size="small" color="#FF3B30" />
+            ) : (
+              <Ionicons name="trash-outline" size={18} color="#FF3B30" />
+            )}
+          </Pressable>
+        </View>
+      </View>
+    </View>
+  );
+});
+
+const ROLE_COLORS: Record<UserRole, string> = {
+  technician: '#34C759',
+  teacher: '#FFD60A',
+  supplier: '#FF6B2C',
+  job_provider: '#5E8BFF',
+  customer: '#FF2D55',
+};
+
+function getInitials(name: string): string {
+  return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+}
+
+export default function ProfileScreen() {
+  const insets = useSafeAreaInsets();
+  const { profile, setProfile, posts, logout, refreshData } = useApp();
+  const [isEditing, setIsEditing] = useState(false);
+  const [editName, setEditName] = useState(profile?.name || '');
+  const [editEmail, setEditEmail] = useState(profile?.email || '');
+  const [editBio, setEditBio] = useState(profile?.bio || '');
+  const [editCity, setEditCity] = useState(profile?.city || '');
+  const [editExperience, setEditExperience] = useState(profile?.experience || '');
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
+  const [editListingVisible, setEditListingVisible] = useState(false);
+  const [editListingId, setEditListingId] = useState<string | null>(null);
+  const [editListingTitle, setEditListingTitle] = useState('');
+  const [editListingPrice, setEditListingPrice] = useState('');
+  const [editListingCondition, setEditListingCondition] = useState('Like New');
+  const [editListingDesc, setEditListingDesc] = useState('');
+  const [editListingSaving, setEditListingSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [subStatus, setSubStatus] = useState<{ active: boolean; required: boolean; subscriptionEnd?: number; amount?: string; period?: string; commission?: string } | null>(null);
+  const [updatingLocation, setUpdatingLocation] = useState(false);
+  const [locationStatus, setLocationStatus] = useState<'idle' | 'success' | 'denied'>('idle');
+
+  useEffect(() => {
+    if (!profile?.id) return;
+    apiRequest('GET', `/api/subscription/status/${profile.id}`)
+      .then(r => r.json())
+      .then(data => { if (data.success) setSubStatus(data); })
+      .catch(() => {});
+  }, [profile?.id]);
+
+  const myPosts = posts.filter(p => p.userId === profile?.id);
+  const totalLikes = myPosts.reduce((sum, p) => sum + p.likes.length, 0);
+
+  const myListings = useMemo(() => {
+    return posts
+      .filter(p => p.userId === profile?.id && p.category === 'sell')
+      .map(p => {
+        const parsed = parseSellPost(p.text);
+        return {
+          id: p.id,
+          title: parsed?.title || 'Untitled',
+          price: parsed?.price || '0',
+          condition: parsed?.condition || '',
+          description: parsed?.description || '',
+          image: p.images && p.images.length > 0 ? getImageUri(p.images[0]) : undefined,
+          createdAt: p.createdAt,
+        };
+      });
+  }, [posts, profile?.id]);
+
+  const handleDeleteListing = async (postId: string) => {
+    const doDelete = async () => {
+      try {
+        setDeletingId(postId);
+        const baseUrl = getApiUrl();
+        await fetch(`${baseUrl}/api/posts/${postId}`, { method: 'DELETE' });
+        if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        await refreshData();
+      } catch (e) {
+        console.error('[Profile] Delete listing error:', e);
+        Alert.alert('Error', 'Could not delete listing. Please try again.');
+      } finally {
+        setDeletingId(null);
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      if (window.confirm('Are you sure you want to delete this listing?')) doDelete();
+    } else {
+      Alert.alert('Delete Listing', 'Are you sure you want to delete this listing?', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: doDelete },
+      ]);
+    }
+  };
+
+  const handleEditListing = (listing: typeof myListings[0]) => {
+    setEditListingId(listing.id);
+    setEditListingTitle(listing.title);
+    setEditListingPrice(listing.price);
+    setEditListingCondition(listing.condition || 'Like New');
+    setEditListingDesc(listing.description);
+    setEditListingVisible(true);
+  };
+
+  const handleSaveListing = async () => {
+    if (!editListingId || !editListingTitle.trim()) return;
+    try {
+      setEditListingSaving(true);
+      const baseUrl = getApiUrl();
+      const newText = formatSellText(editListingTitle.trim(), editListingPrice.trim(), editListingCondition, editListingDesc.trim());
+      await fetch(`${baseUrl}/api/posts/${editListingId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: newText }),
+      });
+      if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setEditListingVisible(false);
+      await refreshData();
+    } catch (e) {
+      console.error('[Profile] Update listing error:', e);
+      Alert.alert('Error', 'Could not update listing. Please try again.');
+    } finally {
+      setEditListingSaving(false);
+    }
+  };
+  const webTopInset = Platform.OS === 'web' ? 67 : 0;
+
+  const handleChangeAvatar = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+      
+      if (result.canceled || !result.assets?.[0]) return;
+      
+      setUploadingAvatar(true);
+      const asset = result.assets[0];
+      
+      const formData = new FormData();
+      const filename = asset.uri.split('/').pop() || 'avatar.jpg';
+      const match = /\.(\w+)$/.exec(filename);
+      const type = match ? `image/${match[1]}` : 'image/jpeg';
+      
+      if (Platform.OS === 'web') {
+        const response = await fetch(asset.uri);
+        const blob = await response.blob();
+        formData.append('image', blob, filename);
+      } else {
+        formData.append('image', {
+          uri: asset.uri,
+          name: filename,
+          type,
+        } as any);
+      }
+      
+      const baseUrl = getApiUrl();
+      const uploadRes = await fetch(`${baseUrl}/api/upload`, {
+        method: 'POST',
+        body: formData,
+      });
+      
+      const uploadData = await uploadRes.json();
+      if (uploadData.url) {
+        const updatedProfile = { ...profile!, avatar: uploadData.url };
+        await setProfile(updatedProfile);
+        if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+    } catch (e) {
+      console.error('[Profile] Avatar upload error:', e);
+      Alert.alert('Upload Failed', 'Could not update your profile picture. Please try again.');
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!profile) return;
+    if (!editName.trim()) {
+      Alert.alert('Name required', 'Please enter your name.');
+      return;
+    }
+    await setProfile({
+      ...profile,
+      name: editName.trim(),
+      email: editEmail.trim(),
+      bio: editBio.trim(),
+      city: editCity.trim(),
+      experience: editExperience.trim(),
+    });
+    if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setIsEditing(false);
+  };
+
+  const updateLiveLocation = async () => {
+    if (!profile?.id || updatingLocation) return;
+    setUpdatingLocation(true);
+    setLocationStatus('idle');
+    try {
+      let lat: string | null = null;
+      let lng: string | null = null;
+      if (Platform.OS === 'web') {
+        if (navigator.geolocation) {
+          const position = await new Promise<GeolocationPosition | null>((resolve) => {
+            navigator.geolocation.getCurrentPosition(
+              (pos) => resolve(pos),
+              () => resolve(null),
+              { enableHighAccuracy: false, timeout: 10000, maximumAge: 30000 }
+            );
+          });
+          if (position) {
+            lat = position.coords.latitude.toString();
+            lng = position.coords.longitude.toString();
+          }
+        }
+      } else {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === 'granted') {
+          const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+          lat = loc.coords.latitude.toString();
+          lng = loc.coords.longitude.toString();
+        }
+      }
+      if (lat && lng) {
+        await apiRequest('POST', `/api/profiles/${profile.id}/location`, { latitude: lat, longitude: lng });
+        setLocationStatus('success');
+        if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        setTimeout(() => setLocationStatus('idle'), 3000);
+      } else {
+        setLocationStatus('denied');
+        setTimeout(() => setLocationStatus('idle'), 3000);
+      }
+    } catch (e) {
+      console.warn('[Profile] Location update failed:', e);
+      setLocationStatus('denied');
+      setTimeout(() => setLocationStatus('idle'), 3000);
+    } finally {
+      setUpdatingLocation(false);
+    }
+  };
+
+  if (!profile) {
+    return (
+      <View style={[styles.container, styles.center]}>
+        <Ionicons name="person-outline" size={48} color={C.textTertiary} />
+        <Text style={styles.emptyTitle}>No profile yet</Text>
+        <Text style={styles.emptyText}>Complete onboarding to create your profile</Text>
+      </View>
+    );
+  }
+
+  const roleColor = ROLE_COLORS[profile.role];
+  const isCustomer = profile.role === 'customer';
+
+  return (
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          {
+            paddingTop: (Platform.OS === 'web' ? webTopInset : insets.top) + 16,
+            paddingBottom: Platform.OS === 'web' ? 84 + 34 : 120,
+          },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.topRow}>
+          <Text style={styles.pageTitle}>Profile</Text>
+          <Pressable onPress={() => isEditing ? handleSave() : setIsEditing(true)}>
+            <Ionicons
+              name={isEditing ? 'checkmark-circle' : 'create-outline'}
+              size={24}
+              color={isEditing ? C.success : C.textSecondary}
+            />
+          </Pressable>
+        </View>
+
+        <View style={styles.profileHeader}>
+          <Pressable onPress={handleChangeAvatar} disabled={uploadingAvatar}>
+            <View>
+              {profile.avatar ? (
+                <Image source={{ uri: profile.avatar }} style={styles.avatarImg} contentFit="cover" cachePolicy="memory-disk" />
+              ) : (
+                <View style={[styles.avatar, { backgroundColor: roleColor + '20' }]}>
+                  <Text style={[styles.avatarText, { color: roleColor }]}>
+                    {getInitials(profile.name)}
+                  </Text>
+                </View>
+              )}
+              <View style={styles.avatarEditBadge}>
+                {uploadingAvatar ? (
+                  <ActivityIndicator size="small" color="#FFF" />
+                ) : (
+                  <Ionicons name="camera" size={14} color="#FFF" />
+                )}
+              </View>
+            </View>
+          </Pressable>
+          {isEditing ? (
+            <TextInput
+              style={styles.nameInput}
+              value={editName}
+              onChangeText={setEditName}
+              placeholder="Your name"
+              placeholderTextColor={C.textTertiary}
+            />
+          ) : (
+            <Text style={styles.profileName}>{profile.name}</Text>
+          )}
+          <View style={[styles.roleBadge, { backgroundColor: roleColor + '20' }]}>
+            <Text style={[styles.roleBadgeText, { color: roleColor }]}>
+              {ROLE_LABELS[profile.role]}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.statsRow}>
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>{myPosts.length}</Text>
+            <Text style={styles.statLabel}>Posts</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>{totalLikes}</Text>
+            <Text style={styles.statLabel}>Likes</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>{profile.skills.length}</Text>
+            <Text style={styles.statLabel}>Skills</Text>
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>About</Text>
+          {isEditing ? (
+            <TextInput
+              style={styles.bioInput}
+              value={editBio}
+              onChangeText={setEditBio}
+              placeholder="Tell others about yourself..."
+              placeholderTextColor={C.textTertiary}
+              multiline
+              maxLength={200}
+            />
+          ) : (
+            <Text style={styles.bioText}>
+              {profile.bio || 'No bio yet. Tap the edit icon to add one.'}
+            </Text>
+          )}
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Details</Text>
+          <View style={styles.detailRow}>
+            <Ionicons name="location-outline" size={18} color={C.textSecondary} />
+            {isEditing ? (
+              <TextInput
+                style={styles.detailInput}
+                value={editCity}
+                onChangeText={setEditCity}
+                placeholder="City"
+                placeholderTextColor={C.textTertiary}
+              />
+            ) : (
+              <Text style={styles.detailText}>{profile.city}, {profile.state}</Text>
+            )}
+          </View>
+          <Pressable
+            onPress={updateLiveLocation}
+            disabled={updatingLocation}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 10, paddingHorizontal: 4, opacity: updatingLocation ? 0.6 : 1 }}
+          >
+            {updatingLocation ? (
+              <ActivityIndicator size="small" color={C.primary} />
+            ) : (
+              <Ionicons
+                name={locationStatus === 'success' ? 'checkmark-circle' : locationStatus === 'denied' ? 'alert-circle-outline' : 'navigate-outline'}
+                size={18}
+                color={locationStatus === 'success' ? '#34C759' : locationStatus === 'denied' ? '#FF3B30' : C.primary}
+              />
+            )}
+            <Text style={{ fontSize: 14, fontFamily: 'Inter_500Medium', color: locationStatus === 'success' ? '#34C759' : locationStatus === 'denied' ? '#FF3B30' : C.primary }}>
+              {updatingLocation ? 'Updating location...' : locationStatus === 'success' ? 'Location updated!' : locationStatus === 'denied' ? 'Location access denied' : 'Update Live Location'}
+            </Text>
+          </Pressable>
+          {!isCustomer && (
+            <View style={styles.detailRow}>
+              <Ionicons name="time-outline" size={18} color={C.textSecondary} />
+              {isEditing ? (
+                <TextInput
+                  style={styles.detailInput}
+                  value={editExperience}
+                  onChangeText={setEditExperience}
+                  placeholder="Experience (e.g. 5 years)"
+                  placeholderTextColor={C.textTertiary}
+                />
+              ) : (
+                <Text style={styles.detailText}>{profile.experience || 'Not specified'}</Text>
+              )}
+            </View>
+          )}
+          {profile.shopName && (
+            <View style={styles.detailRow}>
+              <Ionicons name="storefront-outline" size={18} color={C.textSecondary} />
+              <Text style={styles.detailText}>{profile.shopName}</Text>
+            </View>
+          )}
+          <View style={styles.detailRow}>
+            <Ionicons name="mail-outline" size={18} color={C.textSecondary} />
+            {isEditing ? (
+              <TextInput
+                style={styles.detailInput}
+                value={editEmail}
+                onChangeText={setEditEmail}
+                placeholder="Gmail Address"
+                placeholderTextColor={C.textTertiary}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+            ) : (
+              <Text style={styles.detailText}>{profile.email || 'No email added'}</Text>
+            )}
+          </View>
+          <View style={styles.detailRow}>
+            <Ionicons name="call-outline" size={18} color={C.textSecondary} />
+            <Text style={styles.detailText}>{profile.phone}</Text>
+          </View>
+          {profile.sellType ? (
+            <View style={styles.detailRow}>
+              <Ionicons name="cube-outline" size={18} color={C.textSecondary} />
+              <Text style={styles.detailText}>Sells: {profile.sellType}</Text>
+            </View>
+          ) : null}
+          {profile.teachType ? (
+            <View style={styles.detailRow}>
+              <Ionicons name="school-outline" size={18} color={C.textSecondary} />
+              <Text style={styles.detailText}>Teaches: {profile.teachType}</Text>
+            </View>
+          ) : null}
+          {profile.shopAddress ? (
+            <View style={styles.detailRow}>
+              <Ionicons name="business-outline" size={18} color={C.textSecondary} />
+              <Text style={styles.detailText}>{profile.shopAddress}</Text>
+            </View>
+          ) : null}
+          {profile.gstNumber ? (
+            <View style={styles.detailRow}>
+              <Ionicons name="document-text-outline" size={18} color={C.textSecondary} />
+              <Text style={styles.detailText}>GST: {profile.gstNumber}</Text>
+            </View>
+          ) : null}
+        </View>
+
+        {profile.skills.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Skills</Text>
+            <View style={styles.skillsGrid}>
+              {profile.skills.map((skill, i) => (
+                <View key={i} style={[styles.skillChip, { backgroundColor: roleColor + '12' }]}>
+                  <Text style={[styles.skillChipText, { color: roleColor }]}>{skill}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Support</Text>
+          <Pressable 
+            style={styles.supportRow} 
+            onPress={async () => {
+              const defaultUrl = 'https://wa.me/918179142535';
+              try {
+                const res = await apiRequest('GET', '/api/settings/whatsapp_support_link');
+                const { value } = await res.json();
+                const url = value || defaultUrl;
+                openLink(url, 'Support');
+              } catch (e) {
+                console.error('[Support] Link error:', e);
+                openLink(defaultUrl, 'Support');
+              }
+            }}
+          >
+            <Ionicons name="logo-whatsapp" size={20} color="#25D366" />
+            <Text style={styles.detailText}>Contact Support</Text>
+          </Pressable>
+        </View>
+
+        {isEditing && (
+          <Pressable
+            style={styles.cancelBtn}
+            onPress={() => {
+              setIsEditing(false);
+              setEditName(profile.name);
+              setEditEmail(profile.email || '');
+              setEditBio(profile.bio || '');
+              setEditCity(profile.city);
+              setEditExperience(profile.experience);
+            }}
+          >
+            <Text style={styles.cancelText}>Cancel editing</Text>
+          </Pressable>
+        )}
+
+        {myListings.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>My Listings ({myListings.length})</Text>
+            {myListings.map((listing) => (
+              <ListingCard
+                key={listing.id}
+                listing={listing}
+                onEdit={handleEditListing}
+                onDelete={handleDeleteListing}
+                isDeleting={deletingId === listing.id}
+              />
+            ))}
+          </View>
+        )}
+
+        <Modal visible={editListingVisible} animationType="slide" transparent>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Edit Listing</Text>
+                <Pressable onPress={() => setEditListingVisible(false)}>
+                  <Ionicons name="close" size={24} color={C.text} />
+                </Pressable>
+              </View>
+              <ScrollView showsVerticalScrollIndicator={false} style={styles.modalScroll}>
+                <Text style={styles.fieldLabel}>Title</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  value={editListingTitle}
+                  onChangeText={setEditListingTitle}
+                  placeholder="Item name"
+                  placeholderTextColor={C.textTertiary}
+                />
+                <Text style={styles.fieldLabel}>Price (₹)</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  value={editListingPrice}
+                  onChangeText={setEditListingPrice}
+                  placeholder="Price"
+                  placeholderTextColor={C.textTertiary}
+                  keyboardType="numeric"
+                />
+                <Text style={styles.fieldLabel}>Condition</Text>
+                <View style={styles.conditionRow}>
+                  {CONDITIONS.map(c => (
+                    <Pressable
+                      key={c}
+                      style={[
+                        styles.conditionChip,
+                        editListingCondition === c && styles.conditionChipActive,
+                      ]}
+                      onPress={() => setEditListingCondition(c)}
+                    >
+                      <Text style={[
+                        styles.conditionChipText,
+                        editListingCondition === c && styles.conditionChipTextActive,
+                      ]}>{c}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+                <Text style={styles.fieldLabel}>Description</Text>
+                <TextInput
+                  style={[styles.modalInput, { minHeight: 80, textAlignVertical: 'top' }]}
+                  value={editListingDesc}
+                  onChangeText={setEditListingDesc}
+                  placeholder="Describe the item"
+                  placeholderTextColor={C.textTertiary}
+                  multiline
+                />
+              </ScrollView>
+              <Pressable
+                style={[styles.saveBtn, editListingSaving && { opacity: 0.6 }]}
+                onPress={handleSaveListing}
+                disabled={editListingSaving}
+              >
+                {editListingSaving ? (
+                  <ActivityIndicator size="small" color="#FFF" />
+                ) : (
+                  <Text style={styles.saveBtnText}>Save Changes</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </Modal>
+
+        {subStatus && (
+          <View style={[styles.section, { marginBottom: 12 }]}>
+            <Text style={styles.sectionTitle}>Subscription</Text>
+            <View style={[styles.subCard, { borderColor: subStatus.active ? '#34C75930' : '#FF3B3030' }]}>
+              <View style={styles.subCardHeader}>
+                <View style={[styles.subStatusDot, { backgroundColor: subStatus.active ? '#34C759' : '#FF3B30' }]} />
+                <Text style={[styles.subStatusText, { color: subStatus.active ? '#34C759' : '#FF3B30' }]}>
+                  {subStatus.active ? 'Active' : (subStatus.required ? 'Expired' : 'Free')}
+                </Text>
+              </View>
+              {subStatus.subscriptionEnd && subStatus.subscriptionEnd > 0 && (
+                <View style={styles.subRow}>
+                  <Ionicons name="calendar-outline" size={16} color={C.textSecondary} />
+                  <Text style={styles.subRowText}>
+                    {subStatus.active ? 'Expires' : 'Expired'}: {new Date(subStatus.subscriptionEnd).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </Text>
+                </View>
+              )}
+              {subStatus.amount && parseInt(subStatus.amount) > 0 && (
+                <View style={styles.subRow}>
+                  <Ionicons name="pricetag-outline" size={16} color={C.textSecondary} />
+                  <Text style={styles.subRowText}>₹{subStatus.amount}/{subStatus.period || 'monthly'}</Text>
+                </View>
+              )}
+              {subStatus.commission && (
+                <View style={styles.subRow}>
+                  <Ionicons name="trending-up-outline" size={16} color={C.textSecondary} />
+                  <Text style={styles.subRowText}>Commission: {subStatus.commission}%</Text>
+                </View>
+              )}
+            </View>
+          </View>
+        )}
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Settings</Text>
+          <Pressable
+            style={styles.settingsRow}
+            onPress={handleChangeAvatar}
+          >
+            <View style={styles.settingsRowLeft}>
+              <View style={[styles.settingsIcon, { backgroundColor: '#FF6B2C20' }]}>
+                <Ionicons name="camera-outline" size={20} color="#FF6B2C" />
+              </View>
+              <Text style={styles.settingsRowText}>Change Profile Photo</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={C.textTertiary} />
+          </Pressable>
+          <View style={styles.settingsDivider} />
+          {profile.role !== 'customer' && (
+            <>
+              <Pressable
+                style={styles.settingsRow}
+                onPress={() => router.push('/my-orders')}
+              >
+                <View style={styles.settingsRowLeft}>
+                  <View style={[styles.settingsIcon, { backgroundColor: '#30D15820' }]}>
+                    <Ionicons name="receipt-outline" size={20} color="#30D158" />
+                  </View>
+                  <Text style={styles.settingsRowText}>My Orders</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={C.textTertiary} />
+              </Pressable>
+              <View style={styles.settingsDivider} />
+            </>
+          )}
+          {profile.role === 'teacher' && (
+            <>
+              <View style={styles.settingsDivider} />
+              <Pressable
+                style={styles.settingsRow}
+                onPress={() => router.push('/teacher-revenue')}
+              >
+                <View style={styles.settingsRowLeft}>
+                  <View style={[styles.settingsIcon, { backgroundColor: '#FFD60A20' }]}>
+                    <Ionicons name="cash-outline" size={20} color="#FFD60A" />
+                  </View>
+                  <Text style={styles.settingsRowText}>My Revenue</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={C.textTertiary} />
+              </Pressable>
+            </>
+          )}
+          <View style={styles.settingsDivider} />
+          {profile?.phone?.replace(/\D/g, '') === ADMIN_PHONE && (
+            <>
+              <Pressable
+                style={styles.settingsRow}
+                onPress={() => router.push('/admin')}
+              >
+                <View style={styles.settingsRowLeft}>
+                  <View style={[styles.settingsIcon, { backgroundColor: '#5E8BFF20' }]}>
+                    <Ionicons name="shield-checkmark-outline" size={20} color="#5E8BFF" />
+                  </View>
+                  <Text style={styles.settingsRowText}>Admin Panel</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={C.textTertiary} />
+              </Pressable>
+              <View style={styles.settingsDivider} />
+            </>
+          )}
+          <Pressable
+            style={styles.settingsRow}
+            onPress={async () => {
+              if (Platform.OS === 'web') {
+                const confirmed = window.confirm('Are you sure you want to log out? All your local data will be cleared.');
+                if (confirmed) {
+                  await logout();
+                  router.replace('/onboarding');
+                }
+              } else {
+                Alert.alert(
+                  'Log Out',
+                  'Are you sure you want to log out? All your local data will be cleared.',
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: 'Log Out',
+                      style: 'destructive',
+                      onPress: async () => {
+                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                        await logout();
+                        router.replace('/onboarding');
+                      },
+                    },
+                  ]
+                );
+              }
+            }}
+          >
+            <View style={styles.settingsRowLeft}>
+              <View style={[styles.settingsIcon, { backgroundColor: '#FF3B3020' }]}>
+                <Ionicons name="log-out-outline" size={20} color="#FF3B30" />
+              </View>
+              <Text style={styles.settingsRowText}>Log Out</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={C.textTertiary} />
+          </Pressable>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: C.background,
+  },
+  center: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  content: {
+    paddingHorizontal: 20,
+  },
+  topRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  pageTitle: {
+    color: C.text,
+    fontSize: 28,
+    fontFamily: 'Inter_700Bold',
+  },
+  profileHeader: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  avatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  avatarImg: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    marginBottom: 12,
+    borderWidth: 2,
+    borderColor: C.border,
+  },
+  avatarText: {
+    fontSize: 28,
+    fontFamily: 'Inter_700Bold',
+  },
+  avatarEditBadge: {
+    position: 'absolute',
+    bottom: 12,
+    right: -2,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#FF6B2C',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  profileName: {
+    color: C.text,
+    fontSize: 22,
+    fontFamily: 'Inter_700Bold',
+    marginBottom: 8,
+  },
+  nameInput: {
+    color: C.text,
+    fontSize: 22,
+    fontFamily: 'Inter_700Bold',
+    textAlign: 'center',
+    marginBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: C.primary,
+    paddingBottom: 4,
+  },
+  roleBadge: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  roleBadgeText: {
+    fontSize: 13,
+    fontFamily: 'Inter_600SemiBold',
+  },
+  statsRow: {
+    flexDirection: 'row',
+    backgroundColor: C.surface,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: C.border,
+  },
+  statItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  statValue: {
+    color: C.text,
+    fontSize: 22,
+    fontFamily: 'Inter_700Bold',
+  },
+  statLabel: {
+    color: C.textTertiary,
+    fontSize: 12,
+    fontFamily: 'Inter_400Regular',
+    marginTop: 4,
+  },
+  statDivider: {
+    width: 1,
+    backgroundColor: C.border,
+  },
+  section: {
+    backgroundColor: C.surface,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: C.border,
+  },
+  subCard: {
+    backgroundColor: C.surface,
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1.5,
+    gap: 10,
+  },
+  subCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  subStatusDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  subStatusText: {
+    fontSize: 15,
+    fontFamily: 'Inter_700Bold',
+  },
+  subRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  subRowText: {
+    color: C.text,
+    fontSize: 14,
+    fontFamily: 'Inter_400Regular',
+  },
+  sectionTitle: {
+    color: C.textSecondary,
+    fontSize: 12,
+    fontFamily: 'Inter_600SemiBold',
+    textTransform: 'uppercase' as const,
+    letterSpacing: 0.8,
+    marginBottom: 10,
+  },
+  bioText: {
+    color: C.textSecondary,
+    fontSize: 14,
+    fontFamily: 'Inter_400Regular',
+    lineHeight: 20,
+  },
+  bioInput: {
+    color: C.text,
+    fontSize: 14,
+    fontFamily: 'Inter_400Regular',
+    lineHeight: 20,
+    backgroundColor: C.surfaceElevated,
+    borderRadius: 10,
+    padding: 12,
+    minHeight: 60,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: C.borderLight,
+  },
+  detailText: {
+    color: C.text,
+    fontSize: 14,
+    fontFamily: 'Inter_400Regular',
+  },
+  detailInput: {
+    flex: 1,
+    color: C.text,
+    fontSize: 14,
+    fontFamily: 'Inter_400Regular',
+    borderBottomWidth: 1,
+    borderBottomColor: C.primary,
+    paddingVertical: 2,
+    padding: 0,
+  },
+  skillsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  skillChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+  skillChipText: {
+    fontSize: 13,
+    fontFamily: 'Inter_500Medium',
+  },
+  supportRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+  },
+  cancelBtn: {
+    alignItems: 'center',
+    paddingVertical: 14,
+  },
+  cancelText: {
+    color: C.textTertiary,
+    fontSize: 14,
+    fontFamily: 'Inter_500Medium',
+  },
+  settingsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+  },
+  settingsRowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  settingsIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  settingsRowText: {
+    color: C.text,
+    fontSize: 15,
+    fontFamily: 'Inter_500Medium',
+  },
+  settingsDivider: {
+    height: 1,
+    backgroundColor: C.borderLight,
+    marginVertical: 2,
+  },
+  emptyTitle: {
+    color: C.text,
+    fontSize: 18,
+    fontFamily: 'Inter_600SemiBold',
+  },
+  emptyText: {
+    color: C.textTertiary,
+    fontSize: 14,
+    fontFamily: 'Inter_400Regular',
+  },
+  listingCard: {
+    marginBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: C.borderLight,
+    paddingBottom: 8,
+  },
+  listingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  listingThumb: {
+    width: 56,
+    height: 56,
+    borderRadius: 10,
+  },
+  listingThumbPlaceholder: {
+    backgroundColor: C.surfaceElevated,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  listingInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  listingTitle: {
+    color: C.text,
+    fontSize: 14,
+    fontFamily: 'Inter_600SemiBold',
+  },
+  listingPrice: {
+    color: '#FF6B2C',
+    fontSize: 14,
+    fontFamily: 'Inter_700Bold',
+  },
+  listingCondition: {
+    color: C.textTertiary,
+    fontSize: 12,
+    fontFamily: 'Inter_400Regular',
+  },
+  listingActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  listingActionBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: C.surfaceElevated,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: C.surface,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    maxHeight: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    color: C.text,
+    fontSize: 18,
+    fontFamily: 'Inter_700Bold',
+  },
+  modalScroll: {
+    marginBottom: 12,
+  },
+  fieldLabel: {
+    color: C.textSecondary,
+    fontSize: 12,
+    fontFamily: 'Inter_600SemiBold',
+    textTransform: 'uppercase' as const,
+    letterSpacing: 0.6,
+    marginBottom: 6,
+    marginTop: 12,
+  },
+  modalInput: {
+    backgroundColor: C.surfaceElevated,
+    color: C.text,
+    fontSize: 15,
+    fontFamily: 'Inter_400Regular',
+    borderRadius: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: C.border,
+  },
+  conditionRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  conditionChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: C.surfaceElevated,
+    borderWidth: 1,
+    borderColor: C.border,
+  },
+  conditionChipActive: {
+    backgroundColor: '#FF6B2C20',
+    borderColor: '#FF6B2C',
+  },
+  conditionChipText: {
+    color: C.textSecondary,
+    fontSize: 13,
+    fontFamily: 'Inter_500Medium',
+  },
+  conditionChipTextActive: {
+    color: '#FF6B2C',
+  },
+  saveBtn: {
+    backgroundColor: '#FF6B2C',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginBottom: Platform.OS === 'web' ? 20 : 34,
+  },
+  saveBtnText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontFamily: 'Inter_700Bold',
+  },
+});
