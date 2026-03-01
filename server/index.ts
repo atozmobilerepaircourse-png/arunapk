@@ -23,6 +23,7 @@ function setupCors(app: express.Application) {
 
     origins.add(PRODUCTION_DOMAIN);
     origins.add("https://atozmobilerepair.in");
+    origins.add("https://www.atozmobilerepair.in");
     origins.add("https://mail.atozmobilerepair.in");
 
     if (process.env.ALLOWED_ORIGINS) {
