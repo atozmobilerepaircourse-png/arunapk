@@ -180,6 +180,47 @@ In your APK wrapper:
 - [x] Dockerfile: Ready for Cloud Run (`FROM node:20-slim`, port 8080)
 - [x] Cloud Build: `cloudbuild.yaml` configured for `asia-south1` region
 
+## 12. Deploy Frontend (Web) to Firebase Hosting
+
+Since you want the frontend to be independent of Replit, you can host the web version of your Mobi app on Firebase Hosting for free/low cost.
+
+### 1. Build the Web App
+```bash
+# On your local machine or Replit
+npm run expo:static:build
+```
+This creates a `dist` folder with your static web files.
+
+### 2. Install Firebase CLI
+```bash
+npm install -g firebase-tools
+firebase login
+```
+
+### 3. Initialize Firebase
+```bash
+firebase init hosting
+```
+- Select your project
+- Public directory: `dist`
+- Configure as single-page app: `Yes`
+- Set up automatic builds with GitHub: `Optional`
+
+### 4. Deploy
+```bash
+firebase deploy --only hosting
+```
+
+### 5. Final Replit Independence Checklist
+- [x] Backend on Cloud Run: `https://atozmobilerepair.in`
+- [x] Database on Cloud SQL
+- [x] Frontend on Firebase: `https://your-app.web.app` (or your custom domain)
+- [x] Google OAuth: Update URIs in Google Console
+- [x] Razorpay: Update Webhooks to your domain
+- [x] Median.co: Update app URL to your production domain
+
+---
+
 ## Updating the Server After Code Changes
 
 ```bash
