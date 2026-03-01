@@ -9,7 +9,7 @@ import * as path from "path";
 const app = express();
 const log = console.log;
 
-const PRODUCTION_DOMAIN = "https://atozmobilerepair.in";
+const PRODUCTION_DOMAIN = "https://repair-backend-us-456751858632.us-central1.run.app";
 
 declare module "http" {
   interface IncomingMessage {
@@ -22,6 +22,7 @@ function setupCors(app: express.Application) {
     const origins = new Set<string>();
 
     origins.add(PRODUCTION_DOMAIN);
+    origins.add("https://atozmobilerepair.in");
     origins.add("https://mail.atozmobilerepair.in");
 
     if (process.env.ALLOWED_ORIGINS) {

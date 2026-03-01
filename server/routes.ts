@@ -523,7 +523,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!token) return res.status(400).json({ success: false, message: "Token required" });
       const clientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
       if (!clientId) return res.status(500).json({ success: false, message: "Google OAuth not configured" });
-      const devDomain = "atozmobilerepair.in";
+      const devDomain = "repair-backend-us-456751858632.us-central1.run.app";
       const redirectUri = `https://${devDomain}/api/auth/google/callback`;
       const stateObj = { token };
       const stateStr = Buffer.from(JSON.stringify(stateObj)).toString('base64');
@@ -611,7 +611,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return sendGoogleErrorPage(res, "Google OAuth is not configured on the server.");
       }
 
-      const devDomain = "atozmobilerepair.in";
+      const devDomain = "repair-backend-us-456751858632.us-central1.run.app";
       const redirectUri = `https://${devDomain}/api/auth/google/callback`;
       console.log("[Google Auth] Using redirect_uri:", redirectUri);
 
@@ -764,7 +764,7 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
         return res.status(500).json({ success: false, message: "Google OAuth not configured" });
       }
 
-      const devDomain = "atozmobilerepair.in";
+      const devDomain = "repair-backend-us-456751858632.us-central1.run.app";
       const redirectUri = `https://${devDomain}/api/auth/google/callback`;
       console.log("[Google Auth] process-code redirect_uri:", redirectUri);
 
@@ -3026,7 +3026,7 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
   app.get("/api/subscription/checkout", (req, res) => {
     const { orderId, amount, keyId, role, displayAmount, userName, userPhone, userEmail, userId } = req.query;
     
-    const baseUrl = process.env.APP_DOMAIN || "https://atozmobilerepair.in";
+    const baseUrl = process.env.APP_DOMAIN || "https://repair-backend-us-456751858632.us-central1.run.app";
 
     const roleLabel = role === 'technician' ? 'Technician' : role === 'supplier' ? 'Supplier' : String(role);
 
@@ -3137,7 +3137,7 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
   app.get("/api/payments/checkout", (req, res) => {
     const { orderId, amount, keyId, courseName, teacherName, studentName, studentPhone, studentEmail, courseId, studentId } = req.query;
     
-    const baseUrl = process.env.APP_DOMAIN || "https://atozmobilerepair.in";
+    const baseUrl = process.env.APP_DOMAIN || "https://repair-backend-us-456751858632.us-central1.run.app";
 
     const html = `<!DOCTYPE html>
 <html>
@@ -4193,7 +4193,7 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
   app.get("/api/device-change/checkout", (req, res) => {
     const { orderId, amount, phone, deviceId } = req.query;
     
-    const baseUrl = process.env.APP_DOMAIN || "https://atozmobilerepair.in";
+    const baseUrl = process.env.APP_DOMAIN || "https://repair-backend-us-456751858632.us-central1.run.app";
     const keyId = process.env.RAZORPAY_KEY_ID || '';
 
     const html = `<!DOCTYPE html>

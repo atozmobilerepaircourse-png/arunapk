@@ -31,7 +31,7 @@ export function startEmailScheduler() {
           .set({ status: "sending" })
           .where(eq(emailCampaigns.id, campaign.id));
 
-        const appDomain = "https://atozmobilerepair.in";
+        const appDomain = "https://repair-backend-us-456751858632.us-central1.run.app";
 
         const users = await getUsersForRole(campaign.targetRole || "all");
 
