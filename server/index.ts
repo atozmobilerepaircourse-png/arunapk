@@ -314,14 +314,7 @@ function setupErrorHandler(app: express.Application) {
 
   const devDefault = process.env.NODE_ENV === "production" ? "8080" : "5000";
   const port = parseInt(process.env.PORT || devDefault, 10);
-  server.listen(
-    {
-      port,
-      host: "0.0.0.0",
-      reusePort: true,
-    },
-    () => {
-      log(`express server serving on port ${port}`);
-    },
-  );
+  server.listen(port, "0.0.0.0", () => {
+    log(`express server serving on port ${port}`);
+  });
 })();
