@@ -37,5 +37,24 @@ node build-steps.js && node push-oci.js
 - Twilio sends via WhatsApp first, falls back to SMS
 - Table is auto-created on server startup via migration in `server/index.ts`
 
+## Database — CRITICAL: Two Separate Databases
+**The local dev environment and production Cloud Run use DIFFERENT Neon databases:**
+- **Local dev** (`DATABASE_URL` in Replit env): `helium.neon.tech/heliumdb`
+- **Production** (in Cloud Run env vars): `ep-spring-pine-aeetxjpk-pooler.c-2.us-east-2.aws.neon.tech/neondb`
+
+**When running `npm run db:push`, it only updates the LOCAL database — NOT the production one.**
+To fix schema issues in production, connect directly with the production URL from Cloud Run env vars (retrieved via GCP API using SA key).
+
+### Getting the Production DATABASE_URL
+```js
+node -e "require('fs').writeFileSync('/tmp/gcp_sa.json', process.env.GCP_SA_KEY)"
+// Then use google-auth-library to GET:
+// https://run.googleapis.com/v2/projects/atoz-mobile-repair-488915/locations/asia-south1/services/repair-backend
+// and extract the DATABASE_URL from template.containers[0].env
+```
+
+### Applying Schema Changes to Production DB
+Run SQL directly against the production DATABASE_URL fetched above.
+
 ## Database Tables (Neon PostgreSQL)
 Key tables: profiles, sessions, otp_tokens, posts, jobs, conversations, messages, products, orders, courses, payments, appSettings, emailCampaigns
