@@ -28,10 +28,10 @@ import * as WebBrowser from 'expo-web-browser';
 const C = Colors.dark;
 
 const ROLES: { key: UserRole; icon: keyof typeof Ionicons.glyphMap; color: string }[] = [
-  { key: 'customer', icon: 'person', color: '#FF2D55' },
-  { key: 'technician', icon: 'construct', color: '#34C759' },
+  { key: 'customer', icon: 'person', color: '#FF375F' },
+  { key: 'technician', icon: 'construct', color: '#32D74B' },
   { key: 'teacher', icon: 'school', color: '#FFD60A' },
-  { key: 'supplier', icon: 'cube', color: '#FF6B2C' },
+  { key: 'supplier', icon: 'cube', color: '#FF9F0A' },
 ];
 
 type ScreenName = 'phone' | 'otp' | 'email' | 'google-phone' | 'details' | 'selfie' | 'skills' | 'sellType' | 'teachType' | 'businessDocs' | 'location';
@@ -654,14 +654,12 @@ export default function OnboardingScreen() {
       case 'phone':
         return (
           <View style={styles.stepContent}>
-            <Image
-              source={require('@/assets/images/mobi-banner.jpeg')}
-              style={{ width: '100%', height: 180, borderRadius: 16, marginBottom: 20 }}
-              contentFit="cover"
-            />
             <View style={styles.stepHeader}>
+              <View style={[styles.stepIconContainer, { backgroundColor: C.primaryMuted, alignSelf: 'center', marginTop: 20 }]}>
+                <Ionicons name="construct" size={36} color={C.primary} />
+              </View>
               <Text style={styles.stepTitle}>Welcome to Mobi</Text>
-              <Text style={styles.stepSubtitle}>Network, Learn & Grow</Text>
+              <Text style={styles.stepSubtitle}>India's biggest repair community</Text>
             </View>
 
             <Text style={styles.fieldLabel}>Mobile Number</Text>
@@ -681,7 +679,7 @@ export default function OnboardingScreen() {
               />
             </View>
 
-            <View style={{ alignItems: 'center', marginTop: 20 }}>
+            <View style={{ alignItems: 'center', marginTop: 24 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
                 <View style={{ flex: 1, height: 1, backgroundColor: C.border }} />
                 <Text style={{ marginHorizontal: 12, color: C.textSecondary, fontSize: 13 }}>OR</Text>
@@ -1309,7 +1307,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingBottom: 120,
+    paddingBottom: Platform.OS === 'web' ? 140 : 120,
   },
   progressBar: {
     flexDirection: 'row',
@@ -1320,7 +1318,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 4,
     borderRadius: 2,
-    backgroundColor: C.surfaceElevated,
+    backgroundColor: C.surfaceHighlight,
   },
   stepContent: {},
   stepHeader: {
@@ -1328,9 +1326,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   stepIconContainer: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     backgroundColor: C.primaryMuted,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1338,17 +1336,18 @@ const styles = StyleSheet.create({
   },
   stepTitle: {
     color: C.text,
-    fontSize: 26,
+    fontSize: 28,
     fontFamily: 'Inter_700Bold',
     textAlign: 'center',
+    letterSpacing: -0.5,
   },
   stepSubtitle: {
     color: C.textTertiary,
-    fontSize: 15,
+    fontSize: 16,
     fontFamily: 'Inter_400Regular',
-    marginTop: 6,
+    marginTop: 8,
     textAlign: 'center',
-    lineHeight: 22,
+    lineHeight: 24,
   },
   fieldLabel: {
     color: C.textSecondary,
@@ -1359,10 +1358,10 @@ const styles = StyleSheet.create({
   },
   input: {
     backgroundColor: C.surface,
-    borderRadius: 12,
-    padding: 14,
+    borderRadius: 14,
+    padding: 16,
     color: C.text,
-    fontSize: 15,
+    fontSize: 16,
     fontFamily: 'Inter_400Regular',
     borderWidth: 1,
     borderColor: C.border,
@@ -1385,9 +1384,9 @@ const styles = StyleSheet.create({
   },
   countryCode: {
     backgroundColor: C.surfaceElevated,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    height: 50,
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    height: 54,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
@@ -1513,7 +1512,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   optionIconActive: {
-    backgroundColor: C.primary + '20',
+    backgroundColor: C.primaryMuted,
   },
   optionLabel: {
     color: C.textSecondary,
@@ -1537,9 +1536,9 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   backBtn: {
-    width: 52,
-    height: 52,
-    borderRadius: 14,
+    width: 56,
+    height: 56,
+    borderRadius: 16,
     backgroundColor: C.surface,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1548,13 +1547,18 @@ const styles = StyleSheet.create({
   },
   nextBtn: {
     flex: 1,
-    height: 52,
-    borderRadius: 14,
+    height: 56,
+    borderRadius: 16,
     backgroundColor: C.primary,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
+    shadowColor: C.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
   nextBtnText: {
     color: '#FFF',
@@ -1638,8 +1642,8 @@ const styles = StyleSheet.create({
     alignItems: 'center' as const,
     gap: 8,
     backgroundColor: C.surface,
-    borderRadius: 12,
-    padding: 14,
+    borderRadius: 14,
+    padding: 16,
     marginBottom: 16,
     borderWidth: 1,
     borderColor: C.border,
@@ -1660,8 +1664,8 @@ const styles = StyleSheet.create({
     alignItems: 'center' as const,
     gap: 12,
     backgroundColor: C.surface,
-    borderRadius: 12,
-    padding: 14,
+    borderRadius: 14,
+    padding: 16,
     marginBottom: 16,
     borderWidth: 1,
     borderColor: C.border,

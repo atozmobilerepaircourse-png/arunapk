@@ -14,6 +14,7 @@ import {
   Inter_600SemiBold,
   Inter_700Bold,
 } from "@expo-google-fonts/inter";
+import { Ionicons } from "@expo/vector-icons";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { queryClient } from "@/lib/query-client";
 import { AppProvider } from "@/lib/context";
@@ -54,13 +55,14 @@ export default function RootLayout() {
     Inter_500Medium,
     Inter_600SemiBold,
     Inter_700Bold,
+    ...Ionicons.font,
   });
   const [fontTimeout, setFontTimeout] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => {
       if (!fontsLoaded) setFontTimeout(true);
-    }, 8000);
+    }, 10000);
     return () => clearTimeout(timer);
   }, [fontsLoaded]);
 
