@@ -30,9 +30,9 @@ function setupCors(app: express.Application) {
     origins.add("https://repair-backend-3siuld7gbq-el.a.run.app");
     
     // Add regex-based wildcard for all .run.app and .web.app domains
-    const origin = req.header("origin");
-    if (origin && (origin.endsWith(".run.app") || origin.endsWith(".web.app") || origin.endsWith(".firebaseapp.com"))) {
-      origins.add(origin);
+    const originHeader = req.header("origin");
+    if (originHeader && (originHeader.endsWith(".run.app") || originHeader.endsWith(".web.app") || originHeader.endsWith(".firebaseapp.com"))) {
+      origins.add(originHeader);
     }
 
     if (process.env.ALLOWED_ORIGINS) {
