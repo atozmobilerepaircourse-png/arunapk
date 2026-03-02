@@ -25,7 +25,7 @@ import { apiRequest, getApiUrl } from '@/lib/query-client';
 import { getDeviceId } from '@/lib/device-fingerprint';
 import * as WebBrowser from 'expo-web-browser';
 
-const C = Colors.dark;
+const C = Colors.light;
 
 const ROLES: { key: UserRole; icon: keyof typeof Ionicons.glyphMap; color: string }[] = [
   { key: 'customer', icon: 'person', color: '#FF375F' },
@@ -663,11 +663,6 @@ export default function OnboardingScreen() {
       case 'phone':
         return (
           <View style={styles.stepContent}>
-            <Image
-              source={require('@/assets/images/mobi-banner.jpeg')}
-              style={{ width: '100%', height: 180, borderRadius: 16, marginBottom: 20 }}
-              contentFit="cover"
-            />
             <View style={styles.stepHeader}>
               <Text style={styles.stepTitle}>Welcome to Mobi</Text>
               <Text style={styles.stepSubtitle}>India's biggest repair community</Text>

@@ -14,7 +14,7 @@ import { PostCategory } from '@/lib/types';
 import PostCard from '@/components/PostCard';
 import { apiRequest } from '@/lib/query-client';
 
-const C2 = Colors.dark;
+const C2 = Colors.light;
 
 function SkeletonBox({ width, height, borderRadius = 8, style }: { width: number | string; height: number; borderRadius?: number; style?: any }) {
   const opacity = useSharedValue(0.4);
@@ -50,7 +50,7 @@ function PostSkeleton() {
   );
 }
 
-const C = Colors.dark;
+const C = Colors.light;
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
