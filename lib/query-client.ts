@@ -1,7 +1,7 @@
 import { fetch } from "expo/fetch";
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
-const CLOUD_RUN_BACKEND = "https://repair-backend-us-456751858632.us-central1.run.app";
+const CLOUD_RUN_BACKEND = "https://repair-backend-3siuld7gbq-el.a.run.app";
 
 export function getApiUrl(): string {
   return CLOUD_RUN_BACKEND;
