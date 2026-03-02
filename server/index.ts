@@ -53,7 +53,6 @@ function setupCors(app: express.Application) {
       }
     }
 
-    const origin = req.header("origin");
 
     const isLocalhost =
       origin?.startsWith("http://localhost:") ||
