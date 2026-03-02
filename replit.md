@@ -16,7 +16,16 @@ The frontend is built using Expo SDK 54 and React Native 0.81, leveraging `expo-
 
 ### Backend (Express)
 
-The backend is an Express 5 application running on Node.js, providing a comprehensive API for user profiles, posts, jobs, conversations, messages, reels, products, courses, and payments. It handles file storage with Bunny.net Storage for images and videos, with a local fallback. CORS is configured for development and production environments. In production (port 8081), it serves a static web bundle and is built with esbuild. In development (port 5000), a proxy forwards non-API requests to Metro on port 8081.
+The backend is an Express 5 application running on Node.js, providing a comprehensive API for user profiles, posts, jobs, conversations, messages, reels, products, courses, and payments. It handles file storage with Bunny.net Storage for images and videos, with a local fallback. CORS is configured for development and production environments. In production (port 8080), it serves a landing page. In development (port 5000), a proxy forwards non-API requests to Metro on port 8081.
+
+**Server bundle**: Built with esbuild using `--bundle --format=cjs --external:'*.node'` — all npm packages are bundled inline into `server_dist/index.js` (26MB CJS file). No `node_modules` are needed at runtime. Run `npm run server:build` after server code changes to rebuild.
+
+**Cloud Run deployment**: Backend is deployed to Google Cloud Run (`asia-south1`, service `repair-backend`). The deployment pipeline:
+1. `node build-steps.js` — creates a source tarball, uploads to GCS, triggers Cloud Build
+2. Cloud Build runs `node push-oci.js` which: downloads `node:20-slim` from Docker Hub, creates an OCI layer with `server_dist/` + `shared/` + `assets/` + `server/templates/` + `static-build/`, pushes to Artifact Registry, PATCHes Cloud Run to create a new revision
+3. The Cloud Build SA (`[PROJECT_NUMBER]@cloudbuild.gserviceaccount.com`) has `iam.serviceaccounts.actAs` on `deployment-service` SA, so the Cloud Run PATCH works from inside Cloud Build (not from Replit directly)
+
+**Key fix history**: Previous deployments used `--packages=external` in esbuild which required `node_modules` at runtime. The Cloud Run container had no `node_modules`, causing all revisions to fail. Fixed by switching to `--bundle --format=cjs` which creates a fully self-contained bundle.
 
 **Socket.IO**: Live chat uses Socket.IO attached to the Express httpServer. In development, the Replit dev domain routes to Metro (port 8081), so `metro.config.js` includes a proxy for `/socket.io/` and `/api/` paths to forward them to the Express server on port 5000. The `setupWebAppFallback` in `server/index.ts` also skips `/socket.io` paths to avoid serving HTML to Socket.IO handshake requests.
 
