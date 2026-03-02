@@ -3,7 +3,7 @@ import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
 export function getApiUrl(): string {
   if (typeof window !== 'undefined' && window.location && window.location.origin) {
-    return window.location.origin;
+    return "https://repair-backend-us-456751858632.us-central1.run.app";
   }
 
   const apiUrl = process.env.EXPO_PUBLIC_API_URL;
