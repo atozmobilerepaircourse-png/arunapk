@@ -664,7 +664,14 @@ export default function OnboardingScreen() {
         return (
           <View style={styles.stepContent}>
             <View style={styles.stepHeader}>
-              <Text style={styles.stepTitle}>Welcome to Mobi</Text>
+              <View style={{ height: 200, width: '100%', marginBottom: 20 }}>
+        <Image
+          source={require('@/assets/images/mobi-banner.jpeg')}
+          style={{ width: '100%', height: '100%' }}
+          contentFit="cover"
+        />
+      </View>
+      <Text style={styles.stepTitle}>Welcome to Mobi</Text>
               <Text style={styles.stepSubtitle}>India's biggest repair community</Text>
             </View>
 
