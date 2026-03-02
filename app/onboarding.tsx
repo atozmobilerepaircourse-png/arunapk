@@ -152,12 +152,12 @@ export default function OnboardingScreen() {
       const data = await res.json();
       if (data.success) {
         setOtpSent(true);
-        setOtpResendTimer(30);
+        setOtpResendTimer(60); // Increased to 60s
       } else {
         Alert.alert('Error', data.message || 'Failed to send OTP');
       }
     } catch (e) {
-      Alert.alert('Error', 'Could not send OTP. Please try again.');
+      Alert.alert('Error', 'Could not send OTP. Please check your connection.');
     } finally {
       setOtpSending(false);
     }
@@ -193,19 +193,28 @@ export default function OnboardingScreen() {
         setSessionToken(token);
         if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         
-        if (existingProfile) {
-          // Even for existing users, we'll show the email verification if they don't have one
-          if (!existingProfile.email) {
-            setIsNewUser(true); // This triggers the 'email' step in our sequence
-            setStep(s => s + 1);
-          } else {
-            await loginWithProfile(existingProfile, token);
-            router.replace(existingProfile.role === 'customer' ? '/(tabs)/customer-home' : '/(tabs)');
+        // Fetch profile to check if user exists
+        try {
+          const profileRes = await apiRequest('GET', `/api/profiles/phone/${cleanPhone}`);
+          if (profileRes.ok) {
+            const profile = await profileRes.json();
+            if (profile && profile.id) {
+              if (!profile.email) {
+                setIsNewUser(true);
+                setStep(getScreenSequence().indexOf('email'));
+              } else {
+                await loginWithProfile(profile, token);
+                router.replace(profile.role === 'customer' ? '/(tabs)/customer-home' : '/(tabs)');
+              }
+              return;
+            }
           }
-        } else {
-          setIsNewUser(true);
-          setStep(s => s + 1);
+        } catch (profileErr) {
+          console.log("New user detected or error fetching profile");
         }
+
+        setIsNewUser(true);
+        setStep(s => s + 1);
       } else {
         Alert.alert('Verification Failed', data.message || 'Invalid OTP. Please try again.');
       }
