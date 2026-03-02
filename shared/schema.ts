@@ -42,6 +42,12 @@ export const profiles = pgTable("profiles", {
   pushToken: text("push_token").default(""),
   blocked: integer("blocked").default(0),
   allowMarketing: integer("allow_marketing").default(1),
+  notificationPrefs: text("notification_prefs").default(JSON.stringify({
+    orders: true,
+    messages: true,
+    marketing: true,
+    system: true
+  })),
   createdAt: bigint("created_at", { mode: "number" }).notNull().default(sql`EXTRACT(EPOCH FROM NOW()) * 1000`),
 });
 

@@ -563,6 +563,18 @@ export default function ProfileScreen() {
         )}
 
         <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Settings</Text>
+          <Pressable 
+            style={styles.supportRow} 
+            onPress={() => router.push('/notification-preferences')}
+          >
+            <Ionicons name="notifications-outline" size={20} color="#FF9F0A" />
+            <Text style={styles.detailText}>Notification Preferences</Text>
+            <Ionicons name="chevron-forward" size={16} color={C.textTertiary} style={{ marginLeft: 'auto' }} />
+          </Pressable>
+        </View>
+
+        <View style={styles.section}>
           <Text style={styles.sectionTitle}>Support</Text>
           <Pressable 
             style={styles.supportRow} 
