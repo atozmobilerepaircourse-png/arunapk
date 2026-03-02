@@ -341,7 +341,8 @@ export default function OnboardingScreen() {
       const baseUrl = getApiUrl();
 
       if (Platform.OS === 'web') {
-        const returnUrl = `${baseUrl}/onboarding`;
+        // Fix: Use current origin for return URL so it stays on frontend
+        const returnUrl = window.location.origin + '/onboarding';
         await apiRequest('POST', '/api/auth/google/set-return-url', { token: clientToken, returnUrl });
         const urlRes = await apiRequest('POST', '/api/auth/google/get-login-url', { token: clientToken });
         const urlData = await urlRes.json();
@@ -662,60 +663,53 @@ export default function OnboardingScreen() {
     switch (currentScreen) {
       case 'phone':
         return (
-          <View style={styles.stepContent}>
-            <View style={styles.stepHeader}>
-              <View style={{ height: 200, width: '100%', marginBottom: 20 }}>
-        <Image
-          source={require('@/assets/images/mobi-banner.jpeg')}
-          style={{ width: '100%', height: '100%' }}
-          contentFit="cover"
-        />
-      </View>
-      <Text style={styles.stepTitle}>Welcome to Mobi</Text>
-              <Text style={styles.stepSubtitle}>India's biggest repair community</Text>
-            </View>
-
-            <Text style={styles.fieldLabel}>Mobile Number</Text>
-            <View style={styles.phoneRow}>
-              <View style={styles.countryCode}>
-                <Text style={styles.countryCodeText}>+91</Text>
-              </View>
-              <TextInput
-                style={[styles.input, { flex: 1 }]}
-                placeholder="10-digit mobile number"
-                placeholderTextColor={C.textTertiary}
-                value={phone}
-                onChangeText={(text) => setPhone(text.replace(/\D/g, '').slice(0, 10))}
-                keyboardType="phone-pad"
-                maxLength={10}
-                autoFocus
+          <View style={[styles.stepContent, { padding: 24, backgroundColor: '#FFF' }]}>
+            <View style={[styles.stepHeader, { marginBottom: 32 }]}>
+              <Image 
+                source={require('@/assets/images/mobi-banner.jpeg')} 
+                style={{ width: '100%', height: 240, borderRadius: 28, marginBottom: 28 }}
+                contentFit="cover"
               />
+              <Text style={[styles.stepTitle, { fontSize: 34, color: '#1A1A1A', marginBottom: 8 }]}>Welcome to Mobi</Text>
+              <Text style={[styles.stepSubtitle, { fontSize: 17, color: '#666' }]}>India's biggest repair community</Text>
             </View>
 
-            <View style={{ alignItems: 'center', marginTop: 24 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
-                <View style={{ flex: 1, height: 1, backgroundColor: C.border }} />
-                <Text style={{ marginHorizontal: 12, color: C.textSecondary, fontSize: 13 }}>OR</Text>
-                <View style={{ flex: 1, height: 1, backgroundColor: C.border }} />
+            <View style={{ gap: 24 }}>
+              <View>
+                <Text style={[styles.fieldLabel, { color: C.primary, fontSize: 12, letterSpacing: 1, marginBottom: 8 }]}>MOBILE NUMBER</Text>
+                <View style={styles.phoneRow}>
+                  <View style={[styles.countryCode, { height: 60, borderRadius: 18, backgroundColor: '#F8F9FA' }]}>
+                    <Text style={[styles.countryCodeText, { color: '#1A1A1A' }]}>+91</Text>
+                  </View>
+                  <TextInput
+                    style={[styles.input, { flex: 1, height: 60, borderRadius: 18, fontSize: 18, backgroundColor: '#F8F9FA' }]}
+                    placeholder="10-digit mobile number"
+                    placeholderTextColor="#ADB5BD"
+                    value={phone}
+                    onChangeText={(text) => setPhone(text.replace(/\D/g, '').slice(0, 10))}
+                    keyboardType="phone-pad"
+                    maxLength={10}
+                    autoFocus
+                  />
+                </View>
               </View>
-              <Pressable
+
+              <View style={[styles.dividerRow, { marginVertical: 8 }]}>
+                <View style={[styles.dividerLine, { backgroundColor: '#E9ECEF' }]} />
+                <Text style={[styles.dividerText, { color: '#6C757D', fontSize: 14, marginHorizontal: 12 }]}>OR</Text>
+                <View style={[styles.dividerLine, { backgroundColor: '#E9ECEF' }]} />
+              </View>
+
+              <Pressable 
+                style={({ pressed }) => [
+                  styles.googleBtn,
+                  { height: 60, borderRadius: 18, backgroundColor: '#FFF', borderColor: '#E9ECEF', borderWidth: 1 },
+                  pressed && { opacity: 0.7, backgroundColor: '#F8F9FA' }
+                ]}
                 onPress={startGoogleSignIn}
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 10,
-                  paddingVertical: 14,
-                  paddingHorizontal: 24,
-                  borderRadius: 12,
-                  borderWidth: 1,
-                  borderColor: C.border,
-                  backgroundColor: C.surface,
-                  width: '100%',
-                }}
               >
-                <Ionicons name="logo-google" size={20} color="#4285F4" />
-                <Text style={{ color: C.text, fontSize: 15, fontFamily: 'Inter_600SemiBold' }}>Sign in with Google</Text>
+                <Ionicons name="logo-google" size={24} color="#4285F4" />
+                <Text style={[styles.googleBtnText, { fontSize: 16, color: '#1A1A1A' }]}>Sign in with Google</Text>
               </Pressable>
             </View>
           </View>
@@ -1719,6 +1713,23 @@ const styles = StyleSheet.create({
     color: C.textTertiary,
     fontSize: 13,
     fontFamily: 'Inter_400Regular',
+  },
+  googleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    height: 60,
+    borderRadius: 18,
+    backgroundColor: '#F8F9FA',
+    borderColor: '#E9ECEF',
+    borderWidth: 1,
+    marginTop: 8,
+  },
+  googleBtnText: {
+    color: '#1A1A1A',
+    fontSize: 16,
+    fontFamily: 'Inter_600SemiBold',
   },
   locationStatusRow: {
     flexDirection: 'row' as const,
