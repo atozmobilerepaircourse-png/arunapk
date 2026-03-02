@@ -654,10 +654,12 @@ export default function OnboardingScreen() {
       case 'phone':
         return (
           <View style={styles.stepContent}>
+            <Image
+              source={require('@/assets/images/mobi-banner.jpeg')}
+              style={{ width: '100%', height: 180, borderRadius: 16, marginBottom: 20 }}
+              contentFit="cover"
+            />
             <View style={styles.stepHeader}>
-              <View style={[styles.stepIconContainer, { backgroundColor: C.primaryMuted, alignSelf: 'center', marginTop: 20 }]}>
-                <Ionicons name="construct" size={36} color={C.primary} />
-              </View>
               <Text style={styles.stepTitle}>Welcome to Mobi</Text>
               <Text style={styles.stepSubtitle}>India's biggest repair community</Text>
             </View>
