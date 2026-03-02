@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import * as Sharing from 'expo-sharing';
 import {
   View, Text, StyleSheet, Pressable, Platform,
   ScrollView, ActivityIndicator, Dimensions, Modal, PanResponder, TextInput, KeyboardAvoidingView,
-  StatusBar,
+  StatusBar, Share,
 } from 'react-native';
 import * as ScreenCapture from 'expo-screen-capture';
 import Animated, {
@@ -623,6 +624,61 @@ export default function CoursePlayerScreen() {
     }
   };
 
+  const shareCourse = async () => {
+    try {
+      const shareUrl = `${process.env.EXPO_PUBLIC_DOMAIN || 'https://atozmobilerepair.in'}/course/${courseId}`;
+      const message = `Check out this course on Mobi: ${course?.title}\n\n${shareUrl}`;
+      
+      if (Platform.OS === 'web') {
+        if (navigator.share) {
+          await navigator.share({
+            title: course?.title,
+            text: message,
+            url: shareUrl,
+          }).catch(() => {});
+        } else {
+          const encodedMsg = encodeURIComponent(message);
+          window.open(`https://wa.me/?text=${encodedMsg}`, '_blank');
+        }
+      } else {
+        await Share.share({
+          message,
+          url: shareUrl,
+          title: course?.title,
+        });
+      }
+      if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (error) {
+      console.log('Error sharing:', error);
+    }
+  };
+
+  const shareAchievement = async () => {
+    try {
+      const message = `I just completed "${currentVideo?.title}" in the course "${course?.title}" on Mobi! 🏆\n\nJoin me on Mobi: https://atozmobilerepair.in`;
+      
+      if (Platform.OS === 'web') {
+        if (navigator.share) {
+          await navigator.share({
+            title: 'Achievement Unlocked!',
+            text: message,
+          }).catch(() => {});
+        } else {
+          const encodedMsg = encodeURIComponent(message);
+          window.open(`https://wa.me/?text=${encodedMsg}`, '_blank');
+        }
+      } else {
+        await Share.share({
+          message,
+          title: 'Achievement Unlocked!',
+        });
+      }
+      if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (error) {
+      console.log('Error sharing achievement:', error);
+    }
+  };
+
   const seekTo = (ratio: number) => {
     if (duration === 0) return;
     let newPos = ratio * duration;
@@ -1142,7 +1198,12 @@ export default function CoursePlayerScreen() {
       )}
 
       <View style={styles.videoInfoCard}>
-        <Text style={styles.videoTitle} numberOfLines={2}>{currentVideo.title}</Text>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <Text style={[styles.videoTitle, { flex: 1 }]} numberOfLines={2}>{currentVideo.title}</Text>
+          <Pressable onPress={shareCourse} style={{ padding: 4, marginLeft: 8 }}>
+            <Ionicons name="share-social-outline" size={22} color={ACCENT} />
+          </Pressable>
+        </View>
         <View style={styles.videoMeta}>
           {currentChapter && (
             <View style={styles.metaChip}>
@@ -1157,10 +1218,14 @@ export default function CoursePlayerScreen() {
             </Text>
           </View>
           {completedRef.current && (
-            <View style={[styles.metaChip, { backgroundColor: '#E8F5E9' }]}>
+            <Pressable 
+              style={[styles.metaChip, { backgroundColor: '#E8F5E9' }]}
+              onPress={shareAchievement}
+            >
               <Ionicons name="checkmark-circle" size={12} color="#4CAF50" />
               <Text style={[styles.metaChipText, { color: '#4CAF50' }]}>Done</Text>
-            </View>
+              <Ionicons name="share-social-outline" size={10} color="#4CAF50" style={{ marginLeft: 4 }} />
+            </Pressable>
           )}
         </View>
       </View>
