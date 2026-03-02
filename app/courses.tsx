@@ -13,7 +13,7 @@ import { useApp } from '@/lib/context';
 import { getApiUrl } from '@/lib/query-client';
 import { Course, CourseCategory, INDIAN_LANGUAGES } from '@/lib/types';
 
-const C = Colors.dark;
+const C = Colors.light;
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - 48) / 2;
 

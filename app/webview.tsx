@@ -6,7 +6,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { WebView } from 'react-native-webview';
 import Colors from '@/constants/colors';
 
-const C = Colors.dark;
+const C = Colors.light;
 
 export default function WebViewScreen() {
   const insets = useSafeAreaInsets();

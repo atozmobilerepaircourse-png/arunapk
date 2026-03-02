@@ -12,7 +12,7 @@ import { ROLE_LABELS, UserRole, ADMIN_PHONE, SubscriptionSetting } from '@/lib/t
 import { apiRequest, getApiUrl } from '@/lib/query-client';
 import { openLink } from '@/lib/open-link';
 
-const C = Colors.dark;
+const C = Colors.light;
 
 type AdminTab = 'dashboard' | 'users' | 'posts' | 'jobs' | 'subscriptions' | 'revenue' | 'ads' | 'links' | 'device' | 'notifications' | 'payouts' | 'email';
 

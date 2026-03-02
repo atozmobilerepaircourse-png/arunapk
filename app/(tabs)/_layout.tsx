@@ -10,7 +10,7 @@ import { useApp } from "@/lib/context";
 import SubscriptionLockScreen from "@/components/SubscriptionLockScreen";
 import { ADMIN_PHONE } from "@/lib/types";
 
-const C = Colors.dark;
+const C = Colors.light;
 
 function NativeTabLayout() {
   const { profile } = useApp();

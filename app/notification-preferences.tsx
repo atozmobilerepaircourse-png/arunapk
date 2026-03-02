@@ -7,7 +7,7 @@ import Colors from '@/constants/colors';
 import { apiRequest } from '@/lib/query-client';
 import { useApp } from '@/lib/context';
 
-const C = Colors.dark;
+const C = Colors.light;
 
 export default function NotificationPreferencesScreen() {
   const insets = useSafeAreaInsets();

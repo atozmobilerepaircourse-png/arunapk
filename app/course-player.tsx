@@ -23,7 +23,7 @@ import { useApp } from '@/lib/context';
 import { getApiUrl } from '@/lib/query-client';
 import { INDIAN_LANGUAGES, Course, CourseVideo, CourseChapter, CourseEnrollment } from '@/lib/types';
 
-const C = Colors.dark;
+const C = Colors.light;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const VIDEO_HEIGHT = SCREEN_WIDTH * (9 / 16);
 const ACCENT = '#FF6B2C';

@@ -13,7 +13,7 @@ import { useApp } from '@/lib/context';
 import { UserRole, ROLE_LABELS } from '@/lib/types';
 import { apiRequest } from '@/lib/query-client';
 
-const C = Colors.dark;
+const C = Colors.light;
 
 const ROLE_COLOR: Record<string, string> = {
   technician: '#34C759',

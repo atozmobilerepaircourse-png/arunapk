@@ -13,7 +13,7 @@ import DirectoryCard from '@/components/DirectoryCard';
 import DirectoryMap from '@/components/DirectoryMap';
 import { apiRequest } from '@/lib/query-client';
 
-const C = Colors.dark;
+const C = Colors.light;
 
 const ROLE_FILTERS: { key: UserRole | 'all'; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
   { key: 'all', label: 'All', icon: 'grid' },

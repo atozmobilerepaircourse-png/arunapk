@@ -16,7 +16,7 @@ import { useApp } from '@/lib/context';
 import { apiRequest, getApiUrl } from '@/lib/query-client';
 import { PostCategory } from '@/lib/types';
 
-const C = Colors.dark;
+const C = Colors.light;
 
 const CATEGORIES: { key: PostCategory; label: string; icon: keyof typeof Ionicons.glyphMap; color: string }[] = [
   { key: 'repair', label: 'Repair Work', icon: 'construct', color: '#34C759' },

@@ -18,7 +18,7 @@ import { apiRequest, getApiUrl } from '@/lib/query-client';
 const MAX_VIDEO_SIZE_MB = 500;
 const MAX_VIDEO_SIZE_BYTES = MAX_VIDEO_SIZE_MB * 1024 * 1024;
 
-const C = Colors.dark;
+const C = Colors.light;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export default function UploadReelScreen() {

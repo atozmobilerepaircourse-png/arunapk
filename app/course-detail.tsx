@@ -17,7 +17,7 @@ import { apiRequest, getApiUrl } from '@/lib/query-client';
 import { openLink } from '@/lib/open-link';
 import { Course, CourseChapter, CourseVideo, CourseEnrollment, LiveClass, CourseNotice, INDIAN_LANGUAGES } from '@/lib/types';
 
-const C = Colors.dark;
+const C = Colors.light;
 const { width } = Dimensions.get('window');
 
 type TabKey = 'overview' | 'content' | 'live' | 'students' | 'notices';

@@ -15,7 +15,7 @@ import { openLink } from '@/lib/open-link';
 import { Post, UserProfile, ROLE_LABELS, UserRole, CATEGORY_LABELS } from '@/lib/types';
 import PostCard from '@/components/PostCard';
 
-const C = Colors.dark;
+const C = Colors.light;
 
 const ROLE_COLORS: Record<UserRole, string> = {
   technician: '#34C759',

@@ -10,7 +10,7 @@ import { useApp } from '@/lib/context';
 import { apiRequest } from '@/lib/query-client';
 import Colors from '@/constants/colors';
 
-const C = Colors.dark;
+const C = Colors.light;
 const ORANGE = '#FF6B35';
 const GREEN = '#34C759';
 const YELLOW = '#FFD60A';

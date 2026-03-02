@@ -10,7 +10,7 @@ import Colors from '@/constants/colors';
 import { useApp } from '@/lib/context';
 import { Conversation, ROLE_LABELS, UserRole } from '@/lib/types';
 
-const C = Colors.dark;
+const C = Colors.light;
 
 const ROLE_COLORS: Record<UserRole, string> = {
   technician: '#34C759',

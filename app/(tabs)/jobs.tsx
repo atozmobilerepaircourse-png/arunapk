@@ -8,7 +8,7 @@ import Colors from '@/constants/colors';
 import { useApp } from '@/lib/context';
 import JobCard from '@/components/JobCard';
 
-const C = Colors.dark;
+const C = Colors.light;
 
 const JOB_TYPES = [
   { key: 'all', label: 'All Jobs' },

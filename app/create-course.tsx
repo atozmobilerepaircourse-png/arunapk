@@ -17,7 +17,7 @@ import { useApp } from '@/lib/context';
 import { apiRequest, getApiUrl } from '@/lib/query-client';
 import { INDIAN_LANGUAGES, COURSE_CATEGORIES, Course, CourseChapter, CourseVideo, CourseCategory } from '@/lib/types';
 
-const C = Colors.dark;
+const C = Colors.light;
 const MAX_VIDEO_SIZE_MB = 2048;
 const MAX_VIDEO_SIZE_BYTES = MAX_VIDEO_SIZE_MB * 1024 * 1024;
 

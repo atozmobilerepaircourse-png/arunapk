@@ -103,7 +103,7 @@ export default function RootLayout() {
         <AppProvider>
           <GestureHandlerRootView>
             <KeyboardProvider>
-              <StatusBar style="light" />
+              <StatusBar style="dark" />
               <RootLayoutNav />
             </KeyboardProvider>
           </GestureHandlerRootView>

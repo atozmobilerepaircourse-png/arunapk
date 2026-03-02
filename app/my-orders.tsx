@@ -12,7 +12,7 @@ import { useApp } from '@/lib/context';
 import { apiRequest, getApiUrl } from '@/lib/query-client';
 import { Order, OrderStatus, ORDER_STATUS_LABELS, ORDER_STATUS_COLORS } from '@/lib/types';
 
-const C = Colors.dark;
+const C = Colors.light;
 
 type FilterType = 'all' | 'active' | 'completed';
 

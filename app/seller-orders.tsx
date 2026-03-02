@@ -14,7 +14,7 @@ import { apiRequest, getApiUrl } from '@/lib/query-client';
 import { Order, OrderStatus, ORDER_STATUS_LABELS, ORDER_STATUS_COLORS } from '@/lib/types';
 import { playOrderSound, showOrderNotification } from '@/lib/notifications';
 
-const C = Colors.dark;
+const C = Colors.light;
 
 type FilterType = 'all' | 'pending' | 'active' | 'completed';
 

@@ -19,7 +19,7 @@ import { useApp } from '@/lib/context';
 import { apiRequest, getApiUrl } from '@/lib/query-client';
 import { Reel, Comment, UserRole } from '@/lib/types';
 
-const C = Colors.dark;
+const C = Colors.light;
 const { width: SW, height: SH } = Dimensions.get('window');
 
 function timeAgo(ts: number): string {

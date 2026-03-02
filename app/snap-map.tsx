@@ -12,7 +12,7 @@ import DirectoryMap from '@/components/DirectoryMap';
 import { apiRequest } from '@/lib/query-client';
 import { getCityCoords } from '@/lib/indian-cities';
 
-const C = Colors.dark;
+const C = Colors.light;
 
 const ROLE_COLORS: Record<string, string> = {
   technician: '#34C759',

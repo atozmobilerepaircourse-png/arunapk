@@ -12,7 +12,7 @@ import { useApp } from '@/lib/context';
 import { apiRequest, getApiUrl } from '@/lib/query-client';
 import { Product, Order, Course } from '@/lib/types';
 
-const C = Colors.dark;
+const C = Colors.light;
 const { width } = Dimensions.get('window');
 
 export default function MyShopScreen() {

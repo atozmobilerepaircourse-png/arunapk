@@ -14,7 +14,7 @@ import { apiRequest, getApiUrl } from '@/lib/query-client';
 import { openLink } from '@/lib/open-link';
 import { Product, ROLE_LABELS } from '@/lib/types';
 
-const C = Colors.dark;
+const C = Colors.light;
 const { width } = Dimensions.get('window');
 
 export default function ProductDetailScreen() {

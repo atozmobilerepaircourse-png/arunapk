@@ -42,7 +42,7 @@ function getImageUri(img: string): string {
 
 const CONDITIONS = ['Like New', 'Good', 'Fair', 'Used'];
 
-const C = Colors.dark;
+const C = Colors.light;
 
 type ListingItem = {
   id: string;
