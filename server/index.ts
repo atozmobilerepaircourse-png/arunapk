@@ -22,7 +22,7 @@ function setupCors(app: express.Application) {
     const origins = new Set<string>();
 
     origins.add(PRODUCTION_DOMAIN);
-    origins.add("https://atozmobilerepair.in");
+    origins.add("https://mobile-repair-app-276b6.web.app");
     origins.add("https://www.atozmobilerepair.in");
     origins.add("https://mail.atozmobilerepair.in");
     origins.add("https://mobile-repair-app-276b6.web.app");
