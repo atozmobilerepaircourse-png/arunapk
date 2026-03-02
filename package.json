@@ -58,6 +58,7 @@
     "expo-web-browser": "~15.0.10",
     "express": "^5.0.1",
     "firebase-admin": "^13.6.1",
+    "firebase-tools": "^15.8.0",
     "http-proxy-middleware": "^3.0.5",
     "multer": "^2.0.2",
     "node-cron": "^4.2.1",
