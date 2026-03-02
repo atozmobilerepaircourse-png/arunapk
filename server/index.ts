@@ -27,6 +27,12 @@ function setupCors(app: express.Application) {
     origins.add("https://mail.atozmobilerepair.in");
     origins.add("https://mobile-repair-app-276b6.web.app");
     origins.add("https://mobile-repair-app-276b6.firebaseapp.com");
+    
+    // Add regex-based wildcard for all .run.app and .web.app domains
+    const origin = req.header("origin");
+    if (origin && (origin.endsWith(".run.app") || origin.endsWith(".web.app") || origin.endsWith(".firebaseapp.com"))) {
+      origins.add(origin);
+    }
 
     if (process.env.ALLOWED_ORIGINS) {
       process.env.ALLOWED_ORIGINS.split(",").forEach((d) => {
