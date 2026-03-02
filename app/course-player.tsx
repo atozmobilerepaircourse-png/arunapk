@@ -31,13 +31,6 @@ const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
 const BUNNY_CDN = 'https://Mobistorage.b-cdn.net';
 
 function getBackendUrl(): string {
-  if (Platform.OS === 'web' && typeof window !== 'undefined') {
-    const origin = window.location.origin;
-    if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
-      return origin.replace(/:\d+$/, ':5000');
-    }
-    return origin;
-  }
   return getApiUrl();
 }
 

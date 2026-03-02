@@ -25,6 +25,8 @@ function setupCors(app: express.Application) {
     origins.add("https://atozmobilerepair.in");
     origins.add("https://www.atozmobilerepair.in");
     origins.add("https://mail.atozmobilerepair.in");
+    origins.add("https://mobile-repair-app-276b6.web.app");
+    origins.add("https://mobile-repair-app-276b6.firebaseapp.com");
 
     if (process.env.ALLOWED_ORIGINS) {
       process.env.ALLOWED_ORIGINS.split(",").forEach((d) => {

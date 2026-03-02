@@ -1,5 +1,37 @@
 # Deploy Mobi Server to Google Cloud
 
+## 🚀 Quick Backend Redeploy (Run on your local machine)
+
+Your backend CORS has been updated to allow Firebase Hosting. To apply this to Cloud Run, run these commands from your local terminal (with gcloud installed and logged in):
+
+```bash
+# 1. Navigate to your project folder
+cd /path/to/your/project
+
+# 2. Build and deploy to Cloud Run
+PROJECT_ID=mobile-repair-app-276b6   # replace if different
+SERVICE_NAME=repair-backend
+REGION=us-central1
+
+gcloud builds submit --tag gcr.io/$PROJECT_ID/$SERVICE_NAME .
+gcloud run deploy $SERVICE_NAME \
+  --image gcr.io/$PROJECT_ID/$SERVICE_NAME \
+  --region $REGION \
+  --platform managed \
+  --allow-unauthenticated \
+  --memory 1Gi \
+  --cpu 1 \
+  --min-instances 1 \
+  --port 8080
+```
+
+Or to just update CORS without rebuilding (fastest):
+```bash
+gcloud run services update repair-backend \
+  --region us-central1 \
+  --update-env-vars ALLOWED_ORIGINS="https://mobile-repair-app-276b6.web.app,https://mobile-repair-app-276b6.firebaseapp.com,https://atozmobilerepair.in"
+```
+
 ## Production Domain
 **https://atozmobilerepair.in**
 

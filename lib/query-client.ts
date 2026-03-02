@@ -1,23 +1,10 @@
 import { fetch } from "expo/fetch";
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
+const CLOUD_RUN_BACKEND = "https://repair-backend-us-456751858632.us-central1.run.app";
+
 export function getApiUrl(): string {
-  if (typeof window !== 'undefined' && window.location && window.location.origin) {
-    return "https://repair-backend-us-456751858632.us-central1.run.app";
-  }
-
-  const apiUrl = process.env.EXPO_PUBLIC_API_URL;
-  if (apiUrl) {
-    return apiUrl;
-  }
-
-  const expoDomain = process.env.EXPO_PUBLIC_DOMAIN;
-  if (expoDomain) {
-    const cleanDomain = expoDomain.replace(/:5000$/, '');
-    return `https://${cleanDomain}`;
-  }
-
-  return 'https://localhost:5000';
+  return CLOUD_RUN_BACKEND;
 }
 
 async function throwIfResNotOk(res: Response) {
