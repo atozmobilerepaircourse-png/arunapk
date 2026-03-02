@@ -295,6 +295,28 @@ function setupErrorHandler(app: express.Application) {
 
   configureExpoAndLanding(app);
 
+  // Ensure required tables exist (startup migration)
+  try {
+    const pg = await import("pg");
+    const pool = new pg.default.Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
+    });
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS otp_tokens (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        phone text NOT NULL UNIQUE,
+        otp text NOT NULL,
+        expires_at bigint NOT NULL,
+        created_at bigint NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW()) * 1000
+      )
+    `);
+    await pool.end();
+    log("Startup migration: otp_tokens table ready");
+  } catch (err) {
+    log("Startup migration warning:", err);
+  }
+
   const server = await registerRoutes(app);
 
   startEmailScheduler();

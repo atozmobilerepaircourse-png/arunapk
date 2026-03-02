@@ -50,10 +50,25 @@ const buildConfig = {
       entrypoint: 'node',
       args: ['push-oci.js'],
       timeout: '600s'
+    },
+    {
+      // Deploy the newly built image to Cloud Run using gcloud inside Cloud Build
+      name: 'gcr.io/google.com/cloudsdktool/cloud-sdk',
+      id: 'DeployToCloudRun',
+      entrypoint: 'gcloud',
+      args: [
+        'run', 'deploy', 'repair-backend',
+        '--image', IMAGE,
+        '--project', PROJECT_ID,
+        '--region', REGION,
+        '--platform', 'managed',
+        '--quiet'
+      ],
+      timeout: '300s'
     }
   ],
   options: { logging: 'CLOUD_LOGGING_ONLY' },
-  timeout: '700s'
+  timeout: '1000s'
 };
 
 writeFileSync('/tmp/build-config.json', JSON.stringify(buildConfig, null, 2));

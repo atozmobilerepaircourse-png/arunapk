@@ -4,7 +4,7 @@ import { getFirestore } from "./firebase-admin";
 import { db } from "./db";
 import OpenAI from "openai";
 import { notifyAllUsers, notifyNewPost, notifyUser } from "./push-notifications";
-import { profiles, conversations, messages, posts, jobs, reels, products, orders, subscriptionSettings, courses, courseChapters, courseVideos, courseEnrollments, dubbedVideos, ads, liveChatMessages, liveClasses, courseNotices, sessions, payments, teacherPayouts, appSettings, videoProgress, livePolls, livePollVotes, emailCampaigns } from "@shared/schema";
+import { profiles, conversations, messages, posts, jobs, reels, products, orders, subscriptionSettings, courses, courseChapters, courseVideos, courseEnrollments, dubbedVideos, ads, liveChatMessages, liveClasses, courseNotices, sessions, payments, teacherPayouts, appSettings, videoProgress, livePolls, livePollVotes, emailCampaigns, otpTokens } from "@shared/schema";
 import { sendWelcomeEmail } from "./lib/sendEmail";
 import { eq, or, and, desc, gt, lt, sql, ne, isNotNull } from "drizzle-orm";
 import { randomUUID } from "crypto";
@@ -175,7 +175,7 @@ const videoUpload = multer({
 });
 
 
-const otpStore = new Map<string, { otp: string; expiresAt: number }>();
+// OTP is now stored in the database (otpTokens table) for persistence across restarts
 
 function sanitizeImageUrls(images: string[]): string[] {
   if (!Array.isArray(images)) return [];
@@ -383,11 +383,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const cleanPhone = phone.replace(/\D/g, "");
       const otp = generateOTP();
+      const expiresAt = Date.now() + 5 * 60 * 1000;
 
-      otpStore.set(cleanPhone, {
-        otp,
-        expiresAt: Date.now() + 5 * 60 * 1000,
-      });
+      // Persist OTP in database so it survives server restarts
+      await db.delete(otpTokens).where(eq(otpTokens.phone, cleanPhone));
+      await db.insert(otpTokens).values({ phone: cleanPhone, otp, expiresAt });
 
       const sent = await sendWhatsAppOTP(cleanPhone, otp);
 
@@ -398,8 +398,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: sent ? "OTP sent via WhatsApp" : "OTP generated",
         sent,
       });
-    } catch (error) {
-      console.error("[OTP] Send error:", error);
+    } catch (error: any) {
+      console.error("[OTP] Send error:", error?.message || error, error?.stack?.split('\n').slice(0,3).join(' '));
       return res.status(500).json({ success: false, message: "Failed to send OTP" });
     }
   });
@@ -412,14 +412,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const cleanPhone = phone.replace(/\D/g, "");
-      const stored = otpStore.get(cleanPhone);
+
+      // Fetch OTP from database
+      const storedRows = await db.select().from(otpTokens).where(eq(otpTokens.phone, cleanPhone));
+      const stored = storedRows[0];
 
       if (!stored) {
         return res.status(400).json({ success: false, message: "OTP not found. Please request a new one." });
       }
 
       if (Date.now() > stored.expiresAt) {
-        otpStore.delete(cleanPhone);
+        await db.delete(otpTokens).where(eq(otpTokens.phone, cleanPhone));
         return res.status(400).json({ success: false, message: "OTP has expired. Please request a new one." });
       }
 
@@ -427,7 +430,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ success: false, message: "Invalid OTP. Please try again." });
       }
 
-      otpStore.delete(cleanPhone);
+      await db.delete(otpTokens).where(eq(otpTokens.phone, cleanPhone));
 
       const allProfilesList = await db.select().from(profiles);
       const existingProfile = allProfilesList.find(p => p.phone.replace(/\D/g, "") === cleanPhone);
