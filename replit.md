@@ -25,7 +25,11 @@ The backend is an Express 5 application running on Node.js, providing a comprehe
 2. Cloud Build runs `node push-oci.js` which: downloads `node:20-slim` from Docker Hub, creates an OCI layer with `server_dist/` + `shared/` + `assets/` + `server/templates/` + `static-build/`, pushes to Artifact Registry, PATCHes Cloud Run to create a new revision
 3. The Cloud Build SA (`[PROJECT_NUMBER]@cloudbuild.gserviceaccount.com`) has `iam.serviceaccounts.actAs` on `deployment-service` SA, so the Cloud Run PATCH works from inside Cloud Build (not from Replit directly)
 
-**Key fix history**: Previous deployments used `--packages=external` in esbuild which required `node_modules` at runtime. The Cloud Run container had no `node_modules`, causing all revisions to fail. Fixed by switching to `--bundle --format=cjs` which creates a fully self-contained bundle.
+**Key fix history**:
+- Previous deployments used `--packages=external` in esbuild which required `node_modules` at runtime. The Cloud Run container had no `node_modules`, causing all revisions to fail. Fixed by switching to `--bundle --format=cjs` which creates a fully self-contained bundle.
+- The `npm run server:build` npm script in package.json still has the old broken flags (`--packages=external --format=esm`) — it CANNOT be edited due to Replit restrictions. Always rebuild manually: `npx esbuild server/index.ts --platform=node --bundle --format=cjs --external:*.node --outdir=server_dist`
+- The Neon.tech PostgreSQL database (Cloud Run DATABASE_URL) had no tables. Schema was pushed via `DATABASE_URL=$(cat /tmp/neon_db_url.txt) npx drizzle-kit push --force`. The DATABASE_URL can be extracted from Cloud Run service config using the deployment-service SA credentials.
+- Database SSL: `server/db.ts` uses `ssl: { rejectUnauthorized: false }` in production mode for Neon.tech compatibility.
 
 **Socket.IO**: Live chat uses Socket.IO attached to the Express httpServer. In development, the Replit dev domain routes to Metro (port 8081), so `metro.config.js` includes a proxy for `/socket.io/` and `/api/` paths to forward them to the Express server on port 5000. The `setupWebAppFallback` in `server/index.ts` also skips `/socket.io` paths to avoid serving HTML to Socket.IO handshake requests.
 
