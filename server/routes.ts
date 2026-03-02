@@ -1954,28 +1954,42 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
 
       if (bunnyAvailable) {
         const localPath = req.file.path;
-        const fileBuffer = fs.readFileSync(localPath);
-        console.log(`[Upload] Read video file: ${fileBuffer.length} bytes from ${localPath}`);
-        if (fileBuffer.length === 0) {
+        const fileSize = req.file.size;
+        console.log(`[Upload] Streaming video to Bunny: ${fileSize} bytes from ${localPath}`);
+        if (fileSize === 0) {
           fs.unlink(localPath, () => {});
           return res.status(400).json({ success: false, message: "Video file is empty" });
         }
-        
-        // Use reels/ folder for reels
-        const reelStorageName = `reels/${randomUUID()}${ext}`;
-        const videoUrl = await uploadToStorage(fileBuffer, reelStorageName);
 
-        const verifyRes = await fetch(videoUrl, { method: 'HEAD' });
-        const cdnSize = verifyRes.headers.get('content-length');
-        if (!verifyRes.ok || cdnSize === '0') {
-          console.error(`[Upload] CDN verification FAILED for ${videoUrl} (cdnSize=${cdnSize}), keeping local copy`);
-          const localUrl = `/uploads/${req.file.filename}`;
-          console.log(`[Upload] Falling back to local: ${localUrl} (${fileBuffer.length} bytes)`);
-          return res.json({ success: true, url: localUrl });
-        }
+        const reelStorageName = `reels/${randomUUID()}${ext}`;
+        const bunnyUrl = `${BUNNY_STORAGE_ENDPOINT}/${BUNNY_STORAGE_ZONE_NAME}/${reelStorageName}`;
+
+        // Stream file directly to Bunny.net — no in-memory buffering
+        const { Readable } = await import("stream");
+        const readStream = fs.createReadStream(localPath);
+        const webStream = Readable.toWeb(readStream) as ReadableStream;
+
+        const bunnyRes = await fetch(bunnyUrl, {
+          method: 'PUT',
+          headers: {
+            'AccessKey': BUNNY_STORAGE_API_KEY,
+            'Content-Type': 'application/octet-stream',
+            'Content-Length': String(fileSize),
+          },
+          body: webStream,
+          duplex: 'half',
+        } as any);
 
         fs.unlink(localPath, () => {});
-        console.log(`[Upload] Video uploaded to Bunny: ${videoUrl} (${fileBuffer.length} bytes, verified on CDN)`);
+
+        if (!bunnyRes.ok) {
+          const errText = await bunnyRes.text().catch(() => '');
+          console.error(`[Upload] Bunny upload failed: ${bunnyRes.status} ${errText}`);
+          return res.status(500).json({ success: false, message: "Video upload to CDN failed" });
+        }
+
+        const videoUrl = `${BUNNY_CDN_URL}/${reelStorageName}`;
+        console.log(`[Upload] Video streamed to Bunny: ${videoUrl} (${fileSize} bytes)`);
         return res.json({ success: true, url: videoUrl });
       } else {
         const videoUrl = `/uploads/${req.file.filename}`;

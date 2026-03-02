@@ -78,6 +78,28 @@ export default function CreateCourseScreen() {
   const [isLoadingCourse, setIsLoadingCourse] = useState(false);
   const [uploadProgress, setUploadProgress] = useState('');
   const [uploadPercent, setUploadPercent] = useState(0);
+
+  const xhrRef = useRef<XMLHttpRequest | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (xhrRef.current) {
+        xhrRef.current.abort();
+        xhrRef.current = null;
+      }
+    };
+  }, []);
+
+  const cancelUpload = () => {
+    if (xhrRef.current) {
+      xhrRef.current.abort();
+      xhrRef.current = null;
+    }
+    setIsSubmitting(false);
+    setUploadProgress('');
+    setUploadPercent(0);
+    showStatus('Upload cancelled', 'info');
+  };
   const [statusMsg, setStatusMsg] = useState('');
   const [statusType, setStatusType] = useState<'success' | 'error' | 'info'>('info');
   const [pendingDelete, setPendingDelete] = useState<{ type: 'video' | 'chapter' | 'course'; id: string; label: string } | null>(null);
@@ -195,6 +217,8 @@ export default function CreateCourseScreen() {
 
     return new Promise<string>((resolve, reject) => {
       const xhr = new XMLHttpRequest();
+      xhrRef.current = xhr;
+
       xhr.open('POST', uploadUrl);
       xhr.upload.onprogress = (e) => {
         if (e.lengthComputable) {
@@ -204,6 +228,7 @@ export default function CreateCourseScreen() {
         }
       };
       xhr.onload = () => {
+        xhrRef.current = null;
         setUploadPercent(100);
         setUploadProgress('Processing video...');
         try {
@@ -214,8 +239,18 @@ export default function CreateCourseScreen() {
           reject(new Error(`Upload failed — unexpected response (HTTP ${xhr.status})`));
         }
       };
-      xhr.onerror = () => reject(new Error('Upload failed — network error. Check connection.'));
-      xhr.ontimeout = () => reject(new Error('Upload timed out. Video may be too large.'));
+      xhr.onerror = () => {
+        xhrRef.current = null;
+        reject(new Error('Upload failed — network error. Check connection.'));
+      };
+      xhr.ontimeout = () => {
+        xhrRef.current = null;
+        reject(new Error('Upload timed out. Video may be too large.'));
+      };
+      xhr.onabort = () => {
+        xhrRef.current = null;
+        reject(new Error('CANCELLED'));
+      };
       xhr.send(formData);
     });
   };
@@ -321,12 +356,14 @@ export default function CreateCourseScreen() {
       } else {
         showStatus(data.message || 'Failed to create course', 'error');
       }
-    } catch (e) {
+    } catch (e: any) {
+      if (e?.message === 'CANCELLED') return;
       console.error('[CreateCourse] Error:', e);
       showStatus('Failed to create course. Please try again.', 'error');
     } finally {
       setIsSubmitting(false);
       setUploadProgress('');
+      setUploadPercent(0);
     }
   };
 
@@ -394,9 +431,10 @@ export default function CreateCourseScreen() {
         showStatus('Video added successfully!', 'success');
         if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
-    } catch (e) {
+    } catch (e: any) {
+      if (e?.message === 'CANCELLED') return;
       console.error('[CreateCourse] Add video error:', e);
-      showStatus('Failed to upload video', 'error');
+      showStatus(e?.message && e.message !== 'CANCELLED' ? e.message : 'Failed to upload video', 'error');
     } finally {
       setIsSubmitting(false);
       setUploadProgress('');
@@ -714,6 +752,12 @@ export default function CreateCourseScreen() {
                   </>
                 )}
                 <Text style={styles.progressLimit}>Max file size: 2 GB</Text>
+                {xhrRef.current && (
+                  <Pressable style={styles.cancelUploadBtn} onPress={cancelUpload}>
+                    <Ionicons name="close-circle-outline" size={18} color="#E53935" />
+                    <Text style={styles.cancelUploadText}>Cancel Upload</Text>
+                  </Pressable>
+                )}
               </View>
             ) : null}
 
@@ -854,6 +898,12 @@ export default function CreateCourseScreen() {
               </>
             )}
             <Text style={styles.progressLimit}>Max file size: 2 GB</Text>
+            {xhrRef.current && (
+              <Pressable style={styles.cancelUploadBtn} onPress={cancelUpload}>
+                <Ionicons name="close-circle-outline" size={18} color="#E53935" />
+                <Text style={styles.cancelUploadText}>Cancel Upload</Text>
+              </Pressable>
+            )}
           </View>
         ) : null}
       </ScrollView>
@@ -1036,6 +1086,12 @@ export default function CreateCourseScreen() {
                       </>
                     )}
                     <Text style={styles.progressLimit}>Max file size: 2 GB</Text>
+                    {xhrRef.current && (
+                      <Pressable style={styles.cancelUploadBtn} onPress={cancelUpload}>
+                        <Ionicons name="close-circle-outline" size={18} color="#E53935" />
+                        <Text style={styles.cancelUploadText}>Cancel Upload</Text>
+                      </Pressable>
+                    )}
                   </View>
                 ) : null}
 
@@ -1185,6 +1241,15 @@ const styles = StyleSheet.create({
   },
   progressLimit: {
     color: C.textTertiary, fontSize: 12, fontFamily: 'Inter_400Regular',
+  },
+  cancelUploadBtn: {
+    flexDirection: 'row' as const, alignItems: 'center' as const, gap: 6,
+    marginTop: 4, paddingVertical: 8, paddingHorizontal: 14,
+    borderRadius: 10, borderWidth: 1, borderColor: '#E53935',
+    alignSelf: 'center' as const,
+  },
+  cancelUploadText: {
+    color: '#E53935', fontSize: 14, fontFamily: 'Inter_600SemiBold',
   },
 
   chaptersSection: { marginTop: 24 },

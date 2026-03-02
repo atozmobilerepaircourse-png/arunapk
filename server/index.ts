@@ -346,4 +346,9 @@ function setupErrorHandler(app: express.Application) {
   server.listen(port, "0.0.0.0", () => {
     log(`express server serving on port ${port}`);
   });
+
+  // Allow up to 30 minutes for large video uploads (1.8GB @ 10Mbps ~= 25 min)
+  server.timeout = 30 * 60 * 1000;
+  server.keepAliveTimeout = 30 * 60 * 1000;
+  server.headersTimeout = 31 * 60 * 1000;
 })();
