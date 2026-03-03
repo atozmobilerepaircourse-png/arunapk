@@ -230,12 +230,22 @@ export default function CreateCourseScreen() {
         setUploadPercent(100);
         setUploadProgress('Processing video...');
         UploadManager.finish();
-        try {
-          const data = JSON.parse(xhr.responseText);
-          if (data.success) resolve(data.url);
-          else reject(new Error(data.message || 'Upload failed — server rejected the file'));
-        } catch {
-          reject(new Error(`Upload failed — unexpected response (HTTP ${xhr.status})`));
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const data = JSON.parse(xhr.responseText);
+            if (data.success && data.url) {
+              const finalUrl = data.url.startsWith('http') 
+                ? data.url 
+                : new URL(data.url, baseUrl).toString();
+              resolve(finalUrl);
+            } else {
+              reject(new Error(data.message || 'Upload failed'));
+            }
+          } catch {
+            reject(new Error(`Upload failed — unexpected response (HTTP ${xhr.status})`));
+          }
+        } else {
+          reject(new Error(`Upload failed with status ${xhr.status}`));
         }
       };
       xhr.onerror = () => {

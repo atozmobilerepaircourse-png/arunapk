@@ -333,23 +333,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!req.file) return res.status(400).json({ success: false, message: "No file uploaded" });
       const filename = `videos/${randomUUID()}${path.extname(req.file.originalname)}`;
       
-      // Use streaming upload to Bunny.net for better performance and memory management
-      const stream = fs.createReadStream(req.file.path);
-      const url = await uploadStreamToStorage(
-        (stream as any).toWeb(), 
-        filename, 
-        req.file.mimetype,
-        req.file.size
-      );
+      console.log(`[Upload Video] Starting upload to Bunny: ${filename}, size: ${req.file.size}`);
+      
+      // Fix: Use fs.readFileSync to ensure we have the full buffer for the upload
+      // or use a more reliable stream-to-web-stream conversion.
+      // For now, let's use the buffer to rule out streaming issues.
+      const fileBuffer = fs.readFileSync(req.file.path);
+      const url = await uploadToStorage(fileBuffer, filename, req.file.mimetype);
       
       // Cleanup local temp file
-      fs.unlink(req.file.path, () => {});
+      fs.unlink(req.file.path, (err) => {
+        if (err) console.error(`[Upload Video] Failed to delete temp file ${req.file?.path}:`, err);
+      });
       
+      console.log(`[Upload Video] Success: ${url}`);
       res.json({ success: true, url });
-    } catch (error) {
-      console.error("[Upload Video] Error:", error);
-      if (req.file?.path) fs.unlink(req.file.path, () => {});
-      res.status(500).json({ success: false, message: "Upload failed" });
+    } catch (error: any) {
+      console.error("[Upload Video] Error:", error?.message || error);
+      if (req.file?.path && fs.existsSync(req.file.path)) {
+        fs.unlink(req.file.path, () => {});
+      }
+      res.status(500).json({ success: false, message: `Upload failed: ${error?.message || 'Unknown error'}` });
     }
   });
 

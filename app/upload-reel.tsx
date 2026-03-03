@@ -106,8 +106,14 @@ export default function UploadReelScreen() {
           }
           try {
             const data = JSON.parse(xhr.responseText);
-            if (data.success && data.url) resolve(new URL(data.url, baseUrl).toString());
-            else reject(new Error(data.message || 'Video upload failed'));
+            if (data.success && data.url) {
+              const finalUrl = data.url.startsWith('http') 
+                ? data.url 
+                : new URL(data.url, baseUrl).toString();
+              resolve(finalUrl);
+            } else {
+              reject(new Error(data.message || 'Video upload failed'));
+            }
           } catch { reject(new Error('Upload response parse error')); }
         };
         xhr.onerror = () => reject(new Error('Video upload failed'));
