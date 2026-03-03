@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import * as Sharing from 'expo-sharing';
 import {
-  View, Text, StyleSheet, Pressable, Platform,
+  View, Text, StyleSheet, Pressable, Platform, Alert,
   ScrollView, ActivityIndicator, Dimensions, Modal, PanResponder, TextInput, KeyboardAvoidingView,
   StatusBar, Share,
 } from 'react-native';
 import * as ScreenCapture from 'expo-screen-capture';
+import { resolveBunnyPlaybackUrl, getBunnyMp4Url, isBunnyUrl } from '@/lib/bunny-cdn';
+import { File as FSFile, Paths, getInfoAsync, deleteAsync, createDownloadResumable } from 'expo-file-system';
 import Animated, {
   useSharedValue, useAnimatedStyle, withTiming, runOnJS,
 } from 'react-native-reanimated';
@@ -38,6 +40,7 @@ function getBackendUrl(): string {
 function resolveVideoUrl(url: string): string {
   if (!url) return '';
   if (url.startsWith('http://') || url.startsWith('https://')) {
+    if (isBunnyUrl(url)) return resolveBunnyPlaybackUrl(url);
     return url;
   }
   const match = url.match(/^\/api\/gcs\/(.+)$/);
@@ -156,6 +159,7 @@ export default function CoursePlayerScreen() {
   const [isDubbingLoading, setIsDubbingLoading] = useState(false);
   const [dubbedVideoUri, setDubbedVideoUri] = useState<string | null>(null);
   const [isVideoMutedForDub, setIsVideoMutedForDub] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   const completedRef = useRef(false);
   const resumedRef = useRef(false);
   const lastProgressSaveRef = useRef(0);
@@ -653,6 +657,69 @@ export default function CoursePlayerScreen() {
     }
   };
 
+  const downloadVideo = useCallback(async () => {
+    if (!currentVideo?.videoUrl || isDownloading) return;
+    const mp4Url = isBunnyUrl(currentVideo.videoUrl)
+      ? getBunnyMp4Url(currentVideo.videoUrl, '720p')
+      : currentVideo.videoUrl;
+    if (!mp4Url) {
+      Alert.alert('Download Failed', 'Video URL not available for download.');
+      return;
+    }
+    if (Platform.OS === 'web') {
+      try {
+        setIsDownloading(true);
+        const resp = await fetch(mp4Url);
+        const blob = await resp.blob();
+        const objectUrl = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = objectUrl;
+        anchor.download = `${currentVideo.title || 'video'}.mp4`;
+        document.body.appendChild(anchor);
+        anchor.click();
+        document.body.removeChild(anchor);
+        setTimeout(() => URL.revokeObjectURL(objectUrl), 30000);
+      } catch (e) {
+        Alert.alert('Download Failed', 'Could not download this video. Please try again.');
+      } finally {
+        setIsDownloading(false);
+      }
+      return;
+    }
+    try {
+      setIsDownloading(true);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      const fileName = `${(currentVideo.title || 'video').replace(/[^a-z0-9]/gi, '_')}.mp4`;
+      const localFile = new FSFile(Paths.document, fileName);
+      const existing = await getInfoAsync(localFile.uri);
+      if (existing.exists) {
+        Alert.alert(
+          'Already Downloaded',
+          `"${currentVideo.title}" is already saved on your device.`,
+          [
+            { text: 'OK', onPress: () => {} },
+            { text: 'Re-download', onPress: () => {
+              deleteAsync(localFile.uri, { idempotent: true }).then(() => downloadVideo());
+            }},
+          ]
+        );
+        setIsDownloading(false);
+        return;
+      }
+      const downloadResumable = createDownloadResumable(mp4Url, localFile.uri);
+      await downloadResumable.downloadAsync();
+      Alert.alert(
+        'Download Complete',
+        `"${currentVideo.title}" has been saved for offline viewing.`
+      );
+    } catch (e) {
+      console.error('[Download] Failed:', e);
+      Alert.alert('Download Failed', 'Could not download this video. Please try again.');
+    } finally {
+      setIsDownloading(false);
+    }
+  }, [currentVideo, isDownloading]);
+
   const shareAchievement = async () => {
     try {
       const message = `I just completed "${currentVideo?.title}" in the course "${course?.title}" on Mobi! 🏆\n\nJoin me on Mobi: https://atozmobilerepair.in`;
@@ -994,8 +1061,7 @@ export default function CoursePlayerScreen() {
                   dubbedAudioRef.current.currentTime = e.target.currentTime || 0;
                 }
               }}
-              onEnterpictureinpicture={() => setIsPiP(true)}
-              onLeavepictureinpicture={() => setIsPiP(false)}
+              {...({ onenterpictureinpicture: () => setIsPiP(true), onleavepictureinpicture: () => setIsPiP(false) } as any)}
               onTimeUpdate={(e: any) => {
                 const vid = e.target;
                 if (!isSeeking && vid) {
@@ -1200,9 +1266,19 @@ export default function CoursePlayerScreen() {
       <View style={styles.videoInfoCard}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <Text style={[styles.videoTitle, { flex: 1 }]} numberOfLines={2}>{currentVideo.title}</Text>
-          <Pressable onPress={shareCourse} style={{ padding: 4, marginLeft: 8 }}>
-            <Ionicons name="share-social-outline" size={22} color={ACCENT} />
-          </Pressable>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            {isBunnyUrl(currentVideo.videoUrl || '') && (
+              <Pressable onPress={downloadVideo} style={{ padding: 4 }} disabled={isDownloading}>
+                {isDownloading
+                  ? <ActivityIndicator size="small" color={ACCENT} />
+                  : <Ionicons name="download-outline" size={22} color={ACCENT} />
+                }
+              </Pressable>
+            )}
+            <Pressable onPress={shareCourse} style={{ padding: 4, marginLeft: 4 }}>
+              <Ionicons name="share-social-outline" size={22} color={ACCENT} />
+            </Pressable>
+          </View>
         </View>
         <View style={styles.videoMeta}>
           {currentChapter && (

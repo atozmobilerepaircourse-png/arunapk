@@ -100,8 +100,6 @@ export default function WebViewScreen() {
           onError={() => {
             setLoading(false);
             setWebError(true);
-            // Auto-open in browser as fallback
-            if (url) Linking.openURL(url).catch(() => {});
           }}
           onHttpError={() => { setLoading(false); }}
           javaScriptEnabled

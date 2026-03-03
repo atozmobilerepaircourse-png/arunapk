@@ -193,7 +193,7 @@ export default function CreateCourseScreen() {
     });
 
     UploadManager.finish();
-    return result.playbackUrl;
+    return result.directUrl;
   };
 
   const _uploadVideoLegacy = async (uri: string): Promise<string> => {

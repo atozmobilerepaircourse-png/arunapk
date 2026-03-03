@@ -8,6 +8,7 @@ import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useVideoPlayer, VideoView } from 'expo-video';
+import { isBunnyUrl, getBunnyEmbedUrl, resolveBunnyPlaybackUrl } from '@/lib/bunny-cdn';
 import Animated, {
   useSharedValue, useAnimatedStyle, withTiming, withSequence,
   withDelay, runOnJS, withSpring,
@@ -171,9 +172,13 @@ function ReelItem({ reel, isActive, currentUserId, onLike, onDelete, onOpenComme
   const insets = useSafeAreaInsets();
   const isLiked = currentUserId ? reel.likes.includes(currentUserId) : false;
   const baseUrl = getApiUrl();
-  const videoSource = (reel.videoUrl.startsWith('http') || reel.videoUrl.includes('b-cdn.net')) 
-    ? reel.videoUrl 
+  const rawVideoUrl = (reel.videoUrl.startsWith('http') || reel.videoUrl.includes('b-cdn.net'))
+    ? reel.videoUrl
     : `${baseUrl}${reel.videoUrl}`;
+  const videoSource = isBunnyUrl(rawVideoUrl)
+    ? resolveBunnyPlaybackUrl(rawVideoUrl)
+    : rawVideoUrl;
+  const bunnyEmbedUrl = isBunnyUrl(rawVideoUrl) ? getBunnyEmbedUrl(rawVideoUrl, isActive) : null;
   const [muted, setMuted] = useState(false);
   const [paused, setPaused] = useState(false);
   const lastTap = useRef(0);
@@ -183,12 +188,15 @@ function ReelItem({ reel, isActive, currentUserId, onLike, onDelete, onOpenComme
   const muteIconOpacity = useSharedValue(0);
   const pauseIconOpacity = useSharedValue(0);
 
-  const player = useVideoPlayer(videoSource, (p) => {
+  const useIframe = Platform.OS === 'web' && !!bunnyEmbedUrl;
+
+  const player = useVideoPlayer(useIframe ? '' : videoSource, (p) => {
     p.loop = true;
     p.volume = 1;
   });
 
   useEffect(() => {
+    if (useIframe) return;
     if (isActive && !paused) {
       player.play();
     } else {
@@ -198,11 +206,12 @@ function ReelItem({ reel, isActive, currentUserId, onLike, onDelete, onOpenComme
         setPaused(false);
       }
     }
-  }, [isActive, paused, player]);
+  }, [isActive, paused, player, useIframe]);
 
   useEffect(() => {
+    if (useIframe) return;
     player.muted = muted;
-  }, [muted, player]);
+  }, [muted, player, useIframe]);
 
   const triggerDoubleTapLike = () => {
     if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -271,7 +280,16 @@ function ReelItem({ reel, isActive, currentUserId, onLike, onDelete, onOpenComme
 
   return (
     <View style={[s.reelWrap, { height: SH }]}>
-      <VideoView player={player} style={s.video} contentFit="cover" nativeControls={false} />
+      {Platform.OS === 'web' && bunnyEmbedUrl ? (
+        <iframe
+          src={bunnyEmbedUrl}
+          style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 'none' } as any}
+          allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
+          allowFullScreen
+        />
+      ) : (
+        <VideoView player={player} style={s.video} contentFit="cover" nativeControls={false} />
+      )}
 
       <Pressable style={s.tapZone} onPress={handleTap} onLongPress={handleLongPress} delayLongPress={400} />
 

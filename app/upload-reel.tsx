@@ -67,7 +67,7 @@ export default function UploadReelScreen() {
           setUploadProgress(p.message);
         }
       );
-      return result.playbackUrl;
+      return result.directUrl;
     } catch (e: any) {
       console.error('[Upload] Video failed:', e);
       Alert.alert('Upload Failed', e?.message || 'Could not upload video. Please check your connection and try again.');
