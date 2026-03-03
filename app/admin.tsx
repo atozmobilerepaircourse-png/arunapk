@@ -84,10 +84,39 @@ function UserDetailCard({ user, onBlock, onDelete }: { user: any; onBlock: (id: 
               </View>
             )}
           </View>
-          <View style={styles.userMeta}>
-            <View style={[styles.userRoleBadge, { backgroundColor: roleColor + '15' }]}>
-              <Text style={[styles.userRoleText, { color: roleColor }]}>{ROLE_LABELS[user.role as UserRole]}</Text>
-            </View>
+              <View style={styles.userMeta}>
+                <View style={[styles.userRoleBadge, { backgroundColor: roleColor + '15' }]}>
+                  <Text style={[styles.userRoleText, { color: roleColor }]}>{ROLE_LABELS[user.role as UserRole] || user.role}</Text>
+                </View>
+                <Pressable 
+                  style={{ marginLeft: 8, paddingHorizontal: 8, paddingVertical: 4, backgroundColor: C.surfaceHighlight, borderRadius: 6 }}
+                  onPress={() => {
+                    const roles: UserRole[] = ['admin', 'teacher', 'technician', 'customer', 'supplier', 'job_provider'];
+                    Alert.alert(
+                      'Change Role',
+                      `Select new role for ${user.name}`,
+                      roles.map(r => ({
+                        text: ROLE_LABELS[r] || r,
+                        onPress: async () => {
+                          try {
+                            const res = await apiRequest('POST', '/api/admin/change-role', { userId: user.id, newRole: r });
+                            const data = await res.json();
+                            if (data.success) {
+                              Alert.alert('Success', 'Role updated');
+                              refreshData();
+                            } else {
+                              Alert.alert('Error', data.message);
+                            }
+                          } catch (e) {
+                            Alert.alert('Error', 'Failed to update role');
+                          }
+                        }
+                      })).concat([{ text: 'Cancel', style: 'cancel' }] as any)
+                    );
+                  }}
+                >
+                  <Text style={{ fontSize: 10, color: C.primary, fontFamily: 'Inter_600SemiBold' }}>Change Role</Text>
+                </Pressable>
             {user.city ? (
               <View style={styles.userCityRow}>
                 <Ionicons name="location-outline" size={12} color={C.textTertiary} />
@@ -266,7 +295,7 @@ export default function AdminScreen() {
 
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
-  const isAdmin = profile?.phone?.replace(/\D/g, '') === ADMIN_PHONE;
+  const isAdmin = profile?.role === 'admin' || profile?.phone?.replace(/\D/g, '') === ADMIN_PHONE;
 
   useEffect(() => {
     if (!isAdmin) {

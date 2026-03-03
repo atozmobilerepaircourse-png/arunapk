@@ -234,7 +234,50 @@ async function sendWhatsAppOTP(phone: string, otp: string): Promise<boolean> {
   }
 }
 
-export async function registerRoutes(app: Express): Promise<Server> {
+  // ─── Admin Control APIs ───
+  const adminMiddleware = async (req: any, res: any, next: any) => {
+    const sessionToken = req.headers['x-session-token'];
+    if (!sessionToken) return res.status(401).json({ success: false, message: "Unauthorized" });
+    
+    const sessionRows = await db.select().from(sessions).where(eq(sessions.sessionToken, sessionToken as string));
+    const session = sessionRows[0];
+    if (!session) return res.status(401).json({ success: false, message: "Invalid session" });
+
+    const profileRows = await db.select().from(profiles).where(eq(profiles.phone, session.phone));
+    const profile = profileRows[0];
+    
+    // Check if phone matches ADMIN_PHONE or role is admin
+    const isStaticAdmin = session.phone === process.env.ADMIN_PHONE || session.phone === "9876543210"; // Placeholder or env
+    if (profile?.role !== "admin" && !isStaticAdmin) {
+      return res.status(403).json({ success: false, message: "Access denied. Admin only." });
+    }
+    next();
+  };
+
+  app.post("/api/admin/add-admin", adminMiddleware, async (req, res) => {
+    try {
+      const { userId } = req.body;
+      await db.update(profiles).set({ role: "admin" }).where(eq(profiles.id, userId));
+      res.json({ success: true, message: "New admin added successfully" });
+    } catch (error) {
+      res.status(500).json({ success: false, message: "Failed to add admin" });
+    }
+  });
+
+  app.post("/api/admin/change-role", adminMiddleware, async (req, res) => {
+    try {
+      const { userId, newRole } = req.body;
+      const allowedRoles = ["admin", "teacher", "technician", "customer", "supplier", "job_provider"];
+      if (!allowedRoles.includes(newRole)) {
+        return res.status(400).json({ success: false, message: "Invalid role" });
+      }
+      await db.update(profiles).set({ role: newRole as any }).where(eq(profiles.id, userId));
+      res.json({ success: true, message: "Role updated successfully" });
+    } catch (error) {
+      res.status(500).json({ success: false, message: "Failed to update role" });
+    }
+  });
+
   // ========== File serving ==========
   app.use("/uploads", (await import("express")).default.static(uploadsDir));
   app.use("/assets", (await import("express")).default.static(path.join(process.cwd(), "server/templates")));

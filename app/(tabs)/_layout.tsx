@@ -243,7 +243,7 @@ function ClassicTabLayout() {
 
 export default function TabLayout() {
   const { profile } = useApp();
-  const isAdmin = profile?.phone === ADMIN_PHONE;
+  const isAdmin = profile?.role === 'admin' || profile?.phone === ADMIN_PHONE;
   const needsSub = (profile?.role === 'technician' || profile?.role === 'supplier' || profile?.role === 'teacher') && !isAdmin;
 
   const tabs = isLiquidGlassAvailable() ? <NativeTabLayout /> : <ClassicTabLayout />;
