@@ -669,10 +669,14 @@ export default function OnboardingScreen() {
             <View style={StyleSheet.absoluteFillObject}>
               <Image
                 source={require('@/assets/images/onboarding-hero.jpeg')}
-                style={{ width: '100%', height: '100%' }}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  transform: [{ translateY: -40 }, { scale: 1.1 }] // Drag image up and scale slightly
+                }}
                 contentFit="cover"
               />
-              <View style={{ ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.25)' }} />
+              <View style={{ ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.2)' }} />
             </View>
 
             {/* Spacer to push content to bottom */}
@@ -687,9 +691,11 @@ export default function OnboardingScreen() {
               paddingBottom: (Platform.OS === 'web' ? 34 : Math.max(insets.bottom, 24)) + 4,
               shadowColor: '#000',
               shadowOffset: { width: 0, height: -10 },
-              shadowOpacity: 0.2,
-              shadowRadius: 15,
+              shadowOpacity: 0.15,
+              shadowRadius: 12,
               elevation: 20,
+              // Subtle 3D lift effect
+              transform: [{ translateY: 0 }],
             }}>
               <Text style={{ fontSize: 22, fontFamily: 'Inter_700Bold', color: '#111', marginBottom: 2 }}>Sign in to continue</Text>
               <Text style={{ fontSize: 13, color: '#9B9BA8', marginBottom: 18, fontFamily: 'Inter_400Regular' }}>
