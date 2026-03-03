@@ -365,14 +365,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       const data = await response.json() as any;
       const videoId = data.guid;
+      
+      // Fix for "Invalid expiry time" error: use future timestamp (1 hour)
+      const expires = Math.floor(Date.now() / 1000) + 3600;
+      
+      // Generate signature: SHA256(LibraryID + VideoID + Expires)
+      const signature = crypto
+        .createHmac("sha256", BUNNY_STREAM_API_KEY)
+        .update(BUNNY_STREAM_LIBRARY_ID + videoId + expires)
+        .digest("hex");
+
       const playbackUrl = `https://iframe.mediadelivery.net/embed/${BUNNY_STREAM_LIBRARY_ID}/${videoId}`;
       const directUrl = `https://vz-${BUNNY_STREAM_LIBRARY_ID}.b-cdn.net/${videoId}/playlist.m3u8`;
-      console.log(`[BunnyStream] Created video slot: ${videoId}`);
+      
+      console.log(`[BunnyStream] Created video slot: ${videoId}, expires: ${expires}`);
+      
       res.json({
         success: true,
         videoId,
         libraryId: BUNNY_STREAM_LIBRARY_ID,
-        apiKey: BUNNY_STREAM_API_KEY,
+        signature,
+        expires,
+        uploadUrl: "https://video.bunnycdn.com/tusupload",
         playbackUrl,
         directUrl,
       });

@@ -15,7 +15,9 @@ import { apiRequest } from '@/lib/query-client';
 export interface BunnyVideoSlot {
   videoId: string;
   libraryId: string;
-  apiKey: string;
+  signature: string;
+  expires: number;
+  uploadUrl: string;
   playbackUrl: string;
   directUrl: string;
 }
@@ -67,11 +69,11 @@ export async function uploadToBunnyStream(
 
   return new Promise<string>((resolve, reject) => {
     const upload = new Upload(file as any, {
-      endpoint: 'https://video.bunnycdn.com/tusupload',
+      endpoint: slot.uploadUrl || 'https://video.bunnycdn.com/tusupload',
       retryDelays: [0, 3000, 5000, 10000, 20000],
       headers: {
-        AuthorizationSignature: slot.apiKey,
-        AuthorizationExpire: '0',
+        AuthorizationSignature: slot.signature,
+        AuthorizationExpire: String(slot.expires),
         VideoId: slot.videoId,
         LibraryId: slot.libraryId,
       },
