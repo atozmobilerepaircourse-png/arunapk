@@ -406,6 +406,12 @@ async function main() {
 
     // Set 3600s (1 hour) timeout to allow large video uploads (500MB+ can take 20-60 min)
     svc.template.timeout = '3600s';
+    svc.template.containers[0].resources = {
+      limits: {
+        memory: '2Gi',
+        cpu: '1'
+      }
+    };
     
     console.log('   Setting image digest:', manifestDigest.slice(0, 30) + '...');
     const svcBody = JSON.stringify(svc);
