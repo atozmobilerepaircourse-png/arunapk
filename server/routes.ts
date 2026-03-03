@@ -522,7 +522,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { token } = req.body;
       if (!token) return res.status(400).json({ success: false, message: "Token required" });
-      const clientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+      const clientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '1097660126888-oui7uutiqbksd0q82nbvbhejbpo4t4s8.apps.googleusercontent.com';
       if (!clientId) return res.status(500).json({ success: false, message: "Google OAuth not configured" });
       const devDomain = "repair-backend-3siuld7gbq-el.a.run.app";
       const redirectUri = `https://${devDomain}/api/auth/google/callback`;
@@ -602,7 +602,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return sendGoogleErrorPage(res, "No authorization code received from Google.");
       }
 
-      const clientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+      const clientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '1097660126888-oui7uutiqbksd0q82nbvbhejbpo4t4s8.apps.googleusercontent.com';
       const clientSecret = getGoogleClientSecret();
 
       console.log("[Google Auth] clientId:", clientId);

@@ -412,6 +412,16 @@ async function main() {
         cpu: '1'
       }
     };
+
+    // Ensure required env vars are always set
+    const container = svc.template.containers[0];
+    container.env = container.env || [];
+    const ensureEnv = (name, value) => {
+      if (value && !container.env.find(e => e.name === name)) {
+        container.env.push({ name, value });
+      }
+    };
+    ensureEnv('EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID', '1097660126888-oui7uutiqbksd0q82nbvbhejbpo4t4s8.apps.googleusercontent.com');
     
     console.log('   Setting image digest:', manifestDigest.slice(0, 30) + '...');
     const svcBody = JSON.stringify(svc);
