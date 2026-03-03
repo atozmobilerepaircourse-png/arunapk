@@ -16,6 +16,7 @@ import { openLink } from '@/lib/open-link';
 import { File } from 'expo-file-system';
 import { fetch as expoFetch } from 'expo/fetch';
 import { router, useLocalSearchParams } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import Colors from '@/constants/colors';
 import { useApp } from '@/lib/context';
 import {
@@ -664,73 +665,90 @@ export default function OnboardingScreen() {
     switch (currentScreen) {
       case 'phone':
         return (
-          <View style={{ flex: 1, backgroundColor: '#FFF' }}>
-            {/* Image section matching theme */}
-            <View style={{
-              height: 220,
-              width: '100%',
-              justifyContent: 'center',
-              alignItems: 'center',
-              marginTop: 20,
-              paddingHorizontal: 20,
-            }}>
+          <View style={{ flex: 1, backgroundColor: '#0A0A14' }}>
+            <LinearGradient
+              colors={['#1A1A2E', '#0A0A14']}
+              style={StyleSheet.absoluteFill}
+            />
+            
+            {/* 3D Hero Image Section with Gradient Overlay */}
+            <View style={{ height: '45%', width: '100%', position: 'relative' }}>
               <Image
                 source={require('@/assets/images/onboarding-hero.jpeg')}
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  borderRadius: 16,
-                }}
-                contentFit="contain"
+                style={{ width: '100%', height: '100%' }}
+                contentFit="cover"
+              />
+              <LinearGradient
+                colors={['transparent', 'rgba(10,10,20,0.8)', '#0A0A14']}
+                style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 150 }}
               />
             </View>
 
-            <View style={{ paddingHorizontal: 24, flex: 1, paddingTop: 20 }}>
-              <Text style={{ fontSize: 32, fontFamily: 'Inter_700Bold', color: '#000', textAlign: 'center' }}>Welcome to Mobi</Text>
-              <Text style={{ fontSize: 18, color: '#9B9BA8', textAlign: 'center', marginBottom: 30, fontFamily: 'Inter_400Regular' }}>
-                Network, Learn & Grow
+            <View style={{ paddingHorizontal: 30, flex: 1, justifyContent: 'flex-start', marginTop: -20 }}>
+              <Text style={{ 
+                fontSize: 38, 
+                fontFamily: 'Inter_700Bold', 
+                color: '#FFF', 
+                textAlign: 'left',
+                textShadowColor: 'rgba(0,0,0,0.5)',
+                textShadowOffset: { width: 0, height: 2 },
+                textShadowRadius: 4
+              }}>
+                Welcome to MOBI
+              </Text>
+              <Text style={{ 
+                fontSize: 18, 
+                color: 'rgba(255,255,255,0.7)', 
+                textAlign: 'left', 
+                marginBottom: 30, 
+                fontFamily: 'Inter_400Regular',
+                lineHeight: 26
+              }}>
+                Network, Learn & Grow with the elite mobile technician community.
               </Text>
 
-              <Text style={{ fontSize: 14, color: '#666', marginBottom: 8, fontFamily: 'Inter_500Medium' }}>Mobile Number</Text>
-              <View style={{ flexDirection: 'row', gap: 10, marginBottom: 20 }}>
+              <Text style={{ fontSize: 14, color: '#9B9BA8', marginBottom: 10, fontFamily: 'Inter_600SemiBold', textTransform: 'uppercase', letterSpacing: 1 }}>Mobile Number</Text>
+              <View style={{ flexDirection: 'row', gap: 12, marginBottom: 25 }}>
                 <View style={{
-                  backgroundColor: '#F4F4F9', borderRadius: 12,
-                  width: 60, justifyContent: 'center', alignItems: 'center',
-                  borderWidth: 1, borderColor: '#EAEAF2', height: 54,
+                  backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 16,
+                  width: 70, justifyContent: 'center', alignItems: 'center',
+                  borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', height: 60,
                 }}>
-                  <Text style={{ fontSize: 18, fontFamily: 'Inter_600SemiBold', color: '#111' }}>+91</Text>
+                  <Text style={{ fontSize: 18, fontFamily: 'Inter_600SemiBold', color: '#FFF' }}>+91</Text>
                 </View>
                 <TextInput
                   style={{
-                    flex: 1, backgroundColor: '#FFF', borderRadius: 12,
-                    paddingHorizontal: 16, fontSize: 18, color: '#111',
-                    fontFamily: 'Inter_500Medium', borderWidth: 1, borderColor: '#000', height: 54,
+                    flex: 1, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 16,
+                    paddingHorizontal: 20, fontSize: 18, color: '#FFF',
+                    fontFamily: 'Inter_500Medium', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', height: 60,
                   }}
-                  placeholder="10-digit mobile number"
-                  placeholderTextColor="#C0C0D0"
+                  placeholder="Enter mobile number"
+                  placeholderTextColor="rgba(255,255,255,0.3)"
                   keyboardType="phone-pad"
                   value={phone}
                   onChangeText={(text) => setPhone(text.replace(/\D/g, '').slice(0, 10))}
                   maxLength={10}
-                  autoFocus={Platform.OS !== 'web'}
                 />
               </View>
-
-              <Text style={{ textAlign: 'center', color: '#9B9BA8', fontSize: 14, marginBottom: 20, fontFamily: 'Inter_600SemiBold' }}>OR</Text>
 
               <Pressable
                 style={({ pressed }) => ({
                   flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12,
                   backgroundColor: '#FFF',
-                  borderRadius: 12, height: 54,
-                  borderWidth: 1, borderColor: '#EAEAF2',
-                  marginBottom: 40,
-                  opacity: pressed ? 0.7 : 1,
+                  borderRadius: 16, height: 60,
+                  marginBottom: 20,
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.2,
+                  shadowRadius: 8,
+                  elevation: 5,
+                  opacity: pressed ? 0.9 : 1,
+                  transform: [{ scale: pressed ? 0.98 : 1 }]
                 })}
                 onPress={startGoogleSignIn}
               >
                 <Ionicons name="logo-google" size={24} color="#4285F4" />
-                <Text style={{ fontSize: 18, fontFamily: 'Inter_600SemiBold', color: '#111' }}>Sign in with Google</Text>
+                <Text style={{ fontSize: 18, fontFamily: 'Inter_600SemiBold', color: '#0A0A14' }}>Continue with Google</Text>
               </Pressable>
 
               <View style={{ flex: 1 }} />
@@ -738,20 +756,27 @@ export default function OnboardingScreen() {
               <Pressable
                 testID="continue-button"
                 style={({ pressed }) => ({
-                  backgroundColor: (!phone.trim() || checking) ? '#FFD5C4' : '#FFB28E',
-                  borderRadius: 16, height: 56,
-                  alignItems: 'center', justifyContent: 'center',
-                  marginBottom: Math.max(insets.bottom, 20),
+                  borderRadius: 20, height: 65,
+                  overflow: 'hidden',
+                  marginBottom: Math.max(insets.bottom, 30),
                   opacity: pressed ? 0.9 : 1,
+                  transform: [{ scale: pressed ? 0.98 : 1 }]
                 })}
                 onPress={handleNext}
                 disabled={!phone.trim() || checking}
               >
-                {checking ? (
-                  <ActivityIndicator color="#FFF" size="small" />
-                ) : (
-                  <Text style={{ fontSize: 18, fontFamily: 'Inter_700Bold', color: '#FFF' }}>Continue</Text>
-                )}
+                <LinearGradient
+                  colors={['#4285F4', '#FFB28E']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+                >
+                  {checking ? (
+                    <ActivityIndicator color="#FFF" size="small" />
+                  ) : (
+                    <Text style={{ fontSize: 20, fontFamily: 'Inter_700Bold', color: '#FFF', letterSpacing: 0.5 }}>Get Started</Text>
+                  )}
+                </LinearGradient>
               </Pressable>
             </View>
           </View>
