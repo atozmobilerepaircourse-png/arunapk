@@ -665,10 +665,10 @@ export default function OnboardingScreen() {
       case 'phone':
         return (
           <View style={{ flex: 1, backgroundColor: '#0A0A14' }}>
-            {/* Dark hero with background image - adjusted to contain the full image */}
+            {/* Dark hero with background image - adjusted to cover the remaining space like black */}
             <View style={{
               backgroundColor: '#0A0A14',
-              height: 300,
+              flex: 1.2,
               width: '100%',
               justifyContent: 'center',
               alignItems: 'center',
@@ -684,11 +684,10 @@ export default function OnboardingScreen() {
               />
             </View>
 
-            {/* White card */}
+            {/* White card - adjusted height to allow hero to be bigger */}
             <View style={{
               backgroundColor: '#FFF',
               borderTopLeftRadius: 32, borderTopRightRadius: 32,
-              flex: 1,
               padding: 24,
               paddingBottom: (Platform.OS === 'web' ? 34 : Math.max(insets.bottom, 24)) + 8,
             }}>
