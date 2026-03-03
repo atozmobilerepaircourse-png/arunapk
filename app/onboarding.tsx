@@ -672,7 +672,7 @@ export default function OnboardingScreen() {
             />
             
             {/* 3D Hero Image Section with Gradient Overlay - Portrait optimized */}
-            <View style={{ height: '55%', width: '100%', position: 'relative' }}>
+            <View style={{ height: '45%', width: '100%', position: 'relative' }}>
               <Image
                 source={require('@/assets/images/onboarding-hero.jpeg')}
                 style={{ width: '100%', height: '100%' }}
@@ -680,47 +680,47 @@ export default function OnboardingScreen() {
               />
               <LinearGradient
                 colors={['transparent', 'rgba(10,10,20,0.9)', '#0A0A14']}
-                style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 200 }}
+                style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 180 }}
               />
             </View>
 
-            <View style={{ paddingHorizontal: 24, flex: 1, justifyContent: 'flex-start', marginTop: -40 }}>
+            <View style={{ paddingHorizontal: 20, flex: 1, justifyContent: 'flex-start', marginTop: -30 }}>
               <Text style={{ 
-                fontSize: 34, 
+                fontSize: 30, 
                 fontFamily: 'Inter_700Bold', 
                 color: '#FFF', 
                 textAlign: 'left',
                 textShadowColor: 'rgba(0,0,0,0.5)',
                 textShadowOffset: { width: 0, height: 2 },
                 textShadowRadius: 4,
-                marginBottom: 8
+                marginBottom: 6
               }}>
                 Welcome to MOBI
               </Text>
               <Text style={{ 
-                fontSize: 16, 
+                fontSize: 15, 
                 color: 'rgba(255,255,255,0.7)', 
                 textAlign: 'left', 
-                marginBottom: 24, 
+                marginBottom: 20, 
                 fontFamily: 'Inter_400Regular',
-                lineHeight: 22
+                lineHeight: 20
               }}>
                 Network, Learn & Grow with the elite mobile technician community.
               </Text>
 
-              <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
                 <View style={{
-                  backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 14,
-                  width: 64, justifyContent: 'center', alignItems: 'center',
-                  borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', height: 54,
+                  backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 12,
+                  width: 60, justifyContent: 'center', alignItems: 'center',
+                  borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', height: 48,
                 }}>
-                  <Text style={{ fontSize: 17, fontFamily: 'Inter_600SemiBold', color: '#FFF' }}>+91</Text>
+                  <Text style={{ fontSize: 16, fontFamily: 'Inter_600SemiBold', color: '#FFF' }}>+91</Text>
                 </View>
                 <TextInput
                   style={{
-                    flex: 1, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 14,
-                    paddingHorizontal: 16, fontSize: 17, color: '#FFF',
-                    fontFamily: 'Inter_500Medium', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', height: 54,
+                    flex: 1, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 12,
+                    paddingHorizontal: 14, fontSize: 16, color: '#FFF',
+                    fontFamily: 'Inter_500Medium', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', height: 48,
                   }}
                   placeholder="Mobile number"
                   placeholderTextColor="rgba(255,255,255,0.35)"
@@ -733,10 +733,10 @@ export default function OnboardingScreen() {
 
               <Pressable
                 style={({ pressed }) => ({
-                  flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
+                  flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
                   backgroundColor: '#FFF',
-                  borderRadius: 14, height: 54,
-                  marginBottom: 16,
+                  borderRadius: 12, height: 48,
+                  marginBottom: 12,
                   shadowColor: '#000',
                   shadowOffset: { width: 0, height: 4 },
                   shadowOpacity: 0.2,
@@ -747,8 +747,8 @@ export default function OnboardingScreen() {
                 })}
                 onPress={startGoogleSignIn}
               >
-                <Ionicons name="logo-google" size={22} color="#4285F4" />
-                <Text style={{ fontSize: 17, fontFamily: 'Inter_600SemiBold', color: '#0A0A14' }}>Sign in with Google</Text>
+                <Ionicons name="logo-google" size={20} color="#4285F4" />
+                <Text style={{ fontSize: 16, fontFamily: 'Inter_600SemiBold', color: '#0A0A14' }}>Sign in with Google</Text>
               </Pressable>
 
               <View style={{ flex: 1 }} />
@@ -756,9 +756,9 @@ export default function OnboardingScreen() {
               <Pressable
                 testID="continue-button"
                 style={({ pressed }) => ({
-                  borderRadius: 16, height: 58,
+                  borderRadius: 14, height: 54,
                   overflow: 'hidden',
-                  marginBottom: Math.max(insets.bottom, 16),
+                  marginBottom: Math.max(insets.bottom, 12),
                   opacity: pressed ? 0.9 : 1,
                   transform: [{ scale: pressed ? 0.98 : 1 }]
                 })}
