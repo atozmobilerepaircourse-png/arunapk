@@ -524,7 +524,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!token) return res.status(400).json({ success: false, message: "Token required" });
       const clientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
       if (!clientId) return res.status(500).json({ success: false, message: "Google OAuth not configured" });
-      const devDomain = "repair-backend-us-456751858632.us-central1.run.app";
+      const devDomain = "repair-backend-3siuld7gbq-el.a.run.app";
       const redirectUri = `https://${devDomain}/api/auth/google/callback`;
       const stateObj = { token };
       const stateStr = Buffer.from(JSON.stringify(stateObj)).toString('base64');
@@ -612,7 +612,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return sendGoogleErrorPage(res, "Google OAuth is not configured on the server.");
       }
 
-      const devDomain = "repair-backend-us-456751858632.us-central1.run.app";
+      const devDomain = "repair-backend-3siuld7gbq-el.a.run.app";
       const redirectUri = `https://${devDomain}/api/auth/google/callback`;
       console.log("[Google Auth] Using redirect_uri:", redirectUri);
 
@@ -765,7 +765,7 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
         return res.status(500).json({ success: false, message: "Google OAuth not configured" });
       }
 
-      const devDomain = "repair-backend-us-456751858632.us-central1.run.app";
+      const devDomain = "repair-backend-3siuld7gbq-el.a.run.app";
       const redirectUri = `https://${devDomain}/api/auth/google/callback`;
       console.log("[Google Auth] process-code redirect_uri:", redirectUri);
 

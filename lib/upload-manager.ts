@@ -3,6 +3,7 @@ let _progress = 0;
 let _message = '';
 let _fileName = '';
 let _isUploading = false;
+let _bannerSuppressed = false;
 const _listeners: Set<() => void> = new Set();
 
 function notify() {
@@ -51,6 +52,8 @@ export const UploadManager = {
   getProgress: () => _progress,
   getMessage: () => _message,
   getFileName: () => _fileName,
+  suppressBanner: (val: boolean) => { _bannerSuppressed = val; notify(); },
+  isBannerSuppressed: () => _bannerSuppressed,
 
   subscribe(fn: () => void): () => void {
     _listeners.add(fn);

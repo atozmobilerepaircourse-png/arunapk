@@ -89,6 +89,13 @@ export default function CreateCourseScreen() {
     showStatus('Upload cancelled', 'info');
   };
 
+  useFocusEffect(
+    React.useCallback(() => {
+      UploadManager.suppressBanner(true);
+      return () => { UploadManager.suppressBanner(false); };
+    }, [])
+  );
+
   const isUploadActive = useRef(false);
   const [statusMsg, setStatusMsg] = useState('');
   const [statusType, setStatusType] = useState<'success' | 'error' | 'info'>('info');
@@ -745,7 +752,7 @@ export default function CreateCourseScreen() {
                   </>
                 )}
                 <Text style={styles.progressLimit}>Max file size: 2 GB</Text>
-                {xhrRef.current && (
+                {UploadManager.isUploading() && (
                   <Pressable style={styles.cancelUploadBtn} onPress={cancelUpload}>
                     <Ionicons name="close-circle-outline" size={18} color="#E53935" />
                     <Text style={styles.cancelUploadText}>Cancel Upload</Text>
@@ -891,7 +898,7 @@ export default function CreateCourseScreen() {
               </>
             )}
             <Text style={styles.progressLimit}>Max file size: 2 GB</Text>
-            {xhrRef.current && (
+            {UploadManager.isUploading() && (
               <Pressable style={styles.cancelUploadBtn} onPress={cancelUpload}>
                 <Ionicons name="close-circle-outline" size={18} color="#E53935" />
                 <Text style={styles.cancelUploadText}>Cancel Upload</Text>
@@ -1079,7 +1086,7 @@ export default function CreateCourseScreen() {
                       </>
                     )}
                     <Text style={styles.progressLimit}>Max file size: 2 GB</Text>
-                    {xhrRef.current && (
+                    {UploadManager.isUploading() && (
                       <Pressable style={styles.cancelUploadBtn} onPress={cancelUpload}>
                         <Ionicons name="close-circle-outline" size={18} color="#E53935" />
                         <Text style={styles.cancelUploadText}>Cancel Upload</Text>

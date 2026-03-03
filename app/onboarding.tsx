@@ -4,6 +4,7 @@ import {
   Platform, Alert, ActivityIndicator, Modal, FlatList,
 } from 'react-native';
 import { Image } from 'expo-image';
+import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -663,54 +664,123 @@ export default function OnboardingScreen() {
     switch (currentScreen) {
       case 'phone':
         return (
-          <View style={[styles.stepContent, { padding: 24, backgroundColor: '#FFF' }]}>
-            <View style={[styles.stepHeader, { marginBottom: 32 }]}>
-              <Image 
-                source={require('@/assets/images/mobi-banner.jpeg')} 
-                style={{ width: '100%', height: 240, borderRadius: 28, marginBottom: 28 }}
-                contentFit="cover"
-              />
-              <Text style={[styles.stepTitle, { fontSize: 34, color: '#1A1A1A', marginBottom: 8 }]}>Welcome to Mobi</Text>
-              <Text style={[styles.stepSubtitle, { fontSize: 17, color: '#666' }]}>India's biggest repair community</Text>
+          <View style={{ flex: 1 }}>
+            {/* Dark hero */}
+            <View style={{
+              backgroundColor: '#0A0A14',
+              paddingTop: (Platform.OS === 'web' ? webTopInset : insets.top) + 48,
+              paddingBottom: 44,
+              paddingHorizontal: 28,
+              alignItems: 'center',
+            }}>
+              <View style={{
+                width: 68, height: 68, borderRadius: 22,
+                backgroundColor: '#FF6B2C', justifyContent: 'center', alignItems: 'center',
+                marginBottom: 18,
+                shadowColor: '#FF6B2C', shadowOffset: { width: 0, height: 0 },
+                shadowOpacity: 0.45, shadowRadius: 24, elevation: 10,
+              }}>
+                <Ionicons name="construct" size={34} color="#FFF" />
+              </View>
+              <Text style={{ fontSize: 44, fontFamily: 'Inter_700Bold', color: '#FFF', letterSpacing: -1.5, marginBottom: 10 }}>Mobi</Text>
+              <Text style={{ fontSize: 15, color: '#5A5A7A', fontFamily: 'Inter_400Regular', textAlign: 'center', marginBottom: 36, lineHeight: 22 }}>
+                India's largest mobile repair community
+              </Text>
+              <View style={{ flexDirection: 'row', gap: 36 }}>
+                {[['50k+', 'Techs'], ['4.9★', 'Rating'], ['100+', 'Cities']].map(([num, label], i) => (
+                  <View key={i} style={{ alignItems: 'center' }}>
+                    <Text style={{ fontSize: 22, fontFamily: 'Inter_700Bold', color: '#FF6B2C' }}>{num}</Text>
+                    <Text style={{ fontSize: 12, color: '#4A4A6A', fontFamily: 'Inter_400Regular', marginTop: 3 }}>{label}</Text>
+                  </View>
+                ))}
+              </View>
             </View>
 
-            <View style={{ gap: 24 }}>
-              <View>
-                <Text style={[styles.fieldLabel, { color: C.primary, fontSize: 12, letterSpacing: 1, marginBottom: 8 }]}>MOBILE NUMBER</Text>
-                <View style={styles.phoneRow}>
-                  <View style={[styles.countryCode, { height: 60, borderRadius: 18, backgroundColor: '#F8F9FA' }]}>
-                    <Text style={[styles.countryCodeText, { color: '#1A1A1A' }]}>+91</Text>
-                  </View>
-                  <TextInput
-                    style={[styles.input, { flex: 1, height: 60, borderRadius: 18, fontSize: 18, backgroundColor: '#F8F9FA' }]}
-                    placeholder="10-digit mobile number"
-                    placeholderTextColor="#ADB5BD"
-                    value={phone}
-                    onChangeText={(text) => setPhone(text.replace(/\D/g, '').slice(0, 10))}
-                    keyboardType="phone-pad"
-                    maxLength={10}
-                    autoFocus
-                  />
+            {/* White card */}
+            <View style={{
+              backgroundColor: '#FFF',
+              borderTopLeftRadius: 32, borderTopRightRadius: 32,
+              flex: 1, marginTop: -24,
+              padding: 28,
+              paddingBottom: (Platform.OS === 'web' ? 34 : Math.max(insets.bottom, 24)) + 8,
+            }}>
+              <Text style={{ fontSize: 26, fontFamily: 'Inter_700Bold', color: '#111', marginBottom: 6 }}>Sign in to continue</Text>
+              <Text style={{ fontSize: 14, color: '#9B9BA8', marginBottom: 28, fontFamily: 'Inter_400Regular' }}>
+                Enter your mobile number or use Google
+              </Text>
+
+              <Text style={{ fontSize: 11, fontFamily: 'Inter_700Bold', color: '#FF6B2C', letterSpacing: 1.5, marginBottom: 10 }}>MOBILE NUMBER</Text>
+              <View style={{ flexDirection: 'row', gap: 10, marginBottom: 20 }}>
+                <View style={{
+                  backgroundColor: '#F4F4F9', borderRadius: 16,
+                  paddingHorizontal: 16, justifyContent: 'center', alignItems: 'center',
+                  borderWidth: 1.5, borderColor: '#EAEAF2', height: 58,
+                }}>
+                  <Text style={{ fontSize: 17, fontFamily: 'Inter_600SemiBold', color: '#111' }}>+91</Text>
                 </View>
+                <TextInput
+                  style={{
+                    flex: 1, backgroundColor: '#F4F4F9', borderRadius: 16,
+                    paddingHorizontal: 18, fontSize: 18, color: '#111',
+                    fontFamily: 'Inter_500Medium', borderWidth: 1.5, borderColor: '#EAEAF2', height: 58,
+                  }}
+                  placeholder="Mobile number"
+                  placeholderTextColor="#C0C0D0"
+                  keyboardType="phone-pad"
+                  value={phone}
+                  onChangeText={(text) => setPhone(text.replace(/\D/g, '').slice(0, 10))}
+                  maxLength={10}
+                  autoFocus={Platform.OS !== 'web'}
+                />
               </View>
 
-              <View style={[styles.dividerRow, { marginVertical: 8 }]}>
-                <View style={[styles.dividerLine, { backgroundColor: '#E9ECEF' }]} />
-                <Text style={[styles.dividerText, { color: '#6C757D', fontSize: 14, marginHorizontal: 12 }]}>OR</Text>
-                <View style={[styles.dividerLine, { backgroundColor: '#E9ECEF' }]} />
+              {/* Continue button */}
+              <Pressable
+                testID="continue-button"
+                style={({ pressed }) => ({
+                  backgroundColor: (!phone.trim() || checking) ? '#FFB89A' : '#FF6B2C',
+                  borderRadius: 16, height: 58,
+                  flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
+                  marginBottom: 16,
+                  opacity: pressed ? 0.88 : 1,
+                })}
+                onPress={handleNext}
+                disabled={!phone.trim() || checking}
+              >
+                {checking ? (
+                  <ActivityIndicator color="#FFF" size="small" />
+                ) : (
+                  <>
+                    <Text style={{ fontSize: 17, fontFamily: 'Inter_700Bold', color: '#FFF' }}>Continue</Text>
+                    <Ionicons name="arrow-forward" size={20} color="#FFF" />
+                  </>
+                )}
+              </Pressable>
+
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+                <View style={{ flex: 1, height: 1, backgroundColor: '#EAEAF2' }} />
+                <Text style={{ marginHorizontal: 14, color: '#B0B0C8', fontSize: 13, fontFamily: 'Inter_500Medium' }}>or</Text>
+                <View style={{ flex: 1, height: 1, backgroundColor: '#EAEAF2' }} />
               </View>
 
-              <Pressable 
-                style={({ pressed }) => [
-                  styles.googleBtn,
-                  { height: 60, borderRadius: 18, backgroundColor: '#FFF', borderColor: '#E9ECEF', borderWidth: 1 },
-                  pressed && { opacity: 0.7, backgroundColor: '#F8F9FA' }
-                ]}
+              <Pressable
+                style={({ pressed }) => ({
+                  flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 14,
+                  backgroundColor: pressed ? '#F4F4F9' : '#FFF',
+                  borderRadius: 16, height: 56,
+                  borderWidth: 1.5, borderColor: '#EAEAF2',
+                  shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.06, shadowRadius: 8, elevation: 2,
+                })}
                 onPress={startGoogleSignIn}
               >
-                <Ionicons name="logo-google" size={24} color="#4285F4" />
-                <Text style={[styles.googleBtnText, { fontSize: 16, color: '#1A1A1A' }]}>Sign in with Google</Text>
+                <Ionicons name="logo-google" size={22} color="#4285F4" />
+                <Text style={{ fontSize: 16, fontFamily: 'Inter_600SemiBold', color: '#111' }}>Sign in with Google</Text>
               </Pressable>
+
+              <Text style={{ textAlign: 'center', color: '#C0C0C8', fontSize: 11, marginTop: 24, fontFamily: 'Inter_400Regular' }}>
+                By continuing, you agree to our Terms of Service
+              </Text>
             </View>
           </View>
         );
@@ -1243,66 +1313,74 @@ export default function OnboardingScreen() {
     return false;
   };
 
+  const isPhoneScreen = currentScreen === 'phone';
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, isPhoneScreen && { backgroundColor: '#0A0A14' }]}>
+      <StatusBar style={isPhoneScreen ? 'light' : 'dark'} />
       <ScrollView
-        contentContainerStyle={[
-          styles.scrollContent,
-          { paddingTop: (Platform.OS === 'web' ? webTopInset : insets.top) + 20 },
-        ]}
+        contentContainerStyle={
+          isPhoneScreen
+            ? { flexGrow: 1 }
+            : [styles.scrollContent, { paddingTop: (Platform.OS === 'web' ? webTopInset : insets.top) + 20 }]
+        }
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
         pointerEvents="auto"
       >
-        <View style={styles.progressBar}>
-          {Array.from({ length: TOTAL_STEPS }).map((_, i) => (
-            <View
-              key={i}
-              style={[
-                styles.progressDot,
-                i <= step && { backgroundColor: C.primary, flex: i === step ? 2 : 1 },
-              ]}
-            />
-          ))}
-        </View>
+        {!isPhoneScreen && (
+          <View style={styles.progressBar}>
+            {Array.from({ length: TOTAL_STEPS }).map((_, i) => (
+              <View
+                key={i}
+                style={[
+                  styles.progressDot,
+                  i <= step && { backgroundColor: C.primary, flex: i === step ? 2 : 1 },
+                ]}
+              />
+            ))}
+          </View>
+        )}
 
         {renderStep()}
       </ScrollView>
 
-      <View style={[styles.bottomActions, { paddingBottom: Platform.OS === 'web' ? 34 : Math.max(insets.bottom, 16), zIndex: 9999, elevation: 9999 }]} pointerEvents="box-none">
-        {step > 0 && (
-          <Pressable style={styles.backBtn} onPress={() => {
-            if (currentScreen === 'otp') {
-              setOtpCode('');
-              setOtpSent(false);
-              setOtpResendTimer(0);
-            }
-            setStep(s => s - 1);
-          }}>
-            <Ionicons name="arrow-back" size={22} color={C.textSecondary} />
-          </Pressable>
-        )}
-        <Pressable
-          style={({ pressed }) => [
-            styles.nextBtn,
-            { zIndex: 10000, elevation: 10000 },
-            pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
-            isButtonDisabled() && { opacity: 0.5 },
-          ]}
-          onPress={handleButtonPress}
-          disabled={isButtonDisabled()}
-          testID="continue-button"
-        >
-          {(checking || uploadingSelfie || otpVerifying) ? (
-            <ActivityIndicator color="#FFF" size="small" />
-          ) : (
-            <>
-              <Text style={styles.nextBtnText}>{getButtonText()}</Text>
-              <Ionicons name={getButtonIcon()} size={20} color="#FFF" />
-            </>
+      {!isPhoneScreen && (
+        <View style={[styles.bottomActions, { paddingBottom: Platform.OS === 'web' ? 34 : Math.max(insets.bottom, 16), zIndex: 9999, elevation: 9999 }]} pointerEvents="box-none">
+          {step > 0 && (
+            <Pressable style={styles.backBtn} onPress={() => {
+              if (currentScreen === 'otp') {
+                setOtpCode('');
+                setOtpSent(false);
+                setOtpResendTimer(0);
+              }
+              setStep(s => s - 1);
+            }}>
+              <Ionicons name="arrow-back" size={22} color={C.textSecondary} />
+            </Pressable>
           )}
-        </Pressable>
-      </View>
+          <Pressable
+            style={({ pressed }) => [
+              styles.nextBtn,
+              { zIndex: 10000, elevation: 10000 },
+              pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
+              isButtonDisabled() && { opacity: 0.5 },
+            ]}
+            onPress={handleButtonPress}
+            disabled={isButtonDisabled()}
+            testID="continue-button"
+          >
+            {(checking || uploadingSelfie || otpVerifying) ? (
+              <ActivityIndicator color="#FFF" size="small" />
+            ) : (
+              <>
+                <Text style={styles.nextBtnText}>{getButtonText()}</Text>
+                <Ionicons name={getButtonIcon()} size={20} color="#FFF" />
+              </>
+            )}
+          </Pressable>
+        </View>
+      )}
     </View>
   );
 }

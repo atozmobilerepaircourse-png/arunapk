@@ -9,11 +9,29 @@ Mobile-first social networking and directory platform for repair professionals i
 ## Deployment Strategy
 
 ### Frontend (Firebase Hosting — project: mobile-repair-app-276b6)
-```
-npx expo export --platform web
-FIREBASE_TOKEN="TOKEN" npx firebase-tools deploy --only hosting --project mobile-repair-app-276b6 --non-interactive
+```bash
+# Step 1: Build
+npx expo export -p web
+
+# Step 2: ALWAYS copy fonts after build (expo export wipes dist/_expo/static/fonts/ each time)
+mkdir -p dist/_expo/static/fonts
+cp node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/*.ttf dist/_expo/static/fonts/
+cp node_modules/@expo-google-fonts/inter/400Regular/Inter_400Regular.ttf dist/_expo/static/fonts/
+cp node_modules/@expo-google-fonts/inter/500Medium/Inter_500Medium.ttf dist/_expo/static/fonts/
+cp node_modules/@expo-google-fonts/inter/600SemiBold/Inter_600SemiBold.ttf dist/_expo/static/fonts/
+cp node_modules/@expo-google-fonts/inter/700Bold/Inter_700Bold.ttf dist/_expo/static/fonts/
+
+# Step 3: ALWAYS inject @font-face CSS into dist/index.html (see below for snippet)
+# The style block with id="icon-fonts" must be added before id="expo-reset"
+# It declares @font-face for: AntDesign, Entypo, EvilIcons, Feather, FontAwesome, FontAwesome5/6 variants,
+# Fontisto, Foundation, Ionicons, MaterialCommunityIcons, MaterialIcons, Octicons, SimpleLineIcons, Zocial,
+# and Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold
+
+# Step 4: Deploy
+FIREBASE_TOKEN="TOKEN" ./node_modules/.bin/firebase deploy --only hosting --project mobile-repair-app-276b6 --non-interactive
 ```
 **IMPORTANT**: Use `--project mobile-repair-app-276b6` (NOT `atoz-mobile-repair-488915`). The Firebase Hosting site belongs to the `mobile-repair-app-276b6` project.
+**IMPORTANT**: Always use `./node_modules/.bin/firebase` not `npx firebase-tools` to avoid version mismatch.
 
 ### Backend (Cloud Run — project: atoz-mobile-repair-488915, region: asia-south1)
 ```

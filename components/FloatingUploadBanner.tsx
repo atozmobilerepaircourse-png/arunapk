@@ -22,7 +22,17 @@ export function FloatingUploadBanner() {
     return unsubscribe;
   }, []);
 
+  const [suppressed, setSuppressed] = useState(false);
+
+  useEffect(() => {
+    const unsub = UploadManager.subscribe(() => {
+      setSuppressed(UploadManager.isBannerSuppressed());
+    });
+    return unsub;
+  }, []);
+
   if (!isUploading && progress === 0) return null;
+  if (suppressed) return null;
 
   const handleCancel = () => {
     if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
