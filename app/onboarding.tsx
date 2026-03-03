@@ -664,34 +664,36 @@ export default function OnboardingScreen() {
     switch (currentScreen) {
       case 'phone':
         return (
-          <View style={{ flex: 1 }}>
-            {/* Dark hero with background image */}
+          <View style={{ flex: 1, backgroundColor: '#0A0A14' }}>
+            {/* Dark hero with background image - adjusted to contain the full image */}
             <View style={{
               backgroundColor: '#0A0A14',
-              height: 380,
-              justifyContent: 'flex-end',
+              height: 300,
+              width: '100%',
+              justifyContent: 'center',
+              alignItems: 'center',
+              paddingTop: Platform.OS === 'web' ? webTopInset : insets.top,
             }}>
               <Image
                 source={require('@/assets/images/onboarding-hero.jpeg')}
-                style={StyleSheet.absoluteFillObject}
-                contentFit="cover"
+                style={{
+                  width: '100%',
+                  height: '100%',
+                }}
+                contentFit="contain"
               />
-              <View style={{
-                ...StyleSheet.absoluteFillObject,
-                backgroundColor: 'rgba(10, 10, 20, 0.4)',
-              }} />
             </View>
 
             {/* White card */}
             <View style={{
               backgroundColor: '#FFF',
               borderTopLeftRadius: 32, borderTopRightRadius: 32,
-              flex: 1, marginTop: -32,
+              flex: 1,
               padding: 24,
               paddingBottom: (Platform.OS === 'web' ? 34 : Math.max(insets.bottom, 24)) + 8,
             }}>
               <Text style={{ fontSize: 24, fontFamily: 'Inter_700Bold', color: '#111', marginBottom: 4 }}>Sign in to continue</Text>
-              <Text style={{ fontSize: 13, color: '#9B9BA8', marginBottom: 24, fontFamily: 'Inter_400Regular' }}>
+              <Text style={{ fontSize: 13, color: '#9B9BA8', marginBottom: 20, fontFamily: 'Inter_400Regular' }}>
                 Enter your mobile number or use Google
               </Text>
 
@@ -700,7 +702,7 @@ export default function OnboardingScreen() {
                 <View style={{
                   backgroundColor: '#F4F4F9', borderRadius: 12,
                   paddingHorizontal: 12, justifyContent: 'center', alignItems: 'center',
-                  borderWidth: 1, borderColor: '#EAEAF2', height: 48,
+                  borderWidth: 1, borderColor: '#EAEAF2', height: 44,
                 }}>
                   <Text style={{ fontSize: 16, fontFamily: 'Inter_600SemiBold', color: '#111' }}>+91</Text>
                 </View>
@@ -708,7 +710,7 @@ export default function OnboardingScreen() {
                   style={{
                     flex: 1, backgroundColor: '#F4F4F9', borderRadius: 12,
                     paddingHorizontal: 14, fontSize: 16, color: '#111',
-                    fontFamily: 'Inter_500Medium', borderWidth: 1, borderColor: '#EAEAF2', height: 48,
+                    fontFamily: 'Inter_500Medium', borderWidth: 1, borderColor: '#EAEAF2', height: 44,
                   }}
                   placeholder="Mobile number"
                   placeholderTextColor="#C0C0D0"
@@ -725,7 +727,7 @@ export default function OnboardingScreen() {
                 testID="continue-button"
                 style={({ pressed }) => ({
                   backgroundColor: (!phone.trim() || checking) ? '#FFB89A' : '#FF6B2C',
-                  borderRadius: 12, height: 48,
+                  borderRadius: 12, height: 44,
                   flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
                   marginBottom: 12,
                   opacity: pressed ? 0.88 : 1,
@@ -753,7 +755,7 @@ export default function OnboardingScreen() {
                 style={({ pressed }) => ({
                   flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
                   backgroundColor: pressed ? '#F4F4F9' : '#FFF',
-                  borderRadius: 12, height: 48,
+                  borderRadius: 12, height: 44,
                   borderWidth: 1, borderColor: '#EAEAF2',
                 })}
                 onPress={startGoogleSignIn}
