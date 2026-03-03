@@ -671,59 +671,59 @@ export default function OnboardingScreen() {
               style={StyleSheet.absoluteFill}
             />
             
-            {/* 3D Hero Image Section with Gradient Overlay */}
-            <View style={{ height: '45%', width: '100%', position: 'relative' }}>
+            {/* 3D Hero Image Section with Gradient Overlay - Portrait optimized */}
+            <View style={{ height: '55%', width: '100%', position: 'relative' }}>
               <Image
                 source={require('@/assets/images/onboarding-hero.jpeg')}
                 style={{ width: '100%', height: '100%' }}
                 contentFit="cover"
               />
               <LinearGradient
-                colors={['transparent', 'rgba(10,10,20,0.8)', '#0A0A14']}
-                style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 150 }}
+                colors={['transparent', 'rgba(10,10,20,0.9)', '#0A0A14']}
+                style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 200 }}
               />
             </View>
 
-            <View style={{ paddingHorizontal: 30, flex: 1, justifyContent: 'flex-start', marginTop: -20 }}>
+            <View style={{ paddingHorizontal: 24, flex: 1, justifyContent: 'flex-start', marginTop: -40 }}>
               <Text style={{ 
-                fontSize: 38, 
+                fontSize: 34, 
                 fontFamily: 'Inter_700Bold', 
                 color: '#FFF', 
                 textAlign: 'left',
                 textShadowColor: 'rgba(0,0,0,0.5)',
                 textShadowOffset: { width: 0, height: 2 },
-                textShadowRadius: 4
+                textShadowRadius: 4,
+                marginBottom: 8
               }}>
                 Welcome to MOBI
               </Text>
               <Text style={{ 
-                fontSize: 18, 
+                fontSize: 16, 
                 color: 'rgba(255,255,255,0.7)', 
                 textAlign: 'left', 
-                marginBottom: 30, 
+                marginBottom: 24, 
                 fontFamily: 'Inter_400Regular',
-                lineHeight: 26
+                lineHeight: 22
               }}>
                 Network, Learn & Grow with the elite mobile technician community.
               </Text>
 
-              <Text style={{ fontSize: 14, color: '#9B9BA8', marginBottom: 10, fontFamily: 'Inter_600SemiBold', textTransform: 'uppercase', letterSpacing: 1 }}>Mobile Number</Text>
-              <View style={{ flexDirection: 'row', gap: 12, marginBottom: 25 }}>
+              <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
                 <View style={{
-                  backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 16,
-                  width: 70, justifyContent: 'center', alignItems: 'center',
-                  borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', height: 60,
+                  backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 14,
+                  width: 64, justifyContent: 'center', alignItems: 'center',
+                  borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', height: 54,
                 }}>
-                  <Text style={{ fontSize: 18, fontFamily: 'Inter_600SemiBold', color: '#FFF' }}>+91</Text>
+                  <Text style={{ fontSize: 17, fontFamily: 'Inter_600SemiBold', color: '#FFF' }}>+91</Text>
                 </View>
                 <TextInput
                   style={{
-                    flex: 1, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 16,
-                    paddingHorizontal: 20, fontSize: 18, color: '#FFF',
-                    fontFamily: 'Inter_500Medium', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', height: 60,
+                    flex: 1, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 14,
+                    paddingHorizontal: 16, fontSize: 17, color: '#FFF',
+                    fontFamily: 'Inter_500Medium', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', height: 54,
                   }}
-                  placeholder="Enter mobile number"
-                  placeholderTextColor="rgba(255,255,255,0.3)"
+                  placeholder="Mobile number"
+                  placeholderTextColor="rgba(255,255,255,0.35)"
                   keyboardType="phone-pad"
                   value={phone}
                   onChangeText={(text) => setPhone(text.replace(/\D/g, '').slice(0, 10))}
@@ -733,10 +733,10 @@ export default function OnboardingScreen() {
 
               <Pressable
                 style={({ pressed }) => ({
-                  flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12,
+                  flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
                   backgroundColor: '#FFF',
-                  borderRadius: 16, height: 60,
-                  marginBottom: 20,
+                  borderRadius: 14, height: 54,
+                  marginBottom: 16,
                   shadowColor: '#000',
                   shadowOffset: { width: 0, height: 4 },
                   shadowOpacity: 0.2,
@@ -747,8 +747,8 @@ export default function OnboardingScreen() {
                 })}
                 onPress={startGoogleSignIn}
               >
-                <Ionicons name="logo-google" size={24} color="#4285F4" />
-                <Text style={{ fontSize: 18, fontFamily: 'Inter_600SemiBold', color: '#0A0A14' }}>Continue with Google</Text>
+                <Ionicons name="logo-google" size={22} color="#4285F4" />
+                <Text style={{ fontSize: 17, fontFamily: 'Inter_600SemiBold', color: '#0A0A14' }}>Sign in with Google</Text>
               </Pressable>
 
               <View style={{ flex: 1 }} />
@@ -756,9 +756,9 @@ export default function OnboardingScreen() {
               <Pressable
                 testID="continue-button"
                 style={({ pressed }) => ({
-                  borderRadius: 20, height: 65,
+                  borderRadius: 16, height: 58,
                   overflow: 'hidden',
-                  marginBottom: Math.max(insets.bottom, 30),
+                  marginBottom: Math.max(insets.bottom, 16),
                   opacity: pressed ? 0.9 : 1,
                   transform: [{ scale: pressed ? 0.98 : 1 }]
                 })}
@@ -774,7 +774,7 @@ export default function OnboardingScreen() {
                   {checking ? (
                     <ActivityIndicator color="#FFF" size="small" />
                   ) : (
-                    <Text style={{ fontSize: 20, fontFamily: 'Inter_700Bold', color: '#FFF', letterSpacing: 0.5 }}>Get Started</Text>
+                    <Text style={{ fontSize: 18, fontFamily: 'Inter_700Bold', color: '#FFF', letterSpacing: 0.5 }}>Get Started</Text>
                   )}
                 </LinearGradient>
               </Pressable>
