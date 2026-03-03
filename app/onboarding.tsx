@@ -704,25 +704,25 @@ export default function OnboardingScreen() {
               // Subtle 3D lift effect
               transform: [{ translateY: 0 }],
             }}>
-              <Text style={{ fontSize: 22, fontFamily: 'Inter_700Bold', color: '#111', marginBottom: 2 }}>Sign in to continue</Text>
-              <Text style={{ fontSize: 13, color: '#9B9BA8', marginBottom: 18, fontFamily: 'Inter_400Regular' }}>
+              <Text style={{ fontSize: 18, fontFamily: 'Inter_700Bold', color: '#111', marginBottom: 2 }}>Sign in to continue</Text>
+              <Text style={{ fontSize: 12, color: '#9B9BA8', marginBottom: 14, fontFamily: 'Inter_400Regular' }}>
                 Enter your mobile number or use Google
               </Text>
 
-              <Text style={{ fontSize: 10, fontFamily: 'Inter_700Bold', color: '#FF6B2C', letterSpacing: 1.2, marginBottom: 6 }}>MOBILE NUMBER</Text>
-              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+              <Text style={{ fontSize: 9, fontFamily: 'Inter_700Bold', color: '#FF6B2C', letterSpacing: 1.2, marginBottom: 4 }}>MOBILE NUMBER</Text>
+              <View style={{ flexDirection: 'row', gap: 6, marginBottom: 10 }}>
                 <View style={{
-                  backgroundColor: '#F4F4F9', borderRadius: 12,
-                  paddingHorizontal: 12, justifyContent: 'center', alignItems: 'center',
-                  borderWidth: 1, borderColor: '#EAEAF2', height: 40,
+                  backgroundColor: '#F4F4F9', borderRadius: 10,
+                  paddingHorizontal: 10, justifyContent: 'center', alignItems: 'center',
+                  borderWidth: 1, borderColor: '#EAEAF2', height: 36,
                 }}>
-                  <Text style={{ fontSize: 15, fontFamily: 'Inter_600SemiBold', color: '#111' }}>+91</Text>
+                  <Text style={{ fontSize: 14, fontFamily: 'Inter_600SemiBold', color: '#111' }}>+91</Text>
                 </View>
                 <TextInput
                   style={{
-                    flex: 1, backgroundColor: '#F4F4F9', borderRadius: 12,
-                    paddingHorizontal: 14, fontSize: 15, color: '#111',
-                    fontFamily: 'Inter_500Medium', borderWidth: 1, borderColor: '#EAEAF2', height: 40,
+                    flex: 1, backgroundColor: '#F4F4F9', borderRadius: 10,
+                    paddingHorizontal: 12, fontSize: 14, color: '#111',
+                    fontFamily: 'Inter_500Medium', borderWidth: 1, borderColor: '#EAEAF2', height: 36,
                   }}
                   placeholder="Mobile number"
                   placeholderTextColor="#C0C0D0"
@@ -739,9 +739,9 @@ export default function OnboardingScreen() {
                 testID="continue-button"
                 style={({ pressed }) => ({
                   backgroundColor: (!phone.trim() || checking) ? '#FFB89A' : '#FF6B2C',
-                  borderRadius: 12, height: 42,
-                  flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-                  marginBottom: 10,
+                  borderRadius: 10, height: 38,
+                  flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+                  marginBottom: 8,
                   opacity: pressed ? 0.88 : 1,
                 })}
                 onPress={handleNext}
@@ -751,33 +751,33 @@ export default function OnboardingScreen() {
                   <ActivityIndicator color="#FFF" size="small" />
                 ) : (
                   <>
-                    <Text style={{ fontSize: 15, fontFamily: 'Inter_700Bold', color: '#FFF' }}>Continue</Text>
-                    <Ionicons name="arrow-forward" size={18} color="#FFF" />
+                    <Text style={{ fontSize: 14, fontFamily: 'Inter_700Bold', color: '#FFF' }}>Continue</Text>
+                    <Ionicons name="arrow-forward" size={16} color="#FFF" />
                   </>
                 )}
               </Pressable>
 
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
                 <View style={{ flex: 1, height: 1, backgroundColor: '#EAEAF2' }} />
-                <Text style={{ marginHorizontal: 12, color: '#B0B0C8', fontSize: 12, fontFamily: 'Inter_500Medium' }}>or</Text>
+                <Text style={{ marginHorizontal: 10, color: '#B0B0C8', fontSize: 11, fontFamily: 'Inter_500Medium' }}>or</Text>
                 <View style={{ flex: 1, height: 1, backgroundColor: '#EAEAF2' }} />
               </View>
 
               {/* Google button - smaller and compact */}
               <Pressable
                 style={({ pressed }) => ({
-                  flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
+                  flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
                   backgroundColor: pressed ? '#F4F4F9' : '#FFF',
-                  borderRadius: 12, height: 42,
+                  borderRadius: 10, height: 38,
                   borderWidth: 1, borderColor: '#EAEAF2',
                 })}
                 onPress={startGoogleSignIn}
               >
-                <Ionicons name="logo-google" size={18} color="#4285F4" />
-                <Text style={{ fontSize: 15, fontFamily: 'Inter_600SemiBold', color: '#111' }}>Sign in with Google</Text>
+                <Ionicons name="logo-google" size={16} color="#4285F4" />
+                <Text style={{ fontSize: 14, fontFamily: 'Inter_600SemiBold', color: '#111' }}>Sign in with Google</Text>
               </Pressable>
 
-              <Text style={{ textAlign: 'center', color: '#C0C0C8', fontSize: 10, marginTop: 14, fontFamily: 'Inter_400Regular' }}>
+              <Text style={{ textAlign: 'center', color: '#C0C0C8', fontSize: 9, marginTop: 10, fontFamily: 'Inter_400Regular' }}>
                 By continuing, you agree to our Terms of Service
               </Text>
             </View>
