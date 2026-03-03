@@ -268,7 +268,7 @@ export async function clearSessionToken(): Promise<void> {
   await AsyncStorage.removeItem(KEYS.SESSION_TOKEN);
 }
 
-export async function clearAllData(): Promise<void> {
+export async function clearAll(): Promise<void> {
   await AsyncStorage.multiRemove([
     KEYS.PROFILE,
     KEYS.POSTS,

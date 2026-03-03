@@ -667,14 +667,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
-    await Storage.clearAllData();
-    setProfileState(null);
-    setPosts([]);
-    setJobs([]);
-    setConversations([]);
-    setAllProfiles([]);
-    setIsOnboarded(false);
-    if (pollingRef.current) clearInterval(pollingRef.current);
+    try {
+      await Storage.clearAll();
+      setProfileState(null);
+      setPosts([]);
+      setJobs([]);
+      setConversations([]);
+      setAllProfiles([]);
+      setIsOnboarded(false);
+      if (pollingRef.current) clearInterval(pollingRef.current);
+    } catch (e) {
+      console.error('[Logout] Error:', e);
+    }
   }, []);
 
   const totalUnread = useMemo(() =>
