@@ -667,7 +667,7 @@ export default function OnboardingScreen() {
           <View style={{ flex: 1, backgroundColor: '#0A0A14' }}>
             {/* Medium size hero image container */}
             <View style={{
-              height: 280, // Medium height
+              height: 240, // Reduced from 280 to bring card up
               width: '100%',
               backgroundColor: '#0A0A14',
               overflow: 'hidden',
@@ -679,7 +679,6 @@ export default function OnboardingScreen() {
                 style={{
                   width: '100%',
                   height: '100%',
-                  transform: [{ translateY: 0 }, { scale: 1.0 }] // Reset transforms for medium fit
                 }}
                 contentFit="cover"
               />
@@ -701,6 +700,7 @@ export default function OnboardingScreen() {
               shadowOpacity: 0.15,
               shadowRadius: 12,
               elevation: 20,
+              marginTop: -20, // Drag card up over the image
               // Subtle 3D lift effect
               transform: [{ translateY: 0 }],
             }}>
