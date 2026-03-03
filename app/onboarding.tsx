@@ -705,7 +705,7 @@ export default function OnboardingScreen() {
                 fontFamily: 'Inter_400Regular',
                 lineHeight: 20
               }}>
-                Network, Learn & Grow with the elite mobile technician community.
+                India's technician community
               </Text>
 
               <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
