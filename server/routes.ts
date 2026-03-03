@@ -87,55 +87,37 @@ async function uploadToStorage(buffer: Buffer, filename: string): Promise<string
 }
 
 async function uploadStreamToStorage(
-  readStream: NodeJS.ReadableStream,
+  readableStream: any,
   filename: string,
-  contentType: string
+  contentType: string,
+  size?: number
 ): Promise<string> {
   if (bunnyAvailable) {
-    const chunks: Buffer[] = [];
-    for await (const chunk of readStream) {
-      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-    }
-    const buffer = Buffer.concat(chunks);
-    if (buffer.length === 0) {
-      throw new Error(`Stream produced 0 bytes for ${filename}`);
-    }
-    const url = `${BUNNY_STORAGE_ENDPOINT}/${BUNNY_STORAGE_ZONE_NAME}/${filename}`;
-    const response = await fetch(url, {
-      method: 'PUT',
-      headers: {
+    try {
+      const url = `${BUNNY_STORAGE_ENDPOINT}/${BUNNY_STORAGE_ZONE_NAME}/${filename}`;
+      const headers: Record<string, string> = {
         'AccessKey': BUNNY_STORAGE_API_KEY,
-        'Content-Type': 'application/octet-stream',
-        'Content-Length': String(buffer.length),
-      },
-      body: buffer,
-      duplex: 'half',
-    } as any);
-    if (!response.ok) {
-      const text = await response.text().catch(() => '');
-      throw new Error(`Bunny stream upload failed: ${response.status} ${response.statusText} ${text}`);
-    }
-    const cdnUrl = `${BUNNY_CDN_URL}/${filename}`;
-    const verifyRes = await fetch(cdnUrl, { method: 'HEAD' });
-    const contentLength = verifyRes.headers.get('content-length');
-    if (contentLength === '0') {
-      console.warn(`[Bunny] WARNING: CDN reports 0 bytes for ${filename}, retrying with file read...`);
-      const retryRes = await fetch(url, {
+        'Content-Type': contentType || 'application/octet-stream',
+      };
+      if (size) headers['Content-Length'] = String(size);
+
+      const response = await fetch(url, {
         method: 'PUT',
-        headers: {
-          'AccessKey': BUNNY_STORAGE_API_KEY,
-          'Content-Type': 'application/octet-stream',
-          'Content-Length': String(buffer.length),
-        },
-        body: buffer,
+        headers,
+        body: readableStream,
         duplex: 'half',
       } as any);
-      if (!retryRes.ok) {
-        throw new Error(`Bunny retry upload failed: ${retryRes.status}`);
+
+      if (!response.ok) {
+        const text = await response.text().catch(() => '');
+        throw new Error(`Bunny stream upload failed: ${response.status} ${response.statusText} ${text}`);
       }
+      console.log(`[Bunny] Stream uploaded: ${filename}`);
+      return `${BUNNY_CDN_URL}/${filename}`;
+    } catch (error) {
+      console.error("[Bunny] Stream upload failed:", error);
+      throw error;
     }
-    console.log(`[Bunny] Stream uploaded: ${filename} (${buffer.length} bytes)`);
-    return cdnUrl;
   }
   throw new Error("Bunny.net not available for stream upload");
 }
@@ -163,8 +145,11 @@ const upload = multer({
 });
 
 const videoUpload = multer({
-  storage: memStorage,
-  limits: { fileSize: 500 * 1024 * 1024 },
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, uploadsDir),
+    filename: (_req, file, cb) => cb(null, `temp-${randomUUID()}${path.extname(file.originalname)}`),
+  }),
+  limits: { fileSize: 2048 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     if (file.mimetype.startsWith("video/")) {
       cb(null, true);
@@ -347,10 +332,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       if (!req.file) return res.status(400).json({ success: false, message: "No file uploaded" });
       const filename = `videos/${randomUUID()}${path.extname(req.file.originalname)}`;
-      const url = await uploadToStorage(req.file.buffer, filename);
+      
+      // Use streaming upload to Bunny.net for better performance and memory management
+      const stream = fs.createReadStream(req.file.path);
+      const url = await uploadStreamToStorage(
+        (stream as any).toWeb(), 
+        filename, 
+        req.file.mimetype,
+        req.file.size
+      );
+      
+      // Cleanup local temp file
+      fs.unlink(req.file.path, () => {});
+      
       res.json({ success: true, url });
     } catch (error) {
       console.error("[Upload Video] Error:", error);
+      if (req.file?.path) fs.unlink(req.file.path, () => {});
       res.status(500).json({ success: false, message: "Upload failed" });
     }
   });
