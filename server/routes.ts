@@ -50,10 +50,20 @@ const BUNNY_STORAGE_ENDPOINT = BUNNY_STORAGE_REGION === 'de'
 const BUNNY_CDN_URL = `https://Mobistorage.b-cdn.net`;
 const bunnyAvailable = !!(BUNNY_STORAGE_API_KEY && BUNNY_STORAGE_ZONE_NAME);
 
+// Bunny Stream — for video encoding + HLS streaming
+const BUNNY_STREAM_API_KEY = process.env.BUNNY_STREAM_API_KEY || '';
+const BUNNY_STREAM_LIBRARY_ID = process.env.BUNNY_STREAM_LIBRARY_ID || '';
+const bunnyStreamAvailable = !!(BUNNY_STREAM_API_KEY && BUNNY_STREAM_LIBRARY_ID);
+
 if (bunnyAvailable) {
   console.log(`[Bunny] Storage initialized: zone=${BUNNY_STORAGE_ZONE_NAME}, region=${BUNNY_STORAGE_REGION}`);
 } else {
   console.log('[Bunny] Missing BUNNY_STORAGE_API_KEY or BUNNY_STORAGE_ZONE_NAME, using local disk storage');
+}
+if (bunnyStreamAvailable) {
+  console.log(`[BunnyStream] Initialized: library=${BUNNY_STREAM_LIBRARY_ID}`);
+} else {
+  console.log('[BunnyStream] Missing BUNNY_STREAM_API_KEY or BUNNY_STREAM_LIBRARY_ID');
 }
 
 async function uploadToStorage(buffer: Buffer, filename: string): Promise<string> {
@@ -328,20 +338,91 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ─── Bunny Stream: Create video slot (returns videoId + TUS upload URL) ───
+  app.post("/api/bunny/create-video", async (req, res) => {
+    try {
+      if (!bunnyStreamAvailable) {
+        return res.status(503).json({ success: false, message: "Bunny Stream not configured" });
+      }
+      const { title } = req.body;
+      if (!title) return res.status(400).json({ success: false, message: "Title is required" });
+
+      const response = await fetch(
+        `https://video.bunnycdn.com/library/${BUNNY_STREAM_LIBRARY_ID}/videos`,
+        {
+          method: "POST",
+          headers: {
+            AccessKey: BUNNY_STREAM_API_KEY,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ title }),
+        }
+      );
+      if (!response.ok) {
+        const txt = await response.text().catch(() => '');
+        console.error(`[BunnyStream] Create video failed: ${response.status} ${txt}`);
+        return res.status(502).json({ success: false, message: "Failed to create Bunny Stream video" });
+      }
+      const data = await response.json() as any;
+      const videoId = data.guid;
+      const playbackUrl = `https://iframe.mediadelivery.net/embed/${BUNNY_STREAM_LIBRARY_ID}/${videoId}`;
+      const directUrl = `https://vz-${BUNNY_STREAM_LIBRARY_ID}.b-cdn.net/${videoId}/playlist.m3u8`;
+      console.log(`[BunnyStream] Created video slot: ${videoId}`);
+      res.json({
+        success: true,
+        videoId,
+        libraryId: BUNNY_STREAM_LIBRARY_ID,
+        apiKey: BUNNY_STREAM_API_KEY,
+        playbackUrl,
+        directUrl,
+      });
+    } catch (error: any) {
+      console.error("[BunnyStream] create-video error:", error?.message || error);
+      res.status(500).json({ success: false, message: error?.message || "Internal error" });
+    }
+  });
+
+  // ─── Bunny Stream: Get video encoding status ───
+  app.get("/api/bunny/video-status/:videoId", async (req, res) => {
+    try {
+      if (!bunnyStreamAvailable) {
+        return res.status(503).json({ success: false, message: "Bunny Stream not configured" });
+      }
+      const { videoId } = req.params;
+      const response = await fetch(
+        `https://video.bunnycdn.com/library/${BUNNY_STREAM_LIBRARY_ID}/videos/${videoId}`,
+        { headers: { AccessKey: BUNNY_STREAM_API_KEY } }
+      );
+      if (!response.ok) {
+        return res.status(502).json({ success: false, message: "Failed to get video status" });
+      }
+      const data = await response.json() as any;
+      res.json({
+        success: true,
+        status: data.status,
+        encodeProgress: data.encodeProgress,
+        length: data.length,
+        thumbnailUrl: data.thumbnailUrl,
+        playbackUrl: `https://iframe.mediadelivery.net/embed/${BUNNY_STREAM_LIBRARY_ID}/${videoId}`,
+        directUrl: `https://vz-${BUNNY_STREAM_LIBRARY_ID}.b-cdn.net/${videoId}/playlist.m3u8`,
+      });
+    } catch (error: any) {
+      console.error("[BunnyStream] video-status error:", error?.message || error);
+      res.status(500).json({ success: false, message: error?.message || "Internal error" });
+    }
+  });
+
+  // ─── Legacy upload-video (kept as fallback for small files / local dev) ───
   app.post("/api/upload-video", videoUpload.single("video"), async (req, res) => {
     try {
       if (!req.file) return res.status(400).json({ success: false, message: "No file uploaded" });
       const filename = `videos/${randomUUID()}${path.extname(req.file.originalname)}`;
       
-      console.log(`[Upload Video] Starting upload to Bunny: ${filename}, size: ${req.file.size}`);
+      console.log(`[Upload Video] Starting upload to Bunny Storage: ${filename}, size: ${req.file.size}`);
       
-      // Fix: Use fs.readFileSync to ensure we have the full buffer for the upload
-      // or use a more reliable stream-to-web-stream conversion.
-      // For now, let's use the buffer to rule out streaming issues.
       const fileBuffer = fs.readFileSync(req.file.path);
-      const url = await uploadToStorage(fileBuffer, filename, req.file.mimetype);
+      const url = await uploadToStorage(fileBuffer, filename);
       
-      // Cleanup local temp file
       fs.unlink(req.file.path, (err) => {
         if (err) console.error(`[Upload Video] Failed to delete temp file ${req.file?.path}:`, err);
       });

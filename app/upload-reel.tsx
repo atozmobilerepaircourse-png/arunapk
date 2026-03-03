@@ -7,13 +7,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
-import { File } from 'expo-file-system';
-import { fetch as expoFetch } from 'expo/fetch';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { router } from 'expo-router';
 import Colors from '@/constants/colors';
 import { useApp } from '@/lib/context';
-import { apiRequest, getApiUrl } from '@/lib/query-client';
+import { apiRequest } from '@/lib/query-client';
 
 const MAX_VIDEO_SIZE_MB = 500;
 const MAX_VIDEO_SIZE_BYTES = MAX_VIDEO_SIZE_MB * 1024 * 1024;
@@ -60,68 +58,19 @@ export default function UploadReelScreen() {
 
   const uploadVideo = async (uri: string): Promise<string | null> => {
     try {
-      const baseUrl = getApiUrl();
-      const uploadUrl = new URL('/api/upload-video', baseUrl).toString();
-      const formData = new FormData();
-
-      if (Platform.OS === 'web') {
-        const response = await window.fetch(uri);
-        const blob = await response.blob();
-        formData.append('video', blob, 'reel.mp4');
-      } else {
-        formData.append('video', {
-          uri: uri,
-          type: 'video/mp4',
-          name: 'reel.mp4',
-        } as any);
-      }
-
-      return new Promise<string | null>((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open('POST', uploadUrl);
-        xhr.upload.onprogress = (e) => {
-          if (e.lengthComputable) {
-            const pct = Math.min(99, Math.round((e.loaded / e.total) * 100));
-            setUploadPercent(pct);
-            setUploadProgress(`Uploading video... ${pct}%`);
-          }
-        };
-        xhr.onload = () => {
-          setUploadPercent(100);
-          setUploadProgress('Processing video...');
-          if (xhr.status === 413) {
-            Alert.alert('Video Too Large', `The video file is too large to upload. Please select a shorter or lower quality video (max ${MAX_VIDEO_SIZE_MB}MB).`);
-            resolve(null);
-            return;
-          }
-          if (xhr.status >= 400) {
-            const text = xhr.responseText || '';
-            if (text.includes('Too Large') || text.includes('too large')) {
-              Alert.alert('Video Too Large', `The video file is too large to upload. Please select a shorter or lower quality video (max ${MAX_VIDEO_SIZE_MB}MB).`);
-            } else {
-              Alert.alert('Upload Error', 'The server could not process this video. Please try a shorter video.');
-            }
-            resolve(null);
-            return;
-          }
-          try {
-            const data = JSON.parse(xhr.responseText);
-            if (data.success && data.url) {
-              const finalUrl = data.url.startsWith('http') 
-                ? data.url 
-                : new URL(data.url, baseUrl).toString();
-              resolve(finalUrl);
-            } else {
-              reject(new Error(data.message || 'Video upload failed'));
-            }
-          } catch { reject(new Error('Upload response parse error')); }
-        };
-        xhr.onerror = () => reject(new Error('Video upload failed'));
-        xhr.send(formData);
-      });
-    } catch (e) {
+      const { uploadVideoToBunnyStream } = await import('@/lib/bunny-stream');
+      const result = await uploadVideoToBunnyStream(
+        uri,
+        title.trim() || 'Reel',
+        (p) => {
+          setUploadPercent(p.percent);
+          setUploadProgress(p.message);
+        }
+      );
+      return result.playbackUrl;
+    } catch (e: any) {
       console.error('[Upload] Video failed:', e);
-      Alert.alert('Upload Failed', 'Could not connect to the server. Please check your connection and try again.');
+      Alert.alert('Upload Failed', e?.message || 'Could not upload video. Please check your connection and try again.');
       return null;
     }
   };

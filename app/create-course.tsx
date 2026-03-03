@@ -183,6 +183,20 @@ export default function CreateCourseScreen() {
   };
 
   const uploadVideo = async (uri: string): Promise<string> => {
+    const { uploadVideoToBunnyStream } = await import('@/lib/bunny-stream');
+    const title = videoTitle.trim() || 'Untitled Video';
+
+    const result = await uploadVideoToBunnyStream(uri, title, (p) => {
+      setUploadPercent(p.percent);
+      setUploadProgress(p.message);
+      UploadManager.update(p.percent, p.message);
+    });
+
+    UploadManager.finish();
+    return result.playbackUrl;
+  };
+
+  const _uploadVideoLegacy = async (uri: string): Promise<string> => {
     const baseUrl = getApiUrl();
     const uploadUrl = new URL('/api/upload-video', baseUrl).toString();
     const formData = new FormData();

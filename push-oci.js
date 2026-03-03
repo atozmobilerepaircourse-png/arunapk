@@ -416,12 +416,16 @@ async function main() {
     // Ensure required env vars are always set
     const container = svc.template.containers[0];
     container.env = container.env || [];
-    const ensureEnv = (name, value) => {
-      if (value && !container.env.find(e => e.name === name)) {
-        container.env.push({ name, value });
-      }
+    const setEnv = (name, value) => {
+      if (!value) return;
+      const idx = container.env.findIndex(e => e.name === name);
+      if (idx >= 0) { container.env[idx].value = value; }
+      else { container.env.push({ name, value }); }
+      console.log(`   Env: ${name} = ${value.slice(0, 8)}...`);
     };
-    ensureEnv('EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID', '1097660126888-oui7uutiqbksd0q82nbvbhejbpo4t4s8.apps.googleusercontent.com');
+    setEnv('EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID', '1097660126888-oui7uutiqbksd0q82nbvbhejbpo4t4s8.apps.googleusercontent.com');
+    setEnv('BUNNY_STREAM_API_KEY', process.env.BUNNY_STREAM_API_KEY || '');
+    setEnv('BUNNY_STREAM_LIBRARY_ID', process.env.BUNNY_STREAM_LIBRARY_ID || '');
     
     console.log('   Setting image digest:', manifestDigest.slice(0, 30) + '...');
     const svcBody = JSON.stringify(svc);
