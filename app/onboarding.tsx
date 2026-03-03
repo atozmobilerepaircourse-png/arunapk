@@ -665,18 +665,25 @@ export default function OnboardingScreen() {
       case 'phone':
         return (
           <View style={{ flex: 1, backgroundColor: '#0A0A14' }}>
-            {/* Full-screen background hero image - covers everything behind the card */}
-            <View style={StyleSheet.absoluteFillObject}>
+            {/* Medium size hero image container */}
+            <View style={{
+              height: 280, // Medium height
+              width: '100%',
+              backgroundColor: '#0A0A14',
+              overflow: 'hidden',
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}>
               <Image
                 source={require('@/assets/images/onboarding-hero.jpeg')}
                 style={{
                   width: '100%',
                   height: '100%',
-                  transform: [{ translateY: -40 }, { scale: 1.1 }] // Drag image up and scale slightly
+                  transform: [{ translateY: 0 }, { scale: 1.0 }] // Reset transforms for medium fit
                 }}
                 contentFit="cover"
               />
-              <View style={{ ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.2)' }} />
+              <View style={{ ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.1)' }} />
             </View>
 
             {/* Spacer to push content to bottom */}
