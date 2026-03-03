@@ -612,9 +612,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return sendGoogleErrorPage(res, "Google OAuth is not configured on the server.");
       }
 
-      const devDomain = "3704a5c1-1254-4f3f-a313-9b38cc37882b-00-m8oiuixqk98p.janeway.replit.dev";
-      const redirectUri = `https://${devDomain}/api/auth/google/callback`;
-      console.log("[Google Auth] Using redirect_uri:", redirectUri);
+    const devDomain = "3704a5c1-1254-4f3f-a313-9b38cc37882b-00-m8oiuixqk98p.janeway.replit.dev";
+    const redirectUri = `https://${devDomain}/api/auth/google/callback`;
+    console.log("[Google Auth] Using redirect_uri:", redirectUri);
 
       const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
         method: "POST",
