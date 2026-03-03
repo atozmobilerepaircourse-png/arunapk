@@ -665,39 +665,111 @@ export default function OnboardingScreen() {
       case 'phone':
         return (
           <View style={{ flex: 1, backgroundColor: '#0A0A14' }}>
-            {/* Dark hero with background image - adjusted to cover correctly */}
-            <View style={{
-              backgroundColor: '#0A0A14',
-              height: 340,
-              width: '100%',
-              justifyContent: 'center',
-              alignItems: 'center',
-              paddingTop: Platform.OS === 'web' ? webTopInset : insets.top,
-            }}>
+            {/* Full-screen background hero image - covers everything behind the card */}
+            <View style={StyleSheet.absoluteFillObject}>
               <Image
                 source={require('@/assets/images/onboarding-hero.jpeg')}
-                style={{
-                  width: '100%',
-                  height: '100%',
-                }}
+                style={{ width: '100%', height: '100%' }}
                 contentFit="cover"
               />
-              <View style={{
-                ...StyleSheet.absoluteFillObject,
-                backgroundColor: 'rgba(0,0,0,0.2)',
-              }} />
+              <View style={{ ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.25)' }} />
             </View>
 
-            {/* White card - significantly decreased padding and height */}
+            {/* Spacer to push content to bottom */}
+            <View style={{ flex: 1 }} />
+
+            {/* White card - adjusted for smaller mobile number area and compact layout */}
             <View style={{
               backgroundColor: '#FFF',
               borderTopLeftRadius: 32, borderTopRightRadius: 32,
-              flex: 1,
-              marginTop: -32,
               paddingHorizontal: 24,
-              paddingTop: 20,
-              paddingBottom: (Platform.OS === 'web' ? 34 : Math.max(insets.bottom, 24)) + 8,
+              paddingTop: 24,
+              paddingBottom: (Platform.OS === 'web' ? 34 : Math.max(insets.bottom, 24)) + 4,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: -10 },
+              shadowOpacity: 0.2,
+              shadowRadius: 15,
+              elevation: 20,
             }}>
+              <Text style={{ fontSize: 22, fontFamily: 'Inter_700Bold', color: '#111', marginBottom: 2 }}>Sign in to continue</Text>
+              <Text style={{ fontSize: 13, color: '#9B9BA8', marginBottom: 18, fontFamily: 'Inter_400Regular' }}>
+                Enter your mobile number or use Google
+              </Text>
+
+              <Text style={{ fontSize: 10, fontFamily: 'Inter_700Bold', color: '#FF6B2C', letterSpacing: 1.2, marginBottom: 6 }}>MOBILE NUMBER</Text>
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+                <View style={{
+                  backgroundColor: '#F4F4F9', borderRadius: 12,
+                  paddingHorizontal: 12, justifyContent: 'center', alignItems: 'center',
+                  borderWidth: 1, borderColor: '#EAEAF2', height: 40,
+                }}>
+                  <Text style={{ fontSize: 15, fontFamily: 'Inter_600SemiBold', color: '#111' }}>+91</Text>
+                </View>
+                <TextInput
+                  style={{
+                    flex: 1, backgroundColor: '#F4F4F9', borderRadius: 12,
+                    paddingHorizontal: 14, fontSize: 15, color: '#111',
+                    fontFamily: 'Inter_500Medium', borderWidth: 1, borderColor: '#EAEAF2', height: 40,
+                  }}
+                  placeholder="Mobile number"
+                  placeholderTextColor="#C0C0D0"
+                  keyboardType="phone-pad"
+                  value={phone}
+                  onChangeText={(text) => setPhone(text.replace(/\D/g, '').slice(0, 10))}
+                  maxLength={10}
+                  autoFocus={Platform.OS !== 'web'}
+                />
+              </View>
+
+              {/* Continue button - smaller and compact */}
+              <Pressable
+                testID="continue-button"
+                style={({ pressed }) => ({
+                  backgroundColor: (!phone.trim() || checking) ? '#FFB89A' : '#FF6B2C',
+                  borderRadius: 12, height: 42,
+                  flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+                  marginBottom: 10,
+                  opacity: pressed ? 0.88 : 1,
+                })}
+                onPress={handleNext}
+                disabled={!phone.trim() || checking}
+              >
+                {checking ? (
+                  <ActivityIndicator color="#FFF" size="small" />
+                ) : (
+                  <>
+                    <Text style={{ fontSize: 15, fontFamily: 'Inter_700Bold', color: '#FFF' }}>Continue</Text>
+                    <Ionicons name="arrow-forward" size={18} color="#FFF" />
+                  </>
+                )}
+              </Pressable>
+
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                <View style={{ flex: 1, height: 1, backgroundColor: '#EAEAF2' }} />
+                <Text style={{ marginHorizontal: 12, color: '#B0B0C8', fontSize: 12, fontFamily: 'Inter_500Medium' }}>or</Text>
+                <View style={{ flex: 1, height: 1, backgroundColor: '#EAEAF2' }} />
+              </View>
+
+              {/* Google button - smaller and compact */}
+              <Pressable
+                style={({ pressed }) => ({
+                  flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
+                  backgroundColor: pressed ? '#F4F4F9' : '#FFF',
+                  borderRadius: 12, height: 42,
+                  borderWidth: 1, borderColor: '#EAEAF2',
+                })}
+                onPress={startGoogleSignIn}
+              >
+                <Ionicons name="logo-google" size={18} color="#4285F4" />
+                <Text style={{ fontSize: 15, fontFamily: 'Inter_600SemiBold', color: '#111' }}>Sign in with Google</Text>
+              </Pressable>
+
+              <Text style={{ textAlign: 'center', color: '#C0C0C8', fontSize: 10, marginTop: 14, fontFamily: 'Inter_400Regular' }}>
+                By continuing, you agree to our Terms of Service
+              </Text>
+            </View>
+          </View>
+        );
               <Text style={{ fontSize: 22, fontFamily: 'Inter_700Bold', color: '#111', marginBottom: 2 }}>Sign in to continue</Text>
               <Text style={{ fontSize: 13, color: '#9B9BA8', marginBottom: 16, fontFamily: 'Inter_400Regular' }}>
                 Enter your mobile number or use Google
