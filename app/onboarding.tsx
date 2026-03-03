@@ -4,6 +4,7 @@ import {
   Platform, Alert, ActivityIndicator, Modal, FlatList,
 } from 'react-native';
 import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -664,50 +665,73 @@ export default function OnboardingScreen() {
     switch (currentScreen) {
       case 'phone':
         return (
-          <View style={{ flex: 1, backgroundColor: '#FFF' }}>
-            {/* Image section matching theme */}
+          <View style={{ flex: 1, backgroundColor: '#000' }}>
+            <StatusBar style="light" />
+            {/* Immersive Fiery Hero Image */}
             <View style={{
-              height: 220,
+              height: 420,
               width: '100%',
-              justifyContent: 'center',
-              alignItems: 'center',
-              marginTop: 20,
-              paddingHorizontal: 20,
+              backgroundColor: '#000',
             }}>
               <Image
                 source={require('@/assets/images/onboarding-hero.jpeg')}
                 style={{
                   width: '100%',
                   height: '100%',
-                  borderRadius: 16,
                 }}
-                contentFit="contain"
+                contentFit="cover"
+              />
+              <LinearGradient
+                colors={['transparent', 'rgba(0,0,0,0.5)', 'rgba(0,0,0,0.9)', '#000']}
+                style={{
+                  position: 'absolute',
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  height: 200,
+                }}
               />
             </View>
 
-            <View style={{ paddingHorizontal: 24, flex: 1, paddingTop: 20 }}>
-              <Text style={{ fontSize: 32, fontFamily: 'Inter_700Bold', color: '#000', textAlign: 'center' }}>Welcome to Mobi</Text>
-              <Text style={{ fontSize: 18, color: '#9B9BA8', textAlign: 'center', marginBottom: 30, fontFamily: 'Inter_400Regular' }}>
-                Network, Learn & Grow
+            <View style={{ paddingHorizontal: 32, flex: 1, marginTop: -60 }}>
+              <Text style={{ 
+                fontSize: 40, 
+                fontFamily: 'Inter_700Bold', 
+                color: '#FFF', 
+                textAlign: 'left',
+                lineHeight: 46,
+                letterSpacing: -1,
+                marginBottom: 12
+              }}>
+                Welcome to Mobi
+              </Text>
+              <Text style={{ 
+                fontSize: 18, 
+                color: 'rgba(255,255,255,0.6)', 
+                textAlign: 'left', 
+                marginBottom: 36, 
+                fontFamily: 'Inter_400Regular',
+                lineHeight: 24
+              }}>
+                Network, Learn & Grow with the elite mobile technician community.
               </Text>
 
-              <Text style={{ fontSize: 14, color: '#666', marginBottom: 8, fontFamily: 'Inter_500Medium' }}>Mobile Number</Text>
-              <View style={{ flexDirection: 'row', gap: 10, marginBottom: 20 }}>
+              <View style={{ flexDirection: 'row', gap: 12, marginBottom: 24 }}>
                 <View style={{
-                  backgroundColor: '#F4F4F9', borderRadius: 12,
-                  width: 60, justifyContent: 'center', alignItems: 'center',
-                  borderWidth: 1, borderColor: '#EAEAF2', height: 54,
+                  backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 20,
+                  width: 76, justifyContent: 'center', alignItems: 'center',
+                  borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', height: 64,
                 }}>
-                  <Text style={{ fontSize: 18, fontFamily: 'Inter_600SemiBold', color: '#111' }}>+91</Text>
+                  <Text style={{ fontSize: 22, fontFamily: 'Inter_600SemiBold', color: '#FFF' }}>+91</Text>
                 </View>
                 <TextInput
                   style={{
-                    flex: 1, backgroundColor: '#FFF', borderRadius: 12,
-                    paddingHorizontal: 16, fontSize: 18, color: '#111',
-                    fontFamily: 'Inter_500Medium', borderWidth: 1, borderColor: '#000', height: 54,
+                    flex: 1, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 20,
+                    paddingHorizontal: 20, fontSize: 20, color: '#FFF',
+                    fontFamily: 'Inter_500Medium', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', height: 64,
                   }}
-                  placeholder="10-digit mobile number"
-                  placeholderTextColor="#C0C0D0"
+                  placeholder="Mobile number"
+                  placeholderTextColor="rgba(255,255,255,0.25)"
                   keyboardType="phone-pad"
                   value={phone}
                   onChangeText={(text) => setPhone(text.replace(/\D/g, '').slice(0, 10))}
@@ -716,21 +740,19 @@ export default function OnboardingScreen() {
                 />
               </View>
 
-              <Text style={{ textAlign: 'center', color: '#9B9BA8', fontSize: 14, marginBottom: 20, fontFamily: 'Inter_600SemiBold' }}>OR</Text>
-
               <Pressable
                 style={({ pressed }) => ({
                   flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12,
-                  backgroundColor: '#FFF',
-                  borderRadius: 12, height: 54,
-                  borderWidth: 1, borderColor: '#EAEAF2',
-                  marginBottom: 40,
+                  backgroundColor: 'rgba(255,255,255,0.03)',
+                  borderRadius: 20, height: 64,
+                  borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
+                  marginBottom: 32,
                   opacity: pressed ? 0.7 : 1,
                 })}
                 onPress={startGoogleSignIn}
               >
-                <Ionicons name="logo-google" size={24} color="#4285F4" />
-                <Text style={{ fontSize: 18, fontFamily: 'Inter_600SemiBold', color: '#111' }}>Sign in with Google</Text>
+                <Ionicons name="logo-google" size={24} color="#FFF" />
+                <Text style={{ fontSize: 18, fontFamily: 'Inter_600SemiBold', color: '#FFF' }}>Continue with Google</Text>
               </Pressable>
 
               <View style={{ flex: 1 }} />
@@ -738,11 +760,16 @@ export default function OnboardingScreen() {
               <Pressable
                 testID="continue-button"
                 style={({ pressed }) => ({
-                  backgroundColor: (!phone.trim() || checking) ? '#FFD5C4' : '#FFB28E',
-                  borderRadius: 16, height: 56,
+                  backgroundColor: (!phone.trim() || checking) ? 'rgba(255,255,255,0.1)' : '#FF6B2C',
+                  borderRadius: 24, height: 72,
                   alignItems: 'center', justifyContent: 'center',
-                  marginBottom: Math.max(insets.bottom, 20),
+                  marginBottom: Math.max(insets.bottom, 24),
                   opacity: pressed ? 0.9 : 1,
+                  shadowColor: '#FF6B2C',
+                  shadowOffset: { width: 0, height: 8 },
+                  shadowOpacity: 0.4,
+                  shadowRadius: 12,
+                  elevation: 10,
                 })}
                 onPress={handleNext}
                 disabled={!phone.trim() || checking}
@@ -750,7 +777,7 @@ export default function OnboardingScreen() {
                 {checking ? (
                   <ActivityIndicator color="#FFF" size="small" />
                 ) : (
-                  <Text style={{ fontSize: 18, fontFamily: 'Inter_700Bold', color: '#FFF' }}>Continue</Text>
+                  <Text style={{ fontSize: 22, fontFamily: 'Inter_700Bold', color: '#FFF' }}>Get Started</Text>
                 )}
               </Pressable>
             </View>
