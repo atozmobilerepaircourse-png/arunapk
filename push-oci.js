@@ -403,6 +403,9 @@ async function main() {
     // Add unique annotation to force a new revision even if image string looks same
     svc.template.annotations = svc.template.annotations || {};
     svc.template.annotations['run.googleapis.com/deploy-timestamp'] = String(Date.now());
+
+    // Set 3600s (1 hour) timeout to allow large video uploads (500MB+ can take 20-60 min)
+    svc.template.timeout = '3600s';
     
     console.log('   Setting image digest:', manifestDigest.slice(0, 30) + '...');
     const svcBody = JSON.stringify(svc);

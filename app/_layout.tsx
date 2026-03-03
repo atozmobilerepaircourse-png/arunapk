@@ -19,6 +19,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { queryClient } from "@/lib/query-client";
 import { AppProvider } from "@/lib/context";
 import { requestNotificationPermission, cleanupSounds } from "@/lib/notifications";
+import { FloatingUploadBanner } from "@/components/FloatingUploadBanner";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -101,10 +102,11 @@ export default function RootLayout() {
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <AppProvider>
-          <GestureHandlerRootView>
+          <GestureHandlerRootView style={{ flex: 1 }}>
             <KeyboardProvider>
               <StatusBar style="dark" />
               <RootLayoutNav />
+              <FloatingUploadBanner />
             </KeyboardProvider>
           </GestureHandlerRootView>
         </AppProvider>

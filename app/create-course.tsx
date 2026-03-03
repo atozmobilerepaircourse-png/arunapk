@@ -11,7 +11,8 @@ import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import { File } from 'expo-file-system';
 import { fetch as expoFetch } from 'expo/fetch';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
+import { UploadManager } from '@/lib/upload-manager';
 import Colors from '@/constants/colors';
 import { useApp } from '@/lib/context';
 import { apiRequest, getApiUrl } from '@/lib/query-client';
@@ -79,27 +80,16 @@ export default function CreateCourseScreen() {
   const [uploadProgress, setUploadProgress] = useState('');
   const [uploadPercent, setUploadPercent] = useState(0);
 
-  const xhrRef = useRef<XMLHttpRequest | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (xhrRef.current) {
-        xhrRef.current.abort();
-        xhrRef.current = null;
-      }
-    };
-  }, []);
-
   const cancelUpload = () => {
-    if (xhrRef.current) {
-      xhrRef.current.abort();
-      xhrRef.current = null;
-    }
+    if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    UploadManager.cancel();
     setIsSubmitting(false);
     setUploadProgress('');
     setUploadPercent(0);
     showStatus('Upload cancelled', 'info');
   };
+
+  const isUploadActive = useRef(false);
   const [statusMsg, setStatusMsg] = useState('');
   const [statusType, setStatusType] = useState<'success' | 'error' | 'info'>('info');
   const [pendingDelete, setPendingDelete] = useState<{ type: 'video' | 'chapter' | 'course'; id: string; label: string } | null>(null);
@@ -215,22 +205,24 @@ export default function CreateCourseScreen() {
       } as any);
     }
 
+    const fileName = videoFileName || (videoFile?.name ?? 'video');
+
     return new Promise<string>((resolve, reject) => {
       const xhr = new XMLHttpRequest();
-      xhrRef.current = xhr;
 
       xhr.open('POST', uploadUrl);
       xhr.upload.onprogress = (e) => {
         if (e.lengthComputable) {
           const pct = Math.min(99, Math.round((e.loaded / e.total) * 100));
           setUploadPercent(pct);
-          setUploadProgress(`Uploading video... ${pct}%`);
+          setUploadProgress(`Uploading... ${pct}%`);
+          UploadManager.update(pct, `Uploading... ${pct}%`);
         }
       };
       xhr.onload = () => {
-        xhrRef.current = null;
         setUploadPercent(100);
         setUploadProgress('Processing video...');
+        UploadManager.finish();
         try {
           const data = JSON.parse(xhr.responseText);
           if (data.success) resolve(data.url);
@@ -240,17 +232,18 @@ export default function CreateCourseScreen() {
         }
       };
       xhr.onerror = () => {
-        xhrRef.current = null;
+        UploadManager.finish();
         reject(new Error('Upload failed — network error. Check connection.'));
       };
       xhr.ontimeout = () => {
-        xhrRef.current = null;
+        UploadManager.finish();
         reject(new Error('Upload timed out. Video may be too large.'));
       };
       xhr.onabort = () => {
-        xhrRef.current = null;
         reject(new Error('CANCELLED'));
       };
+
+      UploadManager.start(xhr, fileName);
       xhr.send(formData);
     });
   };
