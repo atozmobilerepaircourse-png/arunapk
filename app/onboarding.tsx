@@ -665,14 +665,10 @@ export default function OnboardingScreen() {
       case 'phone':
         return (
           <View style={{ flex: 1, backgroundColor: '#0A0A14' }}>
-            {/* Dark hero with background image - adjusted to cover the remaining space like black */}
+            {/* Full screen hero image */}
             <View style={{
+              ...StyleSheet.absoluteFillObject,
               backgroundColor: '#0A0A14',
-              flex: 1.2,
-              width: '100%',
-              justifyContent: 'center',
-              alignItems: 'center',
-              paddingTop: Platform.OS === 'web' ? webTopInset : insets.top,
             }}>
               <Image
                 source={require('@/assets/images/onboarding-hero.jpeg')}
@@ -680,92 +676,104 @@ export default function OnboardingScreen() {
                   width: '100%',
                   height: '100%',
                 }}
-                contentFit="contain"
+                contentFit="cover"
               />
+              <View style={{
+                ...StyleSheet.absoluteFillObject,
+                backgroundColor: 'rgba(0,0,0,0.3)',
+              }} />
             </View>
 
-            {/* White card - adjusted height to allow hero to be bigger */}
-            <View style={{
-              backgroundColor: '#FFF',
-              borderTopLeftRadius: 32, borderTopRightRadius: 32,
-              padding: 24,
-              paddingBottom: (Platform.OS === 'web' ? 34 : Math.max(insets.bottom, 24)) + 8,
-            }}>
-              <Text style={{ fontSize: 24, fontFamily: 'Inter_700Bold', color: '#111', marginBottom: 4 }}>Sign in to continue</Text>
-              <Text style={{ fontSize: 13, color: '#9B9BA8', marginBottom: 20, fontFamily: 'Inter_400Regular' }}>
-                Enter your mobile number or use Google
-              </Text>
+            {/* Content positioned at bottom */}
+            <View style={{ flex: 1, justifyContent: 'flex-end' }}>
+              {/* White card */}
+              <View style={{
+                backgroundColor: '#FFF',
+                borderTopLeftRadius: 32, borderTopRightRadius: 32,
+                padding: 24,
+                paddingBottom: (Platform.OS === 'web' ? 34 : Math.max(insets.bottom, 24)) + 8,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: -10 },
+                shadowOpacity: 0.2,
+                shadowRadius: 15,
+                elevation: 20,
+              }}>
+                <Text style={{ fontSize: 24, fontFamily: 'Inter_700Bold', color: '#111', marginBottom: 4 }}>Sign in to continue</Text>
+                <Text style={{ fontSize: 13, color: '#9B9BA8', marginBottom: 20, fontFamily: 'Inter_400Regular' }}>
+                  Enter your mobile number or use Google
+                </Text>
 
-              <Text style={{ fontSize: 10, fontFamily: 'Inter_700Bold', color: '#FF6B2C', letterSpacing: 1.2, marginBottom: 8 }}>MOBILE NUMBER</Text>
-              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
-                <View style={{
-                  backgroundColor: '#F4F4F9', borderRadius: 12,
-                  paddingHorizontal: 12, justifyContent: 'center', alignItems: 'center',
-                  borderWidth: 1, borderColor: '#EAEAF2', height: 44,
-                }}>
-                  <Text style={{ fontSize: 16, fontFamily: 'Inter_600SemiBold', color: '#111' }}>+91</Text>
+                <Text style={{ fontSize: 10, fontFamily: 'Inter_700Bold', color: '#FF6B2C', letterSpacing: 1.2, marginBottom: 8 }}>MOBILE NUMBER</Text>
+                <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
+                  <View style={{
+                    backgroundColor: '#F4F4F9', borderRadius: 12,
+                    paddingHorizontal: 12, justifyContent: 'center', alignItems: 'center',
+                    borderWidth: 1, borderColor: '#EAEAF2', height: 44,
+                  }}>
+                    <Text style={{ fontSize: 16, fontFamily: 'Inter_600SemiBold', color: '#111' }}>+91</Text>
+                  </View>
+                  <TextInput
+                    style={{
+                      flex: 1, backgroundColor: '#F4F4F9', borderRadius: 12,
+                      paddingHorizontal: 14, fontSize: 16, color: '#111',
+                      fontFamily: 'Inter_500Medium', borderWidth: 1, borderColor: '#EAEAF2', height: 44,
+                    }}
+                    placeholder="Mobile number"
+                    placeholderTextColor="#C0C0D0"
+                    keyboardType="phone-pad"
+                    value={phone}
+                    onChangeText={(text) => setPhone(text.replace(/\D/g, '').slice(0, 10))}
+                    maxLength={10}
+                    autoFocus={Platform.OS !== 'web'}
+                  />
                 </View>
-                <TextInput
-                  style={{
-                    flex: 1, backgroundColor: '#F4F4F9', borderRadius: 12,
-                    paddingHorizontal: 14, fontSize: 16, color: '#111',
-                    fontFamily: 'Inter_500Medium', borderWidth: 1, borderColor: '#EAEAF2', height: 44,
-                  }}
-                  placeholder="Mobile number"
-                  placeholderTextColor="#C0C0D0"
-                  keyboardType="phone-pad"
-                  value={phone}
-                  onChangeText={(text) => setPhone(text.replace(/\D/g, '').slice(0, 10))}
-                  maxLength={10}
-                  autoFocus={Platform.OS !== 'web'}
-                />
+
+                {/* Continue button */}
+                <Pressable
+                  testID="continue-button"
+                  style={({ pressed }) => ({
+                    backgroundColor: (!phone.trim() || checking) ? '#FFB89A' : '#FF6B2C',
+                    borderRadius: 12, height: 44,
+                    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+                    marginBottom: 12,
+                    opacity: pressed ? 0.88 : 1,
+                  })}
+                  onPress={handleNext}
+                  disabled={!phone.trim() || checking}
+                >
+                  {checking ? (
+                    <ActivityIndicator color="#FFF" size="small" />
+                  ) : (
+                    <>
+                      <Text style={{ fontSize: 16, fontFamily: 'Inter_700Bold', color: '#FFF' }}>Continue</Text>
+                      <Ionicons name="arrow-forward" size={18} color="#FFF" />
+                    </>
+                  )}
+                </Pressable>
+
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                  <View style={{ flex: 1, height: 1, backgroundColor: '#EAEAF2' }} />
+                  <Text style={{ marginHorizontal: 12, color: '#B0B0C8', fontSize: 12, fontFamily: 'Inter_500Medium' }}>or</Text>
+                  <View style={{ flex: 1, height: 1, backgroundColor: '#EAEAF2' }} />
+                </View>
+
+                <Pressable
+                  style={({ pressed }) => ({
+                    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
+                    backgroundColor: pressed ? '#F4F4F9' : '#FFF',
+                    borderRadius: 12, height: 44,
+                    borderWidth: 1, borderColor: '#EAEAF2',
+                  })}
+                  onPress={startGoogleSignIn}
+                >
+                  <Ionicons name="logo-google" size={20} color="#4285F4" />
+                  <Text style={{ fontSize: 15, fontFamily: 'Inter_600SemiBold', color: '#111' }}>Sign in with Google</Text>
+                </Pressable>
+
+                <Text style={{ textAlign: 'center', color: '#C0C0C8', fontSize: 10, marginTop: 16, fontFamily: 'Inter_400Regular' }}>
+                  By continuing, you agree to our Terms of Service
+                </Text>
               </View>
-
-              {/* Continue button */}
-              <Pressable
-                testID="continue-button"
-                style={({ pressed }) => ({
-                  backgroundColor: (!phone.trim() || checking) ? '#FFB89A' : '#FF6B2C',
-                  borderRadius: 12, height: 44,
-                  flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-                  marginBottom: 12,
-                  opacity: pressed ? 0.88 : 1,
-                })}
-                onPress={handleNext}
-                disabled={!phone.trim() || checking}
-              >
-                {checking ? (
-                  <ActivityIndicator color="#FFF" size="small" />
-                ) : (
-                  <>
-                    <Text style={{ fontSize: 16, fontFamily: 'Inter_700Bold', color: '#FFF' }}>Continue</Text>
-                    <Ionicons name="arrow-forward" size={18} color="#FFF" />
-                  </>
-                )}
-              </Pressable>
-
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-                <View style={{ flex: 1, height: 1, backgroundColor: '#EAEAF2' }} />
-                <Text style={{ marginHorizontal: 12, color: '#B0B0C8', fontSize: 12, fontFamily: 'Inter_500Medium' }}>or</Text>
-                <View style={{ flex: 1, height: 1, backgroundColor: '#EAEAF2' }} />
-              </View>
-
-              <Pressable
-                style={({ pressed }) => ({
-                  flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
-                  backgroundColor: pressed ? '#F4F4F9' : '#FFF',
-                  borderRadius: 12, height: 44,
-                  borderWidth: 1, borderColor: '#EAEAF2',
-                })}
-                onPress={startGoogleSignIn}
-              >
-                <Ionicons name="logo-google" size={20} color="#4285F4" />
-                <Text style={{ fontSize: 15, fontFamily: 'Inter_600SemiBold', color: '#111' }}>Sign in with Google</Text>
-              </Pressable>
-
-              <Text style={{ textAlign: 'center', color: '#C0C0C8', fontSize: 10, marginTop: 16, fontFamily: 'Inter_400Regular' }}>
-                By continuing, you agree to our Terms of Service
-              </Text>
             </View>
           </View>
         );
