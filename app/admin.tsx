@@ -296,7 +296,7 @@ export default function AdminScreen() {
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
   const cleanProfilePhone = profile?.phone?.replace(/\D/g, "");
-  const isAdmin = profile?.role === 'admin' || cleanProfilePhone === ADMIN_PHONE || cleanProfilePhone === "9876543210";
+  const isAdmin = profile?.role === 'admin' || cleanProfilePhone === "8179142535" || cleanProfilePhone === "9876543210";
 
   useEffect(() => {
     if (!isAdmin) {

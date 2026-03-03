@@ -248,7 +248,7 @@ async function sendWhatsAppOTP(phone: string, otp: string): Promise<boolean> {
     
     // Check if phone matches ADMIN_PHONE or role is admin
     const cleanPhone = session.phone.replace(/\D/g, "");
-    const isStaticAdmin = cleanPhone === process.env.ADMIN_PHONE?.replace(/\D/g, "") || cleanPhone === "9876543210";
+    const isStaticAdmin = cleanPhone === "8179142535" || cleanPhone === "9876543210";
     if (profile?.role !== "admin" && !isStaticAdmin) {
       return res.status(403).json({ success: false, message: "Access denied. Admin only." });
     }
