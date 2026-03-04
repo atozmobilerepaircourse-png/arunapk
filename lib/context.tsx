@@ -235,9 +235,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     let lastLiveChatTs = Date.now();
 
     const checkLiveChat = async () => {
-      if (isOnLiveChatRef.current) return; // screen is open, skip
+      if (isOnLiveChatRef.current || !profile?.id) return;
       try {
         const res = await apiRequest('GET', `/api/live-chat/messages?limit=5&after=${lastLiveChatTs}`);
+        if (res.status === 401) {
+          console.log('[Context] Session expired during live chat poll');
+          return;
+        }
         const data = await res.json();
         if (Array.isArray(data) && data.length > 0) {
           const newMsgs = data.filter((m: any) => m.senderId !== profile.id);
@@ -269,6 +273,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       let pollCount = 0;
       pollingRef.current = setInterval(async () => {
+        if (!profile?.id) return;
         try {
           const [serverPosts, serverJobs, serverProfiles, serverConvos] = await Promise.all([
             fetchPostsFromServer(),

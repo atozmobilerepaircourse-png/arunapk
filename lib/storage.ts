@@ -2,12 +2,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { UserProfile, Post, Job, Conversation, ChatMessage } from './types';
 
 const KEYS = {
-  PROFILE: 'repairhub_profile',
-  POSTS: 'repairhub_posts',
-  JOBS: 'repairhub_jobs',
-  ONBOARDED: 'repairhub_onboarded',
-  CONVERSATIONS: 'repairhub_conversations',
-  SESSION_TOKEN: 'mobi_session_token',
+  PROFILE: 'repairhub_profile_v2',
+  POSTS: 'repairhub_posts_v2',
+  JOBS: 'repairhub_jobs_v2',
+  ONBOARDED: 'repairhub_onboarded_v2',
+  CONVERSATIONS: 'repairhub_conversations_v2',
+  SESSION_TOKEN: 'mobi_session_token_v2',
 };
 
 export async function getProfile(): Promise<UserProfile | null> {

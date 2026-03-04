@@ -46,6 +46,10 @@ export async function apiRequest(
     credentials: "include",
   });
 
+  if (res.status === 401 && !route.includes('/api/otp/') && !route.includes('/api/auth/')) {
+    console.log('[API] 401 Unauthorized detected for', route);
+  }
+
   await throwIfResNotOk(res);
   return res;
 }
