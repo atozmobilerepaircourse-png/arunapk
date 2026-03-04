@@ -5,10 +5,12 @@ const CDN_HOST = `vz-${LIBRARY_ID}.b-cdn.net`;
 
 export function getBunnyVideoId(url: string): string | null {
   if (!url) return null;
-  const hlsMatch = url.match(/b-cdn\.net\/([a-f0-9-]{36})\/playlist/);
-  if (hlsMatch) return hlsMatch[1];
+  const cdnMatch = url.match(/b-cdn\.net\/([a-f0-9-]{36})\//);
+  if (cdnMatch) return cdnMatch[1];
   const iframeMatch = url.match(/embed\/\d+\/([a-f0-9-]{36})/);
   if (iframeMatch) return iframeMatch[1];
+  const mediaMatch = url.match(/mediadelivery\.net\/[^/]+\/([a-f0-9-]{36})/);
+  if (mediaMatch) return mediaMatch[1];
   return null;
 }
 

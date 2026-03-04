@@ -1012,8 +1012,6 @@ export default function CoursePlayerScreen() {
 
   const [videoLoading, setVideoLoading] = useState(true);
 
-  const [videoLoading, setVideoLoading] = useState(true);
-
   if (courseLoading || !enrollmentChecked) {
     return (
       <View style={[styles.container, { paddingTop: (Platform.OS === 'web' ? webTopInset : insets.top) + 12 }]}>
@@ -1049,7 +1047,15 @@ export default function CoursePlayerScreen() {
         isFullscreen ? styles.videoSectionFullscreen : { marginTop: Platform.OS === 'web' ? webTopInset : insets.top }
       ]}>
         {videoUri && !videoError ? (
-          Platform.OS === 'web' ? (
+          useIframe ? (
+            <iframe
+              key={bunnyEmbedUrl!}
+              src={bunnyEmbedUrl!}
+              style={{ width: '100%', height: VIDEO_HEIGHT, border: 'none', backgroundColor: '#000', display: 'block' } as any}
+              allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture"
+              allowFullScreen
+            />
+          ) : Platform.OS === 'web' ? (
             <video
               ref={webVideoRef}
               key={videoUri}
