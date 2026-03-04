@@ -6,7 +6,8 @@ import {
   StatusBar, Share,
 } from 'react-native';
 import * as ScreenCapture from 'expo-screen-capture';
-import { resolveBunnyPlaybackUrl, getBunnyMp4Url, isBunnyUrl } from '@/lib/bunny-cdn';
+import { useVideoPlayer, VideoView } from 'expo-video';
+import { resolveBunnyPlaybackUrl, getBunnyMp4Url, isBunnyUrl, getBunnyEmbedUrl } from '@/lib/bunny-cdn';
 import { File as FSFile, Paths, getInfoAsync, deleteAsync, createDownloadResumable } from 'expo-file-system';
 import Animated, {
   useSharedValue, useAnimatedStyle, withTiming, runOnJS,
@@ -407,6 +408,19 @@ export default function CoursePlayerScreen() {
   const demoDurationSecs = course?.demoDuration ?? 60;
 
   const videoUri = currentVideo?.videoUrl ? resolveVideoUrl(currentVideo.videoUrl) : '';
+
+  const bunnyEmbedUrl = useMemo(() => isBunnyUrl(videoUri) ? getBunnyEmbedUrl(videoUri, isPlaying) : null, [videoUri, isPlaying]);
+  const useIframe = Platform.OS === 'web' && !!bunnyEmbedUrl;
+
+  const player = useVideoPlayer(useIframe ? '' : videoUri, (p) => {
+    p.loop = false;
+  });
+
+  useEffect(() => {
+    if (useIframe) return;
+    if (isPlaying) player.play();
+    else player.pause();
+  }, [isPlaying, useIframe]);
 
   const hasFullAccessRef = useRef(hasFullAccess);
   const autoPlayNextRef = useRef(autoPlayNext);
@@ -995,6 +1009,10 @@ export default function CoursePlayerScreen() {
       },
     })
   ).current;
+
+  const [videoLoading, setVideoLoading] = useState(true);
+
+  const [videoLoading, setVideoLoading] = useState(true);
 
   if (courseLoading || !enrollmentChecked) {
     return (
