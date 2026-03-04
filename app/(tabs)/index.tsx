@@ -94,7 +94,6 @@ const FILTERS: { key: PostCategory | 'all'; label: string }[] = [
   { key: 'job', label: 'Jobs' },
   { key: 'training', label: 'Training' },
   { key: 'supplier', label: 'Suppliers' },
-  { key: 'sell', label: 'For Sale' },
 ];
 
 export default function FeedScreen() {

@@ -278,23 +278,6 @@ export default function ProfileScreen() {
   const myPosts = posts.filter(p => p.userId === profile?.id);
   const totalLikes = myPosts.reduce((sum, p) => sum + p.likes.length, 0);
 
-  const myListings = useMemo(() => {
-    return posts
-      .filter(p => p.userId === profile?.id && p.category === 'sell')
-      .map(p => {
-        const parsed = parseSellPost(p.text);
-        return {
-          id: p.id,
-          title: parsed?.title || 'Untitled',
-          price: parsed?.price || '0',
-          condition: parsed?.condition || '',
-          description: parsed?.description || '',
-          image: p.images && p.images.length > 0 ? getImageUri(p.images[0]) : undefined,
-          createdAt: p.createdAt,
-        };
-      });
-  }, [posts, profile?.id]);
-
   const handleDeleteListing = async (postId: string) => {
     const doDelete = async () => {
       try {

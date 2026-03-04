@@ -271,23 +271,6 @@ export default function CreatePostScreen() {
         ))}
       </View>
 
-      <Pressable
-        style={({ pressed }) => [styles.sellCard, pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] }]}
-        onPress={() => {
-          if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-          router.push('/sell-item');
-        }}
-      >
-        <View style={styles.sellCardIcon}>
-          <Ionicons name="pricetag" size={24} color="#FFF" />
-        </View>
-        <View style={styles.sellCardText}>
-          <Text style={styles.sellCardTitle}>Sell Something</Text>
-          <Text style={styles.sellCardSubtitle}>List an item for sale on marketplace</Text>
-        </View>
-        <Ionicons name="chevron-forward" size={20} color="#FFF" />
-      </Pressable>
-
       <Text style={styles.label}>Content</Text>
       <View style={styles.textInputContainer}>
         <TextInput
@@ -586,42 +569,6 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 16,
     fontFamily: 'Inter_600SemiBold',
-  },
-  sellCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FF2D55',
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 24,
-    gap: 12,
-    shadowColor: '#FF2D55',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  sellCardIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sellCardText: {
-    flex: 1,
-  },
-  sellCardTitle: {
-    color: '#FFF',
-    fontSize: 16,
-    fontFamily: 'Inter_700Bold',
-  },
-  sellCardSubtitle: {
-    color: 'rgba(255,255,255,0.8)',
-    fontSize: 12,
-    fontFamily: 'Inter_400Regular',
-    marginTop: 2,
   },
   progressContainer: {
     backgroundColor: C.surface,

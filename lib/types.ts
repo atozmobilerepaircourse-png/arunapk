@@ -43,7 +43,7 @@ export interface SubscriptionSetting {
   updatedAt: number;
 }
 
-export type PostCategory = 'repair' | 'job' | 'training' | 'supplier' | 'sell';
+export type PostCategory = 'repair' | 'job' | 'training' | 'supplier';
 
 export interface Post {
   id: string;

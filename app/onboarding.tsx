@@ -35,7 +35,7 @@ const ROLES: { key: UserRole; icon: keyof typeof Ionicons.glyphMap; color: strin
   { key: 'supplier', icon: 'cube', color: '#FF9F0A' },
 ];
 
-type ScreenName = 'phone' | 'otp' | 'email' | 'google-phone' | 'details' | 'selfie' | 'skills' | 'sellType' | 'teachType' | 'businessDocs' | 'location';
+type ScreenName = 'phone' | 'otp' | 'email' | 'google-phone' | 'details' | 'selfie' | 'skills' | 'teachType' | 'businessDocs' | 'location';
 
 export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
@@ -61,7 +61,6 @@ export default function OnboardingScreen() {
   const [otpResendTimer, setOtpResendTimer] = useState(0);
   const [googleEmail, setGoogleEmail] = useState('');
   const [googleSignedIn, setGoogleSignedIn] = useState(false);
-  const [sellTypes, setSellTypes] = useState<string[]>([]);
   const [teachType, setTeachType] = useState('');
   const [shopAddress, setShopAddress] = useState('');
   const [gstNumber, setGstNumber] = useState('');
@@ -90,7 +89,6 @@ export default function OnboardingScreen() {
   const isTechnician = role === 'technician';
   const needsSelfie = !isCustomer;
   const needsSkills = isTechnician;
-  const needsSellType = isSupplier;
   const needsTeachType = isTeacher;
   const needsBusinessDocs = isSupplier || isTeacher;
 
@@ -100,7 +98,6 @@ export default function OnboardingScreen() {
       : ['phone', 'otp', 'email', 'details'];
     if (needsSelfie) screens.push('selfie');
     if (needsSkills) screens.push('skills');
-    if (needsSellType) screens.push('sellType');
     if (needsTeachType) screens.push('teachType');
     if (needsBusinessDocs) screens.push('businessDocs');
     screens.push('location');
