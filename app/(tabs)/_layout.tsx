@@ -32,10 +32,6 @@ function NativeTabLayout() {
           <Icon sf={{ default: "waveform.badge.magnifyingglass", selected: "waveform.badge.magnifyingglass" }} />
           <Label>Diagnose</Label>
         </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="marketplace">
-          <Icon sf={{ default: "bag", selected: "bag.fill" }} />
-          <Label>Shop</Label>
-        </NativeTabs.Trigger>
         <NativeTabs.Trigger name="profile">
           <Icon sf={{ default: "person", selected: "person.fill" }} />
           <Label>Profile</Label>
@@ -44,6 +40,7 @@ function NativeTabLayout() {
         <NativeTabs.Trigger name="create" hidden />
         <NativeTabs.Trigger name="my-shop" hidden />
         <NativeTabs.Trigger name="jobs" hidden />
+        <NativeTabs.Trigger name="marketplace" hidden />
       </NativeTabs>
     );
   }
@@ -67,16 +64,13 @@ function NativeTabLayout() {
           <Icon sf={{ default: "storefront", selected: "storefront.fill" }} />
           <Label>{profile?.role === 'teacher' ? 'Content' : 'Products'}</Label>
         </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="marketplace">
-          <Icon sf={{ default: "bag", selected: "bag.fill" }} />
-          <Label>Shop</Label>
-        </NativeTabs.Trigger>
         <NativeTabs.Trigger name="profile">
           <Icon sf={{ default: "person", selected: "person.fill" }} />
           <Label>Profile</Label>
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="customer-home" hidden />
         <NativeTabs.Trigger name="jobs" hidden />
+        <NativeTabs.Trigger name="marketplace" hidden />
       </NativeTabs>
     );
   }
@@ -95,10 +89,6 @@ function NativeTabLayout() {
         <Icon sf={{ default: "plus.circle", selected: "plus.circle.fill" }} />
         <Label>Post</Label>
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="marketplace">
-        <Icon sf={{ default: "bag", selected: "bag.fill" }} />
-        <Label>Shop</Label>
-      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="profile">
         <Icon sf={{ default: "person", selected: "person.fill" }} />
         <Label>Profile</Label>
@@ -106,6 +96,7 @@ function NativeTabLayout() {
       <NativeTabs.Trigger name="customer-home" hidden />
       <NativeTabs.Trigger name="jobs" hidden />
       <NativeTabs.Trigger name="my-shop" hidden />
+      <NativeTabs.Trigger name="marketplace" hidden />
     </NativeTabs>
   );
 }
@@ -222,7 +213,7 @@ function ClassicTabLayout() {
         name="marketplace"
         options={{
           title: "Shop",
-          href: '/marketplace',
+          href: null,
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? "bag" : "bag-outline"} size={22} color={color} />
           ),
