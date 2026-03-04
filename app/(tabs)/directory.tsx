@@ -17,11 +17,11 @@ const C = Colors.light;
 
 const ROLE_FILTERS: { key: UserRole | 'all'; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
   { key: 'all', label: 'All', icon: 'grid' },
-  { key: 'technician', label: 'Technicians', icon: 'construct' },
+  { key: 'customer', label: 'Customers', icon: 'person' },
   { key: 'teacher', label: 'Teachers', icon: 'school' },
   { key: 'supplier', label: 'Suppliers', icon: 'cube' },
   { key: 'job_provider', label: 'Jobs', icon: 'briefcase' },
-  { key: 'customer', label: 'Customers', icon: 'person' },
+  { key: 'technician', label: 'Technicians', icon: 'construct' },
 ];
 
 const ROLE_COLORS: Record<string, string> = {
