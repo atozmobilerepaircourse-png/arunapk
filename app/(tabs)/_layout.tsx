@@ -21,21 +21,27 @@ function NativeTabLayout() {
     return (
       <NativeTabs initialRouteName="customer-home">
         <NativeTabs.Trigger name="customer-home">
+          <Icon sf={{ default: "house", selected: "house.fill" }} />
+          <Label>Home</Label>
+        </NativeTabs.Trigger>
+        <NativeTabs.Trigger name="directory">
           <Icon sf={{ default: "magnifyingglass", selected: "magnifyingglass" }} />
-          <Label>Find</Label>
+          <Label>Experts</Label>
+        </NativeTabs.Trigger>
+        <NativeTabs.Trigger name="jobs">
+          <Icon sf={{ default: "plus.circle", selected: "plus.circle.fill" }} />
+          <Label>Post Job</Label>
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="marketplace">
           <Icon sf={{ default: "bag", selected: "bag.fill" }} />
-          <Label>Buy & Sell</Label>
+          <Label>Shop</Label>
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="profile">
           <Icon sf={{ default: "person", selected: "person.fill" }} />
           <Label>Profile</Label>
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="index" hidden />
-        <NativeTabs.Trigger name="directory" hidden />
         <NativeTabs.Trigger name="create" hidden />
-        <NativeTabs.Trigger name="jobs" hidden />
         <NativeTabs.Trigger name="my-shop" hidden />
       </NativeTabs>
     );
@@ -145,10 +151,10 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="customer-home"
         options={{
-          title: "Find",
+          title: "Home",
           href: isCustomer ? '/customer-home' : null,
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? "search" : "search-outline"} size={24} color={color} />
+            <Ionicons name={focused ? "home" : "home-outline"} size={24} color={color} />
           ),
         }}
       />
@@ -165,10 +171,10 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="directory"
         options={{
-          title: "Directory",
-          href: isCustomer ? null : '/directory',
+          title: isCustomer ? "Experts" : "Directory",
+          href: isCustomer ? '/directory' : (!isCustomer ? '/directory' : null),
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? "people" : "people-outline"} size={24} color={color} />
+            <Ionicons name={isCustomer ? (focused ? "search" : "search-outline") : (focused ? "people" : "people-outline")} size={24} color={color} />
           ),
         }}
       />
@@ -176,7 +182,7 @@ function ClassicTabLayout() {
         name="create"
         options={{
           title: "",
-          href: isCustomer ? null : '/create',
+          href: (isCustomer || isTeacherOrSupplier) ? null : '/create',
           tabBarIcon: ({ focused }) => (
             <View style={{
               width: 56,
@@ -211,8 +217,8 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="marketplace"
         options={{
-          title: isCustomer ? "Buy & Sell" : "Shop",
-          href: isCustomer || (!isTeacherOrSupplier && !isCustomer) ? '/marketplace' : null,
+          title: "Shop",
+          href: (isCustomer || (!isTeacherOrSupplier && !isCustomer)) ? '/marketplace' : null,
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? "bag" : "bag-outline"} size={22} color={color} />
           ),
@@ -221,10 +227,10 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="jobs"
         options={{
-          title: "Jobs",
-          href: null,
+          title: isCustomer ? "Post Job" : "Jobs",
+          href: isCustomer ? '/jobs' : null,
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? "briefcase" : "briefcase-outline"} size={22} color={color} />
+            <Ionicons name={isCustomer ? (focused ? "add-circle" : "add-circle-outline") : (focused ? "briefcase" : "briefcase-outline")} size={22} color={color} />
           ),
         }}
       />

@@ -149,10 +149,10 @@ export default function ProfileScreen() {
       const data = await res.json();
       if (data.success) {
         await setProfile({ ...profile, role: newRole as UserRole });
-        if (Platform.OS === 'web') {
-          window.alert(`Role changed to ${ROLE_LABELS[newRole as UserRole] || newRole}`);
+        if (newRole === 'customer') {
+          router.replace('/(tabs)/customer-home');
         } else {
-          Alert.alert('Role Updated', `Your role has been changed to ${ROLE_LABELS[newRole as UserRole] || newRole}`);
+          router.replace('/(tabs)/index');
         }
       } else {
         throw new Error(data.message || 'Failed to change role');
