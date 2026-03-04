@@ -118,10 +118,29 @@ export default function CreateCourseScreen() {
   const [videoUri, setVideoUri] = useState<string | null>(null);
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [videoFileName, setVideoFileName] = useState('');
+  const [videoFileSize, setVideoFileSize] = useState<number>(0);
   const [videoDuration, setVideoDuration] = useState('0');
   const [videoIsDemo, setVideoIsDemo] = useState(false);
   const [videoUrlInput, setVideoUrlInput] = useState('');
   const [videoInputMode, setVideoInputMode] = useState<'file' | 'url'>('file');
+  const isMountedRef = useRef(true);
+  useEffect(() => () => { isMountedRef.current = false; }, []);
+
+  useEffect(() => {
+    if (UploadManager.isUploading()) {
+      setIsSubmitting(true);
+      setUploadPercent(UploadManager.getProgress());
+      setUploadProgress(UploadManager.getMessage());
+    }
+    return UploadManager.subscribe(() => {
+      if (!isMountedRef.current) return;
+      if (UploadManager.isUploading()) {
+        setIsSubmitting(true);
+        setUploadPercent(UploadManager.getProgress());
+        setUploadProgress(UploadManager.getMessage());
+      }
+    });
+  }, []);
 
   const [showLanguageModal, setShowLanguageModal] = useState(false);
 
@@ -182,15 +201,26 @@ export default function CreateCourseScreen() {
     }
   };
 
-  const uploadVideo = async (uri: string): Promise<string> => {
+  const uploadVideo = async (uri: string, fileSize: number): Promise<string> => {
     const { uploadVideoToBunnyStream } = await import('@/lib/bunny-stream');
     const title = videoTitle.trim() || 'Untitled Video';
+    const cancelSignal = { cancelled: false };
 
-    const result = await uploadVideoToBunnyStream(uri, title, (p) => {
-      setUploadPercent(p.percent);
-      setUploadProgress(p.message);
-      UploadManager.update(p.percent, p.message);
-    });
+    UploadManager.startTus(videoFileName || 'video', cancelSignal);
+
+    const result = await uploadVideoToBunnyStream(
+      uri,
+      title,
+      (p) => {
+        if (!isMountedRef.current) return;
+        setUploadPercent(p.percent);
+        setUploadProgress(p.message);
+        UploadManager.update(p.percent, p.message);
+      },
+      cancelSignal,
+      false,
+      fileSize || undefined,
+    );
 
     UploadManager.finish();
     return result.directUrl;
@@ -309,6 +339,7 @@ export default function CreateCourseScreen() {
           setVideoFile(file);
           setVideoUri(objectUrl);
           setVideoFileName(file.name);
+          setVideoFileSize(file.size);
           getVideoDurationWeb(objectUrl).then(secs => {
             if (secs > 0) setVideoDuration(String(secs));
           });
@@ -321,7 +352,7 @@ export default function CreateCourseScreen() {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['videos'],
       allowsMultipleSelection: false,
-      quality: 0.8,
+      quality: 1,
       videoMaxDuration: 7200,
     });
     if (!result.canceled && result.assets && result.assets.length > 0) {
@@ -333,6 +364,7 @@ export default function CreateCourseScreen() {
       setVideoUri(asset.uri);
       setVideoFile(null);
       setVideoFileName(asset.fileName || 'video.mp4');
+      setVideoFileSize(asset.fileSize ?? 0);
       if (asset.duration) {
         setVideoDuration(String(Math.round(asset.duration / 1000)));
       }
@@ -424,19 +456,23 @@ export default function CreateCourseScreen() {
     if (videoInputMode === 'url' && !videoUrlInput.trim()) return;
 
     setIsSubmitting(true);
+    const capturedUri = videoUri;
+    const capturedSize = videoFileSize;
+    const capturedChapterId = activeChapterId;
+    const capturedCourse = course;
     try {
       let videoUrl: string;
       if (videoInputMode === 'url') {
         videoUrl = videoUrlInput.trim();
       } else {
         setUploadPercent(0);
-        setUploadProgress('Uploading video... 0%');
-        videoUrl = await uploadVideo(videoUri!);
+        setUploadProgress('Preparing upload...');
+        videoUrl = await uploadVideo(capturedUri!, capturedSize);
       }
 
-      setUploadProgress('Saving video...');
-      const chapterVideos = chapters.find(ch => ch.id === activeChapterId)?.videos || [];
-      const res = await apiRequest('POST', `/api/courses/${course.id}/chapters/${activeChapterId}/videos`, {
+      if (isMountedRef.current) setUploadProgress('Saving video...');
+      const chapterVideos = chapters.find(ch => ch.id === capturedChapterId)?.videos || [];
+      const res = await apiRequest('POST', `/api/courses/${capturedCourse!.id}/chapters/${capturedChapterId}/videos`, {
         title: videoTitle.trim(),
         description: videoDescription.trim(),
         videoUrl,
@@ -447,22 +483,33 @@ export default function CreateCourseScreen() {
       });
       const data = await res.json();
       if (data.success && data.video) {
-        setChapters(prev => prev.map(ch => {
-          if (ch.id !== activeChapterId) return ch;
-          return { ...ch, videos: [...(ch.videos || []), data.video] };
-        }));
-        resetVideoModal();
-        showStatus('Video added successfully!', 'success');
+        if (isMountedRef.current) {
+          setChapters(prev => prev.map(ch => {
+            if (ch.id !== capturedChapterId) return ch;
+            return { ...ch, videos: [...(ch.videos || []), data.video] };
+          }));
+          resetVideoModal();
+          showStatus('Video added successfully!', 'success');
+        }
         if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
     } catch (e: any) {
-      if (e?.message === 'CANCELLED') return;
-      console.error('[CreateCourse] Add video error:', e);
-      showStatus(e?.message && e.message !== 'CANCELLED' ? e.message : 'Failed to upload video', 'error');
+      const wasCancelled = e?.message === 'CANCELLED';
+      if (!wasCancelled) {
+        console.error('[CreateCourse] Add video error:', e);
+        if (isMountedRef.current) {
+          showStatus(e?.message ? e.message : 'Upload failed — please try again.', 'error');
+        }
+      }
     } finally {
-      setIsSubmitting(false);
-      setUploadProgress('');
-      setUploadPercent(0);
+      if (UploadManager.isUploading()) {
+        UploadManager.finish();
+      }
+      if (isMountedRef.current) {
+        setIsSubmitting(false);
+        setUploadProgress('');
+        setUploadPercent(0);
+      }
     }
   };
 
@@ -471,6 +518,7 @@ export default function CreateCourseScreen() {
     setVideoDescription('');
     setVideoUri(null);
     setVideoFileName('');
+    setVideoFileSize(0);
     setVideoDuration('0');
     setVideoIsDemo(false);
     setVideoUrlInput('');

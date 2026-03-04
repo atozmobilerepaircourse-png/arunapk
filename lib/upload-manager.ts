@@ -1,3 +1,8 @@
+export interface CancelSignal {
+  cancelled: boolean;
+}
+
+let _cancelSignal: CancelSignal | null = null;
 let _xhr: XMLHttpRequest | null = null;
 let _progress = 0;
 let _message = '';
@@ -11,8 +16,19 @@ function notify() {
 }
 
 export const UploadManager = {
+  startTus(fileName: string, cancelSignal: CancelSignal) {
+    _cancelSignal = cancelSignal;
+    _xhr = null;
+    _isUploading = true;
+    _progress = 0;
+    _message = 'Starting upload...';
+    _fileName = fileName;
+    notify();
+  },
+
   start(xhr: XMLHttpRequest, fileName: string) {
     _xhr = xhr;
+    _cancelSignal = null;
     _isUploading = true;
     _progress = 0;
     _message = 'Starting upload...';
@@ -28,6 +44,7 @@ export const UploadManager = {
 
   finish() {
     _xhr = null;
+    _cancelSignal = null;
     _isUploading = false;
     _progress = 100;
     notify();
@@ -41,6 +58,7 @@ export const UploadManager = {
 
   cancel() {
     if (_xhr) { _xhr.abort(); _xhr = null; }
+    if (_cancelSignal) { _cancelSignal.cancelled = true; _cancelSignal = null; }
     _isUploading = false;
     _progress = 0;
     _message = '';
