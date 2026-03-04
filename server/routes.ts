@@ -227,7 +227,7 @@ async function sendWhatsAppOTP(phone: string, otp: string): Promise<boolean> {
         set: { otp: staticOtp, expiresAt: Date.now() + 10 * 60 * 1000 } 
       });
 
-      return res.json({ success: true, message: "OTP sent (Bypass)" });
+      return res.status(200).json({ success: true, message: "OTP sent (Bypass)" });
     }
     const message = await client.messages.create({
       body: `Your Mobi verification code is: ${otp}. Valid for 5 minutes. Do not share this code with anyone.`,

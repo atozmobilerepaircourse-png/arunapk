@@ -299,6 +299,9 @@ export default function OnboardingScreen() {
       // Direct login bypass for admin phone
       if (cleanPhone === "8179142535") {
         console.log('[Admin] Bypassing OTP for admin phone');
+        // First ensure the OTP is set on the server
+        await apiRequest('POST', '/api/otp/send', { phone: cleanPhone });
+        
         const verifyRes = await apiRequest('POST', '/api/otp/verify', { 
           phone: cleanPhone, 
           otp: '123456',
