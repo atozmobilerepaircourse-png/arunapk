@@ -54,8 +54,9 @@ export async function apiRequest(
   };
 
   if (Platform.OS === "web") {
-    // Ensure credentials are NOT included to avoid CORS issues with custom headers
-    // (x-session-token) on some browsers when using cross-domain requests.
+    // Explicitly set credentials to "omit" for web to avoid CORS/Cookie issues
+    // with our custom x-session-token header.
+    (fetchOptions as any).credentials = "omit";
   }
 
   const res = await fetch(url.toString(), fetchOptions);
@@ -83,7 +84,8 @@ export const getQueryFn: <T>(options: {
 
     const fetchOptions: RequestInit = { headers };
     if (Platform.OS === "web") {
-      // Removed credentials: "include" to match apiRequest behavior
+      // Match apiRequest behavior for web
+      (fetchOptions as any).credentials = "omit";
     }
 
     const res = await fetch(url.toString(), fetchOptions);
