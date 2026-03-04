@@ -3,6 +3,14 @@ const { createProxyMiddleware } = require("http-proxy-middleware");
 
 const config = getDefaultConfig(__dirname);
 
+// Block bun/eas-cli caches from being watched — they contain RN Android source
+// and exhaust inotify file watcher limits on Linux
+config.resolver = config.resolver || {};
+config.resolver.blockList = [
+  /\.cache\/.bun\/.*/,
+  /\.cache\/eas-cli\/.*/,
+];
+
 const apiProxy = createProxyMiddleware({
   target: "http://localhost:5000",
   changeOrigin: true,

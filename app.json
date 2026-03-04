@@ -19,7 +19,7 @@
     },
     "android": {
       "package": "com.mobi.app",
-      "versionCode": 1,
+      "versionCode": 2,
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.READ_EXTERNAL_STORAGE",
@@ -50,6 +50,14 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {
+        "origin": "https://atozmobilerepair.in/"
+      },
+      "eas": {
+        "projectId": "b933f4a5-13c2-4cc1-91a0-0e04c4203339"
+      }
     }
   }
 }

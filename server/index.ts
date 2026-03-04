@@ -60,18 +60,23 @@ function setupCors(app: express.Application) {
 
     const isCloudRun = origin?.endsWith(".run.app");
 
-    if (
-      origin &&
-      (origins.has(origin) ||
-        isLocalhost ||
-        (process.env.NODE_ENV !== "production" && isCloudRun))
+    const allowedMethods = "GET, POST, PUT, DELETE, PATCH, OPTIONS";
+    const allowedHeaders = "Content-Type, x-session-token, expo-platform, x-requested-with, Authorization";
+
+    if (!origin) {
+      res.header("Access-Control-Allow-Origin", "*");
+      res.header("Access-Control-Allow-Methods", allowedMethods);
+      res.header("Access-Control-Allow-Headers", allowedHeaders);
+    } else if (
+      origins.has(origin) ||
+      isLocalhost ||
+      isCloudRun ||
+      origin.endsWith(".replit.dev") ||
+      origin.endsWith(".exp.host")
     ) {
       res.header("Access-Control-Allow-Origin", origin);
-      res.header(
-        "Access-Control-Allow-Methods",
-        "GET, POST, PUT, DELETE, PATCH, OPTIONS",
-      );
-      res.header("Access-Control-Allow-Headers", "Content-Type, expo-platform, x-session-token");
+      res.header("Access-Control-Allow-Methods", allowedMethods);
+      res.header("Access-Control-Allow-Headers", allowedHeaders);
       res.header("Access-Control-Allow-Credentials", "true");
     }
 

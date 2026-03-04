@@ -1,9 +1,10 @@
 import { fetch } from "expo/fetch";
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Platform } from "react-native";
 
 const CLOUD_RUN_BACKEND = "https://repair-backend-3siuld7gbq-el.a.run.app";
-const SESSION_KEY = "mobi_session_token";
+const SESSION_KEY = "mobi_session_token_v2";
 
 export function getApiUrl(): string {
   return CLOUD_RUN_BACKEND;
@@ -11,7 +12,8 @@ export function getApiUrl(): string {
 
 async function getSessionToken(): Promise<string | null> {
   try {
-    return await AsyncStorage.getItem(SESSION_KEY);
+    const token = await AsyncStorage.getItem(SESSION_KEY);
+    return token;
   } catch {
     return null;
   }
@@ -39,15 +41,20 @@ export async function apiRequest(
   if (!isFormData && data) headers["Content-Type"] = "application/json";
   if (sessionToken) headers["x-session-token"] = sessionToken;
 
-  const res = await fetch(url.toString(), {
+  const fetchOptions: RequestInit = {
     method,
     headers,
     body: isFormData ? (data as any) : (data ? JSON.stringify(data) : undefined),
-    credentials: "include",
-  });
+  };
+
+  if (Platform.OS === "web") {
+    fetchOptions.credentials = "include";
+  }
+
+  const res = await fetch(url.toString(), fetchOptions);
 
   if (res.status === 401 && !route.includes('/api/otp/') && !route.includes('/api/auth/')) {
-    console.log('[API] 401 Unauthorized detected for', route);
+    console.log('[API] 401 Unauthorized for', route, '— session token may be missing');
   }
 
   await throwIfResNotOk(res);
@@ -67,10 +74,12 @@ export const getQueryFn: <T>(options: {
     const headers: Record<string, string> = {};
     if (sessionToken) headers["x-session-token"] = sessionToken;
 
-    const res = await fetch(url.toString(), {
-      headers,
-      credentials: "include",
-    });
+    const fetchOptions: RequestInit = { headers };
+    if (Platform.OS === "web") {
+      fetchOptions.credentials = "include";
+    }
+
+    const res = await fetch(url.toString(), fetchOptions);
 
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {
       return null;
