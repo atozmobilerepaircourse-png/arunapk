@@ -1095,23 +1095,6 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
         return res.status(400).json({ success: false, message: "Phone number is required" });
       }
       const cleanPhone = phone.replace(/\D/g, "");
-      
-      // Admin bypass for 8179142535 and 9398391742
-      if (cleanPhone === "8179142535" || cleanPhone === "9398391742") {
-        const adminProfile = await db.select().from(profiles).where(eq(profiles.phone, cleanPhone));
-        if (adminProfile.length > 0) {
-          console.log(`[Auth] Admin bypass triggered for ${cleanPhone}`);
-          return res.json({
-            success: true,
-            exists: true,
-            profile: { ...adminProfile[0], skills: JSON.parse(adminProfile[0].skills) },
-            isAdmin: true
-          });
-        } else {
-          console.log(`[Auth] Admin bypass failed: profile not found for ${cleanPhone}`);
-        }
-      }
-
       const allProfiles = await db.select().from(profiles);
       const found = allProfiles.find(p => p.phone.replace(/\D/g, "") === cleanPhone);
 
@@ -5281,17 +5264,6 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
           console.warn("[Live Session Upload] Could not update session latestImage:", sessErr);
         }
       }
-
-      // Notify all users that the teacher shared a photo
-      (async () => {
-        try {
-          await notifyAllUsers({
-            title: `📸 ${displayName} shared a photo!`,
-            body: sessionLink ? `Check the live chat — Join: ${sessionLink}` : `Check the Live Community chat now!`,
-            data: { type: 'live_chat_image', link: sessionLink || '', image: absoluteUrl },
-          });
-        } catch (e) { console.warn('[Push] Live session photo notify failed:', e); }
-      })();
 
       res.json({ success: true, url: absoluteUrl });
     } catch (error) {

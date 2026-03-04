@@ -288,11 +288,7 @@ export default function OnboardingScreen() {
   };
 
   const checkPhone = async () => {
-    let cleanPhone = phone.replace(/\D/g, '');
-    if (cleanPhone.startsWith('91') && cleanPhone.length === 12) {
-      cleanPhone = cleanPhone.slice(2);
-    }
-    
+    const cleanPhone = phone.replace(/\D/g, '');
     if (cleanPhone.length !== 10) {
       Alert.alert('Invalid Number', 'Please enter a valid 10-digit mobile number.');
       return;
@@ -304,27 +300,8 @@ export default function OnboardingScreen() {
       console.log('[OTP] Sending to:', cleanPhone, 'via:', baseUrl);
       const res = await apiRequest('POST', '/api/auth/check-phone', { phone: cleanPhone });
       const data = await res.json();
-      console.log('[Auth] Check-phone response:', data);
 
       if (data.success) {
-        // Admin bypass
-        const isAdminPhone = cleanPhone === "8179142535" || cleanPhone === "9398391742";
-        if (isAdminPhone || data.isAdmin) {
-          console.log('[Auth] Admin bypass detected');
-          if (data.profile) {
-            await login(data.profile);
-            router.replace('/');
-            return;
-          }
-        }
-
-        // Even if bypass didn't trigger, if phone is admin, try to login directly
-        if (isAdminPhone && data.profile) {
-          await login(data.profile);
-          router.replace('/');
-          return;
-        }
-
         if (data.exists && data.profile) {
           const serverProfile: UserProfile = {
             id: data.profile.id,
@@ -417,11 +394,7 @@ export default function OnboardingScreen() {
   };
 
   const handleGooglePhoneSubmit = async () => {
-    let cleanPhone = phone.replace(/\D/g, '');
-    if (cleanPhone.startsWith('91') && cleanPhone.length === 12) {
-      cleanPhone = cleanPhone.slice(2);
-    }
-    
+    const cleanPhone = phone.replace(/\D/g, '');
     if (cleanPhone.length !== 10) {
       Alert.alert('Invalid Number', 'Please enter a valid 10-digit mobile number.');
       return;
