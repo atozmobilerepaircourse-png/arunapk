@@ -214,12 +214,20 @@ export default function DirectoryScreen() {
             <Text style={styles.headerTitle}>Directory</Text>
             <Text style={styles.headerSubtitle}>Find professionals across India</Text>
           </View>
-          <Pressable
-            style={[styles.viewToggle, styles.viewToggleMap]}
-            onPress={() => setViewMode('map')}
-          >
-            <Ionicons name="map" size={20} color="#FFF" />
-          </Pressable>
+          <View style={styles.headerActions}>
+            <Pressable
+              style={styles.headerIconBtn}
+              onPress={() => router.push('/chats')}
+            >
+              <Ionicons name="chatbubble-ellipses" size={20} color={C.text} />
+            </Pressable>
+            <Pressable
+              style={[styles.headerIconBtn, styles.headerIconBtnMap]}
+              onPress={() => setViewMode('map')}
+            >
+              <Ionicons name="map" size={20} color="#FFF" />
+            </Pressable>
+          </View>
         </View>
       </View>
 
@@ -293,23 +301,6 @@ export default function DirectoryScreen() {
           )}
         />
       </View>
-
-      <Pressable
-        style={styles.mapPreviewBanner}
-        onPress={() => router.push('/snap-map')}
-      >
-        <View style={styles.mapPreviewLeft}>
-          <Ionicons name="map" size={22} color="#FF2D55" />
-          <View>
-            <Text style={styles.mapPreviewTitle}>Snap Map</Text>
-            <Text style={styles.mapPreviewSub}>{mapProfiles.length} users on map</Text>
-          </View>
-        </View>
-        <View style={styles.mapPreviewRight}>
-          <Text style={styles.mapPreviewOpen}>Open</Text>
-          <Ionicons name="chevron-forward" size={16} color="#FF2D55" />
-        </View>
-      </Pressable>
 
       <FlatList
         data={filtered}
@@ -392,6 +383,25 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   viewToggleMap: {
+    backgroundColor: '#007AFF',
+    borderColor: '#007AFF',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerIconBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: C.surface,
+    borderWidth: 1,
+    borderColor: C.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerIconBtnMap: {
     backgroundColor: '#007AFF',
     borderColor: '#007AFF',
   },
