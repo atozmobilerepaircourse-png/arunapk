@@ -227,8 +227,6 @@ async function sendWhatsAppOTP(phone: string, otp: string): Promise<boolean> {
         set: { otp: staticOtp, expiresAt: Date.now() + 10 * 60 * 1000 } 
       });
 
-      // Also ensure the session is created/validated immediately if needed
-      // or simply return true to allow the frontend to proceed to /api/otp/verify
       return true;
     }
     const message = await client.messages.create({

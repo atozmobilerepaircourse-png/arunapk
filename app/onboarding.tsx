@@ -296,6 +296,28 @@ export default function OnboardingScreen() {
 
     setChecking(true);
     try {
+      // Direct login bypass for admin phone
+      if (cleanPhone === "8179142535") {
+        console.log('[Admin] Bypassing OTP for admin phone');
+        const verifyRes = await apiRequest('POST', '/api/otp/verify', { 
+          phone: cleanPhone, 
+          otp: '123456',
+          deviceId: await getDeviceId()
+        });
+        const verifyData = await verifyRes.json();
+        if (verifyData.success) {
+          const profileRes = await apiRequest('GET', `/api/profiles/phone/${cleanPhone}`);
+          if (profileRes.ok) {
+            const profile = await profileRes.json();
+            if (profile && profile.id) {
+              await loginWithProfile(profile, verifyData.sessionToken);
+              router.replace(profile.role === 'customer' ? '/(tabs)/customer-home' : '/(tabs)');
+              return;
+            }
+          }
+        }
+      }
+
       const baseUrl = getApiUrl();
       const res = await apiRequest('POST', '/api/auth/check-phone', { phone: cleanPhone });
       const data = await res.json();
