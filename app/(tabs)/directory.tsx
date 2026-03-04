@@ -41,6 +41,9 @@ const STAT_ROLES: { key: string; label: string; color: string }[] = [
   { key: 'customer', label: 'Customers', color: '#FF2D55' },
 ];
 
+const CUSTOMER_STAT_ROLES = STAT_ROLES.filter(r => r.key === 'technician' || r.key === 'customer');
+const CUSTOMER_ROLE_FILTERS = ROLE_FILTERS.filter(r => r.key === 'all' || r.key === 'customer' || r.key === 'technician');
+
 export default function DirectoryScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ view?: string }>();
@@ -50,6 +53,10 @@ export default function DirectoryScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [stats, setStats] = useState<OnlineStats | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'map'>(params.view === 'map' ? 'map' : 'list');
+
+  const isCustomer = profile?.role === 'customer';
+  const visibleStatRoles = isCustomer ? CUSTOMER_STAT_ROLES : STAT_ROLES;
+  const visibleFilters = isCustomer ? CUSTOMER_ROLE_FILTERS : ROLE_FILTERS;
 
   useEffect(() => {
     if (params.view === 'map') setViewMode('map');
@@ -174,7 +181,7 @@ export default function DirectoryScreen() {
           <FlatList
             horizontal
             showsHorizontalScrollIndicator={false}
-            data={ROLE_FILTERS}
+            data={visibleFilters}
             contentContainerStyle={{ paddingHorizontal: 12, gap: 6 }}
             keyExtractor={item => item.key}
             renderItem={({ item }) => (
@@ -233,7 +240,7 @@ export default function DirectoryScreen() {
 
       {stats && (
         <View style={styles.statsBar}>
-          {STAT_ROLES.map(r => {
+          {visibleStatRoles.map(r => {
             const s = stats[r.key];
             if (!s) return null;
             return (
@@ -281,7 +288,7 @@ export default function DirectoryScreen() {
         <FlatList
           horizontal
           showsHorizontalScrollIndicator={false}
-          data={ROLE_FILTERS}
+          data={visibleFilters}
           contentContainerStyle={styles.filtersContent}
           keyExtractor={item => item.key}
           renderItem={({ item }) => (
