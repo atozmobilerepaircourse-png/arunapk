@@ -138,7 +138,7 @@ export default function ProfileScreen() {
     try {
       setChangingRole(true);
       setShowRolePicker(false);
-      const res = await apiRequest('POST', '/api/admin/change-role', { userId: profile.id, newRole });
+      const res = await apiRequest('POST', '/api/profile/change-role', { newRole });
       const data = await res.json();
       if (data.success) {
         await setProfile({ ...profile, role: newRole as UserRole });

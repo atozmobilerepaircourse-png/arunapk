@@ -294,6 +294,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // User self-service role change — no admin required, uses session token to identify user
+  app.post("/api/profile/change-role", async (req, res) => {
+    try {
+      const sessionToken = req.headers['x-session-token'] as string;
+      const { newRole } = req.body;
+      const allowedRoles = ["teacher", "technician", "customer", "supplier", "job_provider"];
+      if (!allowedRoles.includes(newRole)) {
+        return res.status(400).json({ success: false, message: "Invalid role" });
+      }
+      if (!sessionToken) {
+        return res.status(401).json({ success: false, message: "Not logged in" });
+      }
+      const sessionRows = await db.select().from(sessions).where(eq(sessions.sessionToken, sessionToken));
+      if (!sessionRows[0]) {
+        return res.status(401).json({ success: false, message: "Invalid session" });
+      }
+      const profileRows = await db.select().from(profiles).where(eq(profiles.phone, sessionRows[0].phone));
+      if (!profileRows[0]) {
+        return res.status(404).json({ success: false, message: "Profile not found" });
+      }
+      await db.update(profiles).set({ role: newRole as any }).where(eq(profiles.id, profileRows[0].id));
+      res.json({ success: true, message: "Role updated successfully" });
+    } catch (error) {
+      console.error("[Profile] Change role error:", error);
+      res.status(500).json({ success: false, message: "Failed to update role" });
+    }
+  });
+
   // ========== File serving ==========
   const express = await import("express");
   app.use("/uploads", express.static(uploadsDir));
