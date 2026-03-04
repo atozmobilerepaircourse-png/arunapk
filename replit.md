@@ -5,6 +5,7 @@ Mobile-first social networking and directory platform for repair professionals i
 - **Frontend**: Expo/React Native (Firebase Hosting: `https://mobile-repair-app-276b6.web.app`)
 - **Backend**: Express/TypeScript (Google Cloud Run: `https://repair-backend-3siuld7gbq-el.a.run.app`)
 - **Database**: Neon.tech PostgreSQL
+- **Image Storage**: Google Cloud Storage (`mobi-app-uploads` bucket in asia-south1)
 
 ## Deployment Strategy
 
@@ -54,6 +55,13 @@ node build-steps.js && node push-oci.js
 - OTPs are stored in the `otp_tokens` PostgreSQL table (persists across Cloud Run restarts/scale-to-zero)
 - Twilio sends via WhatsApp first, falls back to SMS
 - Table is auto-created on server startup via migration in `server/index.ts`
+- Admin phone `8179142535` always receives OTP `123456`
+
+## Image Storage
+- **Bunny.net DISABLED** (`bunnyAvailable = false`, `bunnyStreamAvailable = false`)
+- Images uploaded to **Google Cloud Storage** bucket `mobi-app-uploads` (public read, CORS enabled)
+- Images auto-compressed with **sharp** (max 1200px, JPEG 80% quality) before upload
+- Fallback: local disk `/uploads/` if GCS unavailable (won't persist on Cloud Run)
 
 ## Database — CRITICAL: Two Separate Databases
 **The local dev environment and production Cloud Run use DIFFERENT Neon databases:**
@@ -63,19 +71,17 @@ node build-steps.js && node push-oci.js
 **When running `npm run db:push`, it only updates the LOCAL database — NOT the production one.**
 To fix schema issues in production, connect directly with the production URL from Cloud Run env vars (retrieved via GCP API using SA key).
 
-### Getting the Production DATABASE_URL
-```js
-node -e "require('fs').writeFileSync('/tmp/gcp_sa.json', process.env.GCP_SA_KEY)"
-// Then use google-auth-library to GET:
-// https://run.googleapis.com/v2/projects/atoz-mobile-repair-488915/locations/asia-south1/services/repair-backend
-// and extract the DATABASE_URL from template.containers[0].env
-```
-
-### Applying Schema Changes to Production DB
-Run SQL directly against the production DATABASE_URL fetched above.
-
 ## Database Tables (Neon PostgreSQL)
-Key tables: profiles, sessions, otp_tokens, posts, jobs, conversations, messages, products, orders, courses, payments, appSettings, emailCampaigns
+Key tables: profiles, sessions, otp_tokens, posts, jobs, conversations, messages, products, orders, courses, payments, appSettings, emailCampaigns, reviews, service_requests
+
+## Features
+- **Trust & Reputation**: Trust scores, badges (New Member/Trusted/Pro/Verified Expert), ratings (1-5 stars), reviews
+- **Service Requests**: Customers post repair requests, technicians respond, location-based matching
+- **Subscriptions**: All roles (technician, teacher, supplier, customer) support subscription model. Admin controls pricing.
+- **Live Sessions**: Teachers go live with YouTube/Zoom links, share photos, users join via in-app browser
+- **Live Chat**: Real-time messaging between users (renamed from "Chat" to "Live Chat")
+- **Directory**: Sort by recently active, highest rated, most trusted, nearest location
+- **Admin Panel**: Users, Subscriptions, Security (blocked users with unblock), Reviews moderation, Revenue, Notifications
 
 ## Android Builds (EAS)
 - **EAS CLI**: Installed in `node_modules/.bin/eas`

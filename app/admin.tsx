@@ -14,7 +14,7 @@ import { openLink } from '@/lib/open-link';
 
 const C = Colors.light;
 
-type AdminTab = 'dashboard' | 'users' | 'posts' | 'jobs' | 'subscriptions' | 'revenue' | 'ads' | 'links' | 'device' | 'notifications' | 'payouts' | 'email' | 'security';
+type AdminTab = 'dashboard' | 'users' | 'posts' | 'jobs' | 'subscriptions' | 'revenue' | 'ads' | 'links' | 'device' | 'notifications' | 'email' | 'security' | 'reviews';
 
 const ROLE_COLORS: Record<UserRole, string> = {
   technician: '#34C759',
@@ -342,6 +342,8 @@ export default function AdminScreen() {
 
   const [lockNotifications, setLockNotifications] = useState<any[]>([]);
   const [lockNotifLoading, setLockNotifLoading] = useState(false);
+  const [reviewsList, setReviewsList] = useState<any[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
   const [supportNumber, setSupportNumber] = useState('+918179142535');
   const [whatsappLink, setWhatsappLink] = useState('https://wa.me/918179142535');
   const [supportSaving, setSupportSaving] = useState(false);
@@ -522,6 +524,127 @@ export default function AdminScreen() {
   useEffect(() => {
     if (activeTab === 'email') fetchEmailStats();
   }, [activeTab, fetchEmailStats]);
+
+  const fetchReviews = useCallback(async () => {
+    setReviewsLoading(true);
+    try {
+      const res = await apiRequest('GET', '/api/admin/reviews');
+      const data = await res.json();
+      if (Array.isArray(data)) setReviewsList(data);
+    } catch (err) {
+      console.warn('Failed to fetch reviews:', err);
+    } finally {
+      setReviewsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'reviews') fetchReviews();
+  }, [activeTab, fetchReviews]);
+
+  const handleDeleteReview = (reviewId: string) => {
+    Alert.alert(
+      'Delete Review',
+      'Are you sure you want to delete this review? This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await apiRequest('DELETE', `/api/admin/reviews/${reviewId}`);
+              fetchReviews();
+            } catch (err) {
+              Alert.alert('Error', 'Failed to delete review');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const renderReviews = () => {
+    const totalReviews = reviewsList.length;
+    const avgRating = totalReviews > 0
+      ? (reviewsList.reduce((sum: number, r: any) => sum + (r.rating || 0), 0) / totalReviews).toFixed(1)
+      : '0.0';
+
+    const renderStars = (rating: number) => {
+      const stars = [];
+      for (let i = 1; i <= 5; i++) {
+        stars.push(
+          <Ionicons
+            key={i}
+            name={i <= rating ? 'star' : i - 0.5 <= rating ? 'star-half' : 'star-outline'}
+            size={14}
+            color="#FFD60A"
+          />
+        );
+      }
+      return <View style={{ flexDirection: 'row', gap: 2 }}>{stars}</View>;
+    };
+
+    return (
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+        <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16 }}>
+          <View style={[styles.statCard, { flex: 1, borderLeftColor: '#FFD60A' }]}>
+            <Ionicons name="star" size={22} color="#FFD60A" />
+            <Text style={styles.statNumber}>{totalReviews}</Text>
+            <Text style={styles.statLabel}>Total Reviews</Text>
+          </View>
+          <View style={[styles.statCard, { flex: 1, borderLeftColor: '#FF6B2C' }]}>
+            <Ionicons name="star-half" size={22} color="#FF6B2C" />
+            <Text style={styles.statNumber}>{avgRating}</Text>
+            <Text style={styles.statLabel}>Avg Rating</Text>
+          </View>
+        </View>
+
+        {reviewsLoading ? (
+          <View style={styles.emptyState}>
+            <ActivityIndicator size="small" color={C.primary} />
+            <Text style={[styles.emptyText, { marginTop: 8 }]}>Loading reviews...</Text>
+          </View>
+        ) : reviewsList.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyText}>No reviews yet</Text>
+          </View>
+        ) : (
+          reviewsList.map((review: any) => (
+            <View key={review.id} style={[styles.sectionCard, { marginBottom: 10 }]}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: C.text, fontSize: 14, fontFamily: 'Inter_600SemiBold' }}>
+                    {review.reviewerName || 'Unknown User'}
+                  </Text>
+                  <Text style={{ color: C.textTertiary, fontSize: 11, fontFamily: 'Inter_400Regular', marginTop: 2 }}>
+                    Reviewed user: {review.revieweeId || 'N/A'}
+                  </Text>
+                </View>
+                <Pressable hitSlop={12} onPress={() => handleDeleteReview(review.id)}>
+                  <Ionicons name="trash-outline" size={18} color="#FF3B30" />
+                </Pressable>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 }}>
+                {renderStars(review.rating || 0)}
+                <Text style={{ color: C.textSecondary, fontSize: 12, fontFamily: 'Inter_500Medium' }}>
+                  {review.rating || 0}/5
+                </Text>
+              </View>
+              {review.comment ? (
+                <Text style={{ color: C.text, fontSize: 13, fontFamily: 'Inter_400Regular', marginTop: 8, lineHeight: 18 }}>
+                  {review.comment}
+                </Text>
+              ) : null}
+              <Text style={{ color: C.textTertiary, fontSize: 11, fontFamily: 'Inter_400Regular', marginTop: 8 }}>
+                {review.createdAt ? new Date(review.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Unknown date'}
+              </Text>
+            </View>
+          ))
+        )}
+      </ScrollView>
+    );
+  };
 
   const pickAdImage = async () => {
     const { launchImageLibraryAsync, MediaTypeOptions } = await import('expo-image-picker');
@@ -744,7 +867,6 @@ export default function AdminScreen() {
     { key: 'users', label: 'Users', icon: 'people' },
     { key: 'subscriptions', label: 'Subs', icon: 'card' },
     { key: 'revenue', label: 'Revenue', icon: 'trending-up' },
-    { key: 'payouts', label: 'Payouts', icon: 'cash' },
     { key: 'posts', label: 'Posts', icon: 'newspaper' },
     { key: 'jobs', label: 'Jobs', icon: 'briefcase' },
     { key: 'ads', label: 'Ads', icon: 'megaphone' },
@@ -753,6 +875,7 @@ export default function AdminScreen() {
     { key: 'notifications', label: 'Notify', icon: 'notifications' },
     { key: 'email', label: 'Email', icon: 'mail' },
     { key: 'security', label: 'Security', icon: 'shield' },
+    { key: 'reviews', label: 'Reviews', icon: 'star-half-outline' },
   ];
 
   const handleDeletePost = (postId: string, userName: string) => {
@@ -1084,23 +1207,20 @@ export default function AdminScreen() {
   const renderSubscriptions = () => (
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
       <Text style={styles.subHeading}>Control subscription settings for each role</Text>
-      {(['technician', 'teacher', 'supplier'] as const).map(role => {
+      {(['technician', 'teacher', 'supplier', 'customer'] as const).map(role => {
         const sub = subscriptions.find(s => s.role === role);
         const enabled = sub?.enabled === 1;
         const amount = sub?.amount || '0';
-        const roleColor = ROLE_COLORS[role];
+        const roleColor = ROLE_COLORS[role] || '#007AFF';
+        const iconName = role === 'technician' ? 'construct' : role === 'teacher' ? 'school' : role === 'customer' ? 'person' : 'cube';
         return (
           <View key={role} style={[styles.subCard, { borderLeftColor: roleColor, borderLeftWidth: 3 }]}>
             <View style={styles.subCardHeader}>
               <View style={styles.subCardLeft}>
                 <View style={[styles.subRoleIcon, { backgroundColor: roleColor + '20' }]}>
-                  <Ionicons
-                    name={role === 'technician' ? 'construct' : role === 'teacher' ? 'school' : 'cube'}
-                    size={20}
-                    color={roleColor}
-                  />
+                  <Ionicons name={iconName as any} size={20} color={roleColor} />
                 </View>
-                <Text style={styles.subRoleName}>{ROLE_LABELS[role]}</Text>
+                <Text style={styles.subRoleName}>{ROLE_LABELS[role] || 'Customer'}</Text>
               </View>
               <Switch
                 value={enabled}
@@ -1109,26 +1229,7 @@ export default function AdminScreen() {
                 thumbColor={enabled ? roleColor : C.textTertiary}
               />
             </View>
-            {enabled && role === 'teacher' && (
-              <View style={styles.subAmountRow}>
-                <Text style={styles.subAmountLabel}>Commission on Sales (%)</Text>
-                <TextInput
-                  style={styles.subAmountInput}
-                  value={sub?.commissionPercent || '30'}
-                  onChangeText={(val) => {
-                    setSubscriptions(prev => prev.map(s => s.role === role ? { ...s, commissionPercent: val } : s));
-                  }}
-                  onBlur={() => {
-                    const cp = sub?.commissionPercent || '30';
-                    apiRequest('PATCH', `/api/subscription-settings/${role}`, { commissionPercent: cp }).catch(() => {});
-                  }}
-                  keyboardType="number-pad"
-                  placeholder="30"
-                  placeholderTextColor={C.textTertiary}
-                />
-              </View>
-            )}
-            {enabled && role !== 'teacher' && (
+            {enabled && (
               <View style={styles.subAmountRow}>
                 <Text style={styles.subAmountLabel}>Monthly Amount (₹)</Text>
                 <TextInput
@@ -1139,7 +1240,7 @@ export default function AdminScreen() {
                   }}
                   onBlur={() => updateSubAmount(role, amount)}
                   keyboardType="number-pad"
-                  placeholder={role === 'technician' ? '99' : '999'}
+                  placeholder="99"
                   placeholderTextColor={C.textTertiary}
                 />
               </View>
@@ -2439,6 +2540,43 @@ export default function AdminScreen() {
           ))
         )}
       </View>
+
+      <View style={styles.sectionCard}>
+        <Text style={styles.sectionLabel}>Blocked Users</Text>
+        {allUsers.filter(u => u.blocked === 1).length === 0 ? (
+          <Text style={{ color: C.textTertiary, fontSize: 13, fontFamily: 'Inter_400Regular', textAlign: 'center', paddingVertical: 20 }}>
+            No blocked users
+          </Text>
+        ) : (
+          allUsers.filter(u => u.blocked === 1).map(user => (
+            <View key={user.id} style={{
+              padding: 14,
+              backgroundColor: '#FF3B3010',
+              borderRadius: 12,
+              marginBottom: 10,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 14, fontFamily: 'Inter_600SemiBold', color: C.text }}>{user.name}</Text>
+                <Text style={{ fontSize: 12, color: C.textSecondary, fontFamily: 'Inter_400Regular' }}>{user.phone} · {user.role}</Text>
+              </View>
+              <TouchableOpacity
+                style={{ backgroundColor: '#34C759', borderRadius: 8, paddingVertical: 8, paddingHorizontal: 16 }}
+                onPress={() => {
+                  Alert.alert('Unblock User', `Unblock ${user.name}?`, [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Unblock', onPress: () => executeBlockUser(user.id, user.name, false) }
+                  ]);
+                }}
+              >
+                <Text style={{ color: '#fff', fontSize: 13, fontFamily: 'Inter_600SemiBold' }}>Unblock</Text>
+              </TouchableOpacity>
+            </View>
+          ))
+        )}
+      </View>
     </ScrollView>
   );
 
@@ -2489,9 +2627,9 @@ export default function AdminScreen() {
         {activeTab === 'links' && renderLinks()}
         {activeTab === 'device' && renderDevice()}
         {activeTab === 'notifications' && renderNotifications()}
-        {activeTab === 'payouts' && renderPayouts()}
         {activeTab === 'email' && renderEmail()}
         {activeTab === 'security' && renderSecurity()}
+        {activeTab === 'reviews' && renderReviews()}
       </View>
     </View>
   );

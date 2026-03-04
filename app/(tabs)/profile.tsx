@@ -133,12 +133,19 @@ export default function ProfileScreen() {
   const [showRolePicker, setShowRolePicker] = useState(false);
   const [changingRole, setChangingRole] = useState(false);
 
+  const [trustData, setTrustData] = useState<{ score: number; averageRating: number; totalReviews: number } | null>(null);
+  const [reviews, setReviews] = useState<any[]>([]);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState('');
+  const [submittingReview, setSubmittingReview] = useState(false);
+
   const handleChangeRole = async (newRole: string) => {
     if (!profile?.id || changingRole) return;
     try {
       setChangingRole(true);
       setShowRolePicker(false);
-      const res = await apiRequest('POST', '/api/admin/change-role', { userId: profile.id, newRole });
+      const res = await apiRequest('POST', '/api/profile/change-role', { userId: profile.id, newRole });
       const data = await res.json();
       if (data.success) {
         await setProfile({ ...profile, role: newRole as UserRole });
@@ -168,6 +175,67 @@ export default function ProfileScreen() {
       .then(data => { if (data.success) setSubStatus(data); })
       .catch(() => {});
   }, [profile?.id]);
+
+  useEffect(() => {
+    if (!profile?.id) return;
+    apiRequest('GET', `/api/trust-score/${profile.id}`)
+      .then(r => r.json())
+      .then(data => setTrustData(data))
+      .catch(() => {});
+    apiRequest('GET', `/api/reviews/${profile.id}`)
+      .then(r => r.json())
+      .then(data => {
+        if (Array.isArray(data)) setReviews(data.slice(0, 5));
+        else if (data.reviews) setReviews(data.reviews.slice(0, 5));
+      })
+      .catch(() => {});
+  }, [profile?.id]);
+
+  const getTrustBadge = (score: number) => {
+    if (score >= 80) return { label: 'Verified Expert', color: '#34C759' };
+    if (score >= 60) return { label: 'Pro', color: '#FF9500' };
+    if (score >= 40) return { label: 'Trusted', color: '#007AFF' };
+    return { label: 'New Member', color: '#999' };
+  };
+
+  const handleSubmitReview = async () => {
+    if (!profile?.id || submittingReview) return;
+    try {
+      setSubmittingReview(true);
+      await apiRequest('POST', '/api/reviews', {
+        reviewerId: profile.id,
+        reviewerName: profile.name,
+        reviewerAvatar: profile.avatar || '',
+        revieweeId: profile.id,
+        rating: reviewRating,
+        comment: reviewComment.trim(),
+        interactionType: 'service',
+      });
+      if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setShowReviewModal(false);
+      setReviewRating(5);
+      setReviewComment('');
+      apiRequest('GET', `/api/reviews/${profile.id}`)
+        .then(r => r.json())
+        .then(data => {
+          if (Array.isArray(data)) setReviews(data.slice(0, 5));
+          else if (data.reviews) setReviews(data.reviews.slice(0, 5));
+        })
+        .catch(() => {});
+      apiRequest('GET', `/api/trust-score/${profile.id}`)
+        .then(r => r.json())
+        .then(data => setTrustData(data))
+        .catch(() => {});
+    } catch (e: any) {
+      if (Platform.OS === 'web') {
+        window.alert(e.message || 'Failed to submit review');
+      } else {
+        Alert.alert('Error', e.message || 'Failed to submit review');
+      }
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
 
   const myPosts = posts.filter(p => p.userId === profile?.id);
   const totalLikes = myPosts.reduce((sum, p) => sum + p.likes.length, 0);
@@ -593,6 +661,68 @@ export default function ProfileScreen() {
         )}
 
         <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Trust & Reviews</Text>
+          {trustData && (
+            <View style={trustStyles.trustHeader}>
+              <View style={[trustStyles.trustBadge, { backgroundColor: getTrustBadge(trustData.score).color + '18' }]}>
+                <Ionicons name="shield-checkmark" size={16} color={getTrustBadge(trustData.score).color} />
+                <Text style={[trustStyles.trustBadgeText, { color: getTrustBadge(trustData.score).color }]}>
+                  {getTrustBadge(trustData.score).label}
+                </Text>
+              </View>
+              <Text style={trustStyles.trustScore}>{trustData.score}/100</Text>
+            </View>
+          )}
+          <View style={trustStyles.ratingRow}>
+            <View style={trustStyles.starsRow}>
+              {[1, 2, 3, 4, 5].map(s => (
+                <Ionicons
+                  key={s}
+                  name={s <= Math.round(trustData?.averageRating || 0) ? 'star' : 'star-outline'}
+                  size={18}
+                  color="#FFD60A"
+                />
+              ))}
+            </View>
+            <Text style={trustStyles.ratingText}>
+              {(trustData?.averageRating || 0).toFixed(1)} ({trustData?.totalReviews || 0} reviews)
+            </Text>
+          </View>
+          {reviews.length > 0 && (
+            <View style={trustStyles.reviewsList}>
+              {reviews.map((review, idx) => (
+                <View key={review.id || idx} style={trustStyles.reviewItem}>
+                  <View style={trustStyles.reviewHeader}>
+                    <Text style={trustStyles.reviewerName}>{review.reviewerName || 'Anonymous'}</Text>
+                    <View style={trustStyles.starsRow}>
+                      {[1, 2, 3, 4, 5].map(s => (
+                        <Ionicons
+                          key={s}
+                          name={s <= (review.rating || 0) ? 'star' : 'star-outline'}
+                          size={12}
+                          color="#FFD60A"
+                        />
+                      ))}
+                    </View>
+                  </View>
+                  {review.comment ? (
+                    <Text style={trustStyles.reviewComment} numberOfLines={2}>{review.comment}</Text>
+                  ) : null}
+                  {review.createdAt && (
+                    <Text style={trustStyles.reviewDate}>
+                      {new Date(review.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </Text>
+                  )}
+                </View>
+              ))}
+            </View>
+          )}
+          {reviews.length === 0 && (
+            <Text style={trustStyles.noReviews}>No reviews yet</Text>
+          )}
+        </View>
+
+        <View style={styles.section}>
           <Text style={styles.sectionTitle}>Settings</Text>
           <Pressable 
             style={styles.supportRow} 
@@ -888,6 +1018,52 @@ export default function ProfileScreen() {
           </Pressable>
         </View>
       </ScrollView>
+
+      <Modal visible={showReviewModal} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Leave a Review</Text>
+              <Pressable onPress={() => setShowReviewModal(false)}>
+                <Ionicons name="close" size={24} color={C.text} />
+              </Pressable>
+            </View>
+            <Text style={styles.fieldLabel}>Rating</Text>
+            <View style={trustStyles.starSelector}>
+              {[1, 2, 3, 4, 5].map(s => (
+                <Pressable key={s} onPress={() => setReviewRating(s)}>
+                  <Ionicons
+                    name={s <= reviewRating ? 'star' : 'star-outline'}
+                    size={32}
+                    color="#FFD60A"
+                  />
+                </Pressable>
+              ))}
+            </View>
+            <Text style={styles.fieldLabel}>Comment (optional)</Text>
+            <TextInput
+              style={[styles.modalInput, { minHeight: 80, textAlignVertical: 'top' as const }]}
+              value={reviewComment}
+              onChangeText={setReviewComment}
+              placeholder="Share your experience..."
+              placeholderTextColor={C.textTertiary}
+              multiline
+              maxLength={500}
+            />
+            <Pressable
+              style={[styles.saveBtn, submittingReview && { opacity: 0.6 }]}
+              onPress={handleSubmitReview}
+              disabled={submittingReview}
+            >
+              {submittingReview ? (
+                <ActivityIndicator size="small" color="#FFF" />
+              ) : (
+                <Text style={styles.saveBtnText}>Submit Review</Text>
+              )}
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
 
       {/* Role Picker Modal */}
       <Modal
@@ -1325,6 +1501,92 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 16,
     fontFamily: 'Inter_700Bold',
+  },
+});
+
+const trustStyles = StyleSheet.create({
+  trustHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  trustBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  trustBadgeText: {
+    fontSize: 13,
+    fontFamily: 'Inter_600SemiBold',
+  },
+  trustScore: {
+    fontSize: 14,
+    fontFamily: 'Inter_700Bold',
+    color: C.textSecondary,
+  },
+  ratingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  starsRow: {
+    flexDirection: 'row',
+    gap: 2,
+  },
+  ratingText: {
+    fontSize: 13,
+    fontFamily: 'Inter_400Regular',
+    color: C.textSecondary,
+  },
+  reviewsList: {
+    marginTop: 8,
+    gap: 10,
+  },
+  reviewItem: {
+    borderTopWidth: 1,
+    borderTopColor: C.borderLight,
+    paddingTop: 10,
+  },
+  reviewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  reviewerName: {
+    fontSize: 14,
+    fontFamily: 'Inter_600SemiBold',
+    color: C.text,
+  },
+  reviewComment: {
+    fontSize: 13,
+    fontFamily: 'Inter_400Regular',
+    color: C.textSecondary,
+    lineHeight: 18,
+    marginBottom: 4,
+  },
+  reviewDate: {
+    fontSize: 11,
+    fontFamily: 'Inter_400Regular',
+    color: C.textTertiary,
+  },
+  noReviews: {
+    fontSize: 13,
+    fontFamily: 'Inter_400Regular',
+    color: C.textTertiary,
+    textAlign: 'center',
+    paddingVertical: 8,
+  },
+  starSelector: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
   },
 });
 

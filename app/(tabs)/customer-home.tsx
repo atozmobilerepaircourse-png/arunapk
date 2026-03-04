@@ -12,6 +12,7 @@ import Colors from '@/constants/colors';
 import { useApp } from '@/lib/context';
 import { UserRole, ROLE_LABELS } from '@/lib/types';
 import { apiRequest } from '@/lib/query-client';
+import ErrorState from '@/components/ErrorState';
 
 const C = Colors.light;
 
@@ -42,7 +43,7 @@ function isUserOnline(lastSeen: any): boolean {
 
 export default function CustomerHomeScreen() {
   const insets = useSafeAreaInsets();
-  const { allProfiles, profile, isLoading, refreshData, startConversation } = useApp();
+  const { allProfiles, profile, isLoading, dataError, refreshData, startConversation } = useApp();
   const [search, setSearch] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [stats, setStats] = useState<OnlineStats | null>(null);
@@ -164,13 +165,17 @@ export default function CustomerHomeScreen() {
   };
 
   const renderEmpty = () => (
-    <View style={st.emptyContainer}>
-      <Ionicons name="people-outline" size={48} color={C.textTertiary} />
-      <Text style={st.emptyTitle}>No technicians found</Text>
-      <Text style={st.emptySubtitle}>
-        {search.trim() ? 'Try a different search term' : 'No technicians have registered yet'}
-      </Text>
-    </View>
+    dataError ? (
+      <ErrorState message={dataError} onRetry={refreshData} />
+    ) : (
+      <View style={st.emptyContainer}>
+        <Ionicons name="people-outline" size={48} color={C.textTertiary} />
+        <Text style={st.emptyTitle}>No technicians found</Text>
+        <Text style={st.emptySubtitle}>
+          {search.trim() ? 'Try a different search term' : 'No technicians have registered yet'}
+        </Text>
+      </View>
+    )
   );
 
   const [initialLoaded, setInitialLoaded] = useState(false);

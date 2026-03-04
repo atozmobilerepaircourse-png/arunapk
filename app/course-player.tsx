@@ -1368,7 +1368,7 @@ export default function CoursePlayerScreen() {
           { id: 'lessons', label: 'Lessons', icon: 'list' },
           { id: 'ai', label: 'AI Tips', icon: 'bulb-outline' },
           { id: 'notes', label: 'Notes', icon: 'document-text-outline' },
-          { id: 'chat', label: 'Chat', icon: 'chatbubble-outline' },
+          { id: 'chat', label: 'Live Chat', icon: 'chatbubble-outline' },
         ] as const).map(tab => (
           <Pressable
             key={tab.id}

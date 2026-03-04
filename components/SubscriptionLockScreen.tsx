@@ -27,6 +27,7 @@ export default function SubscriptionLockScreen({ children }: { children: React.R
   const [status, setStatus] = useState<SubStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(false);
+  const [supportInfo, setSupportInfo] = useState<{ supportNumber: string; whatsappLink: string } | null>(null);
 
   const checkStatus = useCallback(async () => {
     if (!profile?.id) return;
@@ -48,6 +49,18 @@ export default function SubscriptionLockScreen({ children }: { children: React.R
     const interval = setInterval(checkStatus, 30000);
     return () => clearInterval(interval);
   }, [checkStatus]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await apiRequest('GET', '/api/support-info');
+        const data = await res.json();
+        setSupportInfo(data);
+      } catch (e) {
+        setSupportInfo({ supportNumber: '+918179142535', whatsappLink: 'https://wa.me/918179142535' });
+      }
+    })();
+  }, []);
 
   const handlePay = async () => {
     if (!profile?.id) return;
@@ -155,6 +168,26 @@ export default function SubscriptionLockScreen({ children }: { children: React.R
           <Ionicons name="refresh" size={16} color={C.textSecondary} />
           <Text style={styles.refreshText}>Already paid? Tap to refresh</Text>
         </Pressable>
+
+        {supportInfo && (
+          <View style={styles.contactCard}>
+            <Text style={styles.contactTitle}>Need Help?</Text>
+            <Pressable
+              style={styles.contactRow}
+              onPress={() => Linking.openURL(`tel:${supportInfo.supportNumber}`)}
+            >
+              <Ionicons name="call" size={18} color="#34C759" />
+              <Text style={styles.contactText}>{supportInfo.supportNumber}</Text>
+            </Pressable>
+            <Pressable
+              style={styles.contactRow}
+              onPress={() => Linking.openURL(supportInfo.whatsappLink)}
+            >
+              <Ionicons name="logo-whatsapp" size={18} color="#25D366" />
+              <Text style={styles.contactText}>Contact on WhatsApp</Text>
+            </Pressable>
+          </View>
+        )}
       </View>
     </View>
   );
@@ -305,5 +338,36 @@ const styles = StyleSheet.create({
   refreshText: {
     fontSize: 13,
     color: C.textSecondary,
+  },
+  contactCard: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 14,
+    padding: 16,
+    width: '100%',
+    maxWidth: 360,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  contactTitle: {
+    fontSize: 15,
+    fontWeight: '700' as const,
+    color: '#FFF',
+    marginBottom: 12,
+    textAlign: 'center' as const,
+  },
+  contactRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderRadius: 10,
+    marginBottom: 8,
+  },
+  contactText: {
+    fontSize: 14,
+    color: '#D1D1D6',
   },
 });

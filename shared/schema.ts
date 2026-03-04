@@ -405,6 +405,37 @@ export const emailCampaigns = pgTable("email_campaigns", {
   createdAt: bigint("created_at", { mode: "number" }).notNull().default(sql`EXTRACT(EPOCH FROM NOW()) * 1000`),
 });
 
+export const reviews = pgTable("reviews", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  reviewerId: text("reviewer_id").notNull(),
+  reviewerName: text("reviewer_name").notNull().default(""),
+  reviewerAvatar: text("reviewer_avatar").default(""),
+  revieweeId: text("reviewee_id").notNull(),
+  rating: integer("rating").notNull().default(5),
+  comment: text("comment").default(""),
+  interactionType: text("interaction_type").notNull().default("service"),
+  interactionId: text("interaction_id").default(""),
+  createdAt: bigint("created_at", { mode: "number" }).notNull().default(sql`EXTRACT(EPOCH FROM NOW()) * 1000`),
+});
+
+export const serviceRequests = pgTable("service_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  customerId: text("customer_id").notNull(),
+  customerName: text("customer_name").notNull().default(""),
+  customerPhone: text("customer_phone").default(""),
+  customerAvatar: text("customer_avatar").default(""),
+  title: text("title").notNull(),
+  description: text("description").notNull().default(""),
+  category: text("category").notNull().default("repair"),
+  city: text("city").notNull().default(""),
+  state: text("state").notNull().default(""),
+  latitude: text("latitude").default(""),
+  longitude: text("longitude").default(""),
+  status: text("status").notNull().default("open"),
+  responses: text("responses").notNull().default("[]"),
+  createdAt: bigint("created_at", { mode: "number" }).notNull().default(sql`EXTRACT(EPOCH FROM NOW()) * 1000`),
+});
+
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
@@ -437,3 +468,5 @@ export type DbVideoProgress = typeof videoProgress.$inferSelect;
 export type DbLivePoll = typeof livePolls.$inferSelect;
 export type DbLivePollVote = typeof livePollVotes.$inferSelect;
 export type DbEmailCampaign = typeof emailCampaigns.$inferSelect;
+export type DbReview = typeof reviews.$inferSelect;
+export type DbServiceRequest = typeof serviceRequests.$inferSelect;

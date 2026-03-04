@@ -12,6 +12,7 @@ import { useApp } from '@/lib/context';
 import { openLink } from '@/lib/open-link';
 import { PostCategory } from '@/lib/types';
 import PostCard from '@/components/PostCard';
+import ErrorState from '@/components/ErrorState';
 import { apiRequest } from '@/lib/query-client';
 
 const C2 = Colors.light;
@@ -98,7 +99,7 @@ const FILTERS: { key: PostCategory | 'all'; label: string }[] = [
 
 export default function FeedScreen() {
   const insets = useSafeAreaInsets();
-  const { posts, profile, isLoading, isOnboarded, toggleLike, addComment, deletePost, updatePost, refreshData, totalUnread, liveChatUnread } = useApp();
+  const { posts, profile, isLoading, dataError, isOnboarded, toggleLike, addComment, deletePost, updatePost, refreshData, totalUnread, liveChatUnread } = useApp();
 
   useEffect(() => {
     if (!isLoading && !isOnboarded) {
@@ -197,8 +198,11 @@ export default function FeedScreen() {
               <Text style={{ fontSize: 7, color: '#5E8BFF', marginTop: 1, fontWeight: '700' as const }}>Tools</Text>
             </HeaderButton>
           ) : null}
+          <HeaderButton delay={320} onPress={() => router.push('/snap-map')} style={{ alignItems: 'center' }}>
+            <Ionicons name="location" size={22} color="#FF2D55" />
+          </HeaderButton>
           <HeaderButton delay={400} onPress={() => router.push('/chats')}>
-            <Ionicons name="chatbubbles" size={24} color="#34C759" />
+            <Ionicons name="chatbubble-ellipses" size={24} color="#34C759" />
             {totalUnread > 0 && (
               <View style={[styles.unreadDot, { backgroundColor: '#34C759' }]}>
                 <Text style={styles.unreadDotText}>{totalUnread}</Text>
@@ -264,11 +268,15 @@ export default function FeedScreen() {
           />
         }
         ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Ionicons name="newspaper-outline" size={48} color={C.textTertiary} />
-            <Text style={styles.emptyTitle}>No posts yet</Text>
-            <Text style={styles.emptyText}>Be the first to share something with the community</Text>
-          </View>
+          dataError ? (
+            <ErrorState message={dataError} onRetry={refreshData} />
+          ) : (
+            <View style={styles.emptyState}>
+              <Ionicons name="newspaper-outline" size={48} color={C.textTertiary} />
+              <Text style={styles.emptyTitle}>No posts yet</Text>
+              <Text style={styles.emptyText}>Be the first to share something with the community</Text>
+            </View>
+          )
         }
         showsVerticalScrollIndicator={false}
       />

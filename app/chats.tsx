@@ -160,7 +160,7 @@ export default function ChatsScreen() {
           <Pressable onPress={() => router.back()} hitSlop={12} style={styles.backBtn}>
             <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
           </Pressable>
-          <Text style={styles.headerTitle}>Chat</Text>
+          <Text style={styles.headerTitle}>Live Chat</Text>
           <View style={{ width: 36 }} />
         </View>
 
@@ -235,7 +235,7 @@ export default function ChatsScreen() {
           <View style={styles.emptyState}>
             <View style={styles.emptyIconOuter}>
               <View style={styles.emptyIconInner}>
-                <Ionicons name="chatbubbles-outline" size={36} color={C.primary} />
+                <Ionicons name="chatbubble-ellipses-outline" size={36} color={C.primary} />
               </View>
             </View>
             <Text style={styles.emptyTitle}>

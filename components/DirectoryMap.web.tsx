@@ -140,7 +140,7 @@ function getMapHTML() {
   </div>
   <div class="card-actions">
     <button class="card-btn btn-profile" onclick="viewProfile()">Profile</button>
-    <button class="card-btn btn-chat" onclick="chatUser()">Chat</button>
+    <button class="card-btn btn-chat" onclick="chatUser()">Live Chat</button>
   </div>
 </div>
 <script>

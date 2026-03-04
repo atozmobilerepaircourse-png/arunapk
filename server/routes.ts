@@ -4,7 +4,10 @@ import { getFirestore } from "./firebase-admin";
 import { db } from "./db";
 import OpenAI from "openai";
 import { notifyAllUsers, notifyNewPost, notifyUser } from "./push-notifications";
-import { profiles, conversations, messages, posts, jobs, reels, products, orders, subscriptionSettings, courses, courseChapters, courseVideos, courseEnrollments, dubbedVideos, ads, liveChatMessages, liveClasses, courseNotices, sessions, payments, teacherPayouts, appSettings, videoProgress, livePolls, livePollVotes, emailCampaigns, otpTokens, adminNotifications } from "@shared/schema";
+import { profiles, conversations, messages, posts, jobs, reels, products, orders, subscriptionSettings, courses, courseChapters, courseVideos, courseEnrollments, dubbedVideos, ads, liveChatMessages, liveClasses, courseNotices, sessions, payments, teacherPayouts, appSettings, videoProgress, livePolls, livePollVotes, emailCampaigns, otpTokens, adminNotifications, reviews, serviceRequests } from "@shared/schema";
+import { Storage } from "@google-cloud/storage";
+let sharp: any = null;
+try { sharp = require("sharp"); } catch { console.log("[Image] sharp not available, skipping compression"); }
 import { sendWelcomeEmail } from "./lib/sendEmail";
 import { eq, or, and, desc, gt, lt, sql, ne, isNotNull } from "drizzle-orm";
 import { randomUUID } from "crypto";
@@ -66,7 +69,51 @@ if (bunnyStreamAvailable) {
   console.log('[BunnyStream] Missing BUNNY_STREAM_API_KEY or BUNNY_STREAM_LIBRARY_ID');
 }
 
-async function uploadToStorage(buffer: Buffer, filename: string): Promise<string> {
+let gcsStorage: any = null;
+let gcsBucket: any = null;
+const GCS_BUCKET_NAME = "mobi-app-uploads";
+try {
+  const gcpKeyPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+  if (gcpKeyPath && fs.existsSync(gcpKeyPath)) {
+    gcsStorage = new Storage({ keyFilename: gcpKeyPath });
+  } else if (process.env.GCP_SA_KEY) {
+    const keyData = JSON.parse(process.env.GCP_SA_KEY);
+    gcsStorage = new Storage({ credentials: keyData, projectId: keyData.project_id });
+  } else {
+    gcsStorage = new Storage();
+  }
+  gcsBucket = gcsStorage.bucket(GCS_BUCKET_NAME);
+  console.log(`[GCS] Storage initialized: bucket=${GCS_BUCKET_NAME}`);
+} catch (gcsErr) {
+  console.warn("[GCS] Could not initialize Google Cloud Storage:", gcsErr);
+}
+
+async function compressImage(buffer: Buffer): Promise<Buffer> {
+  if (!sharp) return buffer;
+  try {
+    const metadata = await sharp(buffer).metadata();
+    if (!metadata.format || !['jpeg', 'jpg', 'png', 'webp', 'gif'].includes(metadata.format)) {
+      return buffer;
+    }
+    const maxDim = 1200;
+    let pipeline = sharp(buffer);
+    if ((metadata.width || 0) > maxDim || (metadata.height || 0) > maxDim) {
+      pipeline = pipeline.resize(maxDim, maxDim, { fit: 'inside', withoutEnlargement: true });
+    }
+    const compressed = await pipeline.jpeg({ quality: 80, progressive: true }).toBuffer();
+    console.log(`[Image] Compressed: ${buffer.length} -> ${compressed.length} bytes (${Math.round(100 - (compressed.length / buffer.length) * 100)}% smaller)`);
+    return compressed;
+  } catch (err) {
+    console.warn("[Image] Compression failed, using original:", err);
+    return buffer;
+  }
+}
+
+async function uploadToStorage(buffer: Buffer, filename: string, compress = true): Promise<string> {
+  if (compress && filename.match(/\.(jpg|jpeg|png|webp|gif)$/i)) {
+    buffer = await compressImage(buffer);
+    filename = filename.replace(/\.[^.]+$/, '.jpg');
+  }
   if (bunnyAvailable) {
     try {
       const url = `${BUNNY_STORAGE_ENDPOINT}/${BUNNY_STORAGE_ZONE_NAME}/${filename}`;
@@ -88,6 +135,18 @@ async function uploadToStorage(buffer: Buffer, filename: string): Promise<string
       return `${BUNNY_CDN_URL}/${filename}`;
     } catch (error) {
       console.error("[Bunny] Upload failed, falling back to local:", error);
+    }
+  }
+  if (gcsBucket) {
+    try {
+      const gcsFile = gcsBucket.file(filename);
+      await gcsFile.save(buffer, { resumable: false, metadata: { cacheControl: 'public, max-age=31536000' } });
+      await gcsFile.makePublic();
+      const gcsUrl = `https://storage.googleapis.com/${GCS_BUCKET_NAME}/${filename}`;
+      console.log(`[GCS] Uploaded: ${filename} (${buffer.length} bytes)`);
+      return gcsUrl;
+    } catch (gcsErr) {
+      console.error("[GCS] Upload failed, falling back to local:", gcsErr);
     }
   }
   const localFilename = filename.replace(/^(images|videos)\//, "");
@@ -3094,10 +3153,6 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
         return res.json({ success: true, required: false, active: true });
       }
 
-      if (role === 'customer') {
-        return res.json({ success: true, required: false, active: true });
-      }
-
       const now = Date.now();
       const isActive = user.subscriptionActive === 1 && (user.subscriptionEnd || 0) > now;
 
@@ -3130,7 +3185,7 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
       const role = user.role;
       const settings = await db.select().from(subscriptionSettings).where(eq(subscriptionSettings.role, role));
       const setting = settings[0];
-      if (!setting || !setting.enabled || role === 'customer') {
+      if (!setting || !setting.enabled) {
         return res.status(400).json({ success: false, message: "Subscription not required for this role" });
       }
 
@@ -5486,6 +5541,196 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
         res.status(404).send("File not found");
       }
     });
+  });
+
+  // ========== Self Role Change ==========
+  app.post("/api/profile/change-role", async (req, res) => {
+    try {
+      const { userId, newRole } = req.body;
+      const allowedRoles = ["teacher", "technician", "customer", "supplier"];
+      if (!userId || !allowedRoles.includes(newRole)) {
+        return res.status(400).json({ success: false, message: "Invalid role" });
+      }
+      await db.update(profiles).set({ role: newRole as any }).where(eq(profiles.id, userId));
+      res.json({ success: true, message: "Role updated successfully" });
+    } catch (error) {
+      res.status(500).json({ success: false, message: "Failed to update role" });
+    }
+  });
+
+  // ========== Reviews & Ratings ==========
+  app.get("/api/reviews/:userId", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const userReviews = await db.select().from(reviews).where(eq(reviews.revieweeId, userId));
+      userReviews.sort((a, b) => b.createdAt - a.createdAt);
+      const avgRating = userReviews.length > 0
+        ? userReviews.reduce((sum, r) => sum + r.rating, 0) / userReviews.length
+        : 0;
+      res.json({ success: true, reviews: userReviews, averageRating: Math.round(avgRating * 10) / 10, totalReviews: userReviews.length });
+    } catch (error) {
+      res.status(500).json({ success: true, reviews: [], averageRating: 0, totalReviews: 0 });
+    }
+  });
+
+  app.post("/api/reviews", async (req, res) => {
+    try {
+      const { reviewerId, reviewerName, reviewerAvatar, revieweeId, rating, comment, interactionType, interactionId } = req.body;
+      if (!reviewerId || !revieweeId || !rating) {
+        return res.status(400).json({ success: false, message: "Missing required fields" });
+      }
+      if (reviewerId === revieweeId) {
+        return res.status(400).json({ success: false, message: "Cannot review yourself" });
+      }
+      const existing = await db.select().from(reviews)
+        .where(and(eq(reviews.reviewerId, reviewerId), eq(reviews.revieweeId, revieweeId)));
+      if (existing.length > 0) {
+        await db.update(reviews).set({ rating, comment: comment || '', createdAt: Date.now() })
+          .where(and(eq(reviews.reviewerId, reviewerId), eq(reviews.revieweeId, revieweeId)));
+        return res.json({ success: true, message: "Review updated" });
+      }
+      await db.insert(reviews).values({
+        reviewerId, reviewerName: reviewerName || '', reviewerAvatar: reviewerAvatar || '',
+        revieweeId, rating, comment: comment || '',
+        interactionType: interactionType || 'service', interactionId: interactionId || '',
+      });
+      res.json({ success: true, message: "Review submitted" });
+    } catch (error) {
+      res.status(500).json({ success: false, message: "Failed to submit review" });
+    }
+  });
+
+  app.delete("/api/admin/reviews/:reviewId", adminMiddleware, async (req, res) => {
+    try {
+      await db.delete(reviews).where(eq(reviews.id, req.params.reviewId));
+      res.json({ success: true, message: "Review deleted" });
+    } catch (error) {
+      res.status(500).json({ success: false, message: "Failed to delete review" });
+    }
+  });
+
+  app.get("/api/admin/reviews", adminMiddleware, async (req, res) => {
+    try {
+      const allReviews = await db.select().from(reviews);
+      allReviews.sort((a, b) => b.createdAt - a.createdAt);
+      res.json({ success: true, reviews: allReviews });
+    } catch (error) {
+      res.status(500).json({ success: true, reviews: [] });
+    }
+  });
+
+  // ========== Trust Score ==========
+  app.get("/api/trust-score/:userId", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const allProfilesList = await db.select().from(profiles);
+      const profile = allProfilesList.find(p => p.id === userId);
+      if (!profile) return res.status(404).json({ success: false, score: 0, badge: 'New Member' });
+
+      let score = 0;
+      if (profile.name) score += 10;
+      if (profile.email) score += 10;
+      if (profile.phone) score += 15;
+      if (profile.city) score += 5;
+      if (profile.avatar) score += 10;
+      if (profile.bio) score += 5;
+      if (profile.aadhaarNumber) score += 10;
+      if (profile.panNumber) score += 5;
+      if (profile.subscriptionActive === 1) score += 15;
+
+      const userReviews = await db.select().from(reviews).where(eq(reviews.revieweeId, userId));
+      const avgRating = userReviews.length > 0
+        ? userReviews.reduce((sum, r) => sum + r.rating, 0) / userReviews.length : 0;
+      score += Math.min(userReviews.length * 2, 10);
+      score += Math.round(avgRating * 1);
+      score = Math.min(score, 100);
+
+      let badge = 'New Member';
+      if (score >= 80) badge = 'Verified Expert';
+      else if (score >= 60) badge = 'Pro';
+      else if (score >= 40) badge = 'Trusted';
+
+      res.json({ success: true, score, badge, totalReviews: userReviews.length, averageRating: Math.round(avgRating * 10) / 10 });
+    } catch (error) {
+      res.json({ success: true, score: 0, badge: 'New Member', totalReviews: 0, averageRating: 0 });
+    }
+  });
+
+  // ========== Service Requests (Nearby Work / Job Requests) ==========
+  app.get("/api/service-requests", async (req, res) => {
+    try {
+      const allRequests = await db.select().from(serviceRequests);
+      allRequests.sort((a, b) => b.createdAt - a.createdAt);
+      res.json({ success: true, requests: allRequests });
+    } catch (error) {
+      res.status(500).json({ success: true, requests: [] });
+    }
+  });
+
+  app.post("/api/service-requests", async (req, res) => {
+    try {
+      const { customerId, customerName, customerPhone, customerAvatar, title, description, category, city, state, latitude, longitude } = req.body;
+      if (!customerId || !title) {
+        return res.status(400).json({ success: false, message: "Customer ID and title are required" });
+      }
+      const newRequest = await db.insert(serviceRequests).values({
+        customerId, customerName: customerName || '', customerPhone: customerPhone || '',
+        customerAvatar: customerAvatar || '', title, description: description || '',
+        category: category || 'repair', city: city || '', state: state || '',
+        latitude: latitude || '', longitude: longitude || '',
+      }).returning();
+      
+      await notifyAllUsers({
+        title: '🔧 New Service Request',
+        body: `${customerName || 'A customer'}: ${title}`,
+        data: { type: 'service_request', requestId: newRequest[0]?.id },
+      }, customerId);
+      
+      res.json({ success: true, request: newRequest[0] });
+    } catch (error) {
+      res.status(500).json({ success: false, message: "Failed to create request" });
+    }
+  });
+
+  app.post("/api/service-requests/:id/respond", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { technicianId, technicianName, technicianPhone, message } = req.body;
+      if (!technicianId || !message) {
+        return res.status(400).json({ success: false, message: "Technician ID and message required" });
+      }
+      const existing = await db.select().from(serviceRequests).where(eq(serviceRequests.id, id));
+      if (existing.length === 0) return res.status(404).json({ success: false, message: "Request not found" });
+      
+      const currentResponses = JSON.parse(existing[0].responses || '[]');
+      currentResponses.push({
+        technicianId, technicianName: technicianName || '', technicianPhone: technicianPhone || '',
+        message, createdAt: Date.now()
+      });
+      await db.update(serviceRequests).set({ responses: JSON.stringify(currentResponses) }).where(eq(serviceRequests.id, id));
+      
+      if (existing[0].customerId) {
+        await notifyUser(existing[0].customerId, {
+          title: '💬 Response to your request',
+          body: `${technicianName || 'A technician'} responded to "${existing[0].title}"`,
+          data: { type: 'service_response', requestId: id },
+        });
+      }
+      
+      res.json({ success: true, message: "Response sent" });
+    } catch (error) {
+      res.status(500).json({ success: false, message: "Failed to respond" });
+    }
+  });
+
+  app.patch("/api/service-requests/:id/status", async (req, res) => {
+    try {
+      const { status } = req.body;
+      await db.update(serviceRequests).set({ status }).where(eq(serviceRequests.id, req.params.id));
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ success: false, message: "Failed to update status" });
+    }
   });
 
   const httpServer = createServer(app);

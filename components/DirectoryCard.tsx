@@ -29,11 +29,13 @@ interface DirectoryCardProps {
   experience?: string;
   avatar?: string;
   isOnline?: boolean;
+  trustBadge?: string;
+  trustBadgeColor?: string;
   onPress?: () => void;
   onMessage?: () => void;
 }
 
-export default function DirectoryCard({ name, role, city, skills, experience, avatar, isOnline, onPress, onMessage }: DirectoryCardProps) {
+export default function DirectoryCard({ name, role, city, skills, experience, avatar, isOnline, trustBadge, trustBadgeColor, onPress, onMessage }: DirectoryCardProps) {
   const icon = ROLE_ICONS[role];
   const cardScale = useSharedValue(1);
   const cardAnimStyle = useAnimatedStyle(() => ({
@@ -61,7 +63,15 @@ export default function DirectoryCard({ name, role, city, skills, experience, av
         )}
       </View>
       <View style={styles.info}>
-        <Text style={styles.name} numberOfLines={1}>{name}</Text>
+        <View style={styles.nameRow}>
+          <Text style={styles.name} numberOfLines={1}>{name}</Text>
+          {trustBadge && trustBadgeColor && (
+            <View style={[styles.trustBadge, { backgroundColor: trustBadgeColor + '20', borderColor: trustBadgeColor }]}>
+              <Ionicons name="shield-checkmark" size={9} color={trustBadgeColor} />
+              <Text style={[styles.trustBadgeText, { color: trustBadgeColor }]}>{trustBadge}</Text>
+            </View>
+          )}
+        </View>
         <View style={styles.metaRow}>
           <Ionicons name={icon.name} size={13} color={icon.color} />
           <Text style={[styles.role, { color: icon.color }]}>{ROLE_LABELS[role]}</Text>
@@ -151,9 +161,28 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: 12,
   },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   name: {
     color: C.text,
     fontSize: 15,
+    fontFamily: 'Inter_600SemiBold',
+    flexShrink: 1,
+  },
+  trustBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    gap: 3,
+  },
+  trustBadgeText: {
+    fontSize: 9,
     fontFamily: 'Inter_600SemiBold',
   },
   metaRow: {

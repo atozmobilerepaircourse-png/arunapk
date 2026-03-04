@@ -41,6 +41,37 @@ const STAT_ROLES: { key: string; label: string; color: string }[] = [
   { key: 'customer', label: 'Customers', color: '#FF2D55' },
 ];
 
+const SORT_OPTIONS: { key: string; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { key: 'recent', label: 'Recent', icon: 'time-outline' },
+  { key: 'rated', label: 'Top Rated', icon: 'star-outline' },
+  { key: 'trusted', label: 'Trusted', icon: 'shield-checkmark-outline' },
+  { key: 'nearest', label: 'Nearest', icon: 'navigate-outline' },
+];
+
+const TRUST_BADGE_COLORS: Record<string, string> = {
+  'New Member': '#999',
+  'Trusted': '#007AFF',
+  'Pro': '#FF9500',
+  'Verified Expert': '#34C759',
+};
+
+function getTrustBadgeLabel(score: number): string {
+  if (score >= 80) return 'Verified Expert';
+  if (score >= 60) return 'Pro';
+  if (score >= 40) return 'Trusted';
+  return 'New Member';
+}
+
+function getDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 export default function DirectoryScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ view?: string }>();
@@ -50,6 +81,8 @@ export default function DirectoryScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [stats, setStats] = useState<OnlineStats | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'map'>(params.view === 'map' ? 'map' : 'list');
+  const [sortBy, setSortBy] = useState<string>('recent');
+  const [trustScores, setTrustScores] = useState<Record<string, { score: number; rating: number }>>({});
 
   useEffect(() => {
     if (params.view === 'map') setViewMode('map');
@@ -88,6 +121,28 @@ export default function DirectoryScreen() {
     }));
   }, [allProfiles]);
 
+  useEffect(() => {
+    if (sortBy !== 'rated' && sortBy !== 'trusted') return;
+    const idsToFetch = directory
+      .filter(p => !trustScores[p.id])
+      .slice(0, 20);
+    if (idsToFetch.length === 0) return;
+    idsToFetch.forEach(async (p) => {
+      try {
+        const res = await apiRequest('GET', `/api/trust-score/${p.id}`);
+        const data = await res.json();
+        setTrustScores(prev => ({
+          ...prev,
+          [p.id]: { score: data.trustScore ?? 0, rating: data.averageRating ?? 0 },
+        }));
+      } catch {}
+    });
+  }, [sortBy, directory]);
+
+  const userLat = profile ? parseFloat((profile as any).latitude || '0') : 0;
+  const userLng = profile ? parseFloat((profile as any).longitude || '0') : 0;
+  const hasUserLocation = userLat !== 0 && userLng !== 0;
+
   const filtered = useMemo(() => {
     let list = directory;
     if (roleFilter !== 'all') {
@@ -101,8 +156,29 @@ export default function DirectoryScreen() {
         e.skills.some(s => s.toLowerCase().includes(q))
       );
     }
-    return list;
-  }, [directory, roleFilter, search]);
+    const sorted = [...list];
+    switch (sortBy) {
+      case 'recent':
+        sorted.sort((a, b) => (b.lastSeen || 0) - (a.lastSeen || 0));
+        break;
+      case 'rated':
+        sorted.sort((a, b) => (trustScores[b.id]?.rating ?? 0) - (trustScores[a.id]?.rating ?? 0));
+        break;
+      case 'trusted':
+        sorted.sort((a, b) => (trustScores[b.id]?.score ?? 0) - (trustScores[a.id]?.score ?? 0));
+        break;
+      case 'nearest':
+        if (hasUserLocation) {
+          sorted.sort((a, b) => {
+            const distA = (a.latitude && a.longitude) ? getDistanceKm(userLat, userLng, a.latitude, a.longitude) : 999999;
+            const distB = (b.latitude && b.longitude) ? getDistanceKm(userLat, userLng, b.latitude, b.longitude) : 999999;
+            return distA - distB;
+          });
+        }
+        break;
+    }
+    return sorted;
+  }, [directory, roleFilter, search, sortBy, trustScores, hasUserLocation, userLat, userLng]);
 
   const mapProfiles = useMemo(() => {
     return filtered.filter(p => {
@@ -294,42 +370,57 @@ export default function DirectoryScreen() {
         />
       </View>
 
-      <Pressable
-        style={styles.mapPreviewBanner}
-        onPress={() => router.push('/snap-map')}
-      >
-        <View style={styles.mapPreviewLeft}>
-          <Ionicons name="map" size={22} color="#FF2D55" />
-          <View>
-            <Text style={styles.mapPreviewTitle}>Snap Map</Text>
-            <Text style={styles.mapPreviewSub}>{mapProfiles.length} users on map</Text>
-          </View>
-        </View>
-        <View style={styles.mapPreviewRight}>
-          <Text style={styles.mapPreviewOpen}>Open</Text>
-          <Ionicons name="chevron-forward" size={16} color="#FF2D55" />
-        </View>
-      </Pressable>
+      <View style={styles.sortContainer}>
+        <FlatList
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          data={SORT_OPTIONS}
+          contentContainerStyle={styles.sortContent}
+          keyExtractor={item => item.key}
+          renderItem={({ item }) => (
+            <Pressable
+              style={[styles.sortChip, sortBy === item.key && styles.sortChipActive]}
+              onPress={() => setSortBy(item.key)}
+            >
+              <Ionicons
+                name={item.icon}
+                size={12}
+                color={sortBy === item.key ? '#FFF' : C.textSecondary}
+              />
+              <Text style={[styles.sortText, sortBy === item.key && styles.sortTextActive]}>
+                {item.label}
+              </Text>
+            </Pressable>
+          )}
+        />
+      </View>
 
       <FlatList
         data={filtered}
         keyExtractor={item => item.id}
-        renderItem={({ item }) => (
-          <DirectoryCard
-            name={item.name}
-            role={item.role}
-            city={item.city}
-            skills={item.skills}
-            experience={item.experience}
-            avatar={item.avatar}
-            isOnline={item.isOnline}
-            onPress={() => router.push({ pathname: '/user-profile', params: { id: item.id } })}
-            onMessage={item.id !== profile?.id && item.role !== 'customer' ? async () => {
-              const convoId = await startConversation(item.id, item.name, item.role);
-              if (convoId) router.push({ pathname: '/chat/[id]', params: { id: convoId } });
-            } : undefined}
-          />
-        )}
+        renderItem={({ item }) => {
+          const ts = trustScores[item.id];
+          const badgeLabel = ts ? getTrustBadgeLabel(ts.score) : undefined;
+          const badgeColor = badgeLabel ? TRUST_BADGE_COLORS[badgeLabel] : undefined;
+          return (
+            <DirectoryCard
+              name={item.name}
+              role={item.role}
+              city={item.city}
+              skills={item.skills}
+              experience={item.experience}
+              avatar={item.avatar}
+              isOnline={item.isOnline}
+              trustBadge={badgeLabel}
+              trustBadgeColor={badgeColor}
+              onPress={() => router.push({ pathname: '/user-profile', params: { id: item.id } })}
+              onMessage={item.id !== profile?.id && item.role !== 'customer' ? async () => {
+                const convoId = await startConversation(item.id, item.name, item.role);
+                if (convoId) router.push({ pathname: '/chat/[id]', params: { id: convoId } });
+              } : undefined}
+            />
+          );
+        }}
         contentContainerStyle={[
           styles.listContent,
           { paddingBottom: Platform.OS === 'web' ? 84 + 34 : 100 },
@@ -555,46 +646,8 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_400Regular',
     padding: 0,
   },
-  mapPreviewBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginHorizontal: 16,
-    marginBottom: 10,
-    backgroundColor: 'rgba(255,45,85,0.08)',
-    borderRadius: 14,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255,45,85,0.2)',
-  },
-  mapPreviewLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  mapPreviewTitle: {
-    color: '#FF2D55',
-    fontSize: 15,
-    fontFamily: 'Inter_700Bold',
-  },
-  mapPreviewSub: {
-    color: C.textTertiary,
-    fontSize: 12,
-    fontFamily: 'Inter_400Regular',
-    marginTop: 1,
-  },
-  mapPreviewRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  mapPreviewOpen: {
-    color: '#FF2D55',
-    fontSize: 14,
-    fontFamily: 'Inter_600SemiBold',
-  },
   filtersContainer: {
-    marginBottom: 8,
+    marginBottom: 4,
   },
   filtersContent: {
     paddingHorizontal: 16,
@@ -621,6 +674,36 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_500Medium',
   },
   filterTextActive: {
+    color: '#FFFFFF',
+  },
+  sortContainer: {
+    marginBottom: 8,
+  },
+  sortContent: {
+    paddingHorizontal: 16,
+    gap: 6,
+  },
+  sortChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 14,
+    backgroundColor: C.surface,
+    borderWidth: 1,
+    borderColor: C.border,
+    gap: 4,
+  },
+  sortChipActive: {
+    backgroundColor: '#5856D6',
+    borderColor: '#5856D6',
+  },
+  sortText: {
+    color: C.textSecondary,
+    fontSize: 11,
+    fontFamily: 'Inter_500Medium',
+  },
+  sortTextActive: {
     color: '#FFFFFF',
   },
   listContent: {

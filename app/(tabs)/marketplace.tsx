@@ -20,6 +20,7 @@ import { useApp } from '@/lib/context';
 import { apiRequest, getApiUrl } from '@/lib/query-client';
 import { openLink } from '@/lib/open-link';
 import BuySellScreen from '@/app/buy-sell';
+import ErrorState from '@/components/ErrorState';
 
 const { width } = Dimensions.get('window');
 const ORANGE = '#FF6B2C';
@@ -124,6 +125,7 @@ export default function MarketplaceScreen() {
   const [products, setProducts] = useState<ProductData[]>([]);
   const [adsList, setAdsList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [liveSessions, setLiveSessions] = useState<LiveSession[]>([]);
   const [liveLoading, setLiveLoading] = useState(false);
@@ -214,6 +216,7 @@ export default function MarketplaceScreen() {
   }, [profile?.id, shimmerAnim]);
 
   const fetchAll = useCallback(async () => {
+    setFetchError(null);
     try {
       const [profRes, courseRes, prodRes, adsRes] = await Promise.all([
         apiRequest('GET', '/api/profiles'),
@@ -233,8 +236,9 @@ export default function MarketplaceScreen() {
         const adsData = await adsRes.json();
         if (Array.isArray(adsData)) setAdsList(adsData);
       }
-    } catch (e) {
+    } catch (e: any) {
       console.warn('[Shop] fetch error:', e);
+      setFetchError('Could not load shop data. Check your connection and try again.');
     }
   }, []);
 
@@ -648,6 +652,7 @@ export default function MarketplaceScreen() {
           )}
 
           {loading && <ActivityIndicator size="large" color={ORANGE} style={{ marginTop: 20 }} />}
+          {!loading && fetchError && <ErrorState message={fetchError} onRetry={() => { setLoading(true); fetchAll().finally(() => setLoading(false)); }} />}
         </ScrollView>
       )}
     </View>
