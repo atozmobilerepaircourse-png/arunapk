@@ -257,7 +257,14 @@ export default function MarketplaceScreen() {
       fetchRecommendations();
     }
     if (activeTab === 'live') {
-      fetchLiveSessions();
+      const timeout = setTimeout(() => {
+        if (liveLoading) {
+          setLiveLoading(false);
+          // We don't set a hard error here as it might just be slow, 
+          // but we stop the spinner
+        }
+      }, 15000);
+      fetchLiveSessions().finally(() => clearTimeout(timeout));
     }
   }, [activeTab, profile?.id]);
 
@@ -512,6 +519,8 @@ export default function MarketplaceScreen() {
 
       {activeTab === 'buysell' ? (
         <BuySellScreen isEmbedded />
+      ) : fetchError ? (
+        <ErrorState message={fetchError} onRetry={fetchAll} />
       ) : (
         <ScrollView
           style={{ flex: 1 }}

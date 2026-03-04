@@ -158,11 +158,23 @@ export default function JobsScreen() {
 
   const [viewResponsesModal, setViewResponsesModal] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<ServiceRequest | null>(null);
+  const [srLoadTimeout, setSrLoadTimeout] = useState(false);
 
-  const { data: serviceRequests = [], isLoading: srLoading, refetch: refetchSR } = useQuery<ServiceRequest[]>({
+  const { data: serviceRequests = [], isLoading: srLoading, refetch: refetchSR, error: srError } = useQuery<ServiceRequest[]>({
     queryKey: ['/api/service-requests'],
     enabled: activeTab === 'requests',
   });
+
+  useEffect(() => {
+    if (srLoading && activeTab === 'requests') {
+      const timer = setTimeout(() => {
+        setSrLoadTimeout(true);
+      }, 15000);
+      return () => clearTimeout(timer);
+    } else {
+      setSrLoadTimeout(false);
+    }
+  }, [srLoading, activeTab]);
 
   const respondMutation = useMutation({
     mutationFn: async ({ id, message }: { id: string; message: string }) => {
@@ -372,13 +384,22 @@ export default function JobsScreen() {
                 />
               }
               ListEmptyComponent={
-                <View style={styles.emptyState}>
-                  <Ionicons name="construct-outline" size={48} color={TEXT_TERTIARY} />
-                  <Text style={styles.emptyTitle}>No service requests yet</Text>
-                  <Text style={styles.emptyText}>
-                    {isCustomer ? 'Post a request for technicians to respond' : 'Service requests from customers will appear here'}
-                  </Text>
-                </View>
+                (srError || srLoadTimeout) ? (
+                  <View style={{ flex: 1, paddingTop: 40 }}>
+                    <ErrorState 
+                      message={(srError as any)?.message || "Loading is taking too long. Check your connection."} 
+                      onRetry={() => refetchSR()} 
+                    />
+                  </View>
+                ) : (
+                  <View style={styles.emptyState}>
+                    <Ionicons name="construct-outline" size={48} color={TEXT_TERTIARY} />
+                    <Text style={styles.emptyTitle}>No service requests yet</Text>
+                    <Text style={styles.emptyText}>
+                      {isCustomer ? 'Post a request for technicians to respond' : 'Service requests from customers will appear here'}
+                    </Text>
+                  </View>
+                )
               }
               showsVerticalScrollIndicator={false}
             />

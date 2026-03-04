@@ -6,7 +6,7 @@ import * as Haptics from 'expo-haptics';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import Colors from '@/constants/colors';
 import { ROLE_LABELS, UserRole } from '@/lib/types';
-import TrustBadge from '@/components/TrustBadge';
+import TrustBadge, { calculateTrustScore } from '@/components/TrustBadge';
 
 const C = Colors.dark;
 

@@ -367,7 +367,7 @@ export default function ChatDetailScreen() {
         </View>
         <View style={styles.headerInfo}>
           <View style={styles.headerNameRow}>
-            <Text style={styles.headerName} numberOfLines={1}>{otherName}</Text>
+            <Text style={styles.headerName} numberOfLines={1}>Live Chat - {otherName}</Text>
             <View style={[styles.roleBadge, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
               <Text style={styles.roleBadgeText}>{ROLE_LABELS[otherRole]}</Text>
             </View>

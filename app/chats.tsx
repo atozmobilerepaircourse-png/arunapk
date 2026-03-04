@@ -177,7 +177,7 @@ export default function ChatsScreen() {
                 style={{ marginRight: 6 }}
               />
               <Text style={[styles.tabText, activeTab === 'messages' && styles.tabTextActive]}>
-                Messages
+                Live Chat
               </Text>
             </Pressable>
             <Pressable
@@ -191,7 +191,7 @@ export default function ChatsScreen() {
                 style={{ marginRight: 6 }}
               />
               <Text style={[styles.tabText, activeTab === 'live' && styles.tabTextActive]}>
-                Live Chat
+                Group Chat
               </Text>
             </Pressable>
           </View>

@@ -10,6 +10,7 @@ import Colors from '@/constants/colors';
 import { useApp } from '@/lib/context';
 import { UserRole } from '@/lib/types';
 import DirectoryCard from '@/components/DirectoryCard';
+import { calculateTrustScore } from '@/components/TrustBadge';
 import ErrorState from '@/components/ErrorState';
 import { apiRequest } from '@/lib/query-client';
 
@@ -73,6 +74,18 @@ export default function DirectoryScreen() {
   const [stats, setStats] = useState<OnlineStats | null>(null);
   const [sortBy, setSortBy] = useState<string>('recent');
   const [trustScores, setTrustScores] = useState<Record<string, { score: number; rating: number }>>({});
+  const [loadTimeout, setLoadTimeout] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setLoadTimeout(true);
+    }, 15000);
+    
+    // We consider data loaded if allProfiles is not empty or if useApp finished loading
+    // Since useApp handles global state, we might need to check a loading flag if available.
+    // Based on index.tsx, it uses isLoading from useApp.
+    return () => clearTimeout(timer);
+  }, []);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -82,11 +95,29 @@ export default function DirectoryScreen() {
     } catch (e) {}
   }, []);
 
+  const fetchTrustScores = useCallback(async () => {
+    try {
+      const res = await apiRequest('GET', '/api/reviews/stats/all');
+      const stats = await res.json();
+      const scores: Record<string, { score: number; rating: number }> = {};
+      
+      allProfiles.forEach(p => {
+        const userStats = stats[p.id] || { averageRating: 0, totalReviews: 0 };
+        const score = calculateTrustScore(p, userStats.averageRating, userStats.totalReviews);
+        scores[p.id] = { score, rating: userStats.averageRating };
+      });
+      setTrustScores(scores);
+    } catch (e) {
+      console.error('[Directory] Failed to fetch trust scores:', e);
+    }
+  }, [allProfiles]);
+
   useEffect(() => {
     fetchStats();
+    fetchTrustScores();
     const interval = setInterval(fetchStats, 10000);
     return () => clearInterval(interval);
-  }, [fetchStats]);
+  }, [fetchStats, fetchTrustScores]);
 
   const directory = useMemo(() => {
     const now = Date.now();
@@ -321,8 +352,11 @@ export default function DirectoryScreen() {
           />
         }
         ListEmptyComponent={
-          dataError ? (
-            <ErrorState message={dataError} onRetry={refreshData} />
+          (dataError || (loadTimeout && filtered.length === 0)) ? (
+            <ErrorState 
+              message={dataError || "Loading is taking too long. Check your connection."} 
+              onRetry={refreshData} 
+            />
           ) : (
           <View style={styles.emptyState}>
             <Ionicons name="people-outline" size={48} color={C.textTertiary} />

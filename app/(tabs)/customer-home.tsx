@@ -191,6 +191,7 @@ export default function CustomerHomeScreen() {
             <View style={s.headerActions}>
               <Pressable style={s.headerIconBtn} onPress={() => router.push('/chats')}>
                 <Ionicons name="chatbubble-ellipses" size={22} color="#34C759" />
+                <Text style={{ fontSize: 7, color: '#34C759', marginTop: 1, fontWeight: '700' as const }}>Live Chat</Text>
                 {totalUnread > 0 && (
                   <View style={s.unreadBadge}>
                     <Text style={s.unreadText}>{totalUnread > 9 ? '9+' : totalUnread}</Text>
@@ -371,7 +372,7 @@ const s = StyleSheet.create({
   greeting: { fontSize: 26, fontFamily: 'Inter_700Bold', color: '#000' },
   subGreeting: { fontSize: 14, fontFamily: 'Inter_400Regular', color: '#666', marginTop: 2 },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
-  headerIconBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#F0F0F0', justifyContent: 'center', alignItems: 'center' },
+  headerIconBtn: { width: 50, height: 50, borderRadius: 25, backgroundColor: '#F0F0F0', justifyContent: 'center', alignItems: 'center' },
   unreadBadge: { position: 'absolute', top: -2, right: -2, backgroundColor: '#FF3B30', borderRadius: 8, minWidth: 16, height: 16, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 3 },
   unreadText: { fontSize: 9, fontWeight: '700', color: '#FFF' },
   switchBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#34C759', paddingHorizontal: 10, paddingVertical: 8, borderRadius: 10 },

@@ -92,6 +92,15 @@ Key tables: profiles, sessions, otp_tokens, posts, jobs, conversations, messages
 - Session key: `mobi_session_token_v2`
 - Role change: `/api/profile/change-role` with `{ userId, newRole }` (NOT admin endpoint)
 - Trust scores: `/api/trust-score/:userId` (computed dynamically)
+- Batch trust scores: `/api/reviews/stats/all` (returns all user review stats in one call)
+- Chat renamed to "Live Chat" throughout the app
+- Admin panel: no payouts tab, no commission system; supports 4 roles for subscriptions
+- Customer subscription popup: shows admin phone (8179142535) + WhatsApp when inactive
+- Directory: Map removed from page; accessible via icon on Home screen
+- Error handling: 15-second timeout with retry on all major screens
+- Push notifications: sent on new messages, live session start, subscription expiry
+- Google login: popup-based OAuth flow with postMessage communication
+- APK icon: adaptive icon uses foregroundImage + backgroundColor only (no backgroundImage)
 
 ## Android Builds (EAS)
 - **EAS CLI**: Installed in `node_modules/.bin/eas`

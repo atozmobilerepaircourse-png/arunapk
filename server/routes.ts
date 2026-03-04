@@ -940,6 +940,10 @@ setTimeout(function(){window.location.href="${deepLink}"},2000);
 <body><div class="c"><p>Session expired. Please try again.</p><a href="/">Go back</a></div></body></html>`);
     }
 
+    const data = googleAuthTokens.get(token as string)!;
+    const email = data.email;
+    const name = data.name;
+
     return res.send(`<!DOCTYPE html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Signed In</title>
@@ -955,7 +959,14 @@ h2{margin:0 0 12px;font-size:24px;color:#FF6B35}p{color:#ccc;margin:0 0 8px;font
 <p>Now switch back to the Mobi app.<br>Your sign-in will complete automatically.</p>
 <p style="color:#FF6B35;font-size:18px;font-weight:700;margin-top:24px">Swipe up from the bottom<br>and tap Expo Go in recent apps</p>
 <p class="sub">The app will detect your sign-in<br>and continue automatically</p>
-</div></body></html>`);
+</div>
+<script>
+  if (window.opener) {
+    window.opener.postMessage({ type: 'GOOGLE_SIGN_IN_SUCCESS', email: '${email}', name: '${name}' }, '*');
+    setTimeout(() => window.close(), 1000);
+  }
+</script>
+</body></html>`);
   });
 
   app.get("/api/auth/google/done", (req, res) => {
@@ -5097,6 +5108,13 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
       await firestore.collection("live_chat_messages").doc(messageId).set(msgData);
       await db.insert(liveChatMessages).values(msgData);
 
+      // Notify all users about new live chat message
+      notifyAllUsers({
+        title: `Live Chat: ${senderName}`,
+        body: message || (image ? "📷 Photo" : "🎥 Video"),
+        data: { type: 'live_chat', messageId },
+      }, senderId).catch(() => {});
+
       res.json({ success: true, message: msgData });
     } catch (error) {
       console.error("[API] Post live message error:", error);
@@ -5317,6 +5335,14 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
       if (firestore) {
         await firestore.collection("live_chat_messages").doc(messageId).set(msgData);
         console.log("[Live Session Upload] Message added to Firestore live_chat_messages, id:", messageId);
+
+        // Notify all users about the shared photo
+        notifyAllUsers({
+          title: `Live Session: ${displayName}`,
+          body: "Shared a new photo!",
+          data: { type: 'live_chat', messageId, sessionId, image: absoluteUrl },
+        }).catch(() => {});
+
         // Also update the live session document so Mobi Live card shows latest photo
         try {
           await firestore.collection("teacher_live_sessions").doc(sessionId).update({
@@ -5567,6 +5593,26 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
   });
 
   // ========== Reviews & Ratings ==========
+  app.get("/api/reviews/stats/all", async (_req, res) => {
+    try {
+      const allReviewsList = await db.select().from(reviews);
+      const statsMap: Record<string, { averageRating: number; totalReviews: number }> = {};
+      const grouped: Record<string, number[]> = {};
+      for (const r of allReviewsList) {
+        if (!grouped[r.revieweeId]) grouped[r.revieweeId] = [];
+        grouped[r.revieweeId].push(r.rating);
+      }
+      for (const [userId, ratings] of Object.entries(grouped)) {
+        const avg = ratings.reduce((s, r) => s + r, 0) / ratings.length;
+        statsMap[userId] = { averageRating: Math.round(avg * 10) / 10, totalReviews: ratings.length };
+      }
+      res.set('Cache-Control', 'public, max-age=300');
+      res.json(statsMap);
+    } catch (error) {
+      res.status(500).json({});
+    }
+  });
+
   app.get("/api/reviews/:userId", async (req, res) => {
     try {
       const { userId } = req.params;
@@ -6013,30 +6059,6 @@ Maximum 4 suggestions. Be concise and practical for Indian market pricing.`;
       console.error('[Push] Initial subscription expiry check failed:', err);
     });
   }, 30000);
-
-  // CORS configuration for local development
-  app.use((req, res, next) => {
-    res.header("Access-Control-Allow-Origin", "*");
-    res.header("Access-Control-Allow-Methods", "GET,PUT,POST,DELETE,OPTIONS");
-    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, x-session-token, Authorization");
-    if (req.method === "OPTIONS") {
-      return res.sendStatus(200);
-    }
-    next();
-  });
-
-  // Move insurance routes before adminMiddleware if they should be public, 
-  // or ensure they are inside the correct block. 
-  // Based on previous edits, I will ensure they are correctly registered.
-
-  app.get("/api/insurance/plans", async (req, res) => {
-    try {
-      const plans = await db.select().from(insurancePlans).where(eq(insurancePlans.isActive, 1));
-      res.json({ success: true, plans });
-    } catch (error) {
-      res.status(500).json({ success: false, message: "Failed to fetch plans" });
-    }
-  });
 
   const httpServer = createServer(app);
   return httpServer;

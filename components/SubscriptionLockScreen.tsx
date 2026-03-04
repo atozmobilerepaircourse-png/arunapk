@@ -108,6 +108,63 @@ export default function SubscriptionLockScreen({ children }: { children: React.R
   const amount = String(parseInt(status.amount || '0', 10) || 0);
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
+  // For customers, we show a contact-based popup instead of Razorpay
+  if (status.role === 'customer') {
+    return (
+      <View style={styles.overlay}>
+        <View style={[styles.darkOverlay, { paddingTop: (Platform.OS === 'web' ? webTopInset : insets.top) + 40 }]}>
+          <View style={styles.lockIconContainer}>
+            <View style={styles.lockCircle}>
+              <Ionicons name="lock-closed" size={48} color="#FF6B35" />
+            </View>
+          </View>
+
+          <Text style={styles.lockTitle}>Access Restricted</Text>
+          <Text style={styles.lockSubtitle}>
+            Your customer account is currently inactive. Please contact admin to activate your subscription and access all features.
+          </Text>
+
+          <View style={styles.planCard}>
+            <View style={styles.planHeader}>
+              <Ionicons name="shield-checkmark" size={24} color="#34C759" />
+              <Text style={styles.planName}>Customer Benefits</Text>
+            </View>
+
+            <View style={styles.featuresList}>
+              <FeatureItem text="Find & contact expert technicians" />
+              <FeatureItem text="Request repair services & get quotes" />
+              <FeatureItem text="Track your repair history" />
+              <FeatureItem text="Access exclusive mobile insurance" />
+            </View>
+          </View>
+
+          <View style={styles.contactCard}>
+            <Text style={styles.contactTitle}>Contact Admin to Activate</Text>
+            <Pressable
+              style={styles.contactRow}
+              onPress={() => Linking.openURL(`tel:${supportInfo?.supportNumber || '8179142535'}`)}
+            >
+              <Ionicons name="call" size={18} color="#34C759" />
+              <Text style={styles.contactText}>{supportInfo?.supportNumber || '8179142535'}</Text>
+            </Pressable>
+            <Pressable
+              style={styles.contactRow}
+              onPress={() => Linking.openURL(supportInfo?.whatsappLink || 'https://wa.me/918179142535')}
+            >
+              <Ionicons name="logo-whatsapp" size={18} color="#25D366" />
+              <Text style={styles.contactText}>Message on WhatsApp</Text>
+            </Pressable>
+          </View>
+
+          <Pressable onPress={checkStatus} style={[styles.refreshLink, { marginTop: 24 }]}>
+            <Ionicons name="refresh" size={16} color={C.textSecondary} />
+            <Text style={styles.refreshText}>Already activated? Tap to refresh</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.overlay}>
       <View style={[styles.darkOverlay, { paddingTop: (Platform.OS === 'web' ? webTopInset : insets.top) + 40 }]}>

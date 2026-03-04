@@ -413,8 +413,8 @@ export const reviews = pgTable("reviews", {
   revieweeId: text("reviewee_id").notNull(),
   rating: integer("rating").notNull().default(5),
   comment: text("comment").default(""),
-  interactionType: text("interaction_type").notNull().default("service"),
-  interactionId: text("interaction_id").default(""),
+  interactionType: text("type").notNull().default("service"),
+  interactionId: text("reference_id").default(""),
   createdAt: bigint("created_at", { mode: "number" }).notNull().default(sql`EXTRACT(EPOCH FROM NOW()) * 1000`),
 });
 

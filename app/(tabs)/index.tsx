@@ -144,6 +144,18 @@ export default function FeedScreen() {
   const [liveUrl, setLiveUrl] = useState('');
   const [schematicsUrl, setSchematicsUrl] = useState('');
   const [webToolsUrl, setWebToolsUrl] = useState('');
+  const [loadTimeout, setLoadTimeout] = useState(false);
+
+  useEffect(() => {
+    if (isLoading) {
+      const timer = setTimeout(() => {
+        setLoadTimeout(true);
+      }, 15000);
+      return () => clearTimeout(timer);
+    } else {
+      setLoadTimeout(false);
+    }
+  }, [isLoading]);
 
   useEffect(() => {
     apiRequest('GET', '/api/app-settings').then(r => r.json()).then(data => {
@@ -163,7 +175,7 @@ export default function FeedScreen() {
 
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
-  if (isLoading) {
+  if (isLoading && !loadTimeout) {
     return (
       <View style={styles.container}>
         <View style={[styles.header, { paddingTop: (Platform.OS === 'web' ? 67 : insets.top) + 12 }]}>
@@ -173,6 +185,23 @@ export default function FeedScreen() {
           </View>
         </View>
         {[1, 2, 3].map(i => <PostSkeleton key={i} />)}
+      </View>
+    );
+  }
+
+  if (loadTimeout || dataError) {
+    return (
+      <View style={styles.container}>
+        <View style={[styles.header, { paddingTop: (Platform.OS === 'web' ? 67 : insets.top) + 12 }]}>
+          <View style={styles.headerLeft}>
+            <Ionicons name="construct" size={26} color={C.primary} />
+            <Text style={styles.headerTitle}>Mobi</Text>
+          </View>
+        </View>
+        <ErrorState 
+          message={dataError || "Loading is taking too long. Check your connection."} 
+          onRetry={refreshData} 
+        />
       </View>
     );
   }
@@ -229,6 +258,7 @@ export default function FeedScreen() {
           </HeaderButton>
           <HeaderButton delay={400} onPress={() => router.push('/chats')}>
             <Ionicons name="chatbubble-ellipses" size={24} color="#34C759" />
+            <Text style={{ fontSize: 7, color: '#34C759', marginTop: 1, fontWeight: '700' as const }}>Live Chat</Text>
             {totalUnread > 0 && (
               <View style={[styles.unreadDot, { backgroundColor: '#34C759' }]}>
                 <Text style={styles.unreadDotText}>{totalUnread}</Text>

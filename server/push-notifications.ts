@@ -50,10 +50,12 @@ async function sendExpoPushNotifications(tokens: string[], message: PushMessage)
 
 export async function notifyAllUsers(message: PushMessage, excludeUserId?: string): Promise<number> {
   try {
-    const rows = await db.select({ pushToken: profiles.pushToken }).from(profiles).where(ne(profiles.pushToken, ''));
+    const rows = await db.select({ id: profiles.id, pushToken: profiles.pushToken }).from(profiles).where(ne(profiles.pushToken, ''));
     const tokens = rows
+      .filter(r => r.id !== excludeUserId)
       .map(r => r.pushToken || '')
       .filter(t => t.startsWith('ExponentPushToken'));
+    if (tokens.length === 0) return 0;
     await sendExpoPushNotifications(tokens, message);
     console.log(`[Push] Broadcast sent to ${tokens.length} users`);
     return tokens.length;

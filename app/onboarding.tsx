@@ -354,14 +354,35 @@ export default function OnboardingScreen() {
       if (Platform.OS === 'web') {
         const returnUrl = window.location.origin + '/onboarding';
         console.log('[Google] Starting web sign-in with returnUrl:', returnUrl);
+        
+        // Add listener for message from popup
+        const handleMessage = (event: MessageEvent) => {
+          if (event.data?.type === 'GOOGLE_SIGN_IN_SUCCESS') {
+            console.log('[Google] Web sign-in message received:', event.data);
+            setGoogleEmail(event.data.email);
+            setGoogleSignedIn(true);
+            if (event.data.name) setUserName(event.data.name);
+            setStep(0);
+            window.removeEventListener('message', handleMessage);
+          }
+        };
+        window.addEventListener('message', handleMessage);
+
         await apiRequest('POST', '/api/auth/google/set-return-url', { token: clientToken, returnUrl });
         const urlRes = await apiRequest('POST', '/api/auth/google/get-login-url', { token: clientToken });
         const urlData = await urlRes.json();
         if (!urlData.success || !urlData.url) {
           Alert.alert('Error', urlData.message || 'Could not start Google sign-in.');
+          window.removeEventListener('message', handleMessage);
           return;
         }
-        window.location.href = urlData.url;
+        
+        // Open in a popup instead of redirecting the whole page
+        const width = 500;
+        const height = 600;
+        const left = (window.innerWidth - width) / 2;
+        const top = (window.innerHeight - height) / 2;
+        window.open(urlData.url, 'GoogleSignIn', `width=${width},height=${height},left=${left},top=${top}`);
         return;
       }
 

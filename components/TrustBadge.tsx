@@ -28,6 +28,28 @@ interface TrustBadgeProps {
   showScore?: boolean;
 }
 
+export function calculateTrustScore(profile: any, averageRating: number = 0, totalReviews: number = 0): number {
+  let score = 0;
+
+  // Profile completion (40 points max)
+  if (profile.avatar) score += 10;
+  if (profile.bio && profile.bio.length > 20) score += 10;
+  if (profile.skills && JSON.parse(profile.skills || '[]').length > 0) score += 10;
+  if (profile.city && profile.state) score += 10;
+
+  // Verification & Activity (30 points max)
+  // Phone is always verified via OTP
+  score += 10;
+  if (profile.subscriptionActive) score += 20;
+
+  // Ratings (30 points max)
+  if (totalReviews > 0) {
+    score += (averageRating / 5) * 30;
+  }
+
+  return Math.min(Math.round(score), 100);
+}
+
 export default function TrustBadge({ score, size = 'small', showScore = false }: TrustBadgeProps) {
   const level = getTrustLevel(score);
   const config = BADGE_CONFIG[level];
