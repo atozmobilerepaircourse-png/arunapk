@@ -17,36 +17,42 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { queryClient } from "@/lib/query-client";
-import { AppProvider } from "@/lib/context";
+import { AppProvider, useApp } from "@/lib/context";
+import { SecurityProvider } from "@/lib/security";
 import { requestNotificationPermission, cleanupSounds } from "@/lib/notifications";
 import { FloatingUploadBanner } from "@/components/FloatingUploadBanner";
 
 SplashScreen.preventAutoHideAsync();
 
-function RootLayoutNav() {
+function SecuredApp() {
+  const { profile, isOnboarded } = useApp();
+  const userId = (isOnboarded && profile?.id) ? profile.id : null;
   return (
-    <Stack screenOptions={{ headerShown: false, headerBackTitle: "Back", contentStyle: { backgroundColor: '#FAFAFA' } }}>
-      <Stack.Screen name="(tabs)" />
-      <Stack.Screen name="onboarding" options={{ gestureEnabled: false }} />
-      <Stack.Screen name="admin" />
-      <Stack.Screen name="chats" />
-      <Stack.Screen name="chat/[id]" />
-      <Stack.Screen name="reels" options={{ animation: 'slide_from_right' }} />
-      <Stack.Screen name="upload-reel" options={{ animation: 'slide_from_bottom' }} />
-      <Stack.Screen name="user-profile" options={{ animation: 'slide_from_right' }} />
-      <Stack.Screen name="add-product" options={{ animation: 'slide_from_bottom' }} />
-      <Stack.Screen name="product-detail" options={{ animation: 'slide_from_right' }} />
-      <Stack.Screen name="my-orders" options={{ animation: 'slide_from_right' }} />
-      <Stack.Screen name="seller-orders" options={{ animation: 'slide_from_right' }} />
-      <Stack.Screen name="create-course" options={{ animation: 'slide_from_bottom' }} />
-      <Stack.Screen name="course-detail" options={{ animation: 'slide_from_right' }} />
-      <Stack.Screen name="course-player" options={{ animation: 'slide_from_right' }} />
-      <Stack.Screen name="courses" options={{ animation: 'slide_from_right' }} />
-      <Stack.Screen name="sell-item" options={{ animation: 'slide_from_bottom' }} />
-      <Stack.Screen name="buy-sell" options={{ animation: 'slide_from_right' }} />
-      <Stack.Screen name="technician-needs" options={{ animation: 'slide_from_right' }} />
-      <Stack.Screen name="live-chat" options={{ animation: 'slide_from_right' }} />
-    </Stack>
+    <SecurityProvider userId={userId}>
+      <Stack screenOptions={{ headerShown: false, headerBackTitle: "Back", contentStyle: { backgroundColor: '#FAFAFA' } }}>
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="onboarding" options={{ gestureEnabled: false }} />
+        <Stack.Screen name="admin" />
+        <Stack.Screen name="chats" />
+        <Stack.Screen name="chat/[id]" />
+        <Stack.Screen name="reels" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="upload-reel" options={{ animation: 'slide_from_bottom' }} />
+        <Stack.Screen name="user-profile" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="add-product" options={{ animation: 'slide_from_bottom' }} />
+        <Stack.Screen name="product-detail" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="my-orders" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="seller-orders" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="create-course" options={{ animation: 'slide_from_bottom' }} />
+        <Stack.Screen name="course-detail" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="course-player" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="courses" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="sell-item" options={{ animation: 'slide_from_bottom' }} />
+        <Stack.Screen name="buy-sell" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="technician-needs" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="live-chat" options={{ animation: 'slide_from_right' }} />
+      </Stack>
+      <FloatingUploadBanner />
+    </SecurityProvider>
   );
 }
 
@@ -105,8 +111,7 @@ export default function RootLayout() {
           <GestureHandlerRootView style={{ flex: 1 }}>
             <KeyboardProvider>
               <StatusBar style="dark" />
-              <RootLayoutNav />
-              <FloatingUploadBanner />
+              <SecuredApp />
             </KeyboardProvider>
           </GestureHandlerRootView>
         </AppProvider>

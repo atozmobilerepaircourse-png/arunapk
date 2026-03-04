@@ -4,7 +4,7 @@ import { getFirestore } from "./firebase-admin";
 import { db } from "./db";
 import OpenAI from "openai";
 import { notifyAllUsers, notifyNewPost, notifyUser } from "./push-notifications";
-import { profiles, conversations, messages, posts, jobs, reels, products, orders, subscriptionSettings, courses, courseChapters, courseVideos, courseEnrollments, dubbedVideos, ads, liveChatMessages, liveClasses, courseNotices, sessions, payments, teacherPayouts, appSettings, videoProgress, livePolls, livePollVotes, emailCampaigns, otpTokens } from "@shared/schema";
+import { profiles, conversations, messages, posts, jobs, reels, products, orders, subscriptionSettings, courses, courseChapters, courseVideos, courseEnrollments, dubbedVideos, ads, liveChatMessages, liveClasses, courseNotices, sessions, payments, teacherPayouts, appSettings, videoProgress, livePolls, livePollVotes, emailCampaigns, otpTokens, adminNotifications } from "@shared/schema";
 import { sendWelcomeEmail } from "./lib/sendEmail";
 import { eq, or, and, desc, gt, lt, sql, ne, isNotNull } from "drizzle-orm";
 import { randomUUID } from "crypto";
@@ -5298,6 +5298,159 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
     }
   });
 
+  // ─── Security Check Endpoint ───
+  app.post("/api/security/check", async (req, res) => {
+    try {
+      const { userId, deviceId } = req.body;
+      if (!userId) return res.status(400).json({ success: false, message: "userId required" });
+
+      const profileRows = await db.select().from(profiles).where(eq(profiles.id, userId));
+      const profile = profileRows[0];
+      if (!profile) return res.status(404).json({ success: false, message: "User not found" });
+
+      // Fetch support number from appSettings
+      const supportRows = await db.select().from(appSettings).where(eq(appSettings.key, 'support_number'));
+      const whatsappRows = await db.select().from(appSettings).where(eq(appSettings.key, 'whatsapp_link'));
+      const supportNumber = supportRows[0]?.value || '+918179142535';
+      const whatsappLink = whatsappRows[0]?.value || 'https://wa.me/918179142535';
+
+      // CHECK 1: Blocked/Locked
+      if (profile.blocked === 1) {
+        return res.json({ success: true, status: 'locked', supportNumber, whatsappLink, reason: 'Account blocked by admin' });
+      }
+
+      // CHECK 2: Subscription expiry (skip admin and customers)
+      const isAdminPhone = profile.phone.replace(/\D/g, '') === '8179142535' || profile.phone.replace(/\D/g, '') === '9876543210';
+      if (!isAdminPhone && profile.role !== 'customer' && profile.role !== 'admin') {
+        const subRows = await db.select().from(subscriptionSettings).where(eq(subscriptionSettings.role, profile.role));
+        const subSetting = subRows[0];
+        if (subSetting?.enabled === 1) {
+          const subEnd = profile.subscriptionEnd || 0;
+          const subActive = profile.subscriptionActive || 0;
+          if (subActive === 0 || (subEnd > 0 && Date.now() > subEnd)) {
+            return res.json({ success: true, status: 'subscription_expired', supportNumber, whatsappLink });
+          }
+        }
+      }
+
+      // CHECK 3: Device check (skip if no deviceId provided)
+      if (deviceId && !isAdminPhone && profile.role !== 'admin') {
+        const currentDeviceId = profile.deviceId || '';
+        const deviceChangeCount = profile.deviceChangeCount || 0;
+
+        if (!currentDeviceId) {
+          // First login — save device ID
+          await db.update(profiles).set({ deviceId }).where(eq(profiles.id, userId));
+        } else if (currentDeviceId !== deviceId) {
+          // Different device!
+          const newCount = deviceChangeCount + 1;
+          if (newCount > 1) {
+            // Lock account
+            await db.update(profiles).set({ blocked: 1, deviceChangeCount: newCount }).where(eq(profiles.id, userId));
+            // Create admin notification
+            await db.insert(adminNotifications).values({
+              type: 'ACCOUNT_LOCKED',
+              userId: profile.id,
+              userName: profile.name,
+              phone: profile.phone,
+              reason: 'Multiple device login attempt',
+            });
+            return res.json({ success: true, status: 'locked', supportNumber, whatsappLink, reason: 'Multiple device login attempt' });
+          } else {
+            // Allow this time, update device ID and increment count
+            await db.update(profiles).set({ deviceId, deviceChangeCount: newCount }).where(eq(profiles.id, userId));
+          }
+        }
+      }
+
+      return res.json({ success: true, status: 'ok', supportNumber, whatsappLink });
+    } catch (error) {
+      console.error("[Security] Check error:", error);
+      res.status(500).json({ success: false, message: "Security check failed" });
+    }
+  });
+
+  // ─── Admin: Get lock notifications ───
+  app.get("/api/admin/lock-notifications", adminMiddleware, async (req, res) => {
+    try {
+      const notifications = await db.select().from(adminNotifications).orderBy(desc(adminNotifications.createdAt)).limit(100);
+      res.json({ success: true, notifications });
+    } catch (error) {
+      res.status(500).json({ success: false });
+    }
+  });
+
+  // ─── Admin: Mark notification as read ───
+  app.patch("/api/admin/lock-notifications/:id/read", adminMiddleware, async (req, res) => {
+    try {
+      await db.update(adminNotifications).set({ read: 1 }).where(eq(adminNotifications.id, req.params.id));
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ success: false });
+    }
+  });
+
+  // ─── Admin: Unlock user ───
+  app.post("/api/admin/unlock-user", adminMiddleware, async (req, res) => {
+    try {
+      const { userId } = req.body;
+      if (!userId) return res.status(400).json({ success: false, message: "userId required" });
+      await db.update(profiles).set({ blocked: 0, deviceChangeCount: 0, deviceId: '' }).where(eq(profiles.id, userId));
+      res.json({ success: true, message: "User unlocked successfully" });
+    } catch (error) {
+      res.status(500).json({ success: false, message: "Failed to unlock user" });
+    }
+  });
+
+  // ─── Admin: Get/Set support number ───
+  app.get("/api/admin/support-info", adminMiddleware, async (req, res) => {
+    try {
+      const rows = await db.select().from(appSettings).where(or(eq(appSettings.key, 'support_number'), eq(appSettings.key, 'whatsapp_link')));
+      const result: Record<string, string> = {};
+      rows.forEach(r => { result[r.key] = r.value; });
+      res.json({ success: true, supportNumber: result['support_number'] || '+918179142535', whatsappLink: result['whatsapp_link'] || 'https://wa.me/918179142535' });
+    } catch (error) {
+      res.status(500).json({ success: false });
+    }
+  });
+
+  app.post("/api/admin/support-info", adminMiddleware, async (req, res) => {
+    try {
+      const { supportNumber, whatsappLink } = req.body;
+      if (supportNumber) {
+        const existing = await db.select().from(appSettings).where(eq(appSettings.key, 'support_number'));
+        if (existing.length > 0) {
+          await db.update(appSettings).set({ value: supportNumber, updatedAt: Date.now() }).where(eq(appSettings.key, 'support_number'));
+        } else {
+          await db.insert(appSettings).values({ key: 'support_number', value: supportNumber });
+        }
+      }
+      if (whatsappLink) {
+        const existing2 = await db.select().from(appSettings).where(eq(appSettings.key, 'whatsapp_link'));
+        if (existing2.length > 0) {
+          await db.update(appSettings).set({ value: whatsappLink, updatedAt: Date.now() }).where(eq(appSettings.key, 'whatsapp_link'));
+        } else {
+          await db.insert(appSettings).values({ key: 'whatsapp_link', value: whatsappLink });
+        }
+      }
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ success: false });
+    }
+  });
+
+  // ─── Public: get support info (for lock popups) ───
+  app.get("/api/support-info", async (req, res) => {
+    try {
+      const rows = await db.select().from(appSettings).where(or(eq(appSettings.key, 'support_number'), eq(appSettings.key, 'whatsapp_link')));
+      const result: Record<string, string> = {};
+      rows.forEach(r => { result[r.key] = r.value; });
+      res.json({ supportNumber: result['support_number'] || '+918179142535', whatsappLink: result['whatsapp_link'] || 'https://wa.me/918179142535' });
+    } catch (error) {
+      res.status(500).json({ supportNumber: '+918179142535', whatsappLink: 'https://wa.me/918179142535' });
+    }
+  });
+
   app.get("/download/:filename", (req, res) => {
     const filename = req.params.filename;
     // Basic security check to prevent directory traversal
@@ -5315,3 +5468,4 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
 
   const httpServer = createServer(app);
   return httpServer;
+}

@@ -380,6 +380,17 @@ export const appSettings = pgTable("app_settings", {
   updatedAt: bigint("updated_at", { mode: "number" }).notNull().default(sql`EXTRACT(EPOCH FROM NOW()) * 1000`),
 });
 
+export const adminNotifications = pgTable("admin_notifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  type: text("type").notNull().default("ACCOUNT_LOCKED"),
+  userId: text("user_id").notNull(),
+  userName: text("user_name").notNull().default(""),
+  phone: text("phone").notNull().default(""),
+  reason: text("reason").notNull().default(""),
+  read: integer("read").notNull().default(0),
+  createdAt: bigint("created_at", { mode: "number" }).notNull().default(sql`EXTRACT(EPOCH FROM NOW()) * 1000`),
+});
+
 export const emailCampaigns = pgTable("email_campaigns", {
   id: varchar("id").primaryKey(),
   subject: text("subject").notNull(),

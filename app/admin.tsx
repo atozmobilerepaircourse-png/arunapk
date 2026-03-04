@@ -14,7 +14,7 @@ import { openLink } from '@/lib/open-link';
 
 const C = Colors.light;
 
-type AdminTab = 'dashboard' | 'users' | 'posts' | 'jobs' | 'subscriptions' | 'revenue' | 'ads' | 'links' | 'device' | 'notifications' | 'payouts' | 'email';
+type AdminTab = 'dashboard' | 'users' | 'posts' | 'jobs' | 'subscriptions' | 'revenue' | 'ads' | 'links' | 'device' | 'notifications' | 'payouts' | 'email' | 'security';
 
 const ROLE_COLORS: Record<UserRole, string> = {
   technician: '#34C759',
@@ -292,6 +292,13 @@ export default function AdminScreen() {
   const [emailStatsLoading, setEmailStatsLoading] = useState(false);
   const [emailScheduleDate, setEmailScheduleDate] = useState('');
   const [emailScheduleTime, setEmailScheduleTime] = useState('');
+
+  const [lockNotifications, setLockNotifications] = useState<any[]>([]);
+  const [lockNotifLoading, setLockNotifLoading] = useState(false);
+  const [supportNumber, setSupportNumber] = useState('+918179142535');
+  const [whatsappLink, setWhatsappLink] = useState('https://wa.me/918179142535');
+  const [supportSaving, setSupportSaving] = useState(false);
+  const [unlockingUserId, setUnlockingUserId] = useState<string | null>(null);
 
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
@@ -698,6 +705,7 @@ export default function AdminScreen() {
     { key: 'device', label: 'Device', icon: 'phone-portrait' },
     { key: 'notifications', label: 'Notify', icon: 'notifications' },
     { key: 'email', label: 'Email', icon: 'mail' },
+    { key: 'security', label: 'Security', icon: 'shield' },
   ];
 
   const handleDeletePost = (postId: string, userName: string) => {
@@ -1489,6 +1497,74 @@ export default function AdminScreen() {
     }
   }, [activeTab, fetchPushStats]);
 
+  const fetchLockNotifications = useCallback(async () => {
+    try {
+      setLockNotifLoading(true);
+      const res = await apiRequest('GET', '/api/admin/lock-notifications');
+      const data = await res.json();
+      setLockNotifications(data.notifications || []);
+    } catch (e) {
+      console.warn('Failed to fetch lock notifications:', e);
+    } finally {
+      setLockNotifLoading(false);
+    }
+  }, []);
+
+  const fetchSupportInfo = useCallback(async () => {
+    try {
+      const res = await apiRequest('GET', '/api/admin/support-info');
+      const data = await res.json();
+      if (data.supportNumber) setSupportNumber(data.supportNumber);
+      if (data.whatsappLink) setWhatsappLink(data.whatsappLink);
+    } catch (e) {}
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'security') {
+      fetchLockNotifications();
+      fetchSupportInfo();
+    }
+  }, [activeTab, fetchLockNotifications, fetchSupportInfo]);
+
+  const saveSupportInfo = useCallback(async () => {
+    try {
+      setSupportSaving(true);
+      await apiRequest('POST', '/api/admin/support-info', { supportNumber, whatsappLink });
+      Alert.alert('Saved', 'Support info updated successfully.');
+    } catch (e) {
+      Alert.alert('Error', 'Failed to save support info.');
+    } finally {
+      setSupportSaving(false);
+    }
+  }, [supportNumber, whatsappLink]);
+
+  const unlockUser = useCallback(async (userId: string, userName: string) => {
+    Alert.alert('Unlock User', `Unlock ${userName}'s account and reset device binding?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Unlock',
+        onPress: async () => {
+          try {
+            setUnlockingUserId(userId);
+            const res = await apiRequest('POST', '/api/admin/unlock-user', { userId });
+            const data = await res.json();
+            if (data.success) {
+              Alert.alert('Success', `${userName} has been unlocked.`);
+              fetchLockNotifications();
+              await refreshData();
+            } else {
+              Alert.alert('Error', data.message || 'Failed to unlock user.');
+            }
+          } catch (e) {
+            Alert.alert('Error', 'Failed to unlock user.');
+          } finally {
+            setUnlockingUserId(null);
+          }
+        }
+      }
+    ]);
+  }, [fetchLockNotifications, refreshData]);
+
   const sendNotificationToAll = useCallback(async () => {
     if (!notifTitle.trim() || !notifBody.trim()) {
       Alert.alert('Error', 'Please enter both title and message.');
@@ -2223,6 +2299,94 @@ export default function AdminScreen() {
     />
   );
 
+  const renderSecurity = () => (
+    <ScrollView contentContainerStyle={{ padding: 16 }} showsVerticalScrollIndicator={false}>
+      <View style={styles.sectionCard}>
+        <Text style={styles.sectionLabel}>Support Contact Info</Text>
+        <Text style={{ fontSize: 12, color: C.textTertiary, fontFamily: 'Inter_400Regular', marginBottom: 12 }}>
+          This number shows on the lock screen when a user's account is blocked or subscription expires.
+        </Text>
+        <Text style={[styles.settingLabel, { marginBottom: 4 }]}>Support Phone Number</Text>
+        <TextInput
+          style={styles.input}
+          value={supportNumber}
+          onChangeText={setSupportNumber}
+          placeholder="+918179142535"
+          placeholderTextColor={C.textTertiary}
+          keyboardType="phone-pad"
+        />
+        <Text style={[styles.settingLabel, { marginBottom: 4, marginTop: 12 }]}>WhatsApp Link</Text>
+        <TextInput
+          style={styles.input}
+          value={whatsappLink}
+          onChangeText={setWhatsappLink}
+          placeholder="https://wa.me/918179142535"
+          placeholderTextColor={C.textTertiary}
+          autoCapitalize="none"
+        />
+        <TouchableOpacity
+          style={[styles.saveBtn, { marginTop: 16 }]}
+          onPress={saveSupportInfo}
+          disabled={supportSaving}
+        >
+          <Text style={styles.saveBtnText}>{supportSaving ? 'Saving...' : 'Save Support Info'}</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.sectionCard}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <Text style={styles.sectionLabel}>Lock Alerts</Text>
+          <TouchableOpacity onPress={fetchLockNotifications}>
+            <Ionicons name="refresh" size={18} color={C.primary} />
+          </TouchableOpacity>
+        </View>
+        {lockNotifLoading ? (
+          <ActivityIndicator color={C.primary} />
+        ) : lockNotifications.length === 0 ? (
+          <Text style={{ color: C.textTertiary, fontSize: 13, fontFamily: 'Inter_400Regular', textAlign: 'center', paddingVertical: 20 }}>
+            No lock events yet
+          </Text>
+        ) : (
+          lockNotifications.map(notif => (
+            <View key={notif.id} style={{
+              padding: 14,
+              backgroundColor: notif.read === 1 ? C.surfaceElevated : '#FF3B3010',
+              borderRadius: 12,
+              marginBottom: 10,
+              borderWidth: notif.read === 1 ? 0 : 1,
+              borderColor: notif.read === 1 ? 'transparent' : '#FF3B3040',
+            }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                <Ionicons name="lock-closed" size={16} color="#FF3B30" />
+                <Text style={{ fontSize: 14, fontFamily: 'Inter_600SemiBold', color: C.text, flex: 1 }}>
+                  {notif.userName || 'Unknown'}
+                </Text>
+                {notif.read !== 1 && (
+                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#FF3B30' }} />
+                )}
+              </View>
+              <Text style={{ fontSize: 12, color: C.textSecondary, fontFamily: 'Inter_400Regular', marginBottom: 2 }}>
+                {notif.phone}
+              </Text>
+              <Text style={{ fontSize: 12, color: C.textTertiary, fontFamily: 'Inter_400Regular', marginBottom: 10 }}>
+                {notif.reason} · {new Date(notif.createdAt).toLocaleDateString()}
+              </Text>
+              <TouchableOpacity
+                style={{ backgroundColor: '#007AFF', borderRadius: 8, paddingVertical: 8, alignItems: 'center' }}
+                disabled={unlockingUserId === notif.userId}
+                onPress={() => unlockUser(notif.userId, notif.userName)}
+              >
+                <Text style={{ color: '#fff', fontSize: 13, fontFamily: 'Inter_600SemiBold' }}>
+                  {unlockingUserId === notif.userId ? 'Unlocking...' : 'Unlock Account'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ))
+        )}
+      </View>
+    </ScrollView>
+  );
+
   return (
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: (Platform.OS === 'web' ? webTopInset : insets.top) + 8 }]}>
@@ -2272,6 +2436,7 @@ export default function AdminScreen() {
         {activeTab === 'notifications' && renderNotifications()}
         {activeTab === 'payouts' && renderPayouts()}
         {activeTab === 'email' && renderEmail()}
+        {activeTab === 'security' && renderSecurity()}
       </View>
     </View>
   );
@@ -2749,5 +2914,45 @@ const styles = StyleSheet.create({
     color: C.textTertiary,
     fontSize: 14,
     fontFamily: 'Inter_400Regular',
+  },
+  sectionCard: {
+    backgroundColor: C.surface,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: C.border,
+  },
+  sectionLabel: {
+    fontSize: 16,
+    fontFamily: 'Inter_600SemiBold',
+    color: C.text,
+    marginBottom: 8,
+  },
+  settingLabel: {
+    fontSize: 13,
+    fontFamily: 'Inter_600SemiBold',
+    color: C.textSecondary,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 10,
+    padding: 12,
+    fontSize: 14,
+    fontFamily: 'Inter_400Regular',
+    color: C.text,
+    backgroundColor: C.surfaceElevated,
+  },
+  saveBtn: {
+    backgroundColor: C.primary,
+    borderRadius: 12,
+    paddingVertical: 13,
+    alignItems: 'center',
+  },
+  saveBtnText: {
+    color: '#fff',
+    fontSize: 15,
+    fontFamily: 'Inter_600SemiBold',
   },
 });

@@ -311,6 +311,18 @@ function setupErrorHandler(app: express.Application) {
         created_at bigint NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW()) * 1000
       )
     `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS admin_notifications (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        type text NOT NULL DEFAULT 'ACCOUNT_LOCKED',
+        user_id text NOT NULL,
+        user_name text NOT NULL DEFAULT '',
+        phone text NOT NULL DEFAULT '',
+        reason text NOT NULL DEFAULT '',
+        read integer NOT NULL DEFAULT 0,
+        created_at bigint NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW()) * 1000
+      )
+    `);
     await pool.end();
     log("Startup migration: otp_tokens table ready");
   } catch (err) {
