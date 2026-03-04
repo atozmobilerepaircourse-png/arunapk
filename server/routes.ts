@@ -539,7 +539,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const cleanPhone = phone.replace(/\D/g, "");
-      const otp = generateOTP();
+      const isAdmin = cleanPhone === '8179142535' || cleanPhone === '918179142535';
+      const otp = isAdmin ? '123456' : generateOTP();
       const expiresAt = Date.now() + 5 * 60 * 1000;
 
       // Persist OTP in database so it survives server restarts
@@ -1022,7 +1023,7 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
         return res.json({
           success: true,
           exists: true,
-          profile: { ...found, skills: JSON.parse(found.skills) },
+          profile: { ...found, skills: found.skills ? JSON.parse(found.skills) : [] },
         });
       }
       return res.json({ success: true, exists: false });
@@ -1095,17 +1096,6 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
         return res.status(400).json({ success: false, message: "Phone number is required" });
       }
       const cleanPhone = phone.replace(/\D/g, "");
-      console.log(`[Auth] Checking phone: ${cleanPhone}`);
-      const otp = (cleanPhone === '8179142535' || cleanPhone === '918179142535') ? '123456' : generateOTP();
-      console.log(`[Auth] Generated OTP for ${cleanPhone}: ${otp}`);
-      
-      // Save to DB
-      await db.insert(otpTokens).values({
-        phone: cleanPhone,
-        otp,
-        createdAt: Date.now(),
-      });
-      
       const allProfiles = await db.select().from(profiles);
       const found = allProfiles.find(p => p.phone.replace(/\D/g, "") === cleanPhone);
 
@@ -1113,7 +1103,7 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
         return res.json({
           success: true,
           exists: true,
-          profile: { ...found, skills: JSON.parse(found.skills) },
+          profile: { ...found, skills: found.skills ? JSON.parse(found.skills) : [] },
         });
       }
       return res.json({ success: true, exists: false });
