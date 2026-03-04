@@ -1096,11 +1096,11 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
       }
       const cleanPhone = phone.replace(/\D/g, "");
       
-      // Admin bypass for 8179142535
-      if (cleanPhone === "8179142535") {
-        const adminProfile = await db.select().from(profiles).where(eq(profiles.phone, "8179142535"));
+      // Admin bypass for 8179142535 and 9398391742
+      if (cleanPhone === "8179142535" || cleanPhone === "9398391742") {
+        const adminProfile = await db.select().from(profiles).where(eq(profiles.phone, cleanPhone));
         if (adminProfile.length > 0) {
-          console.log("[Auth] Admin bypass triggered for 8179142535");
+          console.log(`[Auth] Admin bypass triggered for ${cleanPhone}`);
           return res.json({
             success: true,
             exists: true,
@@ -1108,7 +1108,7 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
             isAdmin: true
           });
         } else {
-          console.log("[Auth] Admin bypass failed: profile not found for 8179142535");
+          console.log(`[Auth] Admin bypass failed: profile not found for ${cleanPhone}`);
         }
       }
 

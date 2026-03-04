@@ -308,7 +308,8 @@ export default function OnboardingScreen() {
 
       if (data.success) {
         // Admin bypass
-        if (cleanPhone === "8179142535" || data.isAdmin) {
+        const isAdminPhone = cleanPhone === "8179142535" || cleanPhone === "9398391742";
+        if (isAdminPhone || data.isAdmin) {
           console.log('[Auth] Admin bypass detected');
           if (data.profile) {
             await login(data.profile);
@@ -318,7 +319,7 @@ export default function OnboardingScreen() {
         }
 
         // Even if bypass didn't trigger, if phone is admin, try to login directly
-        if (cleanPhone === "8179142535" && data.profile) {
+        if (isAdminPhone && data.profile) {
           await login(data.profile);
           router.replace('/');
           return;
