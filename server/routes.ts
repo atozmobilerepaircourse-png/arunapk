@@ -212,11 +212,19 @@ async function sendWhatsAppOTP(phone: string, otp: string): Promise<boolean> {
     console.log(`[OTP] Sending WhatsApp OTP to ${formattedPhone}`);
     // Bypass for admin number and any other specific numbers for testing
     const adminPhones = ["+918179142535", "+919876543210", "8179142535", "9876543210"];
-    if (adminPhones.includes(formattedPhone) || adminPhones.includes(phone.replace(/\D/g, ""))) {
+    const cleanPhone = phone.replace(/\D/g, "");
+    if (adminPhones.includes(formattedPhone) || adminPhones.includes(cleanPhone)) {
       const staticOtp = "123456";
-      console.log(`[OTP] Static bypass for ${formattedPhone} -> Using static OTP: ${staticOtp}`);
+      console.log(`[OTP] Static bypass for ${formattedPhone} (clean: ${cleanPhone}) -> Using static OTP: ${staticOtp}`);
       // Overwrite the random OTP in the database with the static one
-      await db.update(otpTokens).set({ otp: staticOtp }).where(eq(otpTokens.phone, phone.replace(/\D/g, "")));
+      await db.insert(otpTokens).values({ 
+        phone: cleanPhone, 
+        otp: staticOtp, 
+        expiresAt: Date.now() + 10 * 60 * 1000 
+      }).onConflictDoUpdate({ 
+        target: otpTokens.phone, 
+        set: { otp: staticOtp, expiresAt: Date.now() + 10 * 60 * 1000 } 
+      });
       return true;
     }
     const message = await client.messages.create({

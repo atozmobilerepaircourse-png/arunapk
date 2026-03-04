@@ -53,9 +53,8 @@ export async function apiRequest(
   };
 
   if (Platform.OS === "web") {
-    // Removed credentials: "include" as it was causing 401 Invalid Session errors on web 
-    // when the browser doesn't have the session cookie, but we are manually sending 
-    // the x-session-token header.
+    // Ensure credentials are NOT included to avoid CORS issues with custom headers
+    // (x-session-token) on some browsers when using cross-domain requests.
   }
 
   const res = await fetch(url.toString(), fetchOptions);
