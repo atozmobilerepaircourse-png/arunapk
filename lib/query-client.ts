@@ -1,4 +1,3 @@
-import { Platform } from "react-native";
 import { fetch } from "expo/fetch";
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -7,14 +6,6 @@ const CLOUD_RUN_BACKEND = "https://repair-backend-3siuld7gbq-el.a.run.app";
 const SESSION_KEY = "mobi_session_token";
 
 export function getApiUrl(): string {
-  if (__DEV__ && Platform.OS !== 'web') {
-    // For local development on physical devices/emulators
-    return "http://localhost:5000";
-  }
-  if (Platform.OS === 'web' && window.location.hostname.includes('replit.dev')) {
-    // For Replit web preview
-    return `https://${window.location.hostname.split(':')[0]}/`;
-  }
   return CLOUD_RUN_BACKEND;
 }
 

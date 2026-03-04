@@ -496,9 +496,10 @@ export default function CreateCourseScreen() {
     } catch (e: any) {
       const wasCancelled = e?.message === 'CANCELLED';
       if (!wasCancelled) {
-        console.error('[CreateCourse] Add video error:', e);
+        const errMsg = e?.message || (typeof e === 'string' ? e : null) || JSON.stringify(e) || 'Unknown error';
+        console.error('[CreateCourse] Add video error:', errMsg, e);
         if (isMountedRef.current) {
-          showStatus(e?.message ? e.message : 'Upload failed — please try again.', 'error');
+          showStatus(errMsg.length < 200 ? errMsg : 'Upload failed — please try again.', 'error');
         }
       }
     } finally {
