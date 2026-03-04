@@ -4,7 +4,7 @@ set -e
 echo "=== Deploying Frontend to Firebase Hosting ==="
 
 echo "[1/3] Building Expo web export..."
-EXPO_PUBLIC_DOMAIN=repair-backend-3siud7gbq-el.a.run.app npx expo export --platform web --output-dir dist
+EXPO_PUBLIC_DOMAIN=repair-backend-3siuld7gbq-el.a.run.app npx expo export --platform web --output-dir dist
 
 echo "[2/3] Copying fonts..."
 mkdir -p dist/_expo/static/fonts
