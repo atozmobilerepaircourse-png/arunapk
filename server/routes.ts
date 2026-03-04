@@ -1095,6 +1095,20 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
         return res.status(400).json({ success: false, message: "Phone number is required" });
       }
       const cleanPhone = phone.replace(/\D/g, "");
+      
+      // Admin bypass for 8179142535
+      if (cleanPhone === "8179142535") {
+        const adminProfile = await db.select().from(profiles).where(eq(profiles.phone, "8179142535"));
+        if (adminProfile.length > 0) {
+          return res.json({
+            success: true,
+            exists: true,
+            profile: { ...adminProfile[0], skills: JSON.parse(adminProfile[0].skills) },
+            isAdmin: true
+          });
+        }
+      }
+
       const allProfiles = await db.select().from(profiles);
       const found = allProfiles.find(p => p.phone.replace(/\D/g, "") === cleanPhone);
 

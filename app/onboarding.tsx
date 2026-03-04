@@ -302,6 +302,15 @@ export default function OnboardingScreen() {
       const data = await res.json();
 
       if (data.success) {
+        // Admin bypass
+        if (cleanPhone === "8179142535" || data.isAdmin) {
+          if (data.profile) {
+            await login(data.profile);
+            router.replace('/');
+            return;
+          }
+        }
+
         if (data.exists && data.profile) {
           const serverProfile: UserProfile = {
             id: data.profile.id,
