@@ -288,7 +288,11 @@ export default function OnboardingScreen() {
   };
 
   const checkPhone = async () => {
-    const cleanPhone = phone.replace(/\D/g, '');
+    let cleanPhone = phone.replace(/\D/g, '');
+    if (cleanPhone.startsWith('91') && cleanPhone.length === 12) {
+      cleanPhone = cleanPhone.slice(2);
+    }
+    
     if (cleanPhone.length !== 10) {
       Alert.alert('Invalid Number', 'Please enter a valid 10-digit mobile number.');
       return;
@@ -311,6 +315,13 @@ export default function OnboardingScreen() {
             router.replace('/');
             return;
           }
+        }
+
+        // Even if bypass didn't trigger, if phone is admin, try to login directly
+        if (cleanPhone === "8179142535" && data.profile) {
+          await login(data.profile);
+          router.replace('/');
+          return;
         }
 
         if (data.exists && data.profile) {
@@ -405,7 +416,11 @@ export default function OnboardingScreen() {
   };
 
   const handleGooglePhoneSubmit = async () => {
-    const cleanPhone = phone.replace(/\D/g, '');
+    let cleanPhone = phone.replace(/\D/g, '');
+    if (cleanPhone.startsWith('91') && cleanPhone.length === 12) {
+      cleanPhone = cleanPhone.slice(2);
+    }
+    
     if (cleanPhone.length !== 10) {
       Alert.alert('Invalid Number', 'Please enter a valid 10-digit mobile number.');
       return;
