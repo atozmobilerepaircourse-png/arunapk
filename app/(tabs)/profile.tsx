@@ -18,85 +18,12 @@ import { ROLE_LABELS, SKILLS_LIST, UserRole, ADMIN_PHONE } from '@/lib/types';
 import TrustBadge, { calculateTrustScore } from '@/components/TrustBadge';
 import ReviewCard from '@/components/ReviewCard';
 
-function parseSellPost(text: string): { title: string; price: string; condition: string; description: string } | null {
-  try {
-    const lines = text.split('\n');
-    const data: any = {};
-    for (const line of lines) {
-      if (line.startsWith('SELL_TITLE:')) data.title = line.replace('SELL_TITLE:', '').trim();
-      else if (line.startsWith('SELL_PRICE:')) data.price = line.replace('SELL_PRICE:', '').trim();
-      else if (line.startsWith('SELL_CONDITION:')) data.condition = line.replace('SELL_CONDITION:', '').trim();
-      else if (line.startsWith('SELL_DESC:')) data.description = line.replace('SELL_DESC:', '').trim();
-    }
-    if (data.title) return data;
-    return null;
-  } catch { return null; }
-}
-
-function formatSellText(title: string, price: string, condition: string, description: string): string {
-  return `SELL_TITLE:${title}\nSELL_PRICE:${price}\nSELL_CONDITION:${condition}\nSELL_DESC:${description}`;
-}
-
 function getImageUri(img: string): string {
   if (img.startsWith('/')) return `${getApiUrl()}${img}`;
   return img;
 }
 
-const CONDITIONS = ['Like New', 'Good', 'Fair', 'Used'];
-
 const C = Colors.light;
-
-type ListingItem = {
-  id: string;
-  title: string;
-  price: string;
-  condition: string;
-  description: string;
-  image?: string;
-  createdAt: number;
-};
-
-const ListingCard = React.memo(function ListingCard({
-  listing, onEdit, onDelete, isDeleting,
-}: {
-  listing: ListingItem;
-  onEdit: (listing: ListingItem) => void;
-  onDelete: (id: string) => void;
-  isDeleting: boolean;
-}) {
-  return (
-    <View style={styles.listingCard}>
-      <View style={styles.listingRow}>
-        {listing.image ? (
-          <Image source={{ uri: listing.image }} style={styles.listingThumb} contentFit="cover" cachePolicy="memory-disk" />
-        ) : (
-          <View style={[styles.listingThumb, styles.listingThumbPlaceholder]}>
-            <Ionicons name="image-outline" size={20} color={C.textTertiary} />
-          </View>
-        )}
-        <View style={styles.listingInfo}>
-          <Text style={styles.listingTitle} numberOfLines={1}>{listing.title}</Text>
-          <Text style={styles.listingPrice}>₹{listing.price}</Text>
-          {listing.condition ? (
-            <Text style={styles.listingCondition}>{listing.condition}</Text>
-          ) : null}
-        </View>
-        <View style={styles.listingActions}>
-          <Pressable style={styles.listingActionBtn} onPress={() => onEdit(listing)}>
-            <Ionicons name="create-outline" size={18} color="#5E8BFF" />
-          </Pressable>
-          <Pressable style={styles.listingActionBtn} onPress={() => onDelete(listing.id)} disabled={isDeleting}>
-            {isDeleting ? (
-              <ActivityIndicator size="small" color="#FF3B30" />
-            ) : (
-              <Ionicons name="trash-outline" size={18} color="#FF3B30" />
-            )}
-          </Pressable>
-        </View>
-      </View>
-    </View>
-  );
-});
 
 const ROLE_COLORS: Record<UserRole, string> = {
   technician: '#34C759',
@@ -121,13 +48,6 @@ export default function ProfileScreen() {
   const [editExperience, setEditExperience] = useState(profile?.experience || '');
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
-  const [editListingVisible, setEditListingVisible] = useState(false);
-  const [editListingId, setEditListingId] = useState<string | null>(null);
-  const [editListingTitle, setEditListingTitle] = useState('');
-  const [editListingPrice, setEditListingPrice] = useState('');
-  const [editListingCondition, setEditListingCondition] = useState('Like New');
-  const [editListingDesc, setEditListingDesc] = useState('');
-  const [editListingSaving, setEditListingSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [subStatus, setSubStatus] = useState<{ active: boolean; required: boolean; subscriptionEnd?: number; amount?: string; period?: string; commission?: string } | null>(null);
   const [updatingLocation, setUpdatingLocation] = useState(false);
@@ -278,62 +198,6 @@ export default function ProfileScreen() {
   const myPosts = posts.filter(p => p.userId === profile?.id);
   const totalLikes = myPosts.reduce((sum, p) => sum + p.likes.length, 0);
 
-  const handleDeleteListing = async (postId: string) => {
-    const doDelete = async () => {
-      try {
-        setDeletingId(postId);
-        const baseUrl = getApiUrl();
-        await fetch(`${baseUrl}/api/posts/${postId}`, { method: 'DELETE' });
-        if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        await refreshData();
-      } catch (e) {
-        console.error('[Profile] Delete listing error:', e);
-        Alert.alert('Error', 'Could not delete listing. Please try again.');
-      } finally {
-        setDeletingId(null);
-      }
-    };
-
-    if (Platform.OS === 'web') {
-      if (window.confirm('Are you sure you want to delete this listing?')) doDelete();
-    } else {
-      Alert.alert('Delete Listing', 'Are you sure you want to delete this listing?', [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: doDelete },
-      ]);
-    }
-  };
-
-  const handleEditListing = (listing: typeof myListings[0]) => {
-    setEditListingId(listing.id);
-    setEditListingTitle(listing.title);
-    setEditListingPrice(listing.price);
-    setEditListingCondition(listing.condition || 'Like New');
-    setEditListingDesc(listing.description);
-    setEditListingVisible(true);
-  };
-
-  const handleSaveListing = async () => {
-    if (!editListingId || !editListingTitle.trim()) return;
-    try {
-      setEditListingSaving(true);
-      const baseUrl = getApiUrl();
-      const newText = formatSellText(editListingTitle.trim(), editListingPrice.trim(), editListingCondition, editListingDesc.trim());
-      await fetch(`${baseUrl}/api/posts/${editListingId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: newText }),
-      });
-      if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setEditListingVisible(false);
-      await refreshData();
-    } catch (e) {
-      console.error('[Profile] Update listing error:', e);
-      Alert.alert('Error', 'Could not update listing. Please try again.');
-    } finally {
-      setEditListingSaving(false);
-    }
-  };
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
   const handleChangeAvatar = async () => {
@@ -867,91 +731,6 @@ export default function ProfileScreen() {
             <Text style={styles.cancelText}>Cancel editing</Text>
           </Pressable>
         )}
-
-        {myListings.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>My Listings ({myListings.length})</Text>
-            {myListings.map((listing) => (
-              <ListingCard
-                key={listing.id}
-                listing={listing}
-                onEdit={handleEditListing}
-                onDelete={handleDeleteListing}
-                isDeleting={deletingId === listing.id}
-              />
-            ))}
-          </View>
-        )}
-
-        <Modal visible={editListingVisible} animationType="slide" transparent>
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Edit Listing</Text>
-                <Pressable onPress={() => setEditListingVisible(false)}>
-                  <Ionicons name="close" size={24} color={C.text} />
-                </Pressable>
-              </View>
-              <ScrollView showsVerticalScrollIndicator={false} style={styles.modalScroll}>
-                <Text style={styles.fieldLabel}>Title</Text>
-                <TextInput
-                  style={styles.modalInput}
-                  value={editListingTitle}
-                  onChangeText={setEditListingTitle}
-                  placeholder="Item name"
-                  placeholderTextColor={C.textTertiary}
-                />
-                <Text style={styles.fieldLabel}>Price (₹)</Text>
-                <TextInput
-                  style={styles.modalInput}
-                  value={editListingPrice}
-                  onChangeText={setEditListingPrice}
-                  placeholder="Price"
-                  placeholderTextColor={C.textTertiary}
-                  keyboardType="numeric"
-                />
-                <Text style={styles.fieldLabel}>Condition</Text>
-                <View style={styles.conditionRow}>
-                  {CONDITIONS.map(c => (
-                    <Pressable
-                      key={c}
-                      style={[
-                        styles.conditionChip,
-                        editListingCondition === c && styles.conditionChipActive,
-                      ]}
-                      onPress={() => setEditListingCondition(c)}
-                    >
-                      <Text style={[
-                        styles.conditionChipText,
-                        editListingCondition === c && styles.conditionChipTextActive,
-                      ]}>{c}</Text>
-                    </Pressable>
-                  ))}
-                </View>
-                <Text style={styles.fieldLabel}>Description</Text>
-                <TextInput
-                  style={[styles.modalInput, { minHeight: 80, textAlignVertical: 'top' }]}
-                  value={editListingDesc}
-                  onChangeText={setEditListingDesc}
-                  placeholder="Describe the item"
-                  placeholderTextColor={C.textTertiary}
-                  multiline
-                />
-              </ScrollView>
-              <Pressable
-                style={[styles.saveBtn, editListingSaving && { opacity: 0.6 }]}
-                onPress={handleSaveListing}
-                disabled={editListingSaving}
-              >
-                {editListingSaving ? (
-                  <ActivityIndicator size="small" color="#FFF" />
-                ) : (
-                  <Text style={styles.saveBtnText}>Save Changes</Text>
-                )}
-              </Pressable>
-            </View>
-          </View>
-        </Modal>
 
         {subStatus && (
           <View style={[styles.section, { marginBottom: 12 }]}>

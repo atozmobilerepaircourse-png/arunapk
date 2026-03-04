@@ -63,15 +63,13 @@ node build-steps.js && node push-oci.js
 - Images auto-compressed with **sharp** (max 1200px, JPEG 80% quality) before upload
 - Fallback: local disk `/uploads/` if GCS unavailable (won't persist on Cloud Run)
 
-## Database — CRITICAL: Two Separate Databases
-**The local dev environment and production Cloud Run use DIFFERENT Neon databases:**
-- **Local dev** (`DATABASE_URL` in Replit env): `helium.neon.tech/heliumdb`
-- **Production** (in Cloud Run env vars): `ep-spring-pine-aeetxjpk-pooler.c-2.us-east-2.aws.neon.tech/neondb`
+## Database
+- **Local dev / Replit Deploy**: Replit's built-in PostgreSQL (internal hostname `helium`, accessed via `DATABASE_URL` env var — auto-injected by Replit)
+- **Production Cloud Run**: Neon.tech PostgreSQL `ep-spring-pine-aeetxjpk-pooler.c-2.us-east-2.aws.neon.tech/neondb`
+- **Replit Deploy is now configured** (autoscale) — clicking Deploy in Replit will use the Replit DB automatically
+- Schema push: `npm run db:push` → updates local Replit DB; for Cloud Run production push changes via `db:push` pointed at Neon URL
 
-**When running `npm run db:push`, it only updates the LOCAL database — NOT the production one.**
-To fix schema issues in production, connect directly with the production URL from Cloud Run env vars (retrieved via GCP API using SA key).
-
-## Database Tables (Neon PostgreSQL)
+## Database Tables
 Key tables: profiles, sessions, otp_tokens, posts, jobs, conversations, messages, products, orders, courses, payments, appSettings, emailCampaigns, reviews, service_requests, insurance_plans, insurance_policies, diagnostics
 
 ## Features
@@ -84,7 +82,7 @@ Key tables: profiles, sessions, otp_tokens, posts, jobs, conversations, messages
 - **Admin Panel**: Users, Subscriptions, Security (blocked users with unblock), Reviews moderation, Revenue, Notifications, Insurance, Diagnostics tabs
 - **Diagnostics**: AI-powered device health scanner (battery, storage, network) with OpenAI suggestions, insurance discount display, nearby technician booking
 - **Insurance**: Basic (₹30/mo, ₹500 discount) and Premium (₹59/mo, ₹1000 discount) plans already seeded
-- **Customer Tabs**: Home, Experts, Diagnose, Shop, Profile (Diagnose replaced "Post Job")
+- **Customer Tabs**: Home, Experts, Diagnose, Profile (Shop tab removed from customers — not shown)
 
 ## Key Notes
 - `UserProfile` type includes: `blocked`, `pushToken`, `lastSeen` fields (critical for admin security)
