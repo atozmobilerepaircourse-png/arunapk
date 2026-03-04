@@ -48,12 +48,12 @@ const BUNNY_STORAGE_ENDPOINT = BUNNY_STORAGE_REGION === 'de'
   ? 'https://storage.bunnycdn.com' 
   : `https://${BUNNY_STORAGE_REGION}.storage.bunnycdn.com`;
 const BUNNY_CDN_URL = `https://Mobistorage.b-cdn.net`;
-const bunnyAvailable = !!(BUNNY_STORAGE_API_KEY && BUNNY_STORAGE_ZONE_NAME);
+const bunnyAvailable = false;
 
 // Bunny Stream — for video encoding + HLS streaming
 const BUNNY_STREAM_API_KEY = process.env.BUNNY_STREAM_API_KEY || '';
 const BUNNY_STREAM_LIBRARY_ID = process.env.BUNNY_STREAM_LIBRARY_ID || '';
-const bunnyStreamAvailable = !!(BUNNY_STREAM_API_KEY && BUNNY_STREAM_LIBRARY_ID);
+const bunnyStreamAvailable = false;
 
 if (bunnyAvailable) {
   console.log(`[Bunny] Storage initialized: zone=${BUNNY_STORAGE_ZONE_NAME}, region=${BUNNY_STORAGE_REGION}`);
@@ -178,7 +178,7 @@ function sanitizeImageUrls(images: string[]): string[] {
     if (typeof url !== 'string') return false;
     if (url.startsWith('file://') || url.startsWith('content://') || url.startsWith('data:')) return false;
     // Support bunny.net CDN URLs
-    if (url.includes('b-cdn.net')) return true;
+    if (url.includes('b-cdn.net')) return false;
     return url.startsWith('http://') || url.startsWith('https://') || url.startsWith('/uploads/') || url.startsWith('/api/files/') || url.startsWith('/api/gcs/');
   });
 }
@@ -187,7 +187,7 @@ function sanitizeImageUrl(url: string): string {
   if (typeof url !== 'string') return '';
   if (url.startsWith('file://') || url.startsWith('content://') || url.startsWith('data:')) return '';
   // Support bunny.net CDN URLs
-  if (url.includes('b-cdn.net')) return url;
+  if (url.includes('b-cdn.net')) return '';
   return url;
 }
 
