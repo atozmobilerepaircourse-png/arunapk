@@ -35,24 +35,47 @@ const BUNNY_STORAGE_REGION = process.env.BUNNY_STORAGE_REGION || 'sg';
 const BUNNY_STORAGE_ENDPOINT = BUNNY_STORAGE_REGION === 'de'
   ? 'https://storage.bunnycdn.com'
   : `https://${BUNNY_STORAGE_REGION}.storage.bunnycdn.com`;
-const BUNNY_CDN_URL = `https://Mobistorage.b-cdn.net`;
+const BUNNY_CDN_URL = process.env.BUNNY_CDN_URL || `https://Mobistorage.b-cdn.net`;
+
+function resolveFfmpegPath(): string {
+  if (process.env.FFMPEG_PATH) return process.env.FFMPEG_PATH;
+  const candidates = [
+    '/app/server_dist/bin/ffmpeg',
+    path.join(process.cwd(), 'server_dist', 'bin', 'ffmpeg'),
+    path.join(__dirname, 'bin', 'ffmpeg'),
+    'ffmpeg',
+  ];
+  for (const p of candidates) {
+    try { if (p !== 'ffmpeg' && fs.existsSync(p)) { fs.chmodSync(p, 0o755); return p; } } catch {}
+  }
+  return 'ffmpeg';
+}
+const FFMPEG_PATH = resolveFfmpegPath();
+console.log(`[Dubbing] ffmpeg path resolved: ${FFMPEG_PATH}`);
 
 let speechClient: SpeechClient | null = null;
 let ttsClient: TextToSpeechClient | null = null;
 let translateClient: InstanceType<typeof Translate> | null = null;
 
 function initClients(): boolean {
+  if (speechClient && ttsClient && translateClient) return true;
   try {
-    const serviceAccountKey = process.env.GCS_SERVICE_ACCOUNT_KEY;
-    if (!serviceAccountKey) {
-      console.log("[Dubbing] Missing GCS credentials for AI services");
-      return false;
+    const serviceAccountKey = process.env.GCP_SA_KEY || process.env.GCS_SERVICE_ACCOUNT_KEY;
+    if (serviceAccountKey) {
+      const credentials = JSON.parse(serviceAccountKey);
+      const projectId = credentials.project_id;
+      speechClient = new SpeechClient({ credentials, projectId });
+      ttsClient = new TextToSpeechClient({ credentials, projectId });
+      translateClient = new Translate({ credentials, projectId } as any);
+      console.log("[Dubbing] Google Cloud AI clients initialized with service account key");
+    } else {
+      // Cloud Run — use Application Default Credentials (service account bound to the instance)
+      const projectId = process.env.GCLOUD_PROJECT || process.env.GOOGLE_CLOUD_PROJECT || 'atoz-mobile-repair-488915';
+      speechClient = new SpeechClient({ projectId });
+      ttsClient = new TextToSpeechClient({ projectId });
+      translateClient = new Translate({ projectId } as any);
+      console.log(`[Dubbing] Google Cloud AI clients initialized with ADC, project=${projectId}`);
     }
-    const credentials = JSON.parse(serviceAccountKey);
-    speechClient = new SpeechClient({ credentials, projectId: credentials.project_id });
-    ttsClient = new TextToSpeechClient({ credentials, projectId: credentials.project_id });
-    translateClient = new Translate({ credentials, projectId: credentials.project_id } as any);
-    console.log("[Dubbing] Google Cloud AI clients initialized");
     return true;
   } catch (err) {
     console.error("[Dubbing] Failed to initialize clients:", err);
@@ -103,9 +126,10 @@ async function uploadToBunny(localPath: string, storagePath: string): Promise<st
   return `${BUNNY_CDN_URL}/${storagePath}`;
 }
 
-async function extractAudio(videoPath: string, audioPath: string): Promise<void> {
+async function extractAudioFromSource(sourcePathOrUrl: string, audioPath: string): Promise<void> {
+  // Works with both local file paths and HTTP/HLS URLs
   await execAsync(
-    `ffmpeg -y -i "${videoPath}" -vn -acodec pcm_s16le -ar 16000 -ac 1 "${audioPath}"`,
+    `"${FFMPEG_PATH}" -y -i "${sourcePathOrUrl}" -vn -acodec pcm_s16le -ar 16000 -ac 1 "${audioPath}"`,
     { timeout: 300000 }
   );
 }
@@ -161,7 +185,7 @@ async function transcribeAudioLong(audioPath: string, sourceLang: string): Promi
 
   try {
     await execAsync(
-      `ffmpeg -y -i "${audioPath}" -ar 16000 -ac 1 -f segment -segment_time 50 "${chunkDir}/chunk_%03d.wav"`,
+      `"${FFMPEG_PATH}" -y -i "${audioPath}" -ar 16000 -ac 1 -f segment -segment_time 50 "${chunkDir}/chunk_%03d.wav"`,
       { timeout: 180000 }
     );
 
@@ -312,11 +336,21 @@ export async function dubVideo(
     const ttsAudioPath = path.join(tempDir, "dubbed.mp3");
     const outputPath = path.join(tempDir, "output.mp4");
 
-    console.log("[Dubbing] Step 1: Downloading video...");
-    await downloadVideo(video.videoUrl, videoPath);
+    // For HLS/m3u8 streams, pass URL directly to ffmpeg (can't download the manifest separately)
+    const isHls = video.videoUrl.includes('.m3u8') || video.videoUrl.includes('playlist');
+    let audioInputPath: string;
+
+    if (isHls) {
+      console.log("[Dubbing] Step 1: HLS stream detected — extracting audio directly from URL...");
+      audioInputPath = video.videoUrl;
+    } else {
+      console.log("[Dubbing] Step 1: Downloading video...");
+      await downloadVideo(video.videoUrl, videoPath);
+      audioInputPath = videoPath;
+    }
 
     console.log("[Dubbing] Step 2: Extracting audio...");
-    await extractAudio(videoPath, audioPath);
+    await extractAudioFromSource(audioInputPath, audioPath);
 
     console.log("[Dubbing] Step 3: Transcribing...");
     const transcript = await transcribeAudio(audioPath, sourceLang);

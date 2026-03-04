@@ -131,29 +131,10 @@ console.log('server_dist/index.js is now fully bundled (26MB) with all npm packa
       if (d2.failureInfo) console.log('Failure info:', JSON.stringify(d2.failureInfo));
 
       if (d2.status === 'SUCCESS') {
-        console.log('\n=== Build SUCCESS! Deploying to Cloud Run ===');
-        const crUrl = `https://run.googleapis.com/v2/projects/${PROJECT_ID}/locations/${REGION}/services/repair-backend`;
-        const svcR = await fetch(crUrl, { headers: { Authorization: 'Bearer ' + tok } });
-        const svc = await svcR.json();
-
-        // Update image and force new revision with timestamp annotation
-        svc.template.containers[0].image = IMAGE;
-        if (!svc.template.annotations) svc.template.annotations = {};
-        svc.template.annotations['deploy-timestamp'] = String(Date.now());
-
-        const patchR = await fetch(crUrl, {
-          method: 'PATCH',
-          headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' },
-          body: JSON.stringify(svc)
-        });
-        const patchStatus = patchR.status;
-        const patchBody = await patchR.text();
-        if (patchR.ok) {
-          console.log('Cloud Run PATCH:', patchStatus, '✓ - New revision will be created.');
-        } else {
-          console.error('Cloud Run PATCH FAILED:', patchStatus, patchBody.slice(0, 300));
-          process.exit(1);
-        }
+        console.log('\n=== Build SUCCESS! Cloud Run updated by Cloud Build gcloud step. ===');
+        // Cloud Build's DeployToCloudRun step already ran `gcloud run deploy --image IMAGE`
+        // No additional PATCH needed — the new revision is already live.
+        console.log('Deploy complete! Live at: https://repair-backend-3siuld7gbq-el.a.run.app');
       } else {
         console.error('Build FAILED with status:', d2.status);
         process.exit(1);
