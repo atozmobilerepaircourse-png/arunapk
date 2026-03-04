@@ -932,6 +932,7 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
       const devDomain = "repair-backend-3siuld7gbq-el.a.run.app";
       const redirectUri = "https://repair-backend-3siuld7gbq-el.a.run.app/api/auth/google/callback";
       console.log("[Google Auth] process-code redirect_uri:", redirectUri);
+      console.log("[Google Auth] process-code code prefix:", code.substring(0, 10));
 
       const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
         method: "POST",
