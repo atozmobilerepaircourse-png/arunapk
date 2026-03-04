@@ -5955,7 +5955,7 @@ Maximum 4 suggestions. Be concise and practical for Indian market pricing.`;
         price: Number(price) || 30,
         repairDiscount: Number(repairDiscount) || 500,
         coverage: coverageStr,
-        isActive: isActive ?? 1,
+        isActive: isActive !== undefined ? (isActive ? 1 : 0) : 1,
         sortOrder: sortOrder || 0,
       });
       res.json({ success: true, message: "Plan created" });
@@ -6018,7 +6018,7 @@ Maximum 4 suggestions. Be concise and practical for Indian market pricing.`;
   app.use((req, res, next) => {
     res.header("Access-Control-Allow-Origin", "*");
     res.header("Access-Control-Allow-Methods", "GET,PUT,POST,DELETE,OPTIONS");
-    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, x-session-token");
+    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, x-session-token, Authorization");
     if (req.method === "OPTIONS") {
       return res.sendStatus(200);
     }

@@ -768,7 +768,10 @@ export default function AdminScreen() {
       ]);
     };
     const handleSaveNewPlan = async () => {
-      if (!newPlan.name.trim()) { Alert.alert('Error', 'Plan name required'); return; }
+      if (!newPlan.name.trim()) {
+        Alert.alert('Error', 'Plan name required');
+        return;
+      }
       setInsuranceLoading(true);
       try {
         const coverageArr = newPlan.coverage.split('\n').map(s => s.trim()).filter(Boolean);
@@ -778,19 +781,31 @@ export default function AdminScreen() {
           repairDiscount: parseInt(newPlan.repairDiscount) || 500,
           coverage: coverageArr,
           isActive: 1,
-          sortOrder: insurancePlansAdmin.length,
+          sortOrder: insurancePlansAdmin?.length || 0,
         });
+        
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({}));
+          throw new Error(errorData.message || 'Failed to create plan');
+        }
+
         const data = await res.json();
         if (data.success) {
           Alert.alert('Success', 'Plan created successfully');
-          setNewPlan({ name: '', price: '30', repairDiscount: '500', coverage: '' });
+          setNewPlan({
+            name: '',
+            price: '30',
+            repairDiscount: '500',
+            coverage: ''
+          });
           setShowNewPlan(false);
           await fetchInsurance();
         } else {
           Alert.alert('Error', data.message || 'Failed to create plan');
         }
-      } catch (err) {
-        Alert.alert('Error', 'Connection failed');
+      } catch (err: any) {
+        console.error('[Admin] Create plan error:', err);
+        Alert.alert('Error', err?.message || 'Connection failed');
       } finally {
         setInsuranceLoading(false);
       }
