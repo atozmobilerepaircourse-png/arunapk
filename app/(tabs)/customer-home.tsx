@@ -1,482 +1,476 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TextInput, Pressable, Platform,
-  RefreshControl, ActivityIndicator,
+  View, Text, StyleSheet, Pressable, Platform, Animated, ScrollView, ActivityIndicator,
 } from 'react-native';
-import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import Colors from '@/constants/colors';
 import { useApp } from '@/lib/context';
-import { UserRole, ROLE_LABELS } from '@/lib/types';
-import { apiRequest } from '@/lib/query-client';
 
 const C = Colors.light;
 
-const ROLE_COLOR: Record<string, string> = {
-  technician: '#34C759',
-  teacher: '#FFD60A',
-  supplier: '#FF6B2C',
-  job_provider: '#5E8BFF',
-  customer: '#FF2D55',
-};
+type ScanPhase = 'idle' | 'detecting' | 'scanning' | 'results';
 
-const STAT_ITEMS: { key: string; label: string; color: string }[] = [
-  { key: 'technician', label: 'TECHNICIANS', color: '#34C759' },
-  { key: 'customer', label: 'CUSTOMERS', color: '#FF2D55' },
+const SCAN_CHECKS: { key: string; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { key: 'screen', label: 'Screen', icon: 'phone-portrait-outline' },
+  { key: 'battery', label: 'Battery', icon: 'battery-half-outline' },
+  { key: 'camera', label: 'Camera', icon: 'camera-outline' },
+  { key: 'microphone', label: 'Microphone', icon: 'mic-outline' },
+  { key: 'network', label: 'Network', icon: 'wifi-outline' },
+  { key: 'storage', label: 'Storage', icon: 'server-outline' },
+  { key: 'sensors', label: 'Sensors', icon: 'pulse-outline' },
 ];
 
-type OnlineStats = Record<string, { registered: number; online: number }>;
-const ONLINE_THRESHOLD = 5 * 60 * 1000;
-
-function getInitials(name: string): string {
-  return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
-}
-
-function isUserOnline(lastSeen: any): boolean {
-  if (!lastSeen) return false;
-  return (Date.now() - lastSeen) < ONLINE_THRESHOLD;
-}
+type DeviceInfo = { model: string; os: string; battery: number };
 
 export default function CustomerHomeScreen() {
   const insets = useSafeAreaInsets();
-  const { allProfiles, profile, isLoading, refreshData, startConversation } = useApp();
-  const [search, setSearch] = useState('');
-  const [refreshing, setRefreshing] = useState(false);
-  const [stats, setStats] = useState<OnlineStats | null>(null);
+  const { profile } = useApp();
 
-  const webTopInset = Platform.OS === 'web' ? 67 : 0;
-  const tabBarPadding = Platform.OS === 'web' ? 84 + 34 : 100;
+  const [phase, setPhase] = useState<ScanPhase>('idle');
+  const [deviceInfo, setDeviceInfo] = useState<DeviceInfo | null>(null);
+  const [completedChecks, setCompletedChecks] = useState<string[]>([]);
+  const [issueChecks, setIssueChecks] = useState<string[]>([]);
+  const [healthScore, setHealthScore] = useState(0);
 
-  const handleChat = async (tech: any) => {
-    if (!profile) {
-      router.push('/onboarding');
-      return;
-    }
-    if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    try {
-      const convoId = await startConversation(tech.id, tech.name, tech.role);
-      if (convoId) {
-        router.push({ pathname: '/chat/[id]', params: { id: convoId } });
-      }
-    } catch (e) {
-      console.error('[CustomerHome] Chat error:', e);
-    }
-  };
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const glowAnim = useRef(new Animated.Value(0)).current;
 
-  const fetchStats = useCallback(async () => {
-    try {
-      const res = await apiRequest('GET', '/api/stats/online');
-      const data = await res.json();
-      setStats(data);
-    } catch (e) {}
-  }, []);
+  const topInset = Platform.OS === 'web' ? 67 : insets.top;
+  const bottomPad = Platform.OS === 'web' ? 84 + 34 : 100;
 
   useEffect(() => {
-    fetchStats();
-    const interval = setInterval(fetchStats, 10000);
-    return () => clearInterval(interval);
-  }, [fetchStats]);
+    if (phase !== 'idle') return;
+    const anim = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1.06, duration: 900, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 900, useNativeDriver: true }),
+      ])
+    );
+    const glow = Animated.loop(
+      Animated.sequence([
+        Animated.timing(glowAnim, { toValue: 1, duration: 1400, useNativeDriver: true }),
+        Animated.timing(glowAnim, { toValue: 0, duration: 1400, useNativeDriver: true }),
+      ])
+    );
+    anim.start();
+    glow.start();
+    return () => { anim.stop(); glow.stop(); };
+  }, [phase]);
 
-  const technicians = useMemo(() => {
-    let list = allProfiles.filter(p => p.role === 'technician');
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      list = list.filter(p =>
-        p.name.toLowerCase().includes(q) ||
-        (p.city || '').toLowerCase().includes(q) ||
-        (p.state || '').toLowerCase().includes(q) ||
-        (Array.isArray(p.skills) ? p.skills : []).some((s: string) => s.toLowerCase().includes(q))
-      );
+  const getDeviceInfo = async (): Promise<DeviceInfo> => {
+    let model = 'Your Device';
+    let os = Platform.OS === 'ios' ? 'iOS' : Platform.OS === 'android' ? 'Android' : 'Web';
+    let battery = 78;
+
+    if (Platform.OS === 'web') {
+      const ua = navigator.userAgent;
+      if (ua.includes('iPhone')) model = 'iPhone';
+      else if (ua.includes('iPad')) model = 'iPad';
+      else if (ua.includes('Android')) {
+        const match = ua.match(/;\s*([^)]+)\)/);
+        model = match ? match[1].trim().split(';').pop()?.trim() || 'Android Device' : 'Android Device';
+      } else {
+        model = 'Computer';
+      }
+      os = ua.includes('iPhone') || ua.includes('iPad') ? 'iOS'
+         : ua.includes('Android') ? 'Android' : 'Desktop';
+      try {
+        if ('getBattery' in navigator) {
+          const bat = await (navigator as any).getBattery();
+          battery = Math.round(bat.level * 100);
+        }
+      } catch {}
+    } else {
+      model = Platform.OS === 'ios' ? 'iPhone' : 'Android Phone';
     }
-    return list;
-  }, [allProfiles, search]);
 
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await Promise.all([refreshData(), fetchStats()]);
-    setRefreshing(false);
-  }, [refreshData, fetchStats]);
+    return { model, os, battery };
+  };
 
+  const runScan = async () => {
+    if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
 
-  const renderTechCard = ({ item }: { item: typeof allProfiles[0] }) => {
-    const skills = Array.isArray(item.skills) ? item.skills : [];
-    const color = ROLE_COLOR[item.role] || C.primary;
-    const online = isUserOnline((item as any).lastSeen);
+    setPhase('detecting');
+    setCompletedChecks([]);
+    setIssueChecks([]);
+    setDeviceInfo(null);
 
+    const info = await getDeviceInfo();
+    await new Promise(r => setTimeout(r, 1200));
+    setDeviceInfo(info);
+
+    setPhase('scanning');
+
+    const issues: string[] = [];
+    for (const check of SCAN_CHECKS) {
+      await new Promise(r => setTimeout(r, 350 + Math.random() * 280));
+      const hasIssue = check.key === 'battery' && info.battery < 50;
+      if (hasIssue) issues.push(check.key);
+      setCompletedChecks(prev => [...prev, check.key]);
+      if (hasIssue) setIssueChecks(prev => [...prev, check.key]);
+    }
+
+    await new Promise(r => setTimeout(r, 400));
+
+    const score = Math.max(62, 97 - issues.length * 12 - (info.battery < 30 ? 10 : info.battery < 50 ? 5 : 0));
+    setHealthScore(score);
+    setPhase('results');
+    if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  };
+
+  const reset = () => {
+    setPhase('idle');
+    setCompletedChecks([]);
+    setIssueChecks([]);
+    setDeviceInfo(null);
+    setHealthScore(0);
+  };
+
+  const bookTechnician = () => {
+    router.push({ pathname: '/(tabs)/directory', params: { filter: 'technician' } });
+  };
+
+  const scoreColor = healthScore >= 85 ? '#34C759' : healthScore >= 70 ? '#FF9F0A' : '#FF3B30';
+  const glowOpacity = glowAnim.interpolate({ inputRange: [0, 1], outputRange: [0.15, 0.45] });
+
+  if (phase === 'idle') {
     return (
-      <Pressable
-        style={({ pressed }) => [st.proCard, pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] }]}
-        onPress={() => router.push({ pathname: '/user-profile', params: { id: item.id } })}
-      >
-        <View style={st.proCardTop}>
-          <View style={st.avatarContainer}>
-            {item.avatar ? (
-              <Image source={{ uri: item.avatar }} style={st.proAvatar} contentFit="cover" />
-            ) : (
-              <View style={[st.proAvatarFallback, { backgroundColor: color + '20' }]}>
-                <Text style={[st.proAvatarText, { color }]}>{getInitials(item.name)}</Text>
-              </View>
-            )}
-            <View style={[st.onlineIndicator, { backgroundColor: online ? '#34C759' : '#FF3B30' }]} />
+      <View style={[st.container, { paddingTop: topInset }]}>
+        <ScrollView
+          contentContainerStyle={[st.idleContent, { paddingBottom: bottomPad }]}
+          scrollEnabled={false}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={st.greetingSection}>
+            <Text style={st.greeting}>Hi, {profile?.name?.split(' ')[0] || 'there'} 👋</Text>
+            <Text style={st.greetingSub}>How's your phone doing today?</Text>
           </View>
-          <View style={st.proInfo}>
-            <Text style={st.proName} numberOfLines={1}>{item.name}</Text>
-            <View style={st.proMeta}>
-              <View style={[st.rolePill, { backgroundColor: color + '18' }]}>
-                <Text style={[st.rolePillText, { color }]}>{ROLE_LABELS[item.role as UserRole] || item.role}</Text>
-              </View>
-              {(item.city || item.state) && (
-                <>
-                  <Text style={st.dotSep}>{'\u00B7'}</Text>
-                  <Ionicons name="location-outline" size={12} color={C.textTertiary} />
-                  <Text style={st.locationInline} numberOfLines={1}>
-                    {[item.city, item.state].filter(Boolean).join(', ')}
-                  </Text>
-                </>
-              )}
-            </View>
-          </View>
-          <Pressable
-            style={({ pressed }) => [st.chatIconBtn, { backgroundColor: color + '15' }, pressed && { opacity: 0.7, scale: 0.95 }]}
-            onPress={() => handleChat(item)}
-          >
-            <Ionicons name="chatbubble-ellipses" size={20} color={color} />
-          </Pressable>
-        </View>
 
-        {skills.length > 0 && (
-          <View style={st.skillsRow}>
-            {skills.slice(0, 4).map((s, i) => (
-              <View key={i} style={st.skillTag}>
-                <Text style={st.skillText}>{s}</Text>
+          <View style={st.buttonArea}>
+            <Animated.View style={[st.glowRing, { opacity: glowOpacity }]} />
+            <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
+              <Pressable
+                style={({ pressed }) => [st.mainButton, pressed && st.mainButtonPressed]}
+                onPress={runScan}
+                testID="smart-phone-check-btn"
+              >
+                <Ionicons name="shield-checkmark" size={52} color="#FFF" />
+                <Text style={st.mainBtnTitle}>Smart Phone Check</Text>
+                <Text style={st.mainBtnSub}>Tap to scan your device</Text>
+              </Pressable>
+            </Animated.View>
+          </View>
+
+          <View style={st.featureRow}>
+            {[
+              { icon: 'hardware-chip-outline' as keyof typeof Ionicons.glyphMap, label: 'Device\nDetection' },
+              { icon: 'pulse-outline' as keyof typeof Ionicons.glyphMap, label: 'Full\nDiagnosis' },
+              { icon: 'shield-outline' as keyof typeof Ionicons.glyphMap, label: 'Health\nScore' },
+              { icon: 'construct-outline' as keyof typeof Ionicons.glyphMap, label: 'Repair\nSuggestion' },
+            ].map((f, i) => (
+              <View key={i} style={st.featureItem}>
+                <View style={st.featureIcon}>
+                  <Ionicons name={f.icon} size={20} color={C.primary} />
+                </View>
+                <Text style={st.featureLabel}>{f.label}</Text>
               </View>
             ))}
-            {skills.length > 4 && (
-              <Text style={st.moreSkills}>+{skills.length - 4}</Text>
-            )}
+          </View>
+        </ScrollView>
+      </View>
+    );
+  }
+
+  if (phase === 'detecting') {
+    return (
+      <View style={[st.container, st.centered, { paddingTop: topInset }]}>
+        <View style={st.detectingIcon}>
+          <Ionicons name="phone-portrait" size={52} color={C.primary} />
+        </View>
+        <Text style={st.phaseTitle}>Detecting Device...</Text>
+        <Text style={st.phaseSub}>Reading system information</Text>
+        <ActivityIndicator style={{ marginTop: 28 }} size="large" color={C.primary} />
+      </View>
+    );
+  }
+
+  if (phase === 'scanning') {
+    return (
+      <View style={[st.container, { paddingTop: topInset + 20, paddingHorizontal: 20, paddingBottom: bottomPad }]}>
+        <Text style={st.phaseTitle}>Running Device Check...</Text>
+
+        {deviceInfo && (
+          <View style={st.devicePill}>
+            <Ionicons name="phone-portrait-outline" size={16} color={C.primary} />
+            <Text style={st.devicePillText}>
+              {deviceInfo.model} · {deviceInfo.os} · Battery {deviceInfo.battery}%
+            </Text>
           </View>
         )}
-      </Pressable>
-    );
-  };
 
-  const renderEmpty = () => (
-    <View style={st.emptyContainer}>
-      <Ionicons name="people-outline" size={48} color={C.textTertiary} />
-      <Text style={st.emptyTitle}>No technicians found</Text>
-      <Text style={st.emptySubtitle}>
-        {search.trim() ? 'Try a different search term' : 'No technicians have registered yet'}
-      </Text>
-    </View>
-  );
-
-  const [initialLoaded, setInitialLoaded] = useState(false);
-
-  useEffect(() => {
-    if (allProfiles.length === 0 && !isLoading) {
-      refreshData().finally(() => setInitialLoaded(true));
-    } else {
-      setInitialLoaded(true);
-    }
-  }, []);
-
-  if (!initialLoaded && (isLoading || allProfiles.length === 0)) {
-    return (
-      <View style={st.loadingContainer}>
-        <ActivityIndicator size="large" color={C.primary} />
+        <View style={st.checksList}>
+          {SCAN_CHECKS.map(check => {
+            const done = completedChecks.includes(check.key);
+            const issue = issueChecks.includes(check.key);
+            return (
+              <View key={check.key} style={st.checkRow}>
+                <Ionicons
+                  name={check.icon}
+                  size={20}
+                  color={done ? (issue ? '#FF9F0A' : C.textSecondary) : C.textTertiary}
+                />
+                <Text style={[st.checkLabel, done && { color: C.text }]}>{check.label}</Text>
+                <View style={st.checkStatus}>
+                  {done ? (
+                    <Ionicons
+                      name={issue ? 'warning' : 'checkmark-circle'}
+                      size={22}
+                      color={issue ? '#FF9F0A' : '#34C759'}
+                    />
+                  ) : (
+                    <View style={st.checkPending} />
+                  )}
+                </View>
+              </View>
+            );
+          })}
+        </View>
       </View>
     );
   }
 
   return (
-    <View style={st.container}>
-      <View style={[st.header, { paddingTop: (Platform.OS === 'web' ? webTopInset : insets.top) + 12 }]}>
-        <View style={st.headerRow}>
-          <View style={{ flex: 1 }}>
-            <Text style={st.greeting}>Hi, {profile?.name?.split(' ')[0] || 'there'}</Text>
-          </View>
-        </View>
-      </View>
+    <ScrollView
+      style={st.container}
+      contentContainerStyle={[st.resultsContent, { paddingTop: topInset + 16, paddingBottom: bottomPad }]}
+      showsVerticalScrollIndicator={false}
+    >
+      <Text style={st.phaseTitle}>Device Health Report</Text>
 
-      {stats && (
-        <View style={st.statsBar}>
-          {STAT_ITEMS.map(r => {
-            const s = stats[r.key];
-            if (!s) return null;
-            return (
-              <View key={r.key} style={st.statCard}>
-                <View style={st.statHeader}>
-                  <View style={[st.statDot, { backgroundColor: r.color }]} />
-                  <Text style={[st.statLabel, { color: r.color }]}>{r.label}</Text>
-                </View>
-                <View style={st.statNumbers}>
-                  <Text style={st.statRegistered}>{s.registered}</Text>
-                  <Text style={st.statSep}>/</Text>
-                  <View style={st.liveRow}>
-                    <View style={[st.livePulse, { backgroundColor: '#34C759' }]} />
-                    <Text style={st.statOnline}>{s.online}</Text>
-                  </View>
-                </View>
-                <Text style={st.statFooterText}>Total / Live</Text>
-              </View>
-            );
-          })}
+      {deviceInfo && (
+        <View style={st.devicePill}>
+          <Ionicons name="phone-portrait-outline" size={16} color={C.primary} />
+          <Text style={st.devicePillText}>
+            {deviceInfo.model} · Battery {deviceInfo.battery}%
+          </Text>
         </View>
       )}
 
-      <View style={st.searchContainer}>
-        <View style={st.searchBar}>
-          <Ionicons name="search-outline" size={18} color={C.textTertiary} />
-          <TextInput
-            style={st.searchInput}
-            placeholder="Search by name, city, or skill..."
-            placeholderTextColor={C.textTertiary}
-            value={search}
-            onChangeText={setSearch}
-          />
-          {search.length > 0 && (
-            <Pressable onPress={() => setSearch('')}>
-              <Ionicons name="close-circle" size={18} color={C.textTertiary} />
-            </Pressable>
-          )}
+      <View style={[st.scoreCard, { borderColor: scoreColor + '50' }]}>
+        <Text style={st.scoreLabel}>Health Score</Text>
+        <Text style={[st.scoreValue, { color: scoreColor }]}>
+          {healthScore}
+          <Text style={st.scoreMax}>/100</Text>
+        </Text>
+        <View style={[st.scoreBar, { backgroundColor: scoreColor + '20' }]}>
+          <View style={[st.scoreBarFill, { width: `${healthScore}%` as any, backgroundColor: scoreColor }]} />
         </View>
+        <Text style={[st.scoreStatus, { color: scoreColor }]}>
+          {healthScore >= 85 ? 'Excellent Condition' : healthScore >= 70 ? 'Good — Minor Issues' : 'Needs Attention'}
+        </Text>
       </View>
 
-      <FlatList
-        data={technicians}
-        keyExtractor={item => item.id}
-        renderItem={renderTechCard}
-        contentContainerStyle={[st.listContent, { paddingBottom: tabBarPadding }]}
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={renderEmpty}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={C.primary}
-            colors={[C.primary]}
-          />
-        }
-      />
-    </View>
+      <View style={st.checksGrid}>
+        {SCAN_CHECKS.map(check => {
+          const issue = issueChecks.includes(check.key);
+          return (
+            <View key={check.key} style={[st.checkChip, issue && st.checkChipIssue]}>
+              <Ionicons
+                name={issue ? 'warning' : 'checkmark-circle'}
+                size={13}
+                color={issue ? '#FF9F0A' : '#34C759'}
+              />
+              <Text style={[st.checkChipText, issue && { color: '#FF9F0A' }]}>{check.label}</Text>
+            </View>
+          );
+        })}
+      </View>
+
+      {issueChecks.length > 0 ? (
+        <View style={st.issueCard}>
+          <Text style={st.issueCardTitle}>Issues Detected</Text>
+          {issueChecks.includes('battery') && (
+            <View style={st.issueRow}>
+              <View style={st.issueIconWrap}>
+                <Ionicons name="battery-half" size={20} color="#FF9F0A" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={st.issueName}>Battery Health Low</Text>
+                <Text style={st.issueDetail}>Recommended: Battery Replacement</Text>
+                <Text style={st.issueCost}>Est. Cost ₹900 · With care plan ₹400</Text>
+              </View>
+            </View>
+          )}
+          <Pressable style={({ pressed }) => [st.bookBtn, pressed && { opacity: 0.85 }]} onPress={bookTechnician}>
+            <Ionicons name="construct-outline" size={18} color="#FFF" />
+            <Text style={st.bookBtnText}>Book a Technician</Text>
+          </Pressable>
+        </View>
+      ) : (
+        <View style={st.allGoodCard}>
+          <Ionicons name="checkmark-circle" size={40} color="#34C759" />
+          <Text style={st.allGoodTitle}>Your phone is in great shape!</Text>
+          <Text style={st.allGoodSub}>No issues detected. Keep it well maintained.</Text>
+        </View>
+      )}
+
+      <Pressable
+        style={({ pressed }) => [st.findTechBtn, pressed && { opacity: 0.85 }]}
+        onPress={bookTechnician}
+      >
+        <Ionicons name="people-outline" size={18} color={C.primary} />
+        <Text style={st.findTechText}>Find Technicians Near You</Text>
+      </Pressable>
+
+      <Pressable style={st.scanAgainBtn} onPress={reset}>
+        <Text style={st.scanAgainText}>Scan Again</Text>
+      </Pressable>
+    </ScrollView>
   );
 }
 
-const st = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: C.background,
-  },
-  loadingContainer: {
-    flex: 1,
-    backgroundColor: C.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  header: {
-    paddingHorizontal: 20,
-    paddingBottom: 8,
-    backgroundColor: C.background,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  greeting: {
-    fontSize: 26,
-    fontFamily: 'Inter_700Bold',
-    color: C.text,
-  },
-  chatsHeaderBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: C.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  statsBar: { flexDirection: 'row', paddingHorizontal: 16, gap: 10, marginBottom: 10 },
-  statCard: {
-    flex: 1, backgroundColor: C.surface, borderRadius: 12, padding: 10,
-    borderWidth: 1, borderColor: C.border, alignItems: 'center',
-  },
-  statHeader: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 6 },
-  statDot: { width: 6, height: 6, borderRadius: 3 },
-  statLabel: { fontSize: 10, fontFamily: 'Inter_600SemiBold', letterSpacing: 0.3 },
-  statNumbers: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  statRegistered: { color: C.text, fontSize: 20, fontFamily: 'Inter_700Bold' },
-  statSep: { color: C.textTertiary, fontSize: 14, fontFamily: 'Inter_400Regular' },
-  liveRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  livePulse: { width: 6, height: 6, borderRadius: 3 },
-  statOnline: { color: '#34C759', fontSize: 16, fontFamily: 'Inter_700Bold' },
-  statFooterText: { color: C.textTertiary, fontSize: 9, fontFamily: 'Inter_400Regular', marginTop: 2 },
+const BUTTON_SIZE = 200;
 
-  searchContainer: {
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-  },
-  searchBar: {
-    flexDirection: 'row',
+const st = StyleSheet.create({
+  container: { flex: 1, backgroundColor: C.background },
+  centered: { justifyContent: 'center', alignItems: 'center' },
+
+  idleContent: {
+    flexGrow: 1,
     alignItems: 'center',
-    backgroundColor: C.surface,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    height: 44,
-    borderWidth: 1,
-    borderColor: C.border,
+    paddingHorizontal: 24,
+    paddingTop: 16,
   },
-  searchInput: {
-    flex: 1,
-    marginLeft: 10,
-    fontSize: 15,
-    fontFamily: 'Inter_400Regular',
-    color: C.text,
-  },
-  listContent: {
-    paddingHorizontal: 16,
-    paddingTop: 4,
-  },
-  proCard: {
-    backgroundColor: C.surface,
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-  proCardTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  avatarContainer: {
-    position: 'relative',
-    marginRight: 12,
-  },
-  proAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-  },
-  proAvatarFallback: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  proAvatarText: {
-    fontSize: 16,
-    fontFamily: 'Inter_700Bold',
-  },
-  onlineIndicator: {
+
+  greetingSection: { alignItems: 'center', marginBottom: 36 },
+  greeting: { fontSize: 28, fontFamily: 'Inter_700Bold', color: C.text, textAlign: 'center' },
+  greetingSub: { fontSize: 15, fontFamily: 'Inter_400Regular', color: C.textSecondary, marginTop: 6, textAlign: 'center' },
+
+  buttonArea: { alignItems: 'center', justifyContent: 'center', marginBottom: 40, position: 'relative' },
+  glowRing: {
     position: 'absolute',
-    bottom: 1,
-    right: 1,
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    borderWidth: 2,
-    borderColor: C.surface,
+    width: BUTTON_SIZE + 48,
+    height: BUTTON_SIZE + 48,
+    borderRadius: (BUTTON_SIZE + 48) / 2,
+    backgroundColor: C.primary,
   },
-  proInfo: {
-    flex: 1,
-  },
-  proName: {
-    fontSize: 16,
-    fontFamily: 'Inter_600SemiBold',
-    color: C.text,
-    marginBottom: 4,
-  },
-  proMeta: {
-    flexDirection: 'row',
+  mainButton: {
+    width: BUTTON_SIZE,
+    height: BUTTON_SIZE,
+    borderRadius: BUTTON_SIZE / 2,
+    backgroundColor: C.primary,
     alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 4,
-  },
-  chatIconBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
     justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 8,
+    shadowColor: C.primary,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 20,
+    elevation: 12,
   },
-  rolePill: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  rolePillText: {
-    fontSize: 11,
-    fontFamily: 'Inter_600SemiBold',
-  },
-  dotSep: {
-    fontSize: 12,
-    color: C.textTertiary,
-    marginHorizontal: 2,
-  },
-  locationInline: {
-    fontSize: 12,
-    fontFamily: 'Inter_400Regular',
-    color: C.textSecondary,
-    maxWidth: 120,
-  },
-  chatIconBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 8,
-  },
-  skillsRow: {
+  mainButtonPressed: { opacity: 0.9, transform: [{ scale: 0.96 }] },
+  mainBtnTitle: { fontSize: 17, fontFamily: 'Inter_700Bold', color: '#FFF', marginTop: 10, textAlign: 'center' },
+  mainBtnSub: { fontSize: 12, fontFamily: 'Inter_400Regular', color: 'rgba(255,255,255,0.8)', marginTop: 4, textAlign: 'center' },
+
+  featureRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginTop: 10,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: C.border,
+    justifyContent: 'space-between',
+    width: '100%',
+    gap: 8,
   },
-  skillTag: {
-    backgroundColor: C.surfaceElevated,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+  featureItem: { flex: 1, alignItems: 'center', gap: 6 },
+  featureIcon: {
+    width: 44, height: 44, borderRadius: 12,
+    backgroundColor: C.primary + '12',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  featureLabel: { fontSize: 11, fontFamily: 'Inter_500Medium', color: C.textSecondary, textAlign: 'center', lineHeight: 15 },
+
+  detectingIcon: {
+    width: 96, height: 96, borderRadius: 48,
+    backgroundColor: C.primary + '15',
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: 20,
+  },
+  phaseTitle: { fontSize: 22, fontFamily: 'Inter_700Bold', color: C.text, textAlign: 'center', marginBottom: 6 },
+  phaseSub: { fontSize: 14, fontFamily: 'Inter_400Regular', color: C.textSecondary, textAlign: 'center' },
+
+  devicePill: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: C.primary + '12',
+    paddingHorizontal: 14, paddingVertical: 8,
+    borderRadius: 20, alignSelf: 'center',
+    marginTop: 12, marginBottom: 20,
+  },
+  devicePillText: { fontSize: 13, fontFamily: 'Inter_500Medium', color: C.primary },
+
+  checksList: { gap: 6, marginTop: 4 },
+  checkRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: C.surface, borderRadius: 12,
+    paddingHorizontal: 16, paddingVertical: 14,
+    borderWidth: 1, borderColor: C.border,
+  },
+  checkLabel: { flex: 1, fontSize: 15, fontFamily: 'Inter_500Medium', color: C.textSecondary },
+  checkStatus: { width: 22, alignItems: 'center' },
+  checkPending: { width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: C.border },
+
+  resultsContent: { paddingHorizontal: 20 },
+
+  scoreCard: {
+    backgroundColor: C.surface, borderRadius: 16, padding: 20,
+    borderWidth: 1.5, alignItems: 'center', marginTop: 16, marginBottom: 16,
+  },
+  scoreLabel: { fontSize: 13, fontFamily: 'Inter_500Medium', color: C.textSecondary, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 },
+  scoreValue: { fontSize: 56, fontFamily: 'Inter_700Bold', lineHeight: 60 },
+  scoreMax: { fontSize: 22, fontFamily: 'Inter_400Regular', color: C.textTertiary },
+  scoreBar: { width: '100%', height: 6, borderRadius: 3, marginTop: 12, marginBottom: 10, overflow: 'hidden' },
+  scoreBarFill: { height: '100%', borderRadius: 3 },
+  scoreStatus: { fontSize: 14, fontFamily: 'Inter_600SemiBold' },
+
+  checksGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
+  checkChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: '#34C75912', paddingHorizontal: 10, paddingVertical: 6,
     borderRadius: 8,
   },
-  skillText: {
-    fontSize: 12,
-    fontFamily: 'Inter_500Medium',
-    color: C.textSecondary,
+  checkChipIssue: { backgroundColor: '#FF9F0A12' },
+  checkChipText: { fontSize: 12, fontFamily: 'Inter_500Medium', color: '#34C759' },
+
+  issueCard: {
+    backgroundColor: '#FF9F0A0D', borderRadius: 14, padding: 16,
+    borderWidth: 1, borderColor: '#FF9F0A30', marginBottom: 14,
   },
-  moreSkills: {
-    fontSize: 12,
-    fontFamily: 'Inter_500Medium',
-    color: C.textTertiary,
-    alignSelf: 'center',
-    marginLeft: 2,
+  issueCardTitle: { fontSize: 15, fontFamily: 'Inter_700Bold', color: C.text, marginBottom: 12 },
+  issueRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 14 },
+  issueIconWrap: { width: 36, height: 36, borderRadius: 10, backgroundColor: '#FF9F0A18', alignItems: 'center', justifyContent: 'center' },
+  issueName: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: C.text, marginBottom: 2 },
+  issueDetail: { fontSize: 12, fontFamily: 'Inter_400Regular', color: C.textSecondary },
+  issueCost: { fontSize: 12, fontFamily: 'Inter_500Medium', color: '#FF9F0A', marginTop: 2 },
+  bookBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, backgroundColor: C.primary, borderRadius: 12,
+    paddingVertical: 13, marginTop: 4,
   },
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: 80,
-    paddingHorizontal: 32,
+  bookBtnText: { fontSize: 15, fontFamily: 'Inter_600SemiBold', color: '#FFF' },
+
+  allGoodCard: {
+    backgroundColor: '#34C75910', borderRadius: 14, padding: 20,
+    alignItems: 'center', borderWidth: 1, borderColor: '#34C75930', marginBottom: 14,
   },
-  emptyTitle: {
-    fontSize: 18,
-    fontFamily: 'Inter_600SemiBold',
-    color: C.text,
-    marginTop: 16,
+  allGoodTitle: { fontSize: 16, fontFamily: 'Inter_700Bold', color: C.text, marginTop: 10, textAlign: 'center' },
+  allGoodSub: { fontSize: 13, fontFamily: 'Inter_400Regular', color: C.textSecondary, marginTop: 6, textAlign: 'center' },
+
+  findTechBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, backgroundColor: C.primary + '15',
+    borderRadius: 12, paddingVertical: 13, marginBottom: 10,
+    borderWidth: 1, borderColor: C.primary + '30',
   },
-  emptySubtitle: {
-    fontSize: 14,
-    fontFamily: 'Inter_400Regular',
-    color: C.textSecondary,
-    marginTop: 6,
-    textAlign: 'center',
-  },
+  findTechText: { fontSize: 15, fontFamily: 'Inter_600SemiBold', color: C.primary },
+
+  scanAgainBtn: { alignItems: 'center', paddingVertical: 12 },
+  scanAgainText: { fontSize: 14, fontFamily: 'Inter_500Medium', color: C.textSecondary },
 });
