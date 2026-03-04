@@ -683,7 +683,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!token) return res.status(400).json({ success: false, message: "Token required" });
       const clientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '1097660126888-oui7uutiqbksd0q82nbvbhejbpo4t4s8.apps.googleusercontent.com';
       if (!clientId) return res.status(500).json({ success: false, message: "Google OAuth not configured" });
-      const devDomain = "3704a5c1-1254-4f3f-a313-9b38cc37882b-00-m8oiuixqk98p.janeway.replit.dev";
+      const devDomain = "repair-backend-3siuld7gbq-el.a.run.app";
       const redirectUri = `https://${devDomain}/api/auth/google/callback`;
       const stateObj = { token };
       const stateStr = Buffer.from(JSON.stringify(stateObj)).toString('base64');
@@ -771,7 +771,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return sendGoogleErrorPage(res, "Google OAuth is not configured on the server.");
       }
 
-    const devDomain = "3704a5c1-1254-4f3f-a313-9b38cc37882b-00-m8oiuixqk98p.janeway.replit.dev";
+    const devDomain = "repair-backend-3siuld7gbq-el.a.run.app";
     const redirectUri = `https://${devDomain}/api/auth/google/callback`;
     console.log("[Google Auth] Using redirect_uri:", redirectUri);
 
@@ -924,7 +924,7 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
         return res.status(500).json({ success: false, message: "Google OAuth not configured" });
       }
 
-      const devDomain = "3704a5c1-1254-4f3f-a313-9b38cc37882b-00-m8oiuixqk98p.janeway.replit.dev";
+      const devDomain = "repair-backend-3siuld7gbq-el.a.run.app";
       const redirectUri = `https://${devDomain}/api/auth/google/callback`;
       console.log("[Google Auth] process-code redirect_uri:", redirectUri);
 

@@ -126,12 +126,18 @@ export default function OnboardingScreen() {
   }, [params.error]);
 
   useEffect(() => {
-    if (params.email && !googleSignedIn) {
-      setGoogleEmail(params.email);
-      setGoogleSignedIn(true);
-      if (params.name) setUserName(params.name);
-      setStep(0);
-    }
+    const checkGoogleRedirect = async () => {
+      if (params.email && !googleSignedIn) {
+        console.log('[Google] Redirect detected with email:', params.email);
+        setGoogleEmail(params.email);
+        setGoogleSignedIn(true);
+        if (params.name) setUserName(params.name);
+        setStep(0);
+        // Clear params from URL without refreshing
+        router.setParams({ email: undefined, name: undefined, google: undefined });
+      }
+    };
+    checkGoogleRedirect();
   }, [params.email]);
 
   const pendingGoogleTokenRef = useRef<string | null>(null);
