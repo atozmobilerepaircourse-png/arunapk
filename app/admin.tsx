@@ -1513,10 +1513,18 @@ export default function AdminScreen() {
   const fetchSupportInfo = useCallback(async () => {
     try {
       const res = await apiRequest('GET', '/api/admin/support-info');
+      if (!res.ok) {
+        console.warn('Support info fetch failed with status:', res.status);
+        return;
+      }
       const data = await res.json();
-      if (data.supportNumber) setSupportNumber(data.supportNumber);
-      if (data.whatsappLink) setWhatsappLink(data.whatsappLink);
-    } catch (e) {}
+      if (data.success) {
+        if (data.supportNumber) setSupportNumber(data.supportNumber);
+        if (data.whatsappLink) setWhatsappLink(data.whatsappLink);
+      }
+    } catch (e) {
+      console.warn('Failed to fetch support info:', e);
+    }
   }, []);
 
   useEffect(() => {

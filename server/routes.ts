@@ -241,23 +241,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ─── Admin Control APIs ───
   const adminMiddleware = async (req: any, res: any, next: any) => {
-    const sessionToken = req.headers['x-session-token'];
-    if (!sessionToken) return res.status(401).json({ success: false, message: "Unauthorized" });
-    
-    const sessionRows = await db.select().from(sessions).where(eq(sessions.sessionToken, sessionToken as string));
-    const session = sessionRows[0];
-    if (!session) return res.status(401).json({ success: false, message: "Invalid session" });
+    try {
+      const sessionToken = req.headers['x-session-token'];
+      if (!sessionToken) return res.status(401).json({ success: false, message: "Unauthorized: No token" });
+      
+      const sessionRows = await db.select().from(sessions).where(eq(sessions.sessionToken, sessionToken as string));
+      const session = sessionRows[0];
+      if (!session) return res.status(401).json({ success: false, message: "Invalid session" });
 
-    const profileRows = await db.select().from(profiles).where(eq(profiles.phone, session.phone));
-    const profile = profileRows[0];
-    
-    // Check if phone matches ADMIN_PHONE or role is admin
-    const cleanPhone = session.phone.replace(/\D/g, "");
-    const isStaticAdmin = cleanPhone === "8179142535" || cleanPhone === "9876543210";
-    if (profile?.role !== "admin" && !isStaticAdmin) {
-      return res.status(403).json({ success: false, message: "Access denied. Admin only." });
+      const profileRows = await db.select().from(profiles).where(eq(profiles.phone, session.phone));
+      const profile = profileRows[0];
+      
+      const cleanPhone = session.phone.replace(/\D/g, "");
+      const isStaticAdmin = cleanPhone === "8179142535" || cleanPhone === "9876543210";
+      if (profile?.role !== "admin" && !isStaticAdmin) {
+        return res.status(403).json({ success: false, message: "Access denied. Admin only." });
+      }
+      next();
+    } catch (error) {
+      console.error("[AdminMiddleware] Error:", error);
+      res.status(500).json({ success: false, message: "Internal server error in admin middleware" });
     }
-    next();
   };
 
   app.post("/api/admin/add-admin", adminMiddleware, async (req, res) => {
