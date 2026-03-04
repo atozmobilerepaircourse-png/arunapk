@@ -43,7 +43,30 @@ function isUserOnline(lastSeen: any): boolean {
 
 export default function CustomerHomeScreen() {
   const insets = useSafeAreaInsets();
-  const { allProfiles, profile, isLoading, dataError, refreshData, startConversation } = useApp();
+  const { allProfiles, profile, isLoading, dataError, refreshData, startConversation, setProfile } = useApp();
+  const [isSwitching, setIsSwitching] = useState(false);
+
+  const handleRoleSwitch = async () => {
+    if (!profile) return;
+    setIsSwitching(true);
+    try {
+      const newRole = profile.role === 'customer' ? 'technician' : 'customer';
+      const res = await apiRequest('POST', '/api/profile/change-role', { role: newRole });
+      if (res.ok) {
+        const updated = await res.json();
+        await setProfile(updated);
+        router.replace(newRole === 'customer' ? '/(tabs)/customer-home' : '/(tabs)/index');
+      } else {
+        const err = await res.json();
+        Alert.alert('Error', err.message || 'Failed to switch role');
+      }
+    } catch (e) {
+      console.error('Role switch error:', e);
+      Alert.alert('Error', 'Connection failed');
+    } finally {
+      setIsSwitching(false);
+    }
+  };
   const [search, setSearch] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [stats, setStats] = useState<OnlineStats | null>(null);
