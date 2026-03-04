@@ -297,6 +297,7 @@ export default function OnboardingScreen() {
     setChecking(true);
     try {
       const baseUrl = getApiUrl();
+      console.log('[OTP] Sending to:', cleanPhone, 'via:', baseUrl);
       const res = await apiRequest('POST', '/api/auth/check-phone', { phone: cleanPhone });
       const data = await res.json();
 
