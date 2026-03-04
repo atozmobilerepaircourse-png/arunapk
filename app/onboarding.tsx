@@ -682,7 +682,7 @@ export default function OnboardingScreen() {
             {/* 3D Hero Image Section with Gradient Overlay - Portrait optimized */}
             <View style={{ height: '45%', width: '100%', position: 'relative' }}>
               <Image
-                source={require('@/assets/images/onboarding-hero.jpeg')}
+                source={require('@/assets/images/b69d6758-5343-4e4a-8b8f-6b8b379d6a85_1772630248184.jpeg')}
                 style={{ width: '100%', height: '100%' }}
                 contentFit="cover"
               />
