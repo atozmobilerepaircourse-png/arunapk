@@ -140,4 +140,4 @@ node build-steps.js
 
 echo ""
 echo "Backend deployed successfully!"
-echo "Live at: https://repair-backend-3siud7gbq-el.a.run.app"
+echo "Live at: https://repair-backend-3siuld7gbq-el.a.run.app"

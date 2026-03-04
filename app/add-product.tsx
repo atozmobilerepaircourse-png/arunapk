@@ -8,7 +8,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
-import { File } from 'expo-file-system';
 import { fetch as expoFetch } from 'expo/fetch';
 import { router } from 'expo-router';
 import Colors from '@/constants/colors';
@@ -108,8 +107,11 @@ export default function AddProductScreen() {
       if (!data.success) throw new Error('Upload failed');
       return data.url;
     } else {
-      const file = new File(uri);
-      formData.append('image', file as any);
+      formData.append('image', {
+        uri: uri,
+        name: 'product.jpg',
+        type: 'image/jpeg',
+      } as any);
       const uploadRes = await expoFetch(uploadUrl, { method: 'POST', body: formData });
       const data = await uploadRes.json();
       if (!data.success) throw new Error('Upload failed');
@@ -131,8 +133,11 @@ export default function AddProductScreen() {
       if (!data.success) throw new Error(data.message || 'Video upload failed');
       return data.url;
     } else {
-      const file = new File(uri);
-      formData.append('video', file as any);
+      formData.append('video', {
+        uri: uri,
+        name: 'video.mp4',
+        type: 'video/mp4',
+      } as any);
       const uploadRes = await expoFetch(uploadUrl, { method: 'POST', body: formData });
       const data = await uploadRes.json();
       if (!data.success) throw new Error(data.message || 'Video upload failed');

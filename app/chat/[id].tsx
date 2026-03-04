@@ -8,7 +8,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
-import { File } from 'expo-file-system';
 import { fetch as expoFetch } from 'expo/fetch';
 import { router, useLocalSearchParams } from 'expo-router';
 import Colors from '@/constants/colors';
@@ -261,9 +260,12 @@ export default function ChatDetailScreen() {
         if (data.success && data.url) return new URL(data.url, baseUrl).toString();
         return null;
       } else {
-        const file = new File(uri);
         const formData = new FormData();
-        formData.append('image', file as any);
+        formData.append('image', {
+          uri: uri,
+          name: 'photo.jpg',
+          type: 'image/jpeg',
+        } as any);
         const uploadRes = await expoFetch(uploadUrl, { method: 'POST', body: formData });
         const data = await uploadRes.json();
         if (data.success && data.url) return new URL(data.url, baseUrl).toString();

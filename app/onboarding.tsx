@@ -13,7 +13,6 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { openLink } from '@/lib/open-link';
-import { File } from 'expo-file-system';
 import { fetch as expoFetch } from 'expo/fetch';
 import { router, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -486,9 +485,12 @@ export default function OnboardingScreen() {
         if (data.url) return new URL(data.url, baseUrl).toString();
         return null;
       } else {
-        const file = new File(localUri);
         const formData = new FormData();
-        formData.append('image', file as any);
+        formData.append('image', {
+          uri: localUri,
+          name: 'selfie.jpg',
+          type: 'image/jpeg',
+        } as any);
         const uploadRes = await expoFetch(uploadUrl, { method: 'POST', body: formData });
         const data = await uploadRes.json();
         if (data.url) return new URL(data.url, baseUrl).toString();

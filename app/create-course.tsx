@@ -9,7 +9,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialIcons, Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
-import { File } from 'expo-file-system';
 import { fetch as expoFetch } from 'expo/fetch';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { UploadManager } from '@/lib/upload-manager';
@@ -192,8 +191,11 @@ export default function CreateCourseScreen() {
       if (!data.success) throw new Error('Upload failed');
       return data.url;
     } else {
-      const file = new File(uri);
-      formData.append('image', file as any);
+      formData.append('image', {
+        uri: uri,
+        name: 'cover.jpg',
+        type: 'image/jpeg',
+      } as any);
       const uploadRes = await expoFetch(uploadUrl, { method: 'POST', body: formData });
       const data = await uploadRes.json();
       if (!data.success) throw new Error('Upload failed');

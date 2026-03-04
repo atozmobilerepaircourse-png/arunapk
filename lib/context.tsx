@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode, useCallback, useRef } from 'react';
 import { Alert, AppState, Platform } from 'react-native';
 import * as Crypto from 'expo-crypto';
-import { File } from 'expo-file-system';
 import { fetch as expoFetch } from 'expo/fetch';
 import { ADMIN_PHONE, UserProfile, Post, Job, Comment, Conversation, ChatMessage, UserRole, PostCategory } from './types';
 import * as Storage from './storage';
@@ -424,9 +423,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (data.url) return new URL(data.url, baseUrl).toString();
         return null;
       } else {
-        const file = new File(localUri);
         const formData = new FormData();
-        formData.append('image', file as any);
+        formData.append('image', {
+          uri: localUri,
+          name: 'chat-image.jpg',
+          type: 'image/jpeg',
+        } as any);
         const uploadRes = await expoFetch(uploadUrl, { method: 'POST', body: formData });
         const data = await uploadRes.json();
         if (data.url) return new URL(data.url, baseUrl).toString();

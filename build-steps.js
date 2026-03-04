@@ -134,7 +134,7 @@ console.log('server_dist/index.js is now fully bundled (26MB) with all npm packa
         console.log('\n=== Build SUCCESS! Cloud Run updated by Cloud Build gcloud step. ===');
         // Cloud Build's DeployToCloudRun step already ran `gcloud run deploy --image IMAGE`
         // No additional PATCH needed — the new revision is already live.
-        console.log('Deploy complete! Live at: https://repair-backend-3siud7gbq-el.a.run.app');
+        console.log('Deploy complete! Live at: https://repair-backend-3siuld7gbq-el.a.run.app');
       } else {
         console.error('Build FAILED with status:', d2.status);
         process.exit(1);

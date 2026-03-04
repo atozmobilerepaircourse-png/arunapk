@@ -24,7 +24,6 @@ import { router, useFocusEffect } from 'expo-router';
 import { useApp } from '@/lib/context';
 import { getApiUrl, apiRequest } from '@/lib/query-client';
 import * as ImagePicker from 'expo-image-picker';
-import { File } from 'expo-file-system';
 import { fetch as expoFetch } from 'expo/fetch';
 import * as Haptics from 'expo-haptics';
 import { playNotificationSound } from '@/lib/notification-sound';
