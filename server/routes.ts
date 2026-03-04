@@ -234,6 +234,7 @@ async function sendWhatsAppOTP(phone: string, otp: string): Promise<boolean> {
   }
 }
 
+export async function registerRoutes(app: Express): Promise<Server> {
   // ─── Admin Control APIs ───
   const adminMiddleware = async (req: any, res: any, next: any) => {
     const sessionToken = req.headers['x-session-token'];
@@ -280,8 +281,9 @@ async function sendWhatsAppOTP(phone: string, otp: string): Promise<boolean> {
   });
 
   // ========== File serving ==========
-  app.use("/uploads", (await import("express")).default.static(uploadsDir));
-  app.use("/assets", (await import("express")).default.static(path.join(process.cwd(), "server/templates")));
+  const express = await import("express");
+  app.use("/uploads", express.static(uploadsDir));
+  app.use("/assets", express.static(path.join(process.cwd(), "server/templates")));
 
   async function proxyBunnyFile(folder: string, filename: string, res: any, req?: any) {
     if (!bunnyAvailable) {
@@ -5286,7 +5288,7 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
           message: deletedText, image: "", video: ""
         });
       } catch (fsErr) {
-        console.warn("[LiveChat] Firestore delete sync error:", fsErr);
+        console.error("[LiveChat] Firestore delete sync error:", fsErr);
       }
 
       res.json({ success: true });
@@ -5296,7 +5298,6 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
     }
   });
 
-  const httpServer = createServer(app);
   app.get("/download/:filename", (req, res) => {
     const filename = req.params.filename;
     // Basic security check to prevent directory traversal
@@ -5312,5 +5313,5 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
     });
   });
 
+  const httpServer = createServer(app);
   return httpServer;
-}
