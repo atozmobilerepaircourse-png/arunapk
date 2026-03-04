@@ -1,10 +1,20 @@
 import { fetch } from "expo/fetch";
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const CLOUD_RUN_BACKEND = "https://repair-backend-3siuld7gbq-el.a.run.app";
+const SESSION_KEY = "mobi_session_token";
 
 export function getApiUrl(): string {
   return CLOUD_RUN_BACKEND;
+}
+
+async function getSessionToken(): Promise<string | null> {
+  try {
+    return await AsyncStorage.getItem(SESSION_KEY);
+  } catch {
+    return null;
+  }
 }
 
 async function throwIfResNotOk(res: Response) {
@@ -23,10 +33,15 @@ export async function apiRequest(
   const url = new URL(route, baseUrl);
 
   const isFormData = data instanceof FormData;
-  
+  const sessionToken = await getSessionToken();
+
+  const headers: Record<string, string> = {};
+  if (!isFormData && data) headers["Content-Type"] = "application/json";
+  if (sessionToken) headers["x-session-token"] = sessionToken;
+
   const res = await fetch(url.toString(), {
     method,
-    headers: isFormData ? {} : (data ? { "Content-Type": "application/json" } : {}),
+    headers,
     body: isFormData ? (data as any) : (data ? JSON.stringify(data) : undefined),
     credentials: "include",
   });
@@ -44,7 +59,12 @@ export const getQueryFn: <T>(options: {
     const baseUrl = getApiUrl();
     const url = new URL(queryKey.join("/") as string, baseUrl);
 
+    const sessionToken = await getSessionToken();
+    const headers: Record<string, string> = {};
+    if (sessionToken) headers["x-session-token"] = sessionToken;
+
     const res = await fetch(url.toString(), {
+      headers,
       credentials: "include",
     });
 

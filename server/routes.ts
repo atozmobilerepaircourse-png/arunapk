@@ -235,6 +235,10 @@ async function sendWhatsAppOTP(phone: string, otp: string): Promise<boolean> {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // ─── Healthcheck ───
+  app.get("/healthz", (_req, res) => res.status(200).json({ status: "ok" }));
+  app.get("/_healthz", (_req, res) => res.status(200).json({ status: "ok" }));
+
   // ─── Admin Control APIs ───
   const adminMiddleware = async (req: any, res: any, next: any) => {
     const sessionToken = req.headers['x-session-token'];
@@ -412,8 +416,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const data = await response.json() as any;
       const videoId = data.guid;
       
-      // Fix for "Invalid expiry time" error: use future timestamp (1 hour)
-      const expires = Math.floor(Date.now() / 1000) + 3600;
+      // Use 24-hour expiry to handle clock drift and slow uploads
+      const expires = Math.floor(Date.now() / 1000) + 86400;
       
       // Generate signature: SHA256(LibraryID + VideoID + Expires)
       const signature = crypto

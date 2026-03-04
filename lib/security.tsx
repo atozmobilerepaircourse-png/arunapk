@@ -1,10 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Linking, Modal, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Linking, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { getApiUrl } from './query-client';
-import * as Storage from './storage';
 import { getDeviceId } from './device-fingerprint';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface SecurityStatus {
   status: 'ok' | 'locked' | 'subscription_expired' | 'checking';
@@ -50,10 +48,6 @@ async function fetchSecurityStatus(userId: string): Promise<SecurityStatus> {
 }
 
 function LockedOverlay({ supportNumber, whatsappLink, reason }: { supportNumber: string; whatsappLink: string; reason?: string }) {
-  const insets = useSafeAreaInsets();
-  const topPad = Platform.OS === 'web' ? 67 : insets.top;
-  const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom;
-
   const openWhatsApp = () => {
     const msg = encodeURIComponent('Hello, my Mobi account has been locked. Please help me unlock it.');
     const link = `${whatsappLink}?text=${msg}`;
@@ -65,39 +59,33 @@ function LockedOverlay({ supportNumber, whatsappLink, reason }: { supportNumber:
   };
 
   return (
-    <Modal visible animationType="fade" statusBarTranslucent>
-      <View style={[styles.overlay, { paddingTop: topPad + 20, paddingBottom: bottomPad + 20 }]}>
-        <View style={styles.lockCard}>
-          <View style={styles.lockIconWrap}>
-            <Ionicons name="lock-closed" size={48} color="#FF3B30" />
-          </View>
-          <Text style={styles.lockTitle}>Account Locked</Text>
-          <Text style={styles.lockSubtitle}>
-            {reason || 'Your account has been locked by the admin.'}
-          </Text>
-          <Text style={styles.lockHint}>
-            Please contact support to unlock your account.
-          </Text>
-          <TouchableOpacity style={styles.whatsappBtn} onPress={openWhatsApp}>
-            <Ionicons name="logo-whatsapp" size={22} color="#fff" />
-            <Text style={styles.whatsappBtnText}>Contact on WhatsApp</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.callBtn} onPress={callSupport}>
-            <Ionicons name="call" size={20} color="#007AFF" />
-            <Text style={styles.callBtnText}>Call Support</Text>
-          </TouchableOpacity>
-          <Text style={styles.phoneText}>{supportNumber}</Text>
+    <View style={styles.overlay}>
+      <View style={styles.lockCard}>
+        <View style={styles.lockIconWrap}>
+          <Ionicons name="lock-closed" size={48} color="#FF3B30" />
         </View>
+        <Text style={styles.lockTitle}>Account Locked</Text>
+        <Text style={styles.lockSubtitle}>
+          {reason || 'Your account has been locked by the admin.'}
+        </Text>
+        <Text style={styles.lockHint}>
+          Please contact support to unlock your account.
+        </Text>
+        <TouchableOpacity style={styles.whatsappBtn} onPress={openWhatsApp}>
+          <Ionicons name="logo-whatsapp" size={22} color="#fff" />
+          <Text style={styles.whatsappBtnText}>Contact on WhatsApp</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.callBtn} onPress={callSupport}>
+          <Ionicons name="call" size={20} color="#007AFF" />
+          <Text style={styles.callBtnText}>Call Support</Text>
+        </TouchableOpacity>
+        <Text style={styles.phoneText}>{supportNumber}</Text>
       </View>
-    </Modal>
+    </View>
   );
 }
 
 function SubscriptionExpiredOverlay({ supportNumber, whatsappLink }: { supportNumber: string; whatsappLink: string }) {
-  const insets = useSafeAreaInsets();
-  const topPad = Platform.OS === 'web' ? 67 : insets.top;
-  const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom;
-
   const openWhatsApp = () => {
     const msg = encodeURIComponent('Hello, I want to renew my Mobi subscription. Please help me.');
     const link = `${whatsappLink}?text=${msg}`;
@@ -105,27 +93,25 @@ function SubscriptionExpiredOverlay({ supportNumber, whatsappLink }: { supportNu
   };
 
   return (
-    <Modal visible animationType="fade" statusBarTranslucent>
-      <View style={[styles.overlay, { paddingTop: topPad + 20, paddingBottom: bottomPad + 20 }]}>
-        <View style={styles.lockCard}>
-          <View style={[styles.lockIconWrap, { backgroundColor: '#FF9F0A20' }]}>
-            <Ionicons name="time" size={48} color="#FF9F0A" />
-          </View>
-          <Text style={styles.lockTitle}>Subscription Expired</Text>
-          <Text style={styles.lockSubtitle}>
-            Your Mobi subscription has expired.{'\n'}Renew to continue using the app.
-          </Text>
-          <Text style={styles.lockHint}>
-            Contact our team to renew your plan.
-          </Text>
-          <TouchableOpacity style={styles.whatsappBtn} onPress={openWhatsApp}>
-            <Ionicons name="logo-whatsapp" size={22} color="#fff" />
-            <Text style={styles.whatsappBtnText}>Renew via WhatsApp</Text>
-          </TouchableOpacity>
-          <Text style={styles.phoneText}>{supportNumber}</Text>
+    <View style={styles.overlay}>
+      <View style={styles.lockCard}>
+        <View style={[styles.lockIconWrap, { backgroundColor: '#FF9F0A20' }]}>
+          <Ionicons name="time" size={48} color="#FF9F0A" />
         </View>
+        <Text style={styles.lockTitle}>Subscription Expired</Text>
+        <Text style={styles.lockSubtitle}>
+          Your Mobi subscription has expired.{'\n'}Renew to continue using the app.
+        </Text>
+        <Text style={styles.lockHint}>
+          Contact our team to renew your plan.
+        </Text>
+        <TouchableOpacity style={styles.whatsappBtn} onPress={openWhatsApp}>
+          <Ionicons name="logo-whatsapp" size={22} color="#fff" />
+          <Text style={styles.whatsappBtnText}>Renew via WhatsApp</Text>
+        </TouchableOpacity>
+        <Text style={styles.phoneText}>{supportNumber}</Text>
       </View>
-    </Modal>
+    </View>
   );
 }
 
@@ -185,11 +171,16 @@ export function SecurityProvider({ children, userId }: { children: ReactNode; us
 
 const styles = StyleSheet.create({
   overlay: {
-    flex: 1,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: '#000000CC',
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 24,
+    zIndex: 9999,
   },
   lockCard: {
     backgroundColor: '#FFFFFF',

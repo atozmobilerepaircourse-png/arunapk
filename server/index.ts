@@ -71,7 +71,7 @@ function setupCors(app: express.Application) {
         "Access-Control-Allow-Methods",
         "GET, POST, PUT, DELETE, PATCH, OPTIONS",
       );
-      res.header("Access-Control-Allow-Headers", "Content-Type, expo-platform");
+      res.header("Access-Control-Allow-Headers", "Content-Type, expo-platform, x-session-token");
       res.header("Access-Control-Allow-Credentials", "true");
     }
 

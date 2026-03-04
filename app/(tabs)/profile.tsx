@@ -130,6 +130,36 @@ export default function ProfileScreen() {
   const [subStatus, setSubStatus] = useState<{ active: boolean; required: boolean; subscriptionEnd?: number; amount?: string; period?: string; commission?: string } | null>(null);
   const [updatingLocation, setUpdatingLocation] = useState(false);
   const [locationStatus, setLocationStatus] = useState<'idle' | 'success' | 'denied'>('idle');
+  const [showRolePicker, setShowRolePicker] = useState(false);
+  const [changingRole, setChangingRole] = useState(false);
+
+  const handleChangeRole = async (newRole: string) => {
+    if (!profile?.id || changingRole) return;
+    try {
+      setChangingRole(true);
+      setShowRolePicker(false);
+      const res = await apiRequest('POST', '/api/admin/change-role', { userId: profile.id, newRole });
+      const data = await res.json();
+      if (data.success) {
+        await setProfile({ ...profile, role: newRole as UserRole });
+        if (Platform.OS === 'web') {
+          window.alert(`Role changed to ${ROLE_LABELS[newRole as UserRole] || newRole}`);
+        } else {
+          Alert.alert('Role Updated', `Your role has been changed to ${ROLE_LABELS[newRole as UserRole] || newRole}`);
+        }
+      } else {
+        throw new Error(data.message || 'Failed to change role');
+      }
+    } catch (e: any) {
+      if (Platform.OS === 'web') {
+        window.alert(e.message || 'Failed to change role');
+      } else {
+        Alert.alert('Error', e.message || 'Failed to change role');
+      }
+    } finally {
+      setChangingRole(false);
+    }
+  };
 
   useEffect(() => {
     if (!profile?.id) return;
@@ -796,6 +826,27 @@ export default function ProfileScreen() {
                 <Ionicons name="chevron-forward" size={18} color={C.textTertiary} />
               </Pressable>
               <View style={styles.settingsDivider} />
+              <Pressable
+                style={styles.settingsRow}
+                onPress={() => setShowRolePicker(true)}
+                disabled={changingRole}
+              >
+                <View style={styles.settingsRowLeft}>
+                  <View style={[styles.settingsIcon, { backgroundColor: '#AF52DE20' }]}>
+                    <Ionicons name="swap-horizontal-outline" size={20} color="#AF52DE" />
+                  </View>
+                  <View>
+                    <Text style={styles.settingsRowText}>
+                      {changingRole ? 'Changing Role...' : 'Switch Role'}
+                    </Text>
+                    <Text style={{ fontSize: 12, color: C.textTertiary, marginTop: 1 }}>
+                      Current: {ROLE_LABELS[profile.role as UserRole] || profile.role}
+                    </Text>
+                  </View>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={C.textTertiary} />
+              </Pressable>
+              <View style={styles.settingsDivider} />
             </>
           )}
           <Pressable
@@ -837,6 +888,38 @@ export default function ProfileScreen() {
           </Pressable>
         </View>
       </ScrollView>
+
+      {/* Role Picker Modal */}
+      <Modal
+        visible={showRolePicker}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowRolePicker(false)}
+      >
+        <Pressable style={rolePickerStyles.backdrop} onPress={() => setShowRolePicker(false)}>
+          <View style={rolePickerStyles.sheet}>
+            <Text style={rolePickerStyles.title}>Switch Role</Text>
+            <Text style={rolePickerStyles.subtitle}>Select a role to switch to</Text>
+            {((['technician', 'teacher', 'supplier', 'job_provider', 'customer'] as UserRole[]).map(r => (
+              <Pressable
+                key={r}
+                style={[rolePickerStyles.roleRow, profile?.role === r && rolePickerStyles.roleRowActive]}
+                onPress={() => handleChangeRole(r)}
+              >
+                <Text style={[rolePickerStyles.roleLabel, profile?.role === r && rolePickerStyles.roleLabelActive]}>
+                  {ROLE_LABELS[r]}
+                </Text>
+                {profile?.role === r && (
+                  <Ionicons name="checkmark-circle" size={20} color="#FF6B2C" />
+                )}
+              </Pressable>
+            )))}
+            <Pressable style={rolePickerStyles.cancelBtn} onPress={() => setShowRolePicker(false)}>
+              <Text style={rolePickerStyles.cancelText}>Cancel</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -1242,5 +1325,69 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 16,
     fontFamily: 'Inter_700Bold',
+  },
+});
+
+const rolePickerStyles = StyleSheet.create({
+  backdrop: {
+    flex: 1,
+    backgroundColor: '#00000080',
+    justifyContent: 'flex-end',
+  },
+  sheet: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    paddingBottom: Platform.OS === 'web' ? 40 : 50,
+  },
+  title: {
+    fontSize: 20,
+    fontFamily: 'Inter_700Bold',
+    color: '#1C1C1E',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: '#8E8E93',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  roleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    marginBottom: 8,
+    backgroundColor: '#F2F2F7',
+  },
+  roleRowActive: {
+    backgroundColor: '#FF6B2C15',
+    borderWidth: 1.5,
+    borderColor: '#FF6B2C',
+  },
+  roleLabel: {
+    fontSize: 16,
+    fontFamily: 'Inter_500Medium',
+    color: '#1C1C1E',
+  },
+  roleLabelActive: {
+    color: '#FF6B2C',
+    fontFamily: 'Inter_600SemiBold',
+  },
+  cancelBtn: {
+    marginTop: 8,
+    paddingVertical: 16,
+    borderRadius: 12,
+    backgroundColor: '#F2F2F7',
+    alignItems: 'center',
+  },
+  cancelText: {
+    fontSize: 16,
+    fontFamily: 'Inter_600SemiBold',
+    color: '#FF3B30',
   },
 });

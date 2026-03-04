@@ -71,6 +71,8 @@ export async function uploadToBunnyStream(
     const upload = new Upload(file as any, {
       endpoint: slot.uploadUrl || 'https://video.bunnycdn.com/tusupload',
       retryDelays: [0, 3000, 5000, 10000, 20000],
+      // Disable resume so stale/expired signatures are never reused
+      storeFingerprintForResuming: false,
       headers: {
         AuthorizationSignature: slot.signature,
         AuthorizationExpire: String(slot.expires),
