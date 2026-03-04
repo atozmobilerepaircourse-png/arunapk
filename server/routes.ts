@@ -777,7 +777,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Use request host for callback redirection
       const host = "repair-backend-3siuld7gbq-el.a.run.app";
       const protocol = 'https';
-      const redirectUri = `${protocol}://${host}/api/auth/google/callback`;
+      const redirectUri = "https://repair-backend-3siuld7gbq-el.a.run.app/api/auth/google/callback";
       console.log("[Google Auth] Using redirect_uri:", redirectUri);
 
       const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
