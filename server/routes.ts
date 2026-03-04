@@ -683,8 +683,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!token) return res.status(400).json({ success: false, message: "Token required" });
       const clientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '1097660126888-oui7uutiqbksd0q82nbvbhejbpo4t4s8.apps.googleusercontent.com';
       if (!clientId) return res.status(500).json({ success: false, message: "Google OAuth not configured" });
-      const devDomain = "repair-backend-3siuld7gbq-el.a.run.app";
-      const redirectUri = `https://${devDomain}/api/auth/google/callback`;
+      // Use the actual request host for redirect URI to handle different environments (dev/prod)
+      const host = req.headers.host || "repair-backend-3siuld7gbq-el.a.run.app";
+      const protocol = req.headers['x-forwarded-proto'] || 'https';
+      const redirectUri = `${protocol}://${host}/api/auth/google/callback`;
+      
       const stateObj = { token };
       const stateStr = Buffer.from(JSON.stringify(stateObj)).toString('base64');
       const googleUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=email%20profile&state=${encodeURIComponent(stateStr)}&prompt=select_account`;
@@ -771,8 +774,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return sendGoogleErrorPage(res, "Google OAuth is not configured on the server.");
       }
 
-    const devDomain = "repair-backend-3siuld7gbq-el.a.run.app";
-    const redirectUri = `https://${devDomain}/api/auth/google/callback`;
+    // Use request host for callback redirection
+    const host = req.headers.host || "repair-backend-3siuld7gbq-el.a.run.app";
+    const protocol = req.headers['x-forwarded-proto'] || 'https';
+    const redirectUri = `${protocol}://${host}/api/auth/google/callback`;
     console.log("[Google Auth] Using redirect_uri:", redirectUri);
 
       const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
