@@ -416,13 +416,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const data = await response.json() as any;
       const videoId = data.guid;
       
-      // Use 24-hour expiry to handle clock drift and slow uploads
-      const expires = Math.floor(Date.now() / 1000) + 86400;
+      // Use 6-hour expiry
+      const expires = Math.floor(Date.now() / 1000) + 21600;
       
-      // Generate signature: SHA256(LibraryID + VideoID + Expires)
+      // Bunny Stream TUS signature: plain SHA256(LibraryId + ApiKey + ExpirationTime + VideoId)
       const signature = crypto
-        .createHmac("sha256", BUNNY_STREAM_API_KEY)
-        .update(BUNNY_STREAM_LIBRARY_ID + videoId + expires)
+        .createHash("sha256")
+        .update(BUNNY_STREAM_LIBRARY_ID + BUNNY_STREAM_API_KEY + expires + videoId)
         .digest("hex");
 
       const playbackUrl = `https://iframe.mediadelivery.net/embed/${BUNNY_STREAM_LIBRARY_ID}/${videoId}`;
