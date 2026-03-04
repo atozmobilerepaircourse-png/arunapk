@@ -5225,6 +5225,10 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
       console.log(`[Live Session Upload] Received file: ${req.file.originalname}, size: ${req.file.buffer.length}, sessionId: ${sessionId}`);
       const filename = `images/${randomUUID()}${path.extname(req.file.originalname)}`;
       const url = await uploadToStorage(req.file.buffer, filename);
+      
+      // Ensure the URL is absolute for Firestore
+      const baseUrl = `${req.protocol}://${req.get("host")}`;
+      const absoluteUrl = url.startsWith("/") ? baseUrl + url : url;
 
       // Build message text — include the join link so viewers can tap it
       const displayName = teacherName || "Teacher";
@@ -5240,7 +5244,7 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
         senderRole: "teacher",
         senderAvatar: "",
         message: messageText,
-        image: url,
+        image: absoluteUrl,
         video: "",
         createdAt: Date.now(),
       };
@@ -5252,7 +5256,7 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
         // Also update the live session document so Mobi Live card shows latest photo
         try {
           await firestore.collection("teacher_live_sessions").doc(sessionId).update({
-            latestImage: url,
+            latestImage: absoluteUrl,
             latestImageAt: Date.now(),
           });
           console.log("[Live Session Upload] Updated teacher_live_sessions latestImage for:", sessionId);
@@ -5261,18 +5265,7 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
         }
       }
 
-      // Notify all users that the teacher shared a photo
-      (async () => {
-        try {
-          await notifyAllUsers({
-            title: `📸 ${displayName} shared a photo!`,
-            body: sessionLink ? `Check the live chat — Join: ${sessionLink}` : `Check the Live Community chat now!`,
-            data: { type: 'live_chat_image', link: sessionLink || '' },
-          });
-        } catch (e) { console.warn('[Push] Live session photo notify failed:', e); }
-      })();
-
-      res.json({ success: true, url });
+      res.json({ success: true, url: absoluteUrl });
     } catch (error) {
       console.error("[Live Session Upload] Error:", error);
       res.status(500).json({ success: false, message: "Upload failed" });
