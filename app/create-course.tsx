@@ -996,143 +996,138 @@ export default function CreateCourseScreen() {
       <Modal visible={showVideoModal} transparent animationType="slide">
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <View style={styles.modalOverlay}>
-            <ScrollView bounces={false} keyboardShouldPersistTaps="handled">
-              <View style={styles.modalContent}>
-                <View style={styles.modalHeader}>
-                  <Text style={styles.modalTitle}>Add Video</Text>
-                  <Pressable onPress={resetVideoModal} hitSlop={12}>
-                    <Ionicons name="close" size={24} color={C.text} />
-                  </Pressable>
+            {isSubmitting ? (
+              /* ── UPLOADING STATE: show only progress, hide all form fields ── */
+              <View style={styles.uploadingSheet}>
+                <View style={styles.uploadingIconWrap}>
+                  <Ionicons name="cloud-upload" size={48} color={C.primary} />
                 </View>
-
-                <Text style={styles.modalLabel}>Video Title *</Text>
-                <TextInput
-                  testID="video-title-input"
-                  style={styles.modalInput}
-                  placeholder="e.g., Lesson 1 - Tools Overview"
-                  placeholderTextColor={C.textTertiary}
-                  value={videoTitle}
-                  onChangeText={setVideoTitle}
-                />
-
-                <Text style={styles.modalLabel}>Description</Text>
-                <TextInput
-                  style={[styles.modalInput, styles.modalTextArea]}
-                  placeholder="Brief video description..."
-                  placeholderTextColor={C.textTertiary}
-                  value={videoDescription}
-                  onChangeText={setVideoDescription}
-                  multiline
-                />
-
-                <Text style={styles.modalLabel}>Video Source *</Text>
-                <View style={styles.videoModeToggle}>
-                  <Pressable
-                    style={[styles.videoModeBtn, videoInputMode === 'file' && styles.videoModeBtnActive]}
-                    onPress={() => setVideoInputMode('file')}
-                  >
-                    <Ionicons name="phone-portrait-outline" size={16} color={videoInputMode === 'file' ? '#FFF' : C.textSecondary} />
-                    <Text style={[styles.videoModeBtnText, videoInputMode === 'file' && styles.videoModeBtnTextActive]}>Upload File</Text>
-                  </Pressable>
-                  <Pressable
-                    style={[styles.videoModeBtn, videoInputMode === 'url' && styles.videoModeBtnActive]}
-                    onPress={() => setVideoInputMode('url')}
-                  >
-                    <Ionicons name="link-outline" size={16} color={videoInputMode === 'url' ? '#FFF' : C.textSecondary} />
-                    <Text style={[styles.videoModeBtnText, videoInputMode === 'url' && styles.videoModeBtnTextActive]}>Video URL</Text>
-                  </Pressable>
+                <Text style={styles.uploadingTitle}>Uploading Video</Text>
+                <Text style={styles.uploadingSubtitle}>{uploadProgress || 'Preparing...'}</Text>
+                <View style={styles.uploadingBarBg}>
+                  <View style={[styles.uploadingBarFill, { width: `${uploadPercent}%` as any }]} />
                 </View>
-
-                {videoInputMode === 'url' ? (
-                  <View>
-                    <TextInput
-                      style={styles.modalInput}
-                      placeholder="https://... (Bunny Stream, YouTube, etc.)"
-                      placeholderTextColor={C.textTertiary}
-                      value={videoUrlInput}
-                      onChangeText={setVideoUrlInput}
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                      keyboardType="url"
-                    />
-                    <Text style={{ color: videoUrlInput && (videoUrlInput.includes('youtube.com') || videoUrlInput.includes('youtu.be')) ? C.error : C.textTertiary, fontSize: 12, marginBottom: 12 }}>
-                      {videoUrlInput && (videoUrlInput.includes('youtube.com') || videoUrlInput.includes('youtu.be'))
-                        ? 'YouTube links are not supported. Use a direct MP4 URL from Bunny Stream or any CDN.'
-                        : 'Paste a direct MP4 video URL from Bunny Stream, Vimeo, or any CDN (must end with .mp4 or similar).'}
-                    </Text>
-                  </View>
-                ) : (
-                  videoUri ? (
-                    <View style={styles.videoSelected}>
-                      <View style={styles.videoSelectedInfo}>
-                        <Ionicons name="videocam" size={22} color={C.primary} />
-                        <Text style={styles.videoSelectedName} numberOfLines={1}>{videoFileName}</Text>
-                      </View>
-                      <Pressable onPress={() => { setVideoUri(null); setVideoFileName(''); }} hitSlop={8}>
-                        <Ionicons name="close-circle" size={22} color={C.error} />
-                      </Pressable>
-                    </View>
-                  ) : (
-                    <Pressable testID="pick-video-button" style={styles.pickVideoBtn} onPress={pickVideoFile}>
-                      <Ionicons name="cloud-upload-outline" size={28} color={C.textTertiary} />
-                      <Text style={styles.pickVideoText}>Select Video</Text>
-                      <Text style={styles.pickVideoHint}>MP4, MOV - Max 2GB</Text>
-                    </Pressable>
-                  )
+                <Text style={styles.uploadingPercent}>{uploadPercent}%</Text>
+                <Text style={styles.uploadingHint}>Please keep this screen open</Text>
+                {UploadManager.isUploading() && (
+                  <Pressable style={styles.cancelUploadBtn} onPress={cancelUpload}>
+                    <Ionicons name="close-circle-outline" size={18} color="#E53935" />
+                    <Text style={styles.cancelUploadText}>Cancel Upload</Text>
+                  </Pressable>
                 )}
-
-                <View style={styles.demoRow}>
-                  <View style={styles.demoInfo}>
-                    <Ionicons name="eye-outline" size={20} color={C.textSecondary} />
-                    <Text style={styles.demoLabel}>Free Demo Video</Text>
-                  </View>
-                  <Switch
-                    testID="video-demo-toggle"
-                    value={videoIsDemo}
-                    onValueChange={setVideoIsDemo}
-                    trackColor={{ false: C.surfaceElevated, true: C.primary }}
-                    thumbColor="#FFF"
-                  />
-                </View>
-
-                {isSubmitting && uploadProgress ? (
-                  <View style={styles.progressContainer}>
-                    <View style={styles.progressTopRow}>
-                      <ActivityIndicator size="small" color={C.primary} />
-                      <Text style={styles.progressText}>{uploadProgress}</Text>
-                    </View>
-                    {uploadPercent > 0 && (
-                      <>
-                        <View style={styles.progressBarBg}>
-                          <View style={[styles.progressBarFill, { width: `${uploadPercent}%` as any }]} />
-                        </View>
-                        <Text style={styles.progressPercentBig}>{uploadPercent}%</Text>
-                      </>
-                    )}
-                    <Text style={styles.progressLimit}>Max file size: 2 GB</Text>
-                    {UploadManager.isUploading() && (
-                      <Pressable style={styles.cancelUploadBtn} onPress={cancelUpload}>
-                        <Ionicons name="close-circle-outline" size={18} color="#E53935" />
-                        <Text style={styles.cancelUploadText}>Cancel Upload</Text>
-                      </Pressable>
-                    )}
-                  </View>
-                ) : null}
-
-                <Pressable
-                  testID="save-video-button"
-                  style={[styles.modalBtn, (!videoTitle.trim() || (videoInputMode === 'file' ? !videoUri : !videoUrlInput.trim()) || isSubmitting) && styles.modalBtnDisabled]}
-                  onPress={handleAddVideo}
-                  disabled={!videoTitle.trim() || (videoInputMode === 'file' ? !videoUri : !videoUrlInput.trim()) || isSubmitting}
-                >
-                  {isSubmitting ? (
-                    <ActivityIndicator size="small" color="#FFF" />
-                  ) : (
-                    <Text style={styles.modalBtnText}>Upload & Add Video</Text>
-                  )}
-                </Pressable>
               </View>
-            </ScrollView>
+            ) : (
+              /* ── FORM STATE: show all fields ── */
+              <ScrollView bounces={false} keyboardShouldPersistTaps="handled">
+                <View style={styles.modalContent}>
+                  <View style={styles.modalHeader}>
+                    <Text style={styles.modalTitle}>Add Video</Text>
+                    <Pressable onPress={resetVideoModal} hitSlop={12}>
+                      <Ionicons name="close" size={24} color={C.text} />
+                    </Pressable>
+                  </View>
+
+                  <Text style={styles.modalLabel}>Video Title *</Text>
+                  <TextInput
+                    testID="video-title-input"
+                    style={styles.modalInput}
+                    placeholder="e.g., Lesson 1 - Tools Overview"
+                    placeholderTextColor={C.textTertiary}
+                    value={videoTitle}
+                    onChangeText={setVideoTitle}
+                  />
+
+                  <Text style={styles.modalLabel}>Description</Text>
+                  <TextInput
+                    style={[styles.modalInput, styles.modalTextArea]}
+                    placeholder="Brief video description..."
+                    placeholderTextColor={C.textTertiary}
+                    value={videoDescription}
+                    onChangeText={setVideoDescription}
+                    multiline
+                  />
+
+                  <Text style={styles.modalLabel}>Video Source *</Text>
+                  <View style={styles.videoModeToggle}>
+                    <Pressable
+                      style={[styles.videoModeBtn, videoInputMode === 'file' && styles.videoModeBtnActive]}
+                      onPress={() => setVideoInputMode('file')}
+                    >
+                      <Ionicons name="phone-portrait-outline" size={16} color={videoInputMode === 'file' ? '#FFF' : C.textSecondary} />
+                      <Text style={[styles.videoModeBtnText, videoInputMode === 'file' && styles.videoModeBtnTextActive]}>Upload File</Text>
+                    </Pressable>
+                    <Pressable
+                      style={[styles.videoModeBtn, videoInputMode === 'url' && styles.videoModeBtnActive]}
+                      onPress={() => setVideoInputMode('url')}
+                    >
+                      <Ionicons name="link-outline" size={16} color={videoInputMode === 'url' ? '#FFF' : C.textSecondary} />
+                      <Text style={[styles.videoModeBtnText, videoInputMode === 'url' && styles.videoModeBtnTextActive]}>Video URL</Text>
+                    </Pressable>
+                  </View>
+
+                  {videoInputMode === 'url' ? (
+                    <View>
+                      <TextInput
+                        style={styles.modalInput}
+                        placeholder="https://... (Bunny Stream, YouTube, etc.)"
+                        placeholderTextColor={C.textTertiary}
+                        value={videoUrlInput}
+                        onChangeText={setVideoUrlInput}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        keyboardType="url"
+                      />
+                      <Text style={{ color: videoUrlInput && (videoUrlInput.includes('youtube.com') || videoUrlInput.includes('youtu.be')) ? C.error : C.textTertiary, fontSize: 12, marginBottom: 12 }}>
+                        {videoUrlInput && (videoUrlInput.includes('youtube.com') || videoUrlInput.includes('youtu.be'))
+                          ? 'YouTube links are not supported. Use a direct MP4 URL from Bunny Stream or any CDN.'
+                          : 'Paste a direct MP4 video URL from Bunny Stream, Vimeo, or any CDN.'}
+                      </Text>
+                    </View>
+                  ) : (
+                    videoUri ? (
+                      <View style={styles.videoSelected}>
+                        <View style={styles.videoSelectedInfo}>
+                          <Ionicons name="videocam" size={22} color={C.primary} />
+                          <Text style={styles.videoSelectedName} numberOfLines={1}>{videoFileName}</Text>
+                        </View>
+                        <Pressable onPress={() => { setVideoUri(null); setVideoFileName(''); }} hitSlop={8}>
+                          <Ionicons name="close-circle" size={22} color={C.error} />
+                        </Pressable>
+                      </View>
+                    ) : (
+                      <Pressable testID="pick-video-button" style={styles.pickVideoBtn} onPress={pickVideoFile}>
+                        <Ionicons name="cloud-upload-outline" size={28} color={C.textTertiary} />
+                        <Text style={styles.pickVideoText}>Select Video</Text>
+                        <Text style={styles.pickVideoHint}>MP4, MOV — Max 2 GB</Text>
+                      </Pressable>
+                    )
+                  )}
+
+                  <View style={styles.demoRow}>
+                    <View style={styles.demoInfo}>
+                      <Ionicons name="eye-outline" size={20} color={C.textSecondary} />
+                      <Text style={styles.demoLabel}>Free Demo Video</Text>
+                    </View>
+                    <Switch
+                      testID="video-demo-toggle"
+                      value={videoIsDemo}
+                      onValueChange={setVideoIsDemo}
+                      trackColor={{ false: C.surfaceElevated, true: C.primary }}
+                      thumbColor="#FFF"
+                    />
+                  </View>
+
+                  <Pressable
+                    testID="save-video-button"
+                    style={[styles.modalBtn, (!videoTitle.trim() || (videoInputMode === 'file' ? !videoUri : !videoUrlInput.trim())) && styles.modalBtnDisabled]}
+                    onPress={handleAddVideo}
+                    disabled={!videoTitle.trim() || (videoInputMode === 'file' ? !videoUri : !videoUrlInput.trim())}
+                  >
+                    <Text style={styles.modalBtnText}>Upload & Add Video</Text>
+                  </Pressable>
+                </View>
+              </ScrollView>
+            )}
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -1268,12 +1263,47 @@ const styles = StyleSheet.create({
   },
   cancelUploadBtn: {
     flexDirection: 'row' as const, alignItems: 'center' as const, gap: 6,
-    marginTop: 4, paddingVertical: 8, paddingHorizontal: 14,
+    marginTop: 16, paddingVertical: 10, paddingHorizontal: 20,
     borderRadius: 10, borderWidth: 1, borderColor: '#E53935',
     alignSelf: 'center' as const,
   },
   cancelUploadText: {
     color: '#E53935', fontSize: 14, fontFamily: 'Inter_600SemiBold',
+  },
+
+  uploadingSheet: {
+    backgroundColor: C.surface,
+    borderTopLeftRadius: 28, borderTopRightRadius: 28,
+    padding: 32, alignItems: 'center',
+    paddingBottom: Platform.OS === 'web' ? 48 : 60,
+  },
+  uploadingIconWrap: {
+    width: 88, height: 88, borderRadius: 44,
+    backgroundColor: C.primaryMuted,
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: 20,
+  },
+  uploadingTitle: {
+    color: C.text, fontSize: 22, fontFamily: 'Inter_700Bold',
+    marginBottom: 6,
+  },
+  uploadingSubtitle: {
+    color: C.textSecondary, fontSize: 14, fontFamily: 'Inter_500Medium',
+    textAlign: 'center', marginBottom: 24,
+  },
+  uploadingBarBg: {
+    height: 10, borderRadius: 5, backgroundColor: C.surfaceElevated,
+    width: '100%', overflow: 'hidden' as const, marginBottom: 12,
+  },
+  uploadingBarFill: {
+    height: 10, borderRadius: 5, backgroundColor: C.primary,
+  },
+  uploadingPercent: {
+    color: C.primary, fontSize: 36, fontFamily: 'Inter_700Bold',
+    marginBottom: 8,
+  },
+  uploadingHint: {
+    color: C.textTertiary, fontSize: 13, fontFamily: 'Inter_400Regular',
   },
 
   chaptersSection: { marginTop: 24 },
