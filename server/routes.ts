@@ -5947,15 +5947,20 @@ Maximum 4 suggestions. Be concise and practical for Indian market pricing.`;
     try {
       const { name, price, repairDiscount, coverage, isActive, sortOrder } = req.body;
       if (!name) return res.status(400).json({ success: false, message: "Plan name required" });
+      
+      const coverageStr = Array.isArray(coverage) ? JSON.stringify(coverage) : (typeof coverage === 'string' ? JSON.stringify(coverage.split('\n').map(s => s.trim()).filter(Boolean)) : '[]');
+
       await db.insert(insurancePlans).values({
-        name, price: price || 30,
-        repairDiscount: repairDiscount || 500,
-        coverage: JSON.stringify(coverage || []),
+        name, 
+        price: Number(price) || 30,
+        repairDiscount: Number(repairDiscount) || 500,
+        coverage: coverageStr,
         isActive: isActive ?? 1,
         sortOrder: sortOrder || 0,
       });
       res.json({ success: true, message: "Plan created" });
     } catch (error) {
+      console.error("[Admin Insurance] Create plan error:", error);
       res.status(500).json({ success: false, message: "Failed to create plan" });
     }
   });
@@ -6008,6 +6013,30 @@ Maximum 4 suggestions. Be concise and practical for Indian market pricing.`;
       console.error('[Push] Initial subscription expiry check failed:', err);
     });
   }, 30000);
+
+  // CORS configuration for local development
+  app.use((req, res, next) => {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Methods", "GET,PUT,POST,DELETE,OPTIONS");
+    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, x-session-token");
+    if (req.method === "OPTIONS") {
+      return res.sendStatus(200);
+    }
+    next();
+  });
+
+  // Move insurance routes before adminMiddleware if they should be public, 
+  // or ensure they are inside the correct block. 
+  // Based on previous edits, I will ensure they are correctly registered.
+
+  app.get("/api/insurance/plans", async (req, res) => {
+    try {
+      const plans = await db.select().from(insurancePlans).where(eq(insurancePlans.isActive, 1));
+      res.json({ success: true, plans });
+    } catch (error) {
+      res.status(500).json({ success: false, message: "Failed to fetch plans" });
+    }
+  });
 
   const httpServer = createServer(app);
   return httpServer;

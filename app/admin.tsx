@@ -350,7 +350,7 @@ export default function AdminScreen() {
   const [editingPlan, setEditingPlan] = useState<any | null>(null);
   const [newPlan, setNewPlan] = useState({ name: '', price: '30', repairDiscount: '500', coverage: '' });
   const [showNewPlan, setShowNewPlan] = useState(false);
-  const [supportNumber, setSupportNumber] = useState('+918179142535');
+
   const [whatsappLink, setWhatsappLink] = useState('https://wa.me/918179142535');
   const [supportSaving, setSupportSaving] = useState(false);
   const [unlockingUserId, setUnlockingUserId] = useState<string | null>(null);
@@ -769,9 +769,10 @@ export default function AdminScreen() {
     };
     const handleSaveNewPlan = async () => {
       if (!newPlan.name.trim()) { Alert.alert('Error', 'Plan name required'); return; }
+      setInsuranceLoading(true);
       try {
         const coverageArr = newPlan.coverage.split('\n').map(s => s.trim()).filter(Boolean);
-        await apiRequest('POST', '/api/admin/insurance/plans', {
+        const res = await apiRequest('POST', '/api/admin/insurance/plans', {
           name: newPlan.name.trim(),
           price: parseInt(newPlan.price) || 30,
           repairDiscount: parseInt(newPlan.repairDiscount) || 500,
@@ -779,10 +780,20 @@ export default function AdminScreen() {
           isActive: 1,
           sortOrder: insurancePlansAdmin.length,
         });
-        setNewPlan({ name: '', price: '30', repairDiscount: '500', coverage: '' });
-        setShowNewPlan(false);
-        await fetchInsurance();
-      } catch { Alert.alert('Error', 'Failed to create plan'); }
+        const data = await res.json();
+        if (data.success) {
+          Alert.alert('Success', 'Plan created successfully');
+          setNewPlan({ name: '', price: '30', repairDiscount: '500', coverage: '' });
+          setShowNewPlan(false);
+          await fetchInsurance();
+        } else {
+          Alert.alert('Error', data.message || 'Failed to create plan');
+        }
+      } catch (err) {
+        Alert.alert('Error', 'Connection failed');
+      } finally {
+        setInsuranceLoading(false);
+      }
     };
     const handleUpdateClaimStatus = async (policyId: string, status: string) => {
       try {
@@ -868,8 +879,16 @@ export default function AdminScreen() {
                   onChangeText={v => setNewPlan(p => ({ ...p, coverage: v }))}
                   multiline
                 />
-                <Pressable style={{ backgroundColor: '#5856D6', borderRadius: 10, padding: 12, alignItems: 'center', marginTop: 12 }} onPress={handleSaveNewPlan}>
-                  <Text style={{ fontSize: 14, fontFamily: 'Inter_700Bold', color: '#fff' }}>Create Plan</Text>
+                <Pressable 
+                  style={({ pressed }) => [{ backgroundColor: '#5856D6', borderRadius: 10, padding: 12, alignItems: 'center', marginTop: 12 }, pressed && { opacity: 0.8 }]} 
+                  onPress={handleSaveNewPlan}
+                  disabled={insuranceLoading}
+                >
+                  {insuranceLoading ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={{ fontSize: 14, fontFamily: 'Inter_700Bold', color: '#fff' }}>Create Plan</Text>
+                  )}
                 </Pressable>
               </View>
             )}
