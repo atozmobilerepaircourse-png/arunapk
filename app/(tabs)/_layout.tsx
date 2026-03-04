@@ -28,9 +28,9 @@ function NativeTabLayout() {
           <Icon sf={{ default: "magnifyingglass", selected: "magnifyingglass" }} />
           <Label>Experts</Label>
         </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="jobs">
-          <Icon sf={{ default: "plus.circle", selected: "plus.circle.fill" }} />
-          <Label>Post Job</Label>
+        <NativeTabs.Trigger name="diagnostics">
+          <Icon sf={{ default: "waveform.badge.magnifyingglass", selected: "waveform.badge.magnifyingglass" }} />
+          <Label>Diagnose</Label>
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="marketplace">
           <Icon sf={{ default: "bag", selected: "bag.fill" }} />
@@ -43,6 +43,7 @@ function NativeTabLayout() {
         <NativeTabs.Trigger name="index" hidden />
         <NativeTabs.Trigger name="create" hidden />
         <NativeTabs.Trigger name="my-shop" hidden />
+        <NativeTabs.Trigger name="jobs" hidden />
       </NativeTabs>
     );
   }
@@ -225,12 +226,22 @@ function ClassicTabLayout() {
         }}
       />
       <Tabs.Screen
+        name="diagnostics"
+        options={{
+          title: "Diagnose",
+          href: isCustomer ? '/diagnostics' : null,
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? "pulse" : "pulse-outline"} size={22} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="jobs"
         options={{
-          title: isCustomer ? "Post Job" : "Jobs",
-          href: isCustomer ? '/jobs' : null,
+          title: "Jobs",
+          href: null,
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={isCustomer ? (focused ? "add-circle" : "add-circle-outline") : (focused ? "briefcase" : "briefcase-outline")} size={22} color={color} />
+            <Ionicons name={focused ? "briefcase" : "briefcase-outline"} size={22} color={color} />
           ),
         }}
       />
@@ -251,7 +262,7 @@ export default function TabLayout() {
   const { profile } = useApp();
   const cleanPhone = profile?.phone?.replace(/\D/g, "");
   const isAdmin = profile?.role === 'admin' || cleanPhone === "8179142535" || cleanPhone === "9876543210";
-  const needsSub = (profile?.role === 'technician' || profile?.role === 'supplier' || profile?.role === 'teacher') && !isAdmin;
+  const needsSub = (profile?.role === 'technician' || profile?.role === 'supplier' || profile?.role === 'teacher' || profile?.role === 'customer') && !isAdmin;
 
   const tabs = isLiquidGlassAvailable() ? <NativeTabLayout /> : <ClassicTabLayout />;
 

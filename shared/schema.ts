@@ -436,6 +436,26 @@ export const serviceRequests = pgTable("service_requests", {
   createdAt: bigint("created_at", { mode: "number" }).notNull().default(sql`EXTRACT(EPOCH FROM NOW()) * 1000`),
 });
 
+export const diagnostics = pgTable("diagnostics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: text("user_id").notNull(),
+  userName: text("user_name").notNull().default(""),
+  deviceModel: text("device_model").default(""),
+  platform: text("platform").default(""),
+  batteryLevel: text("battery_level").default(""),
+  batteryHealth: text("battery_health").default("good"),
+  storageUsed: text("storage_used").default(""),
+  storageTotal: text("storage_total").default(""),
+  networkType: text("network_type").default(""),
+  networkStrength: text("network_strength").default("good"),
+  temperature: text("temperature").default("normal"),
+  sensorsStatus: text("sensors_status").default("good"),
+  overallScore: integer("overall_score").default(100),
+  issues: text("issues").notNull().default("[]"),
+  aiSuggestions: text("ai_suggestions").notNull().default("[]"),
+  createdAt: bigint("created_at", { mode: "number" }).notNull().default(sql`EXTRACT(EPOCH FROM NOW()) * 1000`),
+});
+
 export const insurancePlans = pgTable("insurance_plans", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
@@ -501,3 +521,4 @@ export type DbReview = typeof reviews.$inferSelect;
 export type DbServiceRequest = typeof serviceRequests.$inferSelect;
 export type DbInsurancePlan = typeof insurancePlans.$inferSelect;
 export type DbInsurancePolicy = typeof insurancePolicies.$inferSelect;
+export type DbDiagnostic = typeof diagnostics.$inferSelect;

@@ -72,16 +72,26 @@ node build-steps.js && node push-oci.js
 To fix schema issues in production, connect directly with the production URL from Cloud Run env vars (retrieved via GCP API using SA key).
 
 ## Database Tables (Neon PostgreSQL)
-Key tables: profiles, sessions, otp_tokens, posts, jobs, conversations, messages, products, orders, courses, payments, appSettings, emailCampaigns, reviews, service_requests
+Key tables: profiles, sessions, otp_tokens, posts, jobs, conversations, messages, products, orders, courses, payments, appSettings, emailCampaigns, reviews, service_requests, insurance_plans, insurance_policies, diagnostics
 
 ## Features
 - **Trust & Reputation**: Trust scores, badges (New Member/Trusted/Pro/Verified Expert), ratings (1-5 stars), reviews
 - **Service Requests**: Customers post repair requests, technicians respond, location-based matching
-- **Subscriptions**: All roles (technician, teacher, supplier, customer) support subscription model. Admin controls pricing.
+- **Subscriptions**: All roles (technician, teacher, supplier, customer) support subscription model. Admin controls pricing. Customer subscription disabled by default (enable from admin panel with pricing).
 - **Live Sessions**: Teachers go live with YouTube/Zoom links, share photos, users join via in-app browser
-- **Live Chat**: Real-time messaging between users (renamed from "Chat" to "Live Chat")
+- **Live Chat**: Real-time messaging between users
 - **Directory**: Sort by recently active, highest rated, most trusted, nearest location
-- **Admin Panel**: Users, Subscriptions, Security (blocked users with unblock), Reviews moderation, Revenue, Notifications
+- **Admin Panel**: Users, Subscriptions, Security (blocked users with unblock), Reviews moderation, Revenue, Notifications, Insurance, Diagnostics tabs
+- **Diagnostics**: AI-powered device health scanner (battery, storage, network) with OpenAI suggestions, insurance discount display, nearby technician booking
+- **Insurance**: Basic (₹30/mo, ₹500 discount) and Premium (₹59/mo, ₹1000 discount) plans already seeded
+- **Customer Tabs**: Home, Experts, Diagnose, Shop, Profile (Diagnose replaced "Post Job")
+
+## Key Notes
+- `UserProfile` type includes: `blocked`, `pushToken`, `lastSeen` fields (critical for admin security)
+- Admin OTP: `8179142535` → always `123456`
+- Session key: `mobi_session_token_v2`
+- Role change: `/api/profile/change-role` with `{ userId, newRole }` (NOT admin endpoint)
+- Trust scores: `/api/trust-score/:userId` (computed dynamically)
 
 ## Android Builds (EAS)
 - **EAS CLI**: Installed in `node_modules/.bin/eas`

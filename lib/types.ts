@@ -27,6 +27,9 @@ export interface UserProfile {
   subscriptionOrderId?: string;
   deviceId?: string;
   deviceChangeCount?: number;
+  blocked?: number;
+  pushToken?: string;
+  lastSeen?: number;
   createdAt: number;
 }
 

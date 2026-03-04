@@ -244,7 +244,12 @@ export default function MarketplaceScreen() {
 
   useEffect(() => {
     setLoading(true);
-    fetchAll().finally(() => setLoading(false));
+    const timeout = setTimeout(() => {
+      setLoading(false);
+      setFetchError('Loading is taking too long. Check your connection and try again.');
+    }, 15000);
+    fetchAll().finally(() => { clearTimeout(timeout); setLoading(false); });
+    return () => clearTimeout(timeout);
   }, [fetchAll]);
 
   useEffect(() => {

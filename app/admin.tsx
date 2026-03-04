@@ -14,7 +14,7 @@ import { openLink } from '@/lib/open-link';
 
 const C = Colors.light;
 
-type AdminTab = 'dashboard' | 'users' | 'posts' | 'jobs' | 'subscriptions' | 'revenue' | 'ads' | 'links' | 'device' | 'notifications' | 'email' | 'security' | 'reviews' | 'insurance';
+type AdminTab = 'dashboard' | 'users' | 'posts' | 'jobs' | 'subscriptions' | 'revenue' | 'ads' | 'links' | 'device' | 'notifications' | 'email' | 'security' | 'reviews' | 'insurance' | 'diagnostics';
 
 const ROLE_COLORS: Record<UserRole, string> = {
   technician: '#34C759',
@@ -341,6 +341,8 @@ export default function AdminScreen() {
   const [lockNotifLoading, setLockNotifLoading] = useState(false);
   const [reviewsList, setReviewsList] = useState<any[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [diagnosticsList, setDiagnosticsList] = useState<any[]>([]);
+  const [diagnosticsLoading, setDiagnosticsLoading] = useState(false);
   const [insurancePlansAdmin, setInsurancePlansAdmin] = useState<any[]>([]);
   const [insurancePoliciesAdmin, setInsurancePoliciesAdmin] = useState<any[]>([]);
   const [insuranceLoading, setInsuranceLoading] = useState(false);
@@ -539,6 +541,104 @@ export default function AdminScreen() {
   useEffect(() => {
     if (activeTab === 'insurance') fetchInsurance();
   }, [activeTab, fetchInsurance]);
+
+  const fetchDiagnostics = useCallback(async () => {
+    setDiagnosticsLoading(true);
+    try {
+      const res = await apiRequest('GET', '/api/admin/diagnostics');
+      const data = await res.json();
+      if (data.diagnostics) setDiagnosticsList(data.diagnostics);
+    } catch {}
+    setDiagnosticsLoading(false);
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'diagnostics') fetchDiagnostics();
+  }, [activeTab, fetchDiagnostics]);
+
+  const renderDiagnostics = () => {
+    const avgScore = diagnosticsList.length > 0
+      ? Math.round(diagnosticsList.reduce((s, d) => s + (d.overallScore || 0), 0) / diagnosticsList.length)
+      : 0;
+    const withIssues = diagnosticsList.filter(d => {
+      try { return JSON.parse(d.issues || '[]').length > 0; } catch { return false; }
+    }).length;
+
+    return (
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+        <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
+          <View style={[styles.statCard, { flex: 1, borderLeftColor: '#6C63FF' }]}>
+            <Ionicons name="pulse" size={22} color="#6C63FF" />
+            <Text style={styles.statNumber}>{diagnosticsList.length}</Text>
+            <Text style={styles.statLabel}>Total Scans</Text>
+          </View>
+          <View style={[styles.statCard, { flex: 1, borderLeftColor: '#34C759' }]}>
+            <Ionicons name="heart" size={22} color="#34C759" />
+            <Text style={styles.statNumber}>{avgScore}</Text>
+            <Text style={styles.statLabel}>Avg Score</Text>
+          </View>
+          <View style={[styles.statCard, { flex: 1, borderLeftColor: '#FF9500' }]}>
+            <Ionicons name="warning" size={22} color="#FF9500" />
+            <Text style={styles.statNumber}>{withIssues}</Text>
+            <Text style={styles.statLabel}>With Issues</Text>
+          </View>
+        </View>
+        {diagnosticsLoading ? (
+          <View style={styles.emptyState}><ActivityIndicator size="small" color="#6C63FF" /></View>
+        ) : diagnosticsList.length === 0 ? (
+          <View style={styles.emptyState}><Text style={styles.emptyText}>No scans yet</Text></View>
+        ) : (
+          diagnosticsList.map((diag: any) => {
+            const score = diag.overallScore || 0;
+            const scoreColor = score >= 80 ? '#34C759' : score >= 50 ? '#FF9500' : '#FF3B30';
+            let issueArr: string[] = [];
+            try { issueArr = JSON.parse(diag.issues || '[]'); } catch {}
+            return (
+              <View key={diag.id} style={[styles.sectionCard, { marginBottom: 10 }]}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 14, fontFamily: 'Inter_700Bold', color: C.text }}>{diag.userName || 'User'}</Text>
+                    <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: C.textSecondary, marginTop: 2 }}>
+                      {diag.deviceModel || 'Unknown device'} · {diag.platform || ''}
+                    </Text>
+                    <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: C.textTertiary, marginTop: 2 }}>
+                      {diag.createdAt ? new Date(diag.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
+                    </Text>
+                  </View>
+                  <View style={{ alignItems: 'center', backgroundColor: scoreColor + '20', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 6 }}>
+                    <Text style={{ fontSize: 18, fontFamily: 'Inter_700Bold', color: scoreColor }}>{score}</Text>
+                    <Text style={{ fontSize: 9, fontFamily: 'Inter_400Regular', color: scoreColor }}>/ 100</Text>
+                  </View>
+                </View>
+                {issueArr.length > 0 && (
+                  <View style={{ marginTop: 8, gap: 4 }}>
+                    {issueArr.map((issue: string, i: number) => (
+                      <View key={i} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 6 }}>
+                        <Ionicons name="warning-outline" size={12} color="#FF9500" style={{ marginTop: 2 }} />
+                        <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: C.textSecondary, flex: 1 }}>{issue}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+                <View style={{ flexDirection: 'row', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+                  {[
+                    { label: 'Battery', value: diag.batteryLevel + '%' },
+                    { label: 'Storage', value: diag.storageUsed + '/' + diag.storageTotal },
+                    { label: 'Network', value: diag.networkType },
+                  ].map((item, i) => (
+                    <View key={i} style={{ backgroundColor: C.background, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 }}>
+                      <Text style={{ fontSize: 10, fontFamily: 'Inter_400Regular', color: C.textTertiary }}>{item.label}</Text>
+                      <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: C.text }}>{item.value || '—'}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            );
+          })
+        )}
+      </ScrollView>
+    );
+  };
 
   const handleDeleteReview = (reviewId: string) => {
     Alert.alert(
@@ -1028,6 +1128,7 @@ export default function AdminScreen() {
     { key: 'security', label: 'Security', icon: 'shield' },
     { key: 'reviews', label: 'Reviews', icon: 'star-half-outline' },
     { key: 'insurance', label: 'Insurance', icon: 'shield-checkmark-outline' },
+    { key: 'diagnostics', label: 'Scans', icon: 'pulse-outline' },
   ];
 
   const handleDeletePost = (postId: string, userName: string) => {
@@ -2784,6 +2885,7 @@ export default function AdminScreen() {
         {activeTab === 'security' && renderSecurity()}
         {activeTab === 'reviews' && renderReviews()}
         {activeTab === 'insurance' && renderInsurance()}
+        {activeTab === 'diagnostics' && renderDiagnostics()}
       </View>
     </View>
   );

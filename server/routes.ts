@@ -4,7 +4,7 @@ import { getFirestore } from "./firebase-admin";
 import { db } from "./db";
 import OpenAI from "openai";
 import { notifyAllUsers, notifyNewPost, notifyUser, checkSubscriptionExpiry } from "./push-notifications";
-import { profiles, conversations, messages, posts, jobs, reels, products, orders, subscriptionSettings, courses, courseChapters, courseVideos, courseEnrollments, dubbedVideos, ads, liveChatMessages, liveClasses, courseNotices, sessions, payments, teacherPayouts, appSettings, videoProgress, livePolls, livePollVotes, emailCampaigns, otpTokens, adminNotifications, reviews, serviceRequests, insurancePlans, insurancePolicies } from "@shared/schema";
+import { profiles, conversations, messages, posts, jobs, reels, products, orders, subscriptionSettings, courses, courseChapters, courseVideos, courseEnrollments, dubbedVideos, ads, liveChatMessages, liveClasses, courseNotices, sessions, payments, teacherPayouts, appSettings, videoProgress, livePolls, livePollVotes, emailCampaigns, otpTokens, adminNotifications, reviews, serviceRequests, insurancePlans, insurancePolicies, diagnostics } from "@shared/schema";
 import { Storage } from "@google-cloud/storage";
 let sharp: any = null;
 try { sharp = require("sharp"); } catch { console.log("[Image] sharp not available, skipping compression"); }
@@ -5766,6 +5766,100 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
       console.error('[Push] Scheduled subscription expiry check failed:', err);
     });
   }, 6 * 60 * 60 * 1000);
+
+  // ========== Diagnostics ==========
+  app.post("/api/diagnostics", async (req, res) => {
+    try {
+      const { userId, userName, deviceModel, platform, batteryLevel, batteryHealth,
+        storageUsed, storageTotal, networkType, networkStrength, temperature, sensorsStatus,
+        overallScore, issues } = req.body;
+      if (!userId) return res.status(400).json({ success: false, message: "userId required" });
+
+      // Generate AI suggestions using OpenAI
+      let aiSuggestions: any[] = [];
+      try {
+        const openai = new OpenAI();
+        const issueList = Array.isArray(issues) ? issues : JSON.parse(issues || '[]');
+        if (issueList.length > 0) {
+          const prompt = `You are a mobile phone repair expert in India. Based on these device health issues, provide repair suggestions with estimated costs in INR.
+
+Device: ${deviceModel || 'Smartphone'} (${platform || 'Android'})
+Issues detected:
+${issueList.map((iss: string, i: number) => `${i + 1}. ${iss}`).join('\n')}
+Battery: ${batteryLevel}% (${batteryHealth})
+Storage: ${storageUsed}/${storageTotal}
+
+Respond ONLY with a JSON array of suggestion objects, each with:
+- "issue": short issue name
+- "recommendation": what to do (1 sentence)
+- "estimatedCost": cost range in INR (e.g. "₹800-₹1200")
+- "urgency": "high", "medium", or "low"
+- "category": "hardware" or "software"
+
+Maximum 4 suggestions. Be concise and practical for Indian market pricing.`;
+
+          const completion = await openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            messages: [{ role: "user", content: prompt }],
+            response_format: { type: "json_object" },
+            max_tokens: 600,
+          });
+          const raw = completion.choices[0]?.message?.content || '{"suggestions":[]}';
+          const parsed = JSON.parse(raw);
+          aiSuggestions = parsed.suggestions || parsed || [];
+          if (!Array.isArray(aiSuggestions)) aiSuggestions = Object.values(aiSuggestions)[0] as any[] || [];
+        }
+      } catch (aiErr) {
+        console.log('[Diagnostics] AI suggestions failed, using fallback:', aiErr);
+        // Fallback suggestions based on issues
+        const issueList = Array.isArray(issues) ? issues : (JSON.parse(issues || '[]'));
+        if (issueList.some((i: string) => i.toLowerCase().includes('battery'))) {
+          aiSuggestions.push({ issue: 'Battery Health', recommendation: 'Replace battery to restore performance', estimatedCost: '₹800-₹1500', urgency: 'medium', category: 'hardware' });
+        }
+        if (issueList.some((i: string) => i.toLowerCase().includes('storage'))) {
+          aiSuggestions.push({ issue: 'Storage Full', recommendation: 'Clean cache and move files to cloud', estimatedCost: '₹150-₹250', urgency: 'low', category: 'software' });
+        }
+      }
+
+      const result = await db.insert(diagnostics).values({
+        userId, userName: userName || '',
+        deviceModel: deviceModel || '', platform: platform || '',
+        batteryLevel: String(batteryLevel || ''), batteryHealth: batteryHealth || 'good',
+        storageUsed: String(storageUsed || ''), storageTotal: String(storageTotal || ''),
+        networkType: networkType || '', networkStrength: networkStrength || 'good',
+        temperature: temperature || 'normal', sensorsStatus: sensorsStatus || 'good',
+        overallScore: Math.min(100, Math.max(0, parseInt(String(overallScore)) || 100)),
+        issues: JSON.stringify(Array.isArray(issues) ? issues : (JSON.parse(issues || '[]'))),
+        aiSuggestions: JSON.stringify(aiSuggestions),
+      }).returning();
+
+      res.json({ success: true, diagnostic: result[0], aiSuggestions });
+    } catch (error) {
+      console.error('[Diagnostics] Error:', error);
+      res.status(500).json({ success: false, message: "Failed to save diagnostic" });
+    }
+  });
+
+  app.get("/api/diagnostics/user/:userId", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const userDiags = await db.select().from(diagnostics).where(eq(diagnostics.userId, userId));
+      userDiags.sort((a, b) => b.createdAt - a.createdAt);
+      res.json({ success: true, diagnostics: userDiags });
+    } catch (error) {
+      res.status(500).json({ success: false, diagnostics: [] });
+    }
+  });
+
+  app.get("/api/admin/diagnostics", adminMiddleware, async (req, res) => {
+    try {
+      const allDiags = await db.select().from(diagnostics);
+      allDiags.sort((a, b) => b.createdAt - a.createdAt);
+      res.json({ success: true, diagnostics: allDiags });
+    } catch (error) {
+      res.status(500).json({ success: false, diagnostics: [] });
+    }
+  });
 
   // ========== Insurance Plans (Public) ==========
   app.get("/api/insurance/plans", async (req, res) => {
