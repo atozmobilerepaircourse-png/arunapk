@@ -6,6 +6,7 @@ import * as Haptics from 'expo-haptics';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import Colors from '@/constants/colors';
 import { ROLE_LABELS, UserRole } from '@/lib/types';
+import TrustBadge from '@/components/TrustBadge';
 
 const C = Colors.dark;
 
@@ -31,11 +32,12 @@ interface DirectoryCardProps {
   isOnline?: boolean;
   trustBadge?: string;
   trustBadgeColor?: string;
+  trustScore?: number;
   onPress?: () => void;
   onMessage?: () => void;
 }
 
-export default function DirectoryCard({ name, role, city, skills, experience, avatar, isOnline, trustBadge, trustBadgeColor, onPress, onMessage }: DirectoryCardProps) {
+export default function DirectoryCard({ name, role, city, skills, experience, avatar, isOnline, trustBadge, trustBadgeColor, trustScore, onPress, onMessage }: DirectoryCardProps) {
   const icon = ROLE_ICONS[role];
   const cardScale = useSharedValue(1);
   const cardAnimStyle = useAnimatedStyle(() => ({
@@ -65,12 +67,14 @@ export default function DirectoryCard({ name, role, city, skills, experience, av
       <View style={styles.info}>
         <View style={styles.nameRow}>
           <Text style={styles.name} numberOfLines={1}>{name}</Text>
-          {trustBadge && trustBadgeColor && (
+          {trustScore !== undefined && trustScore > 0 ? (
+            <TrustBadge score={trustScore} size="small" />
+          ) : trustBadge && trustBadgeColor ? (
             <View style={[styles.trustBadge, { backgroundColor: trustBadgeColor + '20', borderColor: trustBadgeColor }]}>
               <Ionicons name="shield-checkmark" size={9} color={trustBadgeColor} />
               <Text style={[styles.trustBadgeText, { color: trustBadgeColor }]}>{trustBadge}</Text>
             </View>
-          )}
+          ) : null}
         </View>
         <View style={styles.metaRow}>
           <Ionicons name={icon.name} size={13} color={icon.color} />

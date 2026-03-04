@@ -5,12 +5,12 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router } from 'expo-router';
 import Colors from '@/constants/colors';
 import { useApp } from '@/lib/context';
-import { UserRole, ROLE_LABELS } from '@/lib/types';
+import { UserRole } from '@/lib/types';
 import DirectoryCard from '@/components/DirectoryCard';
-import DirectoryMap from '@/components/DirectoryMap';
+import ErrorState from '@/components/ErrorState';
 import { apiRequest } from '@/lib/query-client';
 
 const C = Colors.light;
@@ -23,14 +23,6 @@ const ROLE_FILTERS: { key: UserRole | 'all'; label: string; icon: keyof typeof I
   { key: 'job_provider', label: 'Jobs', icon: 'briefcase' },
   { key: 'customer', label: 'Customers', icon: 'person' },
 ];
-
-const ROLE_COLORS: Record<string, string> = {
-  technician: '#34C759',
-  teacher: '#FFD60A',
-  supplier: '#FF6B2C',
-  job_provider: '#5856D6',
-  customer: '#FF2D55',
-};
 
 type OnlineStats = Record<string, { registered: number; online: number }>;
 
@@ -74,19 +66,13 @@ function getDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): 
 
 export default function DirectoryScreen() {
   const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams<{ view?: string }>();
-  const { allProfiles, profile, startConversation, refreshData } = useApp();
+  const { allProfiles, profile, startConversation, refreshData, dataError } = useApp();
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState<UserRole | 'all'>('all');
   const [refreshing, setRefreshing] = useState(false);
   const [stats, setStats] = useState<OnlineStats | null>(null);
-  const [viewMode, setViewMode] = useState<'list' | 'map'>(params.view === 'map' ? 'map' : 'list');
   const [sortBy, setSortBy] = useState<string>('recent');
   const [trustScores, setTrustScores] = useState<Record<string, { score: number; rating: number }>>({});
-
-  useEffect(() => {
-    if (params.view === 'map') setViewMode('map');
-  }, [params.view]);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -180,36 +166,6 @@ export default function DirectoryScreen() {
     return sorted;
   }, [directory, roleFilter, search, sortBy, trustScores, hasUserLocation, userLat, userLng]);
 
-  const mapProfiles = useMemo(() => {
-    return filtered.filter(p => {
-      if (!p.latitude || !p.longitude) return false;
-      if (isNaN(p.latitude) || isNaN(p.longitude)) return false;
-      if (p.role === 'customer' && p.locationSharing !== 'true') return false;
-      return true;
-    }).map(p => ({
-      id: p.id,
-      latitude: p.latitude!,
-      longitude: p.longitude!,
-      name: p.name,
-      role: ROLE_LABELS[p.role] || p.role,
-      roleKey: p.role,
-      city: p.city,
-      skills: p.skills,
-      color: ROLE_COLORS[p.role] || '#007AFF',
-      avatar: p.avatar,
-      isOnline: p.isOnline,
-      lastSeen: p.lastSeen,
-    }));
-  }, [filtered]);
-
-  const handleMapChat = useCallback(async (id: string) => {
-    const p = allProfiles.find(p => p.id === id);
-    if (p) {
-      const convoId = await startConversation(p.id, p.name, p.role);
-      if (convoId) router.push({ pathname: '/chat/[id]', params: { id: convoId } });
-    }
-  }, [allProfiles, startConversation]);
-
   const onRefresh = async () => {
     setRefreshing(true);
     await Promise.all([refreshData(), fetchStats()]);
@@ -217,70 +173,6 @@ export default function DirectoryScreen() {
   };
 
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
-
-  if (viewMode === 'map') {
-    return (
-      <View style={styles.container}>
-        <View style={[styles.mapHeader, { paddingTop: (Platform.OS === 'web' ? webTopInset : insets.top) + 8 }]}>
-          <Pressable
-            style={styles.mapBackBtn}
-            onPress={() => setViewMode('list')}
-          >
-            <Ionicons name="list" size={20} color="#FFF" />
-          </Pressable>
-
-          <View style={styles.mapSearchBox}>
-            <Ionicons name="search" size={16} color={C.textTertiary} />
-            <TextInput
-              style={styles.mapSearchInput}
-              placeholder="Search..."
-              placeholderTextColor={C.textTertiary}
-              value={search}
-              onChangeText={setSearch}
-            />
-            {search.length > 0 && (
-              <Pressable onPress={() => setSearch('')}>
-                <Ionicons name="close-circle" size={16} color={C.textTertiary} />
-              </Pressable>
-            )}
-          </View>
-        </View>
-
-        <View style={styles.mapFilters}>
-          <FlatList
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            data={ROLE_FILTERS}
-            contentContainerStyle={{ paddingHorizontal: 12, gap: 6 }}
-            keyExtractor={item => item.key}
-            renderItem={({ item }) => (
-              <Pressable
-                style={[styles.mapFilterChip, roleFilter === item.key && styles.mapFilterChipActive]}
-                onPress={() => setRoleFilter(item.key)}
-              >
-                <Ionicons
-                  name={item.icon}
-                  size={12}
-                  color={roleFilter === item.key ? '#FFF' : C.textSecondary}
-                />
-                <Text style={[styles.mapFilterText, roleFilter === item.key && styles.mapFilterTextActive]}>
-                  {item.label}
-                </Text>
-              </Pressable>
-            )}
-          />
-        </View>
-
-        <View style={styles.mapFull}>
-          <DirectoryMap
-            markers={mapProfiles}
-            onMarkerPress={(id: string) => router.push({ pathname: '/user-profile', params: { id } })}
-            onChatPress={handleMapChat}
-          />
-        </View>
-      </View>
-    );
-  }
 
   return (
     <View style={styles.container}>
@@ -290,12 +182,6 @@ export default function DirectoryScreen() {
             <Text style={styles.headerTitle}>Directory</Text>
             <Text style={styles.headerSubtitle}>Find professionals across India</Text>
           </View>
-          <Pressable
-            style={[styles.viewToggle, styles.viewToggleMap]}
-            onPress={() => setViewMode('map')}
-          >
-            <Ionicons name="map" size={20} color="#FFF" />
-          </Pressable>
         </View>
       </View>
 
@@ -411,6 +297,7 @@ export default function DirectoryScreen() {
               experience={item.experience}
               avatar={item.avatar}
               isOnline={item.isOnline}
+              trustScore={ts?.score}
               trustBadge={badgeLabel}
               trustBadgeColor={badgeColor}
               onPress={() => router.push({ pathname: '/user-profile', params: { id: item.id } })}
@@ -434,11 +321,15 @@ export default function DirectoryScreen() {
           />
         }
         ListEmptyComponent={
+          dataError ? (
+            <ErrorState message={dataError} onRetry={refreshData} />
+          ) : (
           <View style={styles.emptyState}>
             <Ionicons name="people-outline" size={48} color={C.textTertiary} />
             <Text style={styles.emptyTitle}>No professionals yet</Text>
             <Text style={styles.emptyText}>Pull down to refresh or invite others to join</Text>
           </View>
+          )
         }
         showsVerticalScrollIndicator={false}
       />
@@ -470,89 +361,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'Inter_400Regular',
     marginTop: 4,
-  },
-  viewToggle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: C.surface,
-    borderWidth: 1,
-    borderColor: C.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 4,
-  },
-  viewToggleMap: {
-    backgroundColor: '#007AFF',
-    borderColor: '#007AFF',
-  },
-  mapHeader: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 100,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingBottom: 8,
-    gap: 8,
-  },
-  mapBackBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(28,28,30,0.85)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  mapSearchBox: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(28,28,30,0.85)',
-    borderRadius: 18,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    gap: 6,
-  },
-  mapSearchInput: {
-    flex: 1,
-    color: '#FFF',
-    fontSize: 14,
-    fontFamily: 'Inter_400Regular',
-    padding: 0,
-  },
-  mapFilters: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 99,
-    marginTop: Platform.OS === 'web' ? 67 + 8 + 36 + 12 : 0,
-  },
-  mapFilterChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 16,
-    backgroundColor: 'rgba(28,28,30,0.85)',
-    gap: 4,
-  },
-  mapFilterChipActive: {
-    backgroundColor: '#007AFF',
-  },
-  mapFilterText: {
-    color: '#AAA',
-    fontSize: 11,
-    fontFamily: 'Inter_500Medium',
-  },
-  mapFilterTextActive: {
-    color: '#FFF',
-  },
-  mapFull: {
-    flex: 1,
   },
   statsBar: {
     flexDirection: 'row',

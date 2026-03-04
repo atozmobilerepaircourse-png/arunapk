@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Pressable, Platform,
-  ActivityIndicator, Linking, Alert,
+  ActivityIndicator, Linking, Alert, Modal, TextInput,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -14,6 +14,7 @@ import { apiRequest, getApiUrl } from '@/lib/query-client';
 import { openLink } from '@/lib/open-link';
 import { Post, UserProfile, ROLE_LABELS, UserRole, CATEGORY_LABELS } from '@/lib/types';
 import PostCard from '@/components/PostCard';
+import ReviewCard from '@/components/ReviewCard';
 
 const C = Colors.light;
 
@@ -37,6 +38,13 @@ export default function UserProfileScreen() {
   const [loading, setLoading] = useState(true);
   const [showPosts, setShowPosts] = useState(false);
 
+  const [trustData, setTrustData] = useState<{ score: number; badge: string; averageRating: number; totalReviews: number } | null>(null);
+  const [userReviews, setUserReviews] = useState<any[]>([]);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState('');
+  const [submittingReview, setSubmittingReview] = useState(false);
+
   const fetchUser = useCallback(async () => {
     try {
       const res = await apiRequest('GET', `/api/profiles/${id}`);
@@ -50,6 +58,61 @@ export default function UserProfileScreen() {
   }, [id]);
 
   useEffect(() => { fetchUser(); }, [fetchUser]);
+
+  const fetchReviews = useCallback(async () => {
+    if (!id) return;
+    try {
+      const [trustRes, reviewsRes] = await Promise.all([
+        apiRequest('GET', `/api/trust-score/${id}`),
+        apiRequest('GET', `/api/reviews/${id}`),
+      ]);
+      const tData = await trustRes.json();
+      if (tData) setTrustData(tData);
+      const rData = await reviewsRes.json();
+      if (rData.reviews) setUserReviews(rData.reviews.slice(0, 10));
+      else if (Array.isArray(rData)) setUserReviews(rData.slice(0, 10));
+    } catch (e) {
+      console.error('[UserProfile] reviews fetch error:', e);
+    }
+  }, [id]);
+
+  useEffect(() => { fetchReviews(); }, [fetchReviews]);
+
+  const isMe = myProfile?.id === id;
+
+  const handleSubmitReview = async () => {
+    if (!myProfile?.id || !id || submittingReview || isMe) return;
+    try {
+      setSubmittingReview(true);
+      const res = await apiRequest('POST', '/api/reviews', {
+        reviewerId: myProfile.id,
+        reviewerName: myProfile.name,
+        reviewerAvatar: myProfile.avatar || '',
+        revieweeId: id,
+        rating: reviewRating,
+        comment: reviewComment.trim(),
+        interactionType: 'service',
+      });
+      const data = await res.json();
+      if (!data.success) {
+        const msg = data.message || 'Failed to submit review';
+        if (Platform.OS === 'web') window.alert(msg);
+        else Alert.alert('Error', msg);
+        return;
+      }
+      if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setShowReviewModal(false);
+      setReviewRating(5);
+      setReviewComment('');
+      fetchReviews();
+    } catch (e: any) {
+      const msg = e.message || 'Failed to submit review';
+      if (Platform.OS === 'web') window.alert(msg);
+      else Alert.alert('Error', msg);
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
 
   const handleChat = async () => {
     if (!myProfile || !user) return;
@@ -82,7 +145,6 @@ export default function UserProfileScreen() {
 
   const userPosts = posts.filter(p => p.userId === id);
   const totalLikes = userPosts.reduce((sum, p) => sum + p.likes.length, 0);
-  const isMe = myProfile?.id === id;
 
   if (loading) {
     return (
@@ -243,7 +305,104 @@ export default function UserProfileScreen() {
             </View>
           </View>
         )}
+
+        <View style={s.section}>
+          <View style={s.reviewSectionHeader}>
+            <Text style={s.sectionTitle}>Reviews</Text>
+            {!isMe && myProfile && (
+              <Pressable
+                style={s.writeReviewBtn}
+                onPress={() => {
+                  if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setShowReviewModal(true);
+                }}
+              >
+                <Ionicons name="create-outline" size={16} color="#FF6B2C" />
+                <Text style={s.writeReviewText}>Write Review</Text>
+              </Pressable>
+            )}
+          </View>
+          {trustData && (
+            <View style={s.trustRow}>
+              <View style={s.starsRow}>
+                {[1, 2, 3, 4, 5].map(star => (
+                  <Ionicons
+                    key={star}
+                    name={star <= Math.round(trustData.averageRating || 0) ? 'star' : 'star-outline'}
+                    size={18}
+                    color="#FFD60A"
+                  />
+                ))}
+              </View>
+              <Text style={s.ratingText}>
+                {(trustData.averageRating || 0).toFixed(1)} ({trustData.totalReviews || 0} reviews)
+              </Text>
+            </View>
+          )}
+          {userReviews.length > 0 ? (
+            <View style={s.reviewsList}>
+              {userReviews.map((review, idx) => (
+                <ReviewCard
+                  key={review.id || idx}
+                  reviewerName={review.reviewerName}
+                  reviewerAvatar={review.reviewerAvatar}
+                  rating={review.rating}
+                  comment={review.comment}
+                  createdAt={review.createdAt}
+                />
+              ))}
+            </View>
+          ) : (
+            <Text style={s.noReviews}>No reviews yet</Text>
+          )}
+        </View>
       </ScrollView>
+
+      <Modal visible={showReviewModal} animationType="slide" transparent>
+        <View style={s.modalOverlay}>
+          <View style={s.modalContent}>
+            <View style={s.modalHeader}>
+              <Text style={s.modalTitle}>Review {user.name}</Text>
+              <Pressable onPress={() => setShowReviewModal(false)}>
+                <Ionicons name="close" size={24} color={C.text} />
+              </Pressable>
+            </View>
+            <Text style={s.fieldLabel}>Rating</Text>
+            <View style={s.starSelector}>
+              {[1, 2, 3, 4, 5].map(star => (
+                <Pressable key={star} onPress={() => setReviewRating(star)}>
+                  <Ionicons
+                    name={star <= reviewRating ? 'star' : 'star-outline'}
+                    size={32}
+                    color="#FFD60A"
+                  />
+                </Pressable>
+              ))}
+            </View>
+            <Text style={s.fieldLabel}>Comment (optional)</Text>
+            <TextInput
+              style={s.commentInput}
+              value={reviewComment}
+              onChangeText={setReviewComment}
+              placeholder="Share your experience..."
+              placeholderTextColor={C.textTertiary}
+              multiline
+              maxLength={500}
+            />
+            <Pressable
+              style={[s.submitBtn, submittingReview && { opacity: 0.6 }]}
+              onPress={handleSubmitReview}
+              disabled={submittingReview}
+            >
+              {submittingReview ? (
+                <ActivityIndicator size="small" color="#FFF" />
+              ) : (
+                <Text style={s.submitBtnText}>Submit Review</Text>
+              )}
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -317,4 +476,23 @@ const s = StyleSheet.create({
   emptyTitle: { color: C.text, fontSize: 17, fontFamily: 'Inter_600SemiBold', marginTop: 12 },
   backBtnAlt: { marginTop: 16, paddingHorizontal: 20, paddingVertical: 10, backgroundColor: C.surface, borderRadius: 10 },
   backBtnText: { color: C.text, fontFamily: 'Inter_600SemiBold', fontSize: 14 },
+
+  reviewSectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  writeReviewBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 16, backgroundColor: '#FF6B2C12' },
+  writeReviewText: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: '#FF6B2C' },
+  trustRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
+  starsRow: { flexDirection: 'row', gap: 2 },
+  ratingText: { fontSize: 13, fontFamily: 'Inter_400Regular', color: C.textSecondary },
+  reviewsList: { gap: 8 },
+  noReviews: { fontSize: 13, fontFamily: 'Inter_400Regular', color: C.textTertiary, textAlign: 'center' as const, paddingVertical: 12 },
+
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' as const },
+  modalContent: { backgroundColor: C.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, maxHeight: '80%' as any },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  modalTitle: { color: C.text, fontSize: 18, fontFamily: 'Inter_700Bold' },
+  fieldLabel: { color: C.textSecondary, fontSize: 12, fontFamily: 'Inter_600SemiBold', textTransform: 'uppercase' as const, letterSpacing: 0.6, marginBottom: 6, marginTop: 12 },
+  starSelector: { flexDirection: 'row', justifyContent: 'center', gap: 8, paddingVertical: 12 },
+  commentInput: { backgroundColor: C.surfaceElevated, color: C.text, fontSize: 15, fontFamily: 'Inter_400Regular', borderRadius: 10, padding: 12, borderWidth: 1, borderColor: C.border, minHeight: 80, textAlignVertical: 'top' as const },
+  submitBtn: { backgroundColor: '#FF6B2C', borderRadius: 12, paddingVertical: 14, alignItems: 'center' as const, marginTop: 16, marginBottom: Platform.OS === 'web' ? 20 : 34 },
+  submitBtnText: { color: '#FFF', fontSize: 16, fontFamily: 'Inter_700Bold' },
 });

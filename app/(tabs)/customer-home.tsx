@@ -13,6 +13,7 @@ import { useApp } from '@/lib/context';
 import { UserRole, ROLE_LABELS } from '@/lib/types';
 import { apiRequest } from '@/lib/query-client';
 import ErrorState from '@/components/ErrorState';
+import SubscriptionLockScreen from '@/components/SubscriptionLockScreen';
 
 const C = Colors.light;
 const { width } = Dimensions.get('window');
@@ -171,6 +172,7 @@ export default function CustomerHomeScreen() {
   const onlineCount = allProfiles.filter(p => p.role === 'technician' && isUserOnline((p as any).lastSeen)).length;
 
   return (
+    <SubscriptionLockScreen>
     <View style={s.container}>
       <ScrollView
         style={s.scroll}
@@ -200,7 +202,7 @@ export default function CustomerHomeScreen() {
                 onPress={handleRoleSwitch}
                 disabled={isSwitching}
               >
-                <Ionicons name="swap-horizontal" size={16} color="#007AFF" />
+                <Ionicons name="construct" size={14} color="#FFF" />
                 <Text style={s.switchText}>Technician</Text>
               </Pressable>
             </View>
@@ -327,6 +329,7 @@ export default function CustomerHomeScreen() {
         )}
       </ScrollView>
     </View>
+    </SubscriptionLockScreen>
   );
 }
 
@@ -343,8 +346,8 @@ const s = StyleSheet.create({
   headerIconBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#F0F0F0', justifyContent: 'center', alignItems: 'center' },
   unreadBadge: { position: 'absolute', top: -2, right: -2, backgroundColor: '#FF3B30', borderRadius: 8, minWidth: 16, height: 16, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 3 },
   unreadText: { fontSize: 9, fontWeight: '700', color: '#FFF' },
-  switchBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#E8F2FF', paddingHorizontal: 10, paddingVertical: 8, borderRadius: 10 },
-  switchText: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: '#007AFF' },
+  switchBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#34C759', paddingHorizontal: 10, paddingVertical: 8, borderRadius: 10 },
+  switchText: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: '#FFF' },
 
   searchWrap: { paddingHorizontal: 16, marginBottom: 16 },
   searchBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', borderRadius: 12, paddingHorizontal: 14, height: 46, borderWidth: 1, borderColor: '#E8E8E8' },

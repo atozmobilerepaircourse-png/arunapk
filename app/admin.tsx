@@ -309,9 +309,6 @@ export default function AdminScreen() {
 
   const [revenueData, setRevenueData] = useState<any>(null);
   const [revenueLoading, setRevenueLoading] = useState(false);
-  const [payoutsData, setPayoutsData] = useState<any[]>([]);
-  const [payoutsLoading, setPayoutsLoading] = useState(false);
-  const [payoutsUpdating, setPayoutsUpdating] = useState<string | null>(null);
   const [activeSubsList, setActiveSubsList] = useState<any[]>([]);
   const [activeSubsLoading, setActiveSubsLoading] = useState(false);
 
@@ -465,41 +462,13 @@ export default function AdminScreen() {
     }
   }, []);
 
-  const fetchPayouts = useCallback(async () => {
-    setPayoutsLoading(true);
-    try {
-      const res = await apiRequest('GET', '/api/admin/teacher-payouts');
-      const data = await res.json();
-      if (data.success && Array.isArray(data.payouts)) setPayoutsData(data.payouts);
-    } catch (err) {
-      console.warn('Failed to fetch payouts:', err);
-    } finally {
-      setPayoutsLoading(false);
-    }
-  }, []);
-
-  const updatePayout = useCallback(async (payoutId: string, status: string, adminNotes: string) => {
-    setPayoutsUpdating(payoutId);
-    try {
-      const res = await apiRequest('PATCH', `/api/admin/teacher-payouts/${payoutId}`, { status, adminNotes });
-      const data = await res.json();
-      if (data.success) {
-        setPayoutsData(prev => prev.map(p => p.id === payoutId ? data.payout : p));
-      }
-    } catch (err) {
-      console.warn('Failed to update payout:', err);
-    } finally {
-      setPayoutsUpdating(null);
-    }
-  }, []);
 
   useEffect(() => {
     if (activeTab === 'revenue') {
       fetchRevenue();
       fetchActiveSubscriptions();
     }
-    if (activeTab === 'payouts') fetchPayouts();
-  }, [activeTab, fetchRevenue, fetchActiveSubscriptions, fetchPayouts]);
+  }, [activeTab, fetchRevenue, fetchActiveSubscriptions]);
 
   useEffect(() => {
     if (activeTab === 'subscriptions') fetchActiveSubscriptions();
@@ -788,80 +757,6 @@ export default function AdminScreen() {
 
   if (!isAdmin) return null;
 
-  const renderPayouts = () => {
-    const pending = payoutsData.filter(p => p.status === 'pending');
-    const completed = payoutsData.filter(p => p.status !== 'pending');
-    const formatINR = (v: number) => `₹${Math.round((v || 0) / 100).toLocaleString('en-IN')}`;
-    const renderCard = (p: any) => (
-      <View key={p.id} style={{ backgroundColor: C.card, borderRadius: 14, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: C.border }}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-          <Text style={{ color: C.text, fontFamily: 'Inter_700Bold', fontSize: 15 }}>{p.teacherName || 'Unknown Teacher'}</Text>
-          <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, backgroundColor: p.status === 'paid' ? '#34C75920' : p.status === 'rejected' ? '#FF3B3020' : '#FFD60A20' }}>
-            <Text style={{ color: p.status === 'paid' ? '#34C759' : p.status === 'rejected' ? '#FF3B30' : '#FFD60A', fontSize: 11, fontFamily: 'Inter_600SemiBold', textTransform: 'capitalize' }}>{p.status}</Text>
-          </View>
-        </View>
-        <Text style={{ color: C.textSecondary, fontSize: 13, fontFamily: 'Inter_400Regular', marginBottom: 2 }}>Amount: <Text style={{ color: C.text, fontFamily: 'Inter_600SemiBold' }}>{formatINR(Math.round((p.amount || 0) / 100))}</Text></Text>
-        {p.upiId ? <Text style={{ color: C.textSecondary, fontSize: 12, marginBottom: 2 }}>UPI: {p.upiId}</Text> : null}
-        {p.bankDetails ? <Text style={{ color: C.textSecondary, fontSize: 12, marginBottom: 2 }}>Bank: {p.bankDetails}</Text> : null}
-        {p.notes ? <Text style={{ color: C.textMuted, fontSize: 12, fontStyle: 'italic', marginBottom: 4 }}>Note: {p.notes}</Text> : null}
-        {p.adminNotes ? <Text style={{ color: C.textMuted, fontSize: 12, marginBottom: 4 }}>Admin notes: {p.adminNotes}</Text> : null}
-        <Text style={{ color: C.textMuted, fontSize: 11, marginBottom: 8 }}>Requested: {new Date(p.requestedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</Text>
-        {p.status === 'pending' && (
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            <Pressable
-              style={{ flex: 1, backgroundColor: '#34C759', borderRadius: 10, paddingVertical: 9, alignItems: 'center' }}
-              disabled={payoutsUpdating === p.id}
-              onPress={() => Alert.alert('Mark Paid', `Mark ₹${Math.round((p.amount || 0) / 100).toLocaleString('en-IN')} as paid to ${p.teacherName}?`, [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'Mark Paid', onPress: () => updatePayout(p.id, 'paid', p.adminNotes || '') },
-              ])}
-            >
-              {payoutsUpdating === p.id
-                ? <ActivityIndicator size="small" color="#fff" />
-                : <Text style={{ color: '#fff', fontFamily: 'Inter_700Bold', fontSize: 13 }}>Mark Paid</Text>}
-            </Pressable>
-            <Pressable
-              style={{ flex: 1, backgroundColor: '#FF3B3020', borderRadius: 10, paddingVertical: 9, alignItems: 'center', borderWidth: 1, borderColor: '#FF3B3040' }}
-              disabled={payoutsUpdating === p.id}
-              onPress={() => Alert.prompt
-                ? Alert.prompt('Reject Payout', 'Enter reason (optional)', (note) => updatePayout(p.id, 'rejected', note || ''))
-                : updatePayout(p.id, 'rejected', '')}
-            >
-              <Text style={{ color: '#FF3B30', fontFamily: 'Inter_700Bold', fontSize: 13 }}>Reject</Text>
-            </Pressable>
-          </View>
-        )}
-      </View>
-    );
-    return (
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 12, paddingBottom: 40 }} refreshControl={<RefreshControl refreshing={payoutsLoading} onRefresh={fetchPayouts} tintColor={C.textMuted} />}>
-        {payoutsLoading && payoutsData.length === 0 ? (
-          <ActivityIndicator color={C.textMuted} style={{ marginTop: 40 }} />
-        ) : payoutsData.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Ionicons name="cash-outline" size={36} color={C.textMuted} />
-            <Text style={styles.emptyText}>No payout requests yet</Text>
-          </View>
-        ) : (
-          <>
-            {pending.length > 0 && (
-              <>
-                <Text style={[styles.sectionTitle, { paddingHorizontal: 0, marginBottom: 8 }]}>Pending ({pending.length})</Text>
-                {pending.map(renderCard)}
-              </>
-            )}
-            {completed.length > 0 && (
-              <>
-                <Text style={[styles.sectionTitle, { paddingHorizontal: 0, marginBottom: 8, marginTop: 12 }]}>Completed ({completed.length})</Text>
-                {completed.map(renderCard)}
-              </>
-            )}
-          </>
-        )}
-      </ScrollView>
-    );
-  };
-
   const tabs: { key: AdminTab; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
     { key: 'dashboard', label: 'Dashboard', icon: 'grid' },
     { key: 'users', label: 'Users', icon: 'people' },
@@ -1112,7 +1007,7 @@ export default function AdminScreen() {
               <View style={[styles.statCard, { borderLeftColor: '#FFD60A' }]}>
                 <Ionicons name="school" size={22} color="#FFD60A" />
                 <Text style={styles.statNumber}>₹{rd.platformCourseRevenue?.toLocaleString('en-IN', { maximumFractionDigits: 0 }) || '0'}</Text>
-                <Text style={styles.statLabel}>Course Commission ({rd.commissionPercent || 30}%)</Text>
+                <Text style={styles.statLabel}>Course Revenue</Text>
               </View>
               <View style={[styles.statCard, { borderLeftColor: '#FF6B2C' }]}>
                 <Ionicons name="people" size={22} color="#FF6B2C" />
@@ -1137,6 +1032,7 @@ export default function AdminScreen() {
                 { role: 'technician', label: 'Technicians', color: '#34C759' },
                 { role: 'teacher', label: 'Teachers', color: '#FFD60A' },
                 { role: 'supplier', label: 'Suppliers', color: '#FF6B2C' },
+                { role: 'customer', label: 'Customers', color: '#FF2D55' },
               ].map(({ role, label, color }) => {
                 const count = rd.activeSubscribersByRole?.[role] || 0;
                 const rev = rd.subscriptionRevenueByRole?.[role] || 0;
@@ -2543,12 +2439,12 @@ export default function AdminScreen() {
 
       <View style={styles.sectionCard}>
         <Text style={styles.sectionLabel}>Blocked Users</Text>
-        {allUsers.filter(u => u.blocked === 1).length === 0 ? (
+        {allUsers.filter(u => u.fullProfile?.blocked === 1).length === 0 ? (
           <Text style={{ color: C.textTertiary, fontSize: 13, fontFamily: 'Inter_400Regular', textAlign: 'center', paddingVertical: 20 }}>
             No blocked users
           </Text>
         ) : (
-          allUsers.filter(u => u.blocked === 1).map(user => (
+          allUsers.filter(u => u.fullProfile?.blocked === 1).map(user => (
             <View key={user.id} style={{
               padding: 14,
               backgroundColor: '#FF3B3010',
@@ -2560,7 +2456,7 @@ export default function AdminScreen() {
             }}>
               <View style={{ flex: 1 }}>
                 <Text style={{ fontSize: 14, fontFamily: 'Inter_600SemiBold', color: C.text }}>{user.name}</Text>
-                <Text style={{ fontSize: 12, color: C.textSecondary, fontFamily: 'Inter_400Regular' }}>{user.phone} · {user.role}</Text>
+                <Text style={{ fontSize: 12, color: C.textSecondary, fontFamily: 'Inter_400Regular' }}>{user.fullProfile?.phone || ''} · {user.role}</Text>
               </View>
               <TouchableOpacity
                 style={{ backgroundColor: '#34C759', borderRadius: 8, paddingVertical: 8, paddingHorizontal: 16 }}

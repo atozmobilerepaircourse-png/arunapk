@@ -99,7 +99,33 @@ const FILTERS: { key: PostCategory | 'all'; label: string }[] = [
 
 export default function FeedScreen() {
   const insets = useSafeAreaInsets();
-  const { posts, profile, isLoading, dataError, isOnboarded, toggleLike, addComment, deletePost, updatePost, refreshData, totalUnread, liveChatUnread } = useApp();
+  const { posts, profile, isLoading, dataError, isOnboarded, toggleLike, addComment, deletePost, updatePost, refreshData, totalUnread, liveChatUnread, setProfile } = useApp();
+  const [isSwitching, setIsSwitching] = useState(false);
+
+  const handleSwitchToCustomer = () => {
+    if (!profile) return;
+    Alert.alert(
+      'Switch to Customer',
+      'You will see the customer view for finding repair services.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Switch',
+          onPress: async () => {
+            setIsSwitching(true);
+            try {
+              const res = await apiRequest('POST', '/api/profile/change-role', { userId: profile.id, newRole: 'customer' });
+              if (res.ok) {
+                await setProfile({ ...profile, role: 'customer' as any });
+                router.replace('/(tabs)/customer-home');
+              }
+            } catch {}
+            setIsSwitching(false);
+          },
+        },
+      ]
+    );
+  };
 
   useEffect(() => {
     if (!isLoading && !isOnboarded) {
@@ -209,6 +235,14 @@ export default function FeedScreen() {
               </View>
             )}
           </HeaderButton>
+          <Pressable
+            style={[styles.switchToCustomerBtn, isSwitching && { opacity: 0.5 }]}
+            onPress={handleSwitchToCustomer}
+            disabled={isSwitching}
+          >
+            <Ionicons name="person" size={14} color="#FFF" />
+            <Text style={styles.switchToCustomerText}>Customer</Text>
+          </Pressable>
         </View>
       </View>
 
@@ -382,5 +416,19 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 10,
     fontFamily: 'Inter_600SemiBold',
+  },
+  switchToCustomerBtn: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 4,
+    backgroundColor: '#34C759',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+  switchToCustomerText: {
+    fontSize: 11,
+    fontFamily: 'Inter_600SemiBold',
+    color: '#FFF',
   },
 });

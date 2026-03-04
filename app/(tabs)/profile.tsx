@@ -15,6 +15,7 @@ import { openLink } from '@/lib/open-link';
 import { useApp } from '@/lib/context';
 import { getApiUrl, apiRequest } from '@/lib/query-client';
 import { ROLE_LABELS, SKILLS_LIST, UserRole, ADMIN_PHONE } from '@/lib/types';
+import TrustBadge from '@/components/TrustBadge';
 
 function parseSellPost(text: string): { title: string; price: string; condition: string; description: string } | null {
   try {
@@ -500,7 +501,12 @@ export default function ProfileScreen() {
               placeholderTextColor={C.textTertiary}
             />
           ) : (
-            <Text style={styles.profileName}>{profile.name}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Text style={styles.profileName}>{profile.name}</Text>
+              {trustData && trustData.score > 0 && (
+                <TrustBadge score={trustData.score} size="small" />
+              )}
+            </View>
           )}
           <View style={[styles.roleBadge, { backgroundColor: roleColor + '20' }]}>
             <Text style={[styles.roleBadgeText, { color: roleColor }]}>
@@ -664,13 +670,7 @@ export default function ProfileScreen() {
           <Text style={styles.sectionTitle}>Trust & Reviews</Text>
           {trustData && (
             <View style={trustStyles.trustHeader}>
-              <View style={[trustStyles.trustBadge, { backgroundColor: getTrustBadge(trustData.score).color + '18' }]}>
-                <Ionicons name="shield-checkmark" size={16} color={getTrustBadge(trustData.score).color} />
-                <Text style={[trustStyles.trustBadgeText, { color: getTrustBadge(trustData.score).color }]}>
-                  {getTrustBadge(trustData.score).label}
-                </Text>
-              </View>
-              <Text style={trustStyles.trustScore}>{trustData.score}/100</Text>
+              <TrustBadge score={trustData.score} size="large" showScore />
             </View>
           )}
           <View style={trustStyles.ratingRow}>

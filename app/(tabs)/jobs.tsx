@@ -546,7 +546,7 @@ export default function JobsScreen() {
                       onPress={() => handleStartChat(resp.technicianId, resp.technicianName)}
                     >
                       <Ionicons name="chatbubble-outline" size={16} color={PRIMARY} />
-                      <Text style={styles.chatBtnText}>Start Chat</Text>
+                      <Text style={styles.chatBtnText}>Start Live Chat</Text>
                     </Pressable>
                   </View>
                 ))

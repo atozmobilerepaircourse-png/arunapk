@@ -3,7 +3,7 @@ import { createServer, type Server } from "node:http";
 import { getFirestore } from "./firebase-admin";
 import { db } from "./db";
 import OpenAI from "openai";
-import { notifyAllUsers, notifyNewPost, notifyUser } from "./push-notifications";
+import { notifyAllUsers, notifyNewPost, notifyUser, checkSubscriptionExpiry } from "./push-notifications";
 import { profiles, conversations, messages, posts, jobs, reels, products, orders, subscriptionSettings, courses, courseChapters, courseVideos, courseEnrollments, dubbedVideos, ads, liveChatMessages, liveClasses, courseNotices, sessions, payments, teacherPayouts, appSettings, videoProgress, livePolls, livePollVotes, emailCampaigns, otpTokens, adminNotifications, reviews, serviceRequests } from "@shared/schema";
 import { Storage } from "@google-cloud/storage";
 let sharp: any = null;
@@ -30,6 +30,30 @@ function getGoogleClientSecret(): string | undefined {
     if (parsed?.client_secret) return parsed.client_secret;
   } catch {}
   return raw;
+}
+
+function getGoogleRedirectUri(req?: any): string {
+  try {
+    const raw = process.env.GOOGLE_CLIENT_SECRET;
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      const uris = parsed?.web?.redirect_uris || parsed?.installed?.redirect_uris || parsed?.redirect_uris;
+      if (Array.isArray(uris) && uris.length > 0) {
+        console.log("[Google Auth] Using redirect_uri from GOOGLE_CLIENT_SECRET:", uris[0]);
+        return uris[0];
+      }
+    }
+  } catch {}
+  if (req) {
+    const host = req.header('x-forwarded-host') || req.get('host');
+    const proto = req.header('x-forwarded-proto') || req.protocol || 'https';
+    if (host) {
+      const uri = `${proto}://${host}/api/auth/google/callback`;
+      console.log("[Google Auth] Using redirect_uri from request host:", uri);
+      return uri;
+    }
+  }
+  return "https://repair-backend-3siuld7gbq-el.a.run.app/api/auth/google/callback";
 }
 
 setInterval(() => {
@@ -744,7 +768,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const clientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '456751858632-brh0ir7j9v2ks5kk6antp6q757kmhaus.apps.googleusercontent.com';
       if (!clientId) return res.status(500).json({ success: false, message: "Google OAuth not configured" });
       
-      const redirectUri = "https://repair-backend-3siuld7gbq-el.a.run.app/api/auth/google/callback";
+      const redirectUri = getGoogleRedirectUri(req);
       
       const stateObj = { token };
       const stateStr = Buffer.from(JSON.stringify(stateObj)).toString('base64');
@@ -832,10 +856,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return sendGoogleErrorPage(res, "Google OAuth is not configured on the server.");
       }
 
-      // Use request host for callback redirection
-      const host = "repair-backend-3siuld7gbq-el.a.run.app";
-      const protocol = 'https';
-      const redirectUri = "https://repair-backend-3siuld7gbq-el.a.run.app/api/auth/google/callback";
+      const redirectUri = getGoogleRedirectUri(req);
       console.log("[Google Auth] Using redirect_uri:", redirectUri);
 
       const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
@@ -980,15 +1001,14 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
         return res.status(400).json({ success: false, message: "No authorization code" });
       }
 
-      const clientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+      const clientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '456751858632-brh0ir7j9v2ks5kk6antp6q757kmhaus.apps.googleusercontent.com';
       const clientSecret = getGoogleClientSecret();
 
       if (!clientId || !clientSecret) {
         return res.status(500).json({ success: false, message: "Google OAuth not configured" });
       }
 
-      const devDomain = "repair-backend-3siuld7gbq-el.a.run.app";
-      const redirectUri = "https://repair-backend-3siuld7gbq-el.a.run.app/api/auth/google/callback";
+      const redirectUri = getGoogleRedirectUri(req);
       console.log("[Google Auth] process-code redirect_uri:", redirectUri);
       console.log("[Google Auth] process-code code prefix:", code.substring(0, 10));
 
@@ -1224,6 +1244,7 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
         ...p,
         skills: JSON.parse(p.skills),
       }));
+      res.set('Cache-Control', 'public, max-age=300');
       return res.json(parsed);
     } catch (error) {
       console.error("[Profile] List error:", error);
@@ -1238,6 +1259,7 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
         return res.status(404).json({ success: false, message: "Profile not found" });
       }
       const p = result[0];
+      res.set('Cache-Control', 'public, max-age=300');
       return res.json({ ...p, skills: JSON.parse(p.skills) });
     } catch (error) {
       console.error("[Profile] Get error:", error);
@@ -1420,6 +1442,7 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
         images: JSON.parse(p.images),
         likes: JSON.parse(p.likes),
       }));
+      res.set('Cache-Control', 'public, max-age=300');
       return res.json(parsed);
     } catch (error) {
       console.error("[Products] Get error:", error);
@@ -1433,6 +1456,7 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
       if (result.length === 0) return res.status(404).json({ success: false, message: "Not found" });
       const p = result[0];
       await db.update(products).set({ views: (p.views || 0) + 1 }).where(eq(products.id, req.params.id));
+      res.set('Cache-Control', 'public, max-age=300');
       return res.json({ ...p, images: JSON.parse(p.images), likes: JSON.parse(p.likes), views: (p.views || 0) + 1 });
     } catch (error) {
       return res.status(500).json({ success: false });
@@ -1593,6 +1617,7 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
         likes: JSON.parse(p.likes),
         comments: JSON.parse(p.comments),
       }));
+      res.set('Cache-Control', 'public, max-age=120');
       return res.json(parsed);
     } catch (error) {
       console.error("[Posts] List error:", error);
@@ -4360,7 +4385,7 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
     }
   });
 
-  app.post("/api/admin/block-user", async (req, res) => {
+  app.post("/api/admin/block-user", adminMiddleware, async (req, res) => {
     try {
       const { userId, blocked } = req.body;
       if (!userId) return res.status(400).json({ success: false, message: "userId required" });
@@ -5167,7 +5192,8 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
       const snapshot = await firestore.collection("teacher_live_sessions")
         .where("isLive", "==", true)
         .get();
-      const baseUrl = `${req.protocol}://${req.get("host")}`;
+      const proto = req.get("x-forwarded-proto") || req.protocol;
+      const baseUrl = `${proto}://${req.get("host")}`;
       const sessions = snapshot.docs
         .map(doc => {
           const data = doc.data();
@@ -5282,8 +5308,8 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
       const filename = `images/${randomUUID()}${path.extname(req.file.originalname)}`;
       const url = await uploadToStorage(req.file.buffer, filename);
       
-      // Ensure the URL is absolute for Firestore
-      const baseUrl = `${req.protocol}://${req.get("host")}`;
+      const proto = req.get("x-forwarded-proto") || req.protocol;
+      const baseUrl = `${proto}://${req.get("host")}`;
       const absoluteUrl = url.startsWith("/") ? baseUrl + url : url;
 
       // Build message text — include the join link so viewers can tap it
@@ -5547,7 +5573,7 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
   app.post("/api/profile/change-role", async (req, res) => {
     try {
       const { userId, newRole } = req.body;
-      const allowedRoles = ["teacher", "technician", "customer", "supplier"];
+      const allowedRoles = ["teacher", "technician", "customer", "supplier", "job_provider"];
       if (!userId || !allowedRoles.includes(newRole)) {
         return res.status(400).json({ success: false, message: "Invalid role" });
       }
@@ -5581,6 +5607,17 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
       }
       if (reviewerId === revieweeId) {
         return res.status(400).json({ success: false, message: "Cannot review yourself" });
+      }
+      const hasConversation = await db.select().from(conversations).where(
+        sql`(${conversations.participant1Id} = ${reviewerId} AND ${conversations.participant2Id} = ${revieweeId})
+            OR (${conversations.participant1Id} = ${revieweeId} AND ${conversations.participant2Id} = ${reviewerId})`
+      );
+      const hasOrder = await db.select().from(orders).where(
+        sql`(${orders.buyerId} = ${reviewerId} AND ${orders.sellerId} = ${revieweeId})
+            OR (${orders.buyerId} = ${revieweeId} AND ${orders.sellerId} = ${reviewerId})`
+      );
+      if (hasConversation.length === 0 && hasOrder.length === 0) {
+        return res.status(403).json({ success: false, message: "You need a conversation or order with this user before leaving a review" });
       }
       const existing = await db.select().from(reviews)
         .where(and(eq(reviews.reviewerId, reviewerId), eq(reviews.revieweeId, revieweeId)));
@@ -5732,6 +5769,27 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
       res.status(500).json({ success: false, message: "Failed to update status" });
     }
   });
+
+  app.post("/api/admin/check-subscription-expiry", adminMiddleware, async (_req, res) => {
+    try {
+      const notified = await checkSubscriptionExpiry();
+      res.json({ success: true, notified });
+    } catch (error) {
+      res.status(500).json({ success: false, message: "Failed to check subscription expiry" });
+    }
+  });
+
+  setInterval(() => {
+    checkSubscriptionExpiry().catch(err => {
+      console.error('[Push] Scheduled subscription expiry check failed:', err);
+    });
+  }, 6 * 60 * 60 * 1000);
+
+  setTimeout(() => {
+    checkSubscriptionExpiry().catch(err => {
+      console.error('[Push] Initial subscription expiry check failed:', err);
+    });
+  }, 30000);
 
   const httpServer = createServer(app);
   return httpServer;

@@ -132,8 +132,11 @@ export default function OnboardingScreen() {
         setGoogleSignedIn(true);
         if (params.name) setUserName(params.name);
         setStep(0);
-        // Clear params from URL without refreshing
-        router.setParams({ email: undefined, name: undefined, google: undefined });
+        try {
+          router.setParams({ email: '', name: '', google: '' });
+        } catch (e) {
+          console.warn('[Google] Could not clear params:', e);
+        }
       }
     };
     checkGoogleRedirect();

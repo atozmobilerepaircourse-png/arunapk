@@ -8,7 +8,10 @@ const SESSION_KEY = "mobi_session_token_v2";
 
 export function getApiUrl(): string {
   if (Platform.OS === "web") {
-    // Ensure we are using the correct production backend for web
+    const domain = process.env.EXPO_PUBLIC_DOMAIN;
+    if (domain) {
+      return domain.startsWith('http') ? domain : `https://${domain}`;
+    }
     return "https://repair-backend-3siuld7gbq-el.a.run.app";
   }
   return CLOUD_RUN_BACKEND;
@@ -106,9 +109,9 @@ export const queryClient = new QueryClient({
       queryFn: getQueryFn({ on401: "throw" }),
       refetchInterval: false,
       refetchOnWindowFocus: false,
-      staleTime: 60000,
+      staleTime: 120000,
       retry: 2,
-      gcTime: 300000,
+      gcTime: 600000,
     },
     mutations: {
       retry: false,

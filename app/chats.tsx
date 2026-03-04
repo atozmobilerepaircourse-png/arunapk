@@ -244,7 +244,7 @@ export default function ChatsScreen() {
             <Text style={styles.emptyText}>
               {searchQuery
                 ? 'Try a different search term'
-                : 'Start a chat from the Directory by tapping on any professional'}
+                : 'Start a live chat from the Directory by tapping on any professional'}
             </Text>
           </View>
         }

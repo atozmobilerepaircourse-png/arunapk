@@ -104,7 +104,7 @@ export default function SubscriptionLockScreen({ children }: { children: React.R
     return <>{children}</>;
   }
 
-  const roleLabel = status.role === 'technician' ? 'Technician' : status.role === 'supplier' ? 'Supplier' : status.role === 'teacher' ? 'Teacher' : status.role || '';
+  const roleLabel = status.role === 'technician' ? 'Technician' : status.role === 'supplier' ? 'Supplier' : status.role === 'teacher' ? 'Teacher' : status.role === 'customer' ? 'Customer' : status.role || '';
   const amount = String(parseInt(status.amount || '0', 10) || 0);
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
@@ -142,6 +142,8 @@ export default function SubscriptionLockScreen({ children }: { children: React.R
             {status.role === 'supplier' && <FeatureItem text="List products in shop" />}
             {status.role === 'technician' && <FeatureItem text="Get job notifications" />}
             {status.role === 'teacher' && <FeatureItem text="Publish courses & earn revenue" />}
+            {status.role === 'customer' && <FeatureItem text="Find & contact technicians" />}
+            {status.role === 'customer' && <FeatureItem text="Request repair services" />}
           </View>
         </View>
 
