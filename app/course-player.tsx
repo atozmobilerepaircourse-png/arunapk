@@ -6,7 +6,6 @@ import {
   StatusBar, Share,
 } from 'react-native';
 import * as ScreenCapture from 'expo-screen-capture';
-import { useVideoPlayer, VideoView } from 'expo-video';
 import { resolveBunnyPlaybackUrl, getBunnyMp4Url, isBunnyUrl, getBunnyEmbedUrl } from '@/lib/bunny-cdn';
 import { File as FSFile, Paths, getInfoAsync, deleteAsync, createDownloadResumable } from 'expo-file-system';
 import Animated, {
@@ -409,18 +408,8 @@ export default function CoursePlayerScreen() {
 
   const videoUri = currentVideo?.videoUrl ? resolveVideoUrl(currentVideo.videoUrl) : '';
 
-  const bunnyEmbedUrl = useMemo(() => isBunnyUrl(videoUri) ? getBunnyEmbedUrl(videoUri, isPlaying) : null, [videoUri, isPlaying]);
+  const bunnyEmbedUrl = useMemo(() => isBunnyUrl(videoUri) ? getBunnyEmbedUrl(videoUri, true) : null, [videoUri]);
   const useIframe = Platform.OS === 'web' && !!bunnyEmbedUrl;
-
-  const player = useVideoPlayer(useIframe ? '' : videoUri, (p) => {
-    p.loop = false;
-  });
-
-  useEffect(() => {
-    if (useIframe) return;
-    if (isPlaying) player.play();
-    else player.pause();
-  }, [isPlaying, useIframe]);
 
   const hasFullAccessRef = useRef(hasFullAccess);
   const autoPlayNextRef = useRef(autoPlayNext);
@@ -524,8 +513,8 @@ export default function CoursePlayerScreen() {
   }, [controlsVisible, showControls]);
 
   const handleDoubleTap = useCallback((side: 'left' | 'right') => {
-    if (demoLimitReachedRef.current) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (demoLimitReachedRef.current || useIframe) return;
+    if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setDoubleTapIcon(side);
     setTimeout(() => setDoubleTapIcon(null), 600);
 
@@ -535,12 +524,20 @@ export default function CoursePlayerScreen() {
     if (side === 'right') {
       const newPos = Math.min(curPos + 10, curDur);
       if (!hasFullAccessRef.current && newPos >= demoDurationSecs) return;
-      videoRef.current?.setPositionAsync(newPos * 1000);
+      if (Platform.OS === 'web' && webVideoRef.current) {
+        webVideoRef.current.currentTime = newPos;
+      } else {
+        videoRef.current?.setPositionAsync(newPos * 1000);
+      }
     } else {
       const newPos = Math.max(curPos - 10, 0);
-      videoRef.current?.setPositionAsync(newPos * 1000);
+      if (Platform.OS === 'web' && webVideoRef.current) {
+        webVideoRef.current.currentTime = newPos;
+      } else {
+        videoRef.current?.setPositionAsync(newPos * 1000);
+      }
     }
-  }, [demoDurationSecs]);
+  }, [demoDurationSecs, useIframe]);
 
   const handleVideoTap = useCallback((evt: any) => {
     const now = Date.now();
@@ -1169,88 +1166,115 @@ export default function CoursePlayerScreen() {
           </View>
         )}
 
-        <Pressable style={styles.videoTouchArea} onPress={handleVideoTap} />
+        {!useIframe && <Pressable style={styles.videoTouchArea} onPress={handleVideoTap} />}
 
-        {doubleTapIcon === 'left' && (
+        {!useIframe && doubleTapIcon === 'left' && (
           <View style={[styles.doubleTapIndicator, { left: 20 }]}>
             <Ionicons name="play-back" size={28} color="#FFF" />
-            <Text style={styles.doubleTapText}>10s</Text>
+            <Text style={styles.doubleTapText}>-10s</Text>
           </View>
         )}
-        {doubleTapIcon === 'right' && (
+        {!useIframe && doubleTapIcon === 'right' && (
           <View style={[styles.doubleTapIndicator, { right: 20 }]}>
             <Ionicons name="play-forward" size={28} color="#FFF" />
-            <Text style={styles.doubleTapText}>10s</Text>
+            <Text style={styles.doubleTapText}>+10s</Text>
           </View>
         )}
 
-        {isBuffering && !demoLimitReached && Platform.OS !== 'web' && (
+        {!useIframe && isBuffering && !demoLimitReached && (
           <View style={styles.bufferingOverlay}>
             <ActivityIndicator size="large" color="#FFF" />
           </View>
         )}
 
-        <Animated.View
-          style={[styles.controlsOverlay, controlsAnimStyle]}
-          pointerEvents={Platform.OS === 'web' ? 'box-none' : (controlsVisible || demoLimitReached ? 'auto' : 'none')}
-        >
-          <View style={styles.topControls}>
-            <Pressable onPress={() => router.back()} style={styles.controlCircle} hitSlop={12}>
-              <Ionicons name="chevron-down" size={24} color="#FFF" />
-            </Pressable>
-            <View style={styles.topRight}>
-              <Pressable style={styles.controlCircleSm} onPress={() => setShowLanguageModal(true)}>
-                <MaterialIcons name="translate" size={20} color="#FFF" />
-              </Pressable>
-              <Pressable style={styles.controlCircleSm} onPress={toggleMute}>
-                <Ionicons name={isMuted ? "volume-mute" : "volume-high"} size={20} color="#FFF" />
-              </Pressable>
-              <Pressable style={styles.controlCircleSm} onPress={() => setIsLocked(!isLocked)}>
-                <Ionicons name={isLocked ? "lock-closed" : "lock-open"} size={20} color="#FFF" />
-              </Pressable>
-            </View>
-          </View>
+        {!useIframe && (
+          <Animated.View
+            style={[styles.controlsOverlay, controlsAnimStyle]}
+            pointerEvents={controlsVisible || demoLimitReached ? 'auto' : 'none'}
+          >
+            <View style={styles.overlayGradientTop} />
+            <View style={styles.overlayGradientBottom} />
 
-          <View style={styles.centerControls}>
-            <Pressable style={styles.playBtn} onPress={togglePlayPause}>
-              <Ionicons name={isPlaying ? "pause" : "play"} size={36} color="#FFF" />
-            </Pressable>
-          </View>
-
-          <View style={styles.bottomControls}>
-            {seekPreview !== null && (
-              <View style={styles.seekPreviewBadge}>
-                <Text style={styles.seekPreviewText}>{formatTime(seekPreview)}</Text>
-              </View>
-            )}
-            <View
-              style={styles.progressBarContainer}
-              onLayout={(e) => { progressBarWidth.current = e.nativeEvent.layout.width; }}
-              {...progressPanResponder.panHandlers}
-            >
-              <View style={styles.progressTrack}>
-                <View style={[styles.progressFill, { width: `${progress * 100}%` as any }]} />
-                <View style={[styles.progressThumb, { left: `${progress * 100}%` as any }]} />
-              </View>
-            </View>
-            <View style={styles.timeRow}>
-              <Text style={styles.timeText}>{formatTime(position)} / {formatTime(duration)}</Text>
-              <View style={styles.bottomActions}>
-                <Pressable style={styles.speedBtn} onPress={() => setShowSpeedModal(true)}>
-                  <Text style={styles.speedText}>{playbackSpeed}x</Text>
+            <View style={styles.topControls}>
+              <Pressable onPress={() => router.back()} style={styles.controlCircle} hitSlop={12}>
+                <Ionicons name="chevron-down" size={24} color="#FFF" />
+              </Pressable>
+              <Text style={styles.videoTitleOverlay} numberOfLines={1}>
+                {currentVideo?.title || ''}
+              </Text>
+              <View style={styles.topRight}>
+                <Pressable style={styles.controlCircleSm} onPress={() => setShowLanguageModal(true)}>
+                  <MaterialIcons name="translate" size={20} color="#FFF" />
                 </Pressable>
-                {Platform.OS === 'web' && (
-                  <Pressable style={styles.controlCircleSm} onPress={togglePiP}>
-                    <MaterialIcons name={isPiP ? "picture-in-picture-alt" : "picture-in-picture"} size={20} color="#FFF" />
+                <Pressable style={styles.controlCircleSm} onPress={toggleMute}>
+                  <Ionicons name={isMuted ? "volume-mute" : "volume-high"} size={20} color="#FFF" />
+                </Pressable>
+                <Pressable style={styles.controlCircleSm} onPress={() => setIsLocked(!isLocked)}>
+                  <Ionicons name={isLocked ? "lock-closed" : "lock-open"} size={20} color="#FFF" />
+                </Pressable>
+              </View>
+            </View>
+
+            <View style={styles.centerControls}>
+              <Pressable
+                style={styles.skipCircle}
+                onPress={() => handleDoubleTap('left')}
+                hitSlop={12}
+              >
+                <Ionicons name="play-back" size={28} color="#FFF" />
+                <Text style={styles.skipLabel}>10s</Text>
+              </Pressable>
+              <Pressable style={styles.playBtn} onPress={togglePlayPause}>
+                {isBuffering
+                  ? <ActivityIndicator size="large" color="#FFF" />
+                  : <Ionicons name={isPlaying ? "pause" : "play"} size={36} color="#FFF" />
+                }
+              </Pressable>
+              <Pressable
+                style={styles.skipCircle}
+                onPress={() => handleDoubleTap('right')}
+                hitSlop={12}
+              >
+                <Ionicons name="play-forward" size={28} color="#FFF" />
+                <Text style={styles.skipLabel}>10s</Text>
+              </Pressable>
+            </View>
+
+            <View style={styles.bottomControls}>
+              {seekPreview !== null && (
+                <View style={styles.seekPreviewBadge}>
+                  <Text style={styles.seekPreviewText}>{formatTime(seekPreview)}</Text>
+                </View>
+              )}
+              <View
+                style={styles.progressBarContainer}
+                onLayout={(e) => { progressBarWidth.current = e.nativeEvent.layout.width; }}
+                {...progressPanResponder.panHandlers}
+              >
+                <View style={styles.progressTrack}>
+                  <View style={[styles.progressFill, { width: `${progress * 100}%` as any }]} />
+                  <View style={[styles.progressThumb, { left: `${progress * 100}%` as any }]} />
+                </View>
+              </View>
+              <View style={styles.timeRow}>
+                <Text style={styles.timeText}>{formatTime(position)} / {formatTime(duration)}</Text>
+                <View style={styles.bottomActions}>
+                  <Pressable style={styles.speedBtn} onPress={() => setShowSpeedModal(true)}>
+                    <Text style={styles.speedText}>{playbackSpeed}x</Text>
                   </Pressable>
-                )}
-                <Pressable style={styles.controlCircleSm} onPress={toggleFullscreen}>
-                  <MaterialIcons name={isFullscreen ? "fullscreen-exit" : "fullscreen"} size={24} color="#FFF" />
-                </Pressable>
+                  {Platform.OS === 'web' && (
+                    <Pressable style={styles.controlCircleSm} onPress={togglePiP}>
+                      <MaterialIcons name={isPiP ? "picture-in-picture-alt" : "picture-in-picture"} size={20} color="#FFF" />
+                    </Pressable>
+                  )}
+                  <Pressable style={styles.controlCircleSm} onPress={toggleFullscreen}>
+                    <MaterialIcons name={isFullscreen ? "fullscreen-exit" : "fullscreen"} size={24} color="#FFF" />
+                  </Pressable>
+                </View>
               </View>
             </View>
-          </View>
-        </Animated.View>
+          </Animated.View>
+        )}
 
         {demoLimitReached && (
           <View style={styles.demoOverlay}>
@@ -1739,21 +1763,35 @@ const styles = StyleSheet.create({
   controlsOverlay: {
     position: 'absolute' as const,
     top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: 'transparent',
     justifyContent: 'space-between',
+  },
+  overlayGradientTop: {
+    position: 'absolute' as const,
+    top: 0, left: 0, right: 0, height: 100,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+  },
+  overlayGradientBottom: {
+    position: 'absolute' as const,
+    bottom: 0, left: 0, right: 0, height: 120,
+    backgroundColor: 'rgba(0,0,0,0.65)',
   },
   topControls: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: 12, paddingTop: 10,
+    zIndex: 2,
+  },
+  videoTitleOverlay: {
+    flex: 1, color: '#FFF', fontSize: 13, fontWeight: '600' as const,
+    marginHorizontal: 8, textAlign: 'center' as const,
   },
   controlCircle: {
     width: 40, height: 40, borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: 'rgba(0,0,0,0.35)',
     alignItems: 'center', justifyContent: 'center',
   },
   controlCircleSm: {
     width: 36, height: 36, borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: 'rgba(0,0,0,0.25)',
     alignItems: 'center', justifyContent: 'center',
   },
   topRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
@@ -1765,25 +1803,31 @@ const styles = StyleSheet.create({
   topPillText: { color: '#FFF', fontSize: 12, fontWeight: '500' as const },
 
   centerControls: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 18,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 32,
+    zIndex: 2,
   },
   skipCircle: {
-    width: 36, height: 36, borderRadius: 18,
+    width: 52, height: 52, borderRadius: 26,
+    backgroundColor: 'rgba(0,0,0,0.35)',
     alignItems: 'center', justifyContent: 'center',
+    gap: 0,
+  },
+  skipLabel: {
+    color: '#FFF', fontSize: 9, fontWeight: '700' as const, marginTop: -2,
   },
   seekCircle: {
     width: 44, height: 44, borderRadius: 22,
     alignItems: 'center', justifyContent: 'center',
   },
   playBtn: {
-    width: 64, height: 64, borderRadius: 32,
-    backgroundColor: 'rgba(255,107,44,0.9)',
+    width: 70, height: 70, borderRadius: 35,
+    backgroundColor: 'rgba(255,107,44,0.92)',
     alignItems: 'center', justifyContent: 'center',
-    shadowColor: ACCENT, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 12,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.5, shadowRadius: 10,
     elevation: 8,
   },
 
-  bottomControls: { paddingHorizontal: 16, paddingBottom: 8 },
+  bottomControls: { paddingHorizontal: 16, paddingBottom: 8, zIndex: 2 },
   seekPreviewBadge: {
     alignSelf: 'center' as const,
     backgroundColor: 'rgba(0,0,0,0.7)',
