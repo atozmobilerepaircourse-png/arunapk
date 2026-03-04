@@ -343,8 +343,8 @@ export default function OnboardingScreen() {
       const baseUrl = getApiUrl();
 
       if (Platform.OS === 'web') {
-        // Fix: Use current origin for return URL so it stays on frontend
         const returnUrl = window.location.origin + '/onboarding';
+        console.log('[Google] Starting web sign-in with returnUrl:', returnUrl);
         await apiRequest('POST', '/api/auth/google/set-return-url', { token: clientToken, returnUrl });
         const urlRes = await apiRequest('POST', '/api/auth/google/get-login-url', { token: clientToken });
         const urlData = await urlRes.json();
