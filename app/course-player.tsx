@@ -409,7 +409,8 @@ export default function CoursePlayerScreen() {
   const videoUri = currentVideo?.videoUrl ? resolveVideoUrl(currentVideo.videoUrl) : '';
 
   const bunnyEmbedUrl = useMemo(() => isBunnyUrl(videoUri) ? getBunnyEmbedUrl(videoUri, true) : null, [videoUri]);
-  const useIframe = Platform.OS === 'web' && !!bunnyEmbedUrl;
+  // When dubbed audio is active on web, fall back to native <video> so we can mute it and sync dubbed audio
+  const useIframe = Platform.OS === 'web' && !!bunnyEmbedUrl && !isVideoMutedForDub;
 
   const hasFullAccessRef = useRef(hasFullAccess);
   const autoPlayNextRef = useRef(autoPlayNext);
@@ -916,12 +917,6 @@ export default function CoursePlayerScreen() {
       return;
     }
 
-    if (!hasFullAccess) {
-      setDubbingMessage('Enroll to access dubbed versions');
-      setTimeout(() => setDubbingMessage(''), 3000);
-      return;
-    }
-
     setIsDubbingLoading(true);
     setDubbingMessage('Starting AI dubbing... This takes a few minutes for long videos.');
     try {
@@ -1163,6 +1158,20 @@ export default function CoursePlayerScreen() {
             <Ionicons name="eye-off-outline" size={40} color="#fff" />
             <Text style={styles.tabHiddenText}>Screen protected</Text>
             <Text style={styles.tabHiddenSub}>Return to this tab to continue watching</Text>
+          </View>
+        )}
+
+        {useIframe && (
+          <View style={styles.iframeControls}>
+            <Pressable onPress={() => router.back()} style={styles.iframeBackBtn} hitSlop={12}>
+              <Ionicons name="chevron-down" size={22} color="#FFF" />
+            </Pressable>
+            <Pressable style={styles.iframeDubBtn} onPress={() => setShowLanguageModal(true)}>
+              <MaterialIcons name="translate" size={18} color="#FFF" />
+              <Text style={styles.iframeDubText}>
+                {selectedLanguage ? INDIAN_LANGUAGES.find(l => l.code === selectedLanguage)?.name ?? 'Auto Dub' : 'Auto Dub'}
+              </Text>
+            </Pressable>
           </View>
         )}
 
@@ -1743,6 +1752,27 @@ const styles = StyleSheet.create({
     position: 'absolute' as const,
     top: 0, left: 0, right: 0, bottom: 0,
     alignItems: 'center', justifyContent: 'center',
+  },
+  iframeControls: {
+    position: 'absolute' as const,
+    top: 0, left: 0, right: 0,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 12, paddingTop: 10, paddingBottom: 8,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    zIndex: 10,
+  },
+  iframeBackBtn: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  iframeDubBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: 'rgba(255,107,44,0.85)',
+    paddingHorizontal: 12, paddingVertical: 7, borderRadius: 16,
+  },
+  iframeDubText: {
+    color: '#FFF', fontSize: 12, fontWeight: '700' as const,
   },
   tabHiddenOverlay: {
     position: 'absolute' as const,
