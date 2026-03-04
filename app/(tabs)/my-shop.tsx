@@ -148,25 +148,35 @@ export default function MyShopScreen() {
     );
   }
 
+  if (isTeacher) {
+    return (
+      <View style={styles.container}>
+        <View style={[styles.header, { paddingTop: (Platform.OS === 'web' ? webTopInset : insets.top) + 12 }]}>
+          <Text style={styles.headerTitle}>My Content</Text>
+          <Text style={styles.headerSubtitle}>Go live and connect with your audience</Text>
+        </View>
+        <View style={styles.emptyState}>
+          <Pressable
+            style={[styles.emptyButton, { backgroundColor: '#FF3B30', paddingHorizontal: 32, paddingVertical: 16 }]}
+            onPress={() => router.push('/go-live' as any)}
+          >
+            <Ionicons name="radio" size={24} color="#FFF" />
+            <Text style={[styles.emptyButtonText, { fontSize: 18 }]}>Go Live</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: (Platform.OS === 'web' ? webTopInset : insets.top) + 12 }]}>
         <View style={styles.headerRow}>
           <View>
-            <Text style={styles.headerTitle}>{isTeacher ? 'My Content' : 'My Products'}</Text>
-            <Text style={styles.headerSubtitle}>
-              {isTeacher ? 'Manage courses & products' : 'Sell parts & tools to technicians'}
-            </Text>
+            <Text style={styles.headerTitle}>My Products</Text>
+            <Text style={styles.headerSubtitle}>Sell parts & tools to technicians</Text>
           </View>
           <View style={styles.headerActions}>
-            {isTeacher && (
-              <Pressable
-                style={[styles.ordersButton, { marginRight: 0 }]}
-                onPress={() => router.push('/go-live' as any)}
-              >
-                <Ionicons name="radio-outline" size={20} color="#FF3B30" />
-              </Pressable>
-            )}
             <Pressable
               style={styles.ordersButton}
               onPress={() => router.push('/seller-orders')}
@@ -175,7 +185,7 @@ export default function MyShopScreen() {
             </Pressable>
             <Pressable
               style={styles.addButton}
-              onPress={() => router.push(isTeacher ? '/create-course' as any : '/add-product')}
+              onPress={() => router.push('/add-product')}
             >
               <Ionicons name="add" size={24} color="#FFF" />
             </Pressable>
@@ -184,113 +194,27 @@ export default function MyShopScreen() {
 
         <View style={styles.statsRow}>
           <View style={styles.statBox}>
-            <Text style={styles.statNumber}>{isTeacher ? myCourses.length : myProducts.length}</Text>
-            <Text style={styles.statLabel}>{isTeacher ? 'Courses' : 'Listings'}</Text>
+            <Text style={styles.statNumber}>{myProducts.length}</Text>
+            <Text style={styles.statLabel}>Listings</Text>
           </View>
           <View style={styles.statBox}>
-            <Text style={[styles.statNumber, !isTeacher && pendingOrders > 0 && { color: '#FF9F0A' }]}>
-              {isTeacher ? teacherEnrollments : totalOrders}
+            <Text style={[styles.statNumber, pendingOrders > 0 && { color: '#FF9F0A' }]}>
+              {totalOrders}
             </Text>
-            <Text style={styles.statLabel}>{isTeacher ? 'Enrolled' : (pendingOrders > 0 ? `${pendingOrders} new` : 'Orders')}</Text>
+            <Text style={styles.statLabel}>{pendingOrders > 0 ? `${pendingOrders} new` : 'Orders'}</Text>
           </View>
-          {isTeacher ? (
-            <Pressable style={[styles.statBox, { borderColor: '#FFD60A40' }]} onPress={() => router.push('/teacher-revenue')}>
-              <Text style={[styles.statNumber, { color: '#FFD60A', fontSize: 16 }]}>
-                {'₹' + teacherEarnings.toLocaleString('en-IN')}
-              </Text>
-              <Text style={styles.statLabel}>Earned</Text>
-            </Pressable>
-          ) : (
-            <View style={styles.statBox}>
-              <Text style={styles.statNumber}>{totalViews}</Text>
-              <Text style={styles.statLabel}>Views</Text>
-            </View>
-          )}
-          {isTeacher ? (
-            <Pressable style={[styles.statBox, { borderColor: '#34C75940' }]} onPress={() => router.push('/teacher-revenue')}>
-              <Text style={[styles.statNumber, { color: '#34C759', fontSize: 16 }]}>
-                {'₹' + teacherAvailable.toLocaleString('en-IN')}
-              </Text>
-              <Text style={styles.statLabel}>Available</Text>
-            </Pressable>
-          ) : (
-            <View style={styles.statBox}>
-              <Text style={styles.statNumber}>{totalLikes}</Text>
-              <Text style={styles.statLabel}>Likes</Text>
-            </View>
-          )}
+          <View style={styles.statBox}>
+            <Text style={styles.statNumber}>{totalViews}</Text>
+            <Text style={styles.statLabel}>Views</Text>
+          </View>
+          <View style={styles.statBox}>
+            <Text style={styles.statNumber}>{totalLikes}</Text>
+            <Text style={styles.statLabel}>Likes</Text>
+          </View>
         </View>
       </View>
 
-      {isTeacher ? (
-        <ScrollView
-          contentContainerStyle={[styles.coursesSection, { paddingBottom: Platform.OS === 'web' ? 84 + 34 : 100 }]}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} colors={[C.primary]} />}
-          showsVerticalScrollIndicator={false}
-        >
-          {myCourses.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Ionicons name="school-outline" size={56} color={C.textTertiary} />
-              <Text style={styles.emptyTitle}>No courses yet</Text>
-              <Text style={styles.emptyText}>Tap the + button to create your first course</Text>
-              <Pressable style={styles.emptyButton} onPress={() => router.push('/create-course' as any)}>
-                <Ionicons name="add-circle" size={20} color="#FFF" />
-                <Text style={styles.emptyButtonText}>Create Course</Text>
-              </Pressable>
-            </View>
-          ) : (
-            <>
-              <View style={styles.coursesSectionHeader}>
-                <Text style={styles.coursesSectionTitle}>My Courses</Text>
-                <Pressable onPress={() => router.push('/create-course' as any)}>
-                  <Ionicons name="add-circle-outline" size={22} color={C.primary} />
-                </Pressable>
-              </View>
-              {myCourses.map(course => (
-                <Pressable
-                  key={course.id}
-                  style={styles.courseCard}
-                  onPress={() => router.push({ pathname: '/create-course' as any, params: { courseId: course.id } })}
-                >
-                  {course.coverImage ? (
-                    <Image
-                      source={{ uri: course.coverImage.startsWith('/') ? `${getApiUrl()}${course.coverImage}` : course.coverImage }}
-                      style={styles.courseCover}
-                      contentFit="cover"
-                    />
-                  ) : (
-                    <View style={[styles.courseCover, { backgroundColor: C.surfaceElevated, alignItems: 'center', justifyContent: 'center' }]}>
-                      <Ionicons name="school" size={28} color={C.textTertiary} />
-                    </View>
-                  )}
-                  <View style={styles.courseInfo}>
-                    <View style={styles.courseTopRow}>
-                      <Text style={styles.courseTitle} numberOfLines={2}>{course.title}</Text>
-                      <View style={[styles.publishBadge, course.isPublished ? styles.publishedBadge : styles.draftBadge]}>
-                        <Text style={[styles.publishBadgeText, course.isPublished ? styles.publishedText : styles.draftText]}>
-                          {course.isPublished ? 'Published' : 'Draft'}
-                        </Text>
-                      </View>
-                    </View>
-                    <Text style={styles.coursePrice}>Rs. {course.price}</Text>
-                    <View style={styles.courseMeta}>
-                      <View style={styles.metaItem}>
-                        <Ionicons name="videocam-outline" size={14} color={C.textTertiary} />
-                        <Text style={styles.metaText}>{course.totalVideos} videos</Text>
-                      </View>
-                      <View style={styles.metaItem}>
-                        <Ionicons name="people-outline" size={14} color={C.textTertiary} />
-                        <Text style={styles.metaText}>{course.enrollmentCount} enrolled</Text>
-                      </View>
-                    </View>
-                  </View>
-                </Pressable>
-              ))}
-            </>
-          )}
-        </ScrollView>
-      ) : (
-        <FlatList
+      <FlatList
           data={myProducts}
           keyExtractor={item => item.id}
           renderItem={renderProduct}

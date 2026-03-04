@@ -114,7 +114,7 @@ export default function MarketplaceScreen() {
   const topPad = (Platform.OS === 'web' ? webTopInset : insets.top) + 12;
   const webBottomInset = Platform.OS === 'web' ? 84 : 0;
 
-  const [activeTab, setActiveTab] = useState<TabKey>('courses');
+  const [activeTab, setActiveTab] = useState<TabKey>('live');
   const [search, setSearch] = useState('');
   const [teachFilter, setTeachFilter] = useState('All');
   const [sellFilter, setSellFilter] = useState('All');
@@ -473,7 +473,6 @@ export default function MarketplaceScreen() {
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }}>
         <View style={s.tabContainer}>
           {[
-            { key: 'courses', label: 'Courses', icon: 'school' },
             { key: 'live', label: liveUrl ? 'Mobi Live' : 'Live', icon: 'radio', color: '#FF3B30' },
             { key: 'spare', label: 'Spare Parts', icon: 'cube' },
             { key: 'suppliers', label: 'Suppliers', icon: 'construct' },
@@ -510,94 +509,6 @@ export default function MarketplaceScreen() {
           contentContainerStyle={{ paddingBottom: webBottomInset + 40 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={ORANGE} />}
         >
-          {activeTab === 'courses' && (
-            <>
-              {/* AI Recommendations Section */}
-              {(recsLoading || recommendations.length > 0) && (
-                <View style={s.recSection}>
-                  <View style={s.recHeader}>
-                    <View style={s.recHeaderLeft}>
-                      <View style={s.sparkleIcon}>
-                        <Text style={{ fontSize: 14 }}>✨</Text>
-                      </View>
-                      <Text style={s.recTitle}>Recommended For You</Text>
-                    </View>
-                    <Pressable onPress={fetchRecommendations} disabled={recsLoading} style={s.refreshBtn}>
-                      {recsLoading ? (
-                        <ActivityIndicator size="small" color={ORANGE} />
-                      ) : (
-                        <Ionicons name="refresh" size={16} color={ORANGE} />
-                      )}
-                    </Pressable>
-                  </View>
-
-                  {recsLoading ? (
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}>
-                      {[1, 2, 3].map(i => (
-                        <Animated.View key={i} style={[s.recCardSkeleton, { opacity: shimmerAnim.interpolate({ inputRange: [0, 1], outputRange: [0.4, 0.9] }) }]} />
-                      ))}
-                    </ScrollView>
-                  ) : (
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}>
-                      {recommendations.map(rec => {
-                        const priceNum = parseFloat(rec.price || '0');
-                        return (
-                          <Pressable
-                            key={rec.id}
-                            style={s.recCard}
-                            onPress={() => router.push(`/course-detail?courseId=${rec.id}` as any)}
-                          >
-                            <View style={s.recImageWrap}>
-                              {rec.coverImage ? (
-                                <Image source={{ uri: getImageUri(rec.coverImage) }} style={s.recImage} contentFit="cover" />
-                              ) : (
-                                <View style={[s.recImage, { backgroundColor: '#FFE4D4', alignItems: 'center', justifyContent: 'center' }]}>
-                                  <Ionicons name="videocam" size={28} color={ORANGE} />
-                                </View>
-                              )}
-                              <View style={s.recPriceBadge}>
-                                <Text style={s.recPriceBadgeText}>{priceNum > 0 ? `₹${priceNum}` : 'FREE'}</Text>
-                              </View>
-                            </View>
-                            <View style={s.recCardBody}>
-                              <Text style={s.recCardTitle} numberOfLines={2}>{rec.title}</Text>
-                              <View style={s.recAiReason}>
-                                <Text style={{ fontSize: 10 }}>🤖</Text>
-                                <Text style={s.recReasonText} numberOfLines={2}>{rec.reason}</Text>
-                              </View>
-                              <View style={s.recMeta}>
-                                <Ionicons name="person" size={10} color={GRAY} />
-                                <Text style={s.recMetaText} numberOfLines={1}>{rec.teacherName}</Text>
-                                {(rec.totalVideos || 0) > 0 && (
-                                  <>
-                                    <View style={s.dot} />
-                                    <Ionicons name="play-circle" size={10} color={GRAY} />
-                                    <Text style={s.recMetaText}>{rec.totalVideos}</Text>
-                                  </>
-                                )}
-                              </View>
-                            </View>
-                          </Pressable>
-                        );
-                      })}
-                    </ScrollView>
-                  )}
-                </View>
-              )}
-
-              <View style={{ paddingHorizontal: 16, paddingBottom: 8 }}>
-                <Text style={s.allCoursesLabel}>All Courses</Text>
-              </View>
-              {renderFilterChips(TEACH_TYPE_FILTERS, teachFilter, setTeachFilter, ORANGE)}
-              <View style={s.grid}>
-                {filteredCourses.map(renderCourseCard)}
-                {filteredCourses.length === 0 && !loading && (
-                  <View style={s.emptyWrap}><Ionicons name="school-outline" size={48} color="#DDD" /><Text style={s.emptyText}>No courses found</Text></View>
-                )}
-              </View>
-            </>
-          )}
-
           {activeTab === 'spare' && (
             <>
               {renderFilterChips(SELL_TYPE_FILTERS, sellFilter, setSellFilter, BLUE)}

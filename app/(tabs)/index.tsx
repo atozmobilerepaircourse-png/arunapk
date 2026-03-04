@@ -191,9 +191,6 @@ export default function FeedScreen() {
               <Text style={{ fontSize: 7, color: '#FF3B30', marginTop: 1, fontWeight: '700' as const }}>Live</Text>
             </HeaderButton>
           ) : null}
-          <HeaderButton delay={160} onPress={() => router.push('/reels')}>
-            <Ionicons name="play-circle" size={25} color="#FF6B2C" />
-          </HeaderButton>
           {webToolsUrl ? (
             <HeaderButton delay={240} onPress={() => router.push({ pathname: '/webview', params: { url: webToolsUrl, title: 'Web Tools' } })} style={{ alignItems: 'center' }}>
               <Ionicons name="globe" size={24} color="#5E8BFF" />
