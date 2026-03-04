@@ -53,7 +53,9 @@ export async function apiRequest(
   };
 
   if (Platform.OS === "web") {
-    fetchOptions.credentials = "include";
+    // Removed credentials: "include" as it was causing 401 Invalid Session errors on web 
+    // when the browser doesn't have the session cookie, but we are manually sending 
+    // the x-session-token header.
   }
 
   const res = await fetch(url.toString(), fetchOptions);
@@ -81,7 +83,7 @@ export const getQueryFn: <T>(options: {
 
     const fetchOptions: RequestInit = { headers };
     if (Platform.OS === "web") {
-      fetchOptions.credentials = "include";
+      // Removed credentials: "include" to match apiRequest behavior
     }
 
     const res = await fetch(url.toString(), fetchOptions);

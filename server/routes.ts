@@ -243,11 +243,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const adminMiddleware = async (req: any, res: any, next: any) => {
     try {
       const sessionToken = req.headers['x-session-token'];
-      if (!sessionToken) return res.status(401).json({ success: false, message: "Unauthorized: No token" });
+      if (!sessionToken) {
+        console.log("[AdminMiddleware] No token in headers:", req.headers);
+        return res.status(401).json({ success: false, message: "Unauthorized: No token" });
+      }
       
       const sessionRows = await db.select().from(sessions).where(eq(sessions.sessionToken, sessionToken as string));
       const session = sessionRows[0];
-      if (!session) return res.status(401).json({ success: false, message: "Invalid session" });
+      if (!session) {
+        console.log("[AdminMiddleware] Invalid session token:", sessionToken);
+        return res.status(401).json({ success: false, message: "Invalid session" });
+      }
 
       const profileRows = await db.select().from(profiles).where(eq(profiles.phone, session.phone));
       const profile = profileRows[0];
