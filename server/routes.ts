@@ -683,8 +683,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!token) return res.status(400).json({ success: false, message: "Token required" });
       const clientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '456751858632-brh0ir7j9v2ks5kk6antp6q757kmhaus.apps.googleusercontent.com';
       if (!clientId) return res.status(500).json({ success: false, message: "Google OAuth not configured" });
-      // Production redirect URI for Gmail login (Updated to match Google Console exactly)
-      const redirectUri = `https://repair-backend-3siud7gbq-el.a.run.app/api/auth/google/callback`;
+      // Use the actual request host for redirect URI to handle different environments (dev/prod)
+      const host = req.headers.host || "repair-backend-3siud7gbq-el.a.run.app";
+      const protocol = req.headers['x-forwarded-proto'] || 'https';
+      const redirectUri = `${protocol}://${host}/api/auth/google/callback`;
       
       const stateObj = { token };
       const stateStr = Buffer.from(JSON.stringify(stateObj)).toString('base64');
@@ -772,9 +774,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return sendGoogleErrorPage(res, "Google OAuth is not configured on the server.");
       }
 
-    // Callback redirection URI (Updated to match Google Console exactly)
-    const redirectUri = `https://repair-backend-3siud7gbq-el.a.run.app/api/auth/google/callback`;
-    console.log("[Google Auth] Using redirect_uri:", redirectUri);
+      // Use request host for callback redirection
+      const host = req.headers.host || "repair-backend-3siud7gbq-el.a.run.app";
+      const protocol = req.headers['x-forwarded-proto'] || 'https';
+      const redirectUri = `${protocol}://${host}/api/auth/google/callback`;
+      console.log("[Google Auth] Using redirect_uri:", redirectUri);
 
       const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
         method: "POST",
