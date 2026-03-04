@@ -5265,6 +5265,17 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
         }
       }
 
+      // Notify all users that the teacher shared a photo
+      (async () => {
+        try {
+          await notifyAllUsers({
+            title: `📸 ${displayName} shared a photo!`,
+            body: sessionLink ? `Check the live chat — Join: ${sessionLink}` : `Check the Live Community chat now!`,
+            data: { type: 'live_chat_image', link: sessionLink || '', image: absoluteUrl },
+          });
+        } catch (e) { console.warn('[Push] Live session photo notify failed:', e); }
+      })();
+
       res.json({ success: true, url: absoluteUrl });
     } catch (error) {
       console.error("[Live Session Upload] Error:", error);
