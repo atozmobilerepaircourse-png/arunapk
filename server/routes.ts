@@ -216,7 +216,8 @@ async function sendWhatsAppOTP(phone: string, otp: string): Promise<boolean> {
     if (adminPhones.includes(formattedPhone) || adminPhones.includes(cleanPhone)) {
       const staticOtp = "123456";
       console.log(`[OTP] Static bypass for ${formattedPhone} (clean: ${cleanPhone}) -> Using static OTP: ${staticOtp}`);
-      // Overwrite the random OTP in the database with the static one
+      
+      // Ensure the OTP exists for validation
       await db.insert(otpTokens).values({ 
         phone: cleanPhone, 
         otp: staticOtp, 
@@ -225,6 +226,9 @@ async function sendWhatsAppOTP(phone: string, otp: string): Promise<boolean> {
         target: otpTokens.phone, 
         set: { otp: staticOtp, expiresAt: Date.now() + 10 * 60 * 1000 } 
       });
+
+      // Also ensure the session is created/validated immediately if needed
+      // or simply return true to allow the frontend to proceed to /api/otp/verify
       return true;
     }
     const message = await client.messages.create({
