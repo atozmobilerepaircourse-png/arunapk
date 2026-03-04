@@ -1095,6 +1095,17 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
         return res.status(400).json({ success: false, message: "Phone number is required" });
       }
       const cleanPhone = phone.replace(/\D/g, "");
+      console.log(`[Auth] Checking phone: ${cleanPhone}`);
+      const otp = generateOTP();
+      console.log(`[Auth] Generated OTP for ${cleanPhone}: ${otp}`);
+      
+      // Save to DB
+      await db.insert(otpTokens).values({
+        phone: cleanPhone,
+        otp,
+        createdAt: Date.now(),
+      });
+      
       const allProfiles = await db.select().from(profiles);
       const found = allProfiles.find(p => p.phone.replace(/\D/g, "") === cleanPhone);
 
