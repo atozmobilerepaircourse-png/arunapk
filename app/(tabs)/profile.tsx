@@ -7,7 +7,7 @@ import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import Colors from '@/constants/colors';
@@ -15,15 +15,86 @@ import { openLink } from '@/lib/open-link';
 import { useApp } from '@/lib/context';
 import { getApiUrl, apiRequest } from '@/lib/query-client';
 import { ROLE_LABELS, SKILLS_LIST, UserRole, ADMIN_PHONE } from '@/lib/types';
-import TrustBadge, { calculateTrustScore } from '@/components/TrustBadge';
-import ReviewCard from '@/components/ReviewCard';
+
+function parseSellPost(text: string): { title: string; price: string; condition: string; description: string } | null {
+  try {
+    const lines = text.split('\n');
+    const data: any = {};
+    for (const line of lines) {
+      if (line.startsWith('SELL_TITLE:')) data.title = line.replace('SELL_TITLE:', '').trim();
+      else if (line.startsWith('SELL_PRICE:')) data.price = line.replace('SELL_PRICE:', '').trim();
+      else if (line.startsWith('SELL_CONDITION:')) data.condition = line.replace('SELL_CONDITION:', '').trim();
+      else if (line.startsWith('SELL_DESC:')) data.description = line.replace('SELL_DESC:', '').trim();
+    }
+    if (data.title) return data;
+    return null;
+  } catch { return null; }
+}
+
+function formatSellText(title: string, price: string, condition: string, description: string): string {
+  return `SELL_TITLE:${title}\nSELL_PRICE:${price}\nSELL_CONDITION:${condition}\nSELL_DESC:${description}`;
+}
 
 function getImageUri(img: string): string {
   if (img.startsWith('/')) return `${getApiUrl()}${img}`;
   return img;
 }
 
+const CONDITIONS = ['Like New', 'Good', 'Fair', 'Used'];
+
 const C = Colors.light;
+
+type ListingItem = {
+  id: string;
+  title: string;
+  price: string;
+  condition: string;
+  description: string;
+  image?: string;
+  createdAt: number;
+};
+
+const ListingCard = React.memo(function ListingCard({
+  listing, onEdit, onDelete, isDeleting,
+}: {
+  listing: ListingItem;
+  onEdit: (listing: ListingItem) => void;
+  onDelete: (id: string) => void;
+  isDeleting: boolean;
+}) {
+  return (
+    <View style={styles.listingCard}>
+      <View style={styles.listingRow}>
+        {listing.image ? (
+          <Image source={{ uri: listing.image }} style={styles.listingThumb} contentFit="cover" cachePolicy="memory-disk" />
+        ) : (
+          <View style={[styles.listingThumb, styles.listingThumbPlaceholder]}>
+            <Ionicons name="image-outline" size={20} color={C.textTertiary} />
+          </View>
+        )}
+        <View style={styles.listingInfo}>
+          <Text style={styles.listingTitle} numberOfLines={1}>{listing.title}</Text>
+          <Text style={styles.listingPrice}>₹{listing.price}</Text>
+          {listing.condition ? (
+            <Text style={styles.listingCondition}>{listing.condition}</Text>
+          ) : null}
+        </View>
+        <View style={styles.listingActions}>
+          <Pressable style={styles.listingActionBtn} onPress={() => onEdit(listing)}>
+            <Ionicons name="create-outline" size={18} color="#5E8BFF" />
+          </Pressable>
+          <Pressable style={styles.listingActionBtn} onPress={() => onDelete(listing.id)} disabled={isDeleting}>
+            {isDeleting ? (
+              <ActivityIndicator size="small" color="#FF3B30" />
+            ) : (
+              <Ionicons name="trash-outline" size={18} color="#FF3B30" />
+            )}
+          </Pressable>
+        </View>
+      </View>
+    </View>
+  );
+});
 
 const ROLE_COLORS: Record<UserRole, string> = {
   technician: '#34C759',
@@ -48,6 +119,13 @@ export default function ProfileScreen() {
   const [editExperience, setEditExperience] = useState(profile?.experience || '');
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
+  const [editListingVisible, setEditListingVisible] = useState(false);
+  const [editListingId, setEditListingId] = useState<string | null>(null);
+  const [editListingTitle, setEditListingTitle] = useState('');
+  const [editListingPrice, setEditListingPrice] = useState('');
+  const [editListingCondition, setEditListingCondition] = useState('Like New');
+  const [editListingDesc, setEditListingDesc] = useState('');
+  const [editListingSaving, setEditListingSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [subStatus, setSubStatus] = useState<{ active: boolean; required: boolean; subscriptionEnd?: number; amount?: string; period?: string; commission?: string } | null>(null);
   const [updatingLocation, setUpdatingLocation] = useState(false);
@@ -55,26 +133,19 @@ export default function ProfileScreen() {
   const [showRolePicker, setShowRolePicker] = useState(false);
   const [changingRole, setChangingRole] = useState(false);
 
-  const [trustData, setTrustData] = useState<{ score: number; averageRating: number; totalReviews: number } | null>(null);
-  const [reviews, setReviews] = useState<any[]>([]);
-  const [showReviewModal, setShowReviewModal] = useState(false);
-  const [reviewRating, setReviewRating] = useState(5);
-  const [reviewComment, setReviewComment] = useState('');
-  const [submittingReview, setSubmittingReview] = useState(false);
-
   const handleChangeRole = async (newRole: string) => {
     if (!profile?.id || changingRole) return;
     try {
       setChangingRole(true);
       setShowRolePicker(false);
-      const res = await apiRequest('POST', '/api/profile/change-role', { userId: profile.id, newRole });
+      const res = await apiRequest('POST', '/api/admin/change-role', { userId: profile.id, newRole });
       const data = await res.json();
       if (data.success) {
         await setProfile({ ...profile, role: newRole as UserRole });
-        if (newRole === 'customer') {
-          router.replace('/(tabs)/customer-home');
+        if (Platform.OS === 'web') {
+          window.alert(`Role changed to ${ROLE_LABELS[newRole as UserRole] || newRole}`);
         } else {
-          router.replace('/(tabs)/index');
+          Alert.alert('Role Updated', `Your role has been changed to ${ROLE_LABELS[newRole as UserRole] || newRole}`);
         }
       } else {
         throw new Error(data.message || 'Failed to change role');
@@ -90,114 +161,90 @@ export default function ProfileScreen() {
     }
   };
 
-  const [profileData, setProfileData] = useState<any>(null);
-  const { id } = useLocalSearchParams();
-  const targetUserId = (id as string) || profile?.id;
-  const isMyProfile = !id || id === profile?.id;
-
   useEffect(() => {
-    if (!targetUserId) return;
-    if (isMyProfile) {
-      setProfileData(profile);
-    } else {
-      apiRequest('GET', `/api/profiles/${targetUserId}`)
-        .then(r => r.json())
-        .then(data => {
-          if (data.success) setProfileData(data.profile);
-        })
-        .catch(() => {});
-    }
-  }, [targetUserId, profile, isMyProfile]);
-
-  useEffect(() => {
-    if (!targetUserId) return;
-    apiRequest('GET', `/api/subscription/status/${targetUserId}`)
+    if (!profile?.id) return;
+    apiRequest('GET', `/api/subscription/status/${profile.id}`)
       .then(r => r.json())
       .then(data => { if (data.success) setSubStatus(data); })
       .catch(() => {});
-  }, [targetUserId]);
-
-  useEffect(() => {
-    if (!targetUserId) return;
-    Promise.all([
-      apiRequest('GET', `/api/trust-score/${targetUserId}`).then(r => r.json()),
-      apiRequest('GET', `/api/reviews/stats/${targetUserId}`).then(r => r.json())
-    ]).then(([trustData, statsData]) => {
-      const displayProfile = isMyProfile ? profile : profileData;
-      const score = calculateTrustScore(displayProfile, statsData.averageRating || 0, statsData.totalReviews || 0);
-      setTrustData({
-        score,
-        averageRating: statsData.averageRating || 0,
-        totalReviews: statsData.totalReviews || 0
-      });
-    }).catch(() => {});
-
-    apiRequest('GET', `/api/reviews/${targetUserId}`)
-      .then(r => r.json())
-      .then(data => {
-        if (Array.isArray(data)) setReviews(data);
-        else if (data.reviews) setReviews(data.reviews);
-      })
-      .catch(() => {});
-  }, [targetUserId, profile, profileData, isMyProfile]);
-
-  const getTrustBadge = (score: number) => {
-    if (score >= 80) return { label: 'Verified Expert', color: '#34C759' };
-    if (score >= 60) return { label: 'Pro', color: '#FF9500' };
-    if (score >= 40) return { label: 'Trusted', color: '#007AFF' };
-    return { label: 'New Member', color: '#999' };
-  };
-
-  const handleSubmitReview = async () => {
-    if (!profile?.id || submittingReview) return;
-    try {
-      setSubmittingReview(true);
-      await apiRequest('POST', '/api/reviews', {
-        reviewerId: profile.id,
-        reviewerName: profile.name,
-        reviewerAvatar: profile.avatar || '',
-        revieweeId: profile.id,
-        rating: reviewRating,
-        comment: reviewComment.trim(),
-        interactionType: 'service',
-      });
-      if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setShowReviewModal(false);
-      setReviewRating(5);
-      setReviewComment('');
-      apiRequest('GET', `/api/reviews/${profile.id}`)
-        .then(r => r.json())
-        .then(data => {
-          if (Array.isArray(data)) setReviews(data.slice(0, 5));
-          else if (data.reviews) setReviews(data.reviews.slice(0, 5));
-        })
-        .catch(() => {});
-      
-      Promise.all([
-        apiRequest('GET', `/api/trust-score/${profile.id}`).then(r => r.json()),
-        apiRequest('GET', `/api/reviews/stats/${profile.id}`).then(r => r.json())
-      ]).then(([trustData, statsData]) => {
-        const score = calculateTrustScore(profile, statsData.averageRating || 0, statsData.totalReviews || 0);
-        setTrustData({
-          score,
-          averageRating: statsData.averageRating || 0,
-          totalReviews: statsData.totalReviews || 0
-        });
-      }).catch(() => {});
-    } catch (e: any) {
-      if (Platform.OS === 'web') {
-        window.alert(e.message || 'Failed to submit review');
-      } else {
-        Alert.alert('Error', e.message || 'Failed to submit review');
-      }
-    } finally {
-      setSubmittingReview(false);
-    }
-  };
+  }, [profile?.id]);
 
   const myPosts = posts.filter(p => p.userId === profile?.id);
   const totalLikes = myPosts.reduce((sum, p) => sum + p.likes.length, 0);
 
+  const myListings = useMemo(() => {
+    return posts
+      .filter(p => p.userId === profile?.id && p.category === 'sell')
+      .map(p => {
+        const parsed = parseSellPost(p.text);
+        return {
+          id: p.id,
+          title: parsed?.title || 'Untitled',
+          price: parsed?.price || '0',
+          condition: parsed?.condition || '',
+          description: parsed?.description || '',
+          image: p.images && p.images.length > 0 ? getImageUri(p.images[0]) : undefined,
+          createdAt: p.createdAt,
+        };
+      });
+  }, [posts, profile?.id]);
+
+  const handleDeleteListing = async (postId: string) => {
+    const doDelete = async () => {
+      try {
+        setDeletingId(postId);
+        const baseUrl = getApiUrl();
+        await fetch(`${baseUrl}/api/posts/${postId}`, { method: 'DELETE' });
+        if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        await refreshData();
+      } catch (e) {
+        console.error('[Profile] Delete listing error:', e);
+        Alert.alert('Error', 'Could not delete listing. Please try again.');
+      } finally {
+        setDeletingId(null);
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      if (window.confirm('Are you sure you want to delete this listing?')) doDelete();
+    } else {
+      Alert.alert('Delete Listing', 'Are you sure you want to delete this listing?', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: doDelete },
+      ]);
+    }
+  };
+
+  const handleEditListing = (listing: typeof myListings[0]) => {
+    setEditListingId(listing.id);
+    setEditListingTitle(listing.title);
+    setEditListingPrice(listing.price);
+    setEditListingCondition(listing.condition || 'Like New');
+    setEditListingDesc(listing.description);
+    setEditListingVisible(true);
+  };
+
+  const handleSaveListing = async () => {
+    if (!editListingId || !editListingTitle.trim()) return;
+    try {
+      setEditListingSaving(true);
+      const baseUrl = getApiUrl();
+      const newText = formatSellText(editListingTitle.trim(), editListingPrice.trim(), editListingCondition, editListingDesc.trim());
+      await fetch(`${baseUrl}/api/posts/${editListingId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: newText }),
+      });
+      if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setEditListingVisible(false);
+      await refreshData();
+    } catch (e) {
+      console.error('[Profile] Update listing error:', e);
+      Alert.alert('Error', 'Could not update listing. Please try again.');
+    } finally {
+      setEditListingSaving(false);
+    }
+  };
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
   const handleChangeAvatar = async () => {
@@ -385,12 +432,7 @@ export default function ProfileScreen() {
               placeholderTextColor={C.textTertiary}
             />
           ) : (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Text style={styles.profileName}>{profile.name}</Text>
-              {trustData && trustData.score > 0 && (
-                <TrustBadge score={trustData.score} size="small" />
-              )}
-            </View>
+            <Text style={styles.profileName}>{profile.name}</Text>
           )}
           <View style={[styles.roleBadge, { backgroundColor: roleColor + '20' }]}>
             <Text style={[styles.roleBadgeText, { color: roleColor }]}>
@@ -551,138 +593,6 @@ export default function ProfileScreen() {
         )}
 
         <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Trust & Reviews</Text>
-            {!isMyProfile && (
-              <Pressable 
-                style={styles.addReviewBtn}
-                onPress={() => setShowReviewModal(true)}
-              >
-                <Ionicons name="star-outline" size={16} color={C.primary} />
-                <Text style={styles.addReviewText}>Rate User</Text>
-              </Pressable>
-            )}
-          </View>
-          {trustData && (
-            <View style={trustStyles.trustHeader}>
-              <TrustBadge score={trustData.score} size="large" showScore />
-            </View>
-          )}
-          <View style={trustStyles.ratingRow}>
-            <View style={trustStyles.starsRow}>
-              {[1, 2, 3, 4, 5].map(s => (
-                <Ionicons
-                  key={s}
-                  name={s <= Math.round(trustData?.averageRating || 0) ? 'star' : 'star-outline'}
-                  size={18}
-                  color="#FFD60A"
-                />
-              ))}
-            </View>
-            <Text style={trustStyles.ratingText}>
-              {(trustData?.averageRating || 0).toFixed(1)} ({trustData?.totalReviews || 0} reviews)
-            </Text>
-          </View>
-          {reviews.length > 0 && (
-            <View style={styles.reviewsList}>
-              {reviews.map((review) => (
-                <ReviewCard
-                  key={review.id}
-                  reviewerName={review.reviewerName}
-                  reviewerAvatar={review.reviewerAvatar}
-                  rating={review.rating}
-                  comment={review.comment}
-                  createdAt={review.createdAt}
-                />
-              ))}
-            </View>
-          )}
-          {reviews.length === 0 && (
-            <Text style={trustStyles.noReviews}>No reviews yet</Text>
-          )}
-        </View>
-
-        <Modal visible={showReviewModal} animationType="slide" transparent>
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Rate {profileData?.name}</Text>
-                <Pressable onPress={() => setShowReviewModal(false)}>
-                  <Ionicons name="close" size={24} color={C.text} />
-                </Pressable>
-              </View>
-              <View style={styles.ratingPicker}>
-                {[1, 2, 3, 4, 5].map(s => (
-                  <Pressable key={s} onPress={() => setReviewRating(s)}>
-                    <Ionicons
-                      name={s <= reviewRating ? 'star' : 'star-outline'}
-                      size={40}
-                      color="#FFD60A"
-                      style={{ marginHorizontal: 4 }}
-                    />
-                  </Pressable>
-                ))}
-              </View>
-              <TextInput
-                style={[styles.modalInput, { minHeight: 100, textAlignVertical: 'top' }]}
-                value={reviewComment}
-                onChangeText={setReviewComment}
-                placeholder="Write your review (optional)..."
-                placeholderTextColor={C.textTertiary}
-                multiline
-              />
-              <Pressable
-                style={[styles.saveBtn, submittingReview && { opacity: 0.6 }]}
-                onPress={async () => {
-                  if (!profile?.id || submittingReview) return;
-                  try {
-                    setSubmittingReview(true);
-                    const res = await apiRequest('POST', '/api/reviews', {
-                      reviewerId: profile.id,
-                      reviewerName: profile.name,
-                      reviewerAvatar: profile.avatar || '',
-                      revieweeId: targetUserId,
-                      rating: reviewRating,
-                      comment: reviewComment.trim(),
-                      interactionType: 'service',
-                    });
-                    const data = await res.json();
-                    if (!data.success) throw new Error(data.message || 'Failed to submit review');
-
-                    if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                    setShowReviewModal(false);
-                    setReviewRating(5);
-                    setReviewComment('');
-                    
-                    // Refresh reviews and trust data
-                    const reviewsRes = await apiRequest('GET', `/api/reviews/${targetUserId}`);
-                    const reviewsData = await reviewsRes.json();
-                    if (Array.isArray(reviewsData)) setReviews(reviewsData);
-                    else if (reviewsData.reviews) setReviews(reviewsData.reviews);
-
-                    const trustRes = await apiRequest('GET', `/api/trust-score/${targetUserId}`);
-                    const trustData = await trustRes.json();
-                    setTrustData(trustData);
-
-                  } catch (e: any) {
-                    Alert.alert('Error', e.message || 'Failed to submit review');
-                  } finally {
-                    setSubmittingReview(false);
-                  }
-                }}
-                disabled={submittingReview}
-              >
-                {submittingReview ? (
-                  <ActivityIndicator size="small" color="#FFF" />
-                ) : (
-                  <Text style={styles.saveBtnText}>Submit Review</Text>
-                )}
-              </Pressable>
-            </View>
-          </View>
-        </Modal>
-
-        <View style={styles.section}>
           <Text style={styles.sectionTitle}>Settings</Text>
           <Pressable 
             style={styles.supportRow} 
@@ -731,6 +641,91 @@ export default function ProfileScreen() {
             <Text style={styles.cancelText}>Cancel editing</Text>
           </Pressable>
         )}
+
+        {myListings.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>My Listings ({myListings.length})</Text>
+            {myListings.map((listing) => (
+              <ListingCard
+                key={listing.id}
+                listing={listing}
+                onEdit={handleEditListing}
+                onDelete={handleDeleteListing}
+                isDeleting={deletingId === listing.id}
+              />
+            ))}
+          </View>
+        )}
+
+        <Modal visible={editListingVisible} animationType="slide" transparent>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Edit Listing</Text>
+                <Pressable onPress={() => setEditListingVisible(false)}>
+                  <Ionicons name="close" size={24} color={C.text} />
+                </Pressable>
+              </View>
+              <ScrollView showsVerticalScrollIndicator={false} style={styles.modalScroll}>
+                <Text style={styles.fieldLabel}>Title</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  value={editListingTitle}
+                  onChangeText={setEditListingTitle}
+                  placeholder="Item name"
+                  placeholderTextColor={C.textTertiary}
+                />
+                <Text style={styles.fieldLabel}>Price (₹)</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  value={editListingPrice}
+                  onChangeText={setEditListingPrice}
+                  placeholder="Price"
+                  placeholderTextColor={C.textTertiary}
+                  keyboardType="numeric"
+                />
+                <Text style={styles.fieldLabel}>Condition</Text>
+                <View style={styles.conditionRow}>
+                  {CONDITIONS.map(c => (
+                    <Pressable
+                      key={c}
+                      style={[
+                        styles.conditionChip,
+                        editListingCondition === c && styles.conditionChipActive,
+                      ]}
+                      onPress={() => setEditListingCondition(c)}
+                    >
+                      <Text style={[
+                        styles.conditionChipText,
+                        editListingCondition === c && styles.conditionChipTextActive,
+                      ]}>{c}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+                <Text style={styles.fieldLabel}>Description</Text>
+                <TextInput
+                  style={[styles.modalInput, { minHeight: 80, textAlignVertical: 'top' }]}
+                  value={editListingDesc}
+                  onChangeText={setEditListingDesc}
+                  placeholder="Describe the item"
+                  placeholderTextColor={C.textTertiary}
+                  multiline
+                />
+              </ScrollView>
+              <Pressable
+                style={[styles.saveBtn, editListingSaving && { opacity: 0.6 }]}
+                onPress={handleSaveListing}
+                disabled={editListingSaving}
+              >
+                {editListingSaving ? (
+                  <ActivityIndicator size="small" color="#FFF" />
+                ) : (
+                  <Text style={styles.saveBtnText}>Save Changes</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </Modal>
 
         {subStatus && (
           <View style={[styles.section, { marginBottom: 12 }]}>
@@ -816,27 +811,6 @@ export default function ProfileScreen() {
             </>
           )}
           <View style={styles.settingsDivider} />
-          <Pressable
-            style={styles.settingsRow}
-            onPress={() => setShowRolePicker(true)}
-            disabled={changingRole}
-          >
-            <View style={styles.settingsRowLeft}>
-              <View style={[styles.settingsIcon, { backgroundColor: '#AF52DE20' }]}>
-                <Ionicons name="swap-horizontal-outline" size={20} color="#AF52DE" />
-              </View>
-              <View>
-                <Text style={styles.settingsRowText}>
-                  {changingRole ? 'Changing Role...' : 'Switch Role'}
-                </Text>
-                <Text style={{ fontSize: 12, color: C.textTertiary, marginTop: 1 }}>
-                  Current: {ROLE_LABELS[profile.role as UserRole] || profile.role}
-                </Text>
-              </View>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={C.textTertiary} />
-          </Pressable>
-          <View style={styles.settingsDivider} />
           {profile?.phone?.replace(/\D/g, '') === ADMIN_PHONE && (
             <>
               <Pressable
@@ -848,6 +822,27 @@ export default function ProfileScreen() {
                     <Ionicons name="shield-checkmark-outline" size={20} color="#5E8BFF" />
                   </View>
                   <Text style={styles.settingsRowText}>Admin Panel</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={C.textTertiary} />
+              </Pressable>
+              <View style={styles.settingsDivider} />
+              <Pressable
+                style={styles.settingsRow}
+                onPress={() => setShowRolePicker(true)}
+                disabled={changingRole}
+              >
+                <View style={styles.settingsRowLeft}>
+                  <View style={[styles.settingsIcon, { backgroundColor: '#AF52DE20' }]}>
+                    <Ionicons name="swap-horizontal-outline" size={20} color="#AF52DE" />
+                  </View>
+                  <View>
+                    <Text style={styles.settingsRowText}>
+                      {changingRole ? 'Changing Role...' : 'Switch Role'}
+                    </Text>
+                    <Text style={{ fontSize: 12, color: C.textTertiary, marginTop: 1 }}>
+                      Current: {ROLE_LABELS[profile.role as UserRole] || profile.role}
+                    </Text>
+                  </View>
                 </View>
                 <Ionicons name="chevron-forward" size={18} color={C.textTertiary} />
               </Pressable>
@@ -893,52 +888,6 @@ export default function ProfileScreen() {
           </Pressable>
         </View>
       </ScrollView>
-
-      <Modal visible={showReviewModal} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Leave a Review</Text>
-              <Pressable onPress={() => setShowReviewModal(false)}>
-                <Ionicons name="close" size={24} color={C.text} />
-              </Pressable>
-            </View>
-            <Text style={styles.fieldLabel}>Rating</Text>
-            <View style={trustStyles.starSelector}>
-              {[1, 2, 3, 4, 5].map(s => (
-                <Pressable key={s} onPress={() => setReviewRating(s)}>
-                  <Ionicons
-                    name={s <= reviewRating ? 'star' : 'star-outline'}
-                    size={32}
-                    color="#FFD60A"
-                  />
-                </Pressable>
-              ))}
-            </View>
-            <Text style={styles.fieldLabel}>Comment (optional)</Text>
-            <TextInput
-              style={[styles.modalInput, { minHeight: 80, textAlignVertical: 'top' as const }]}
-              value={reviewComment}
-              onChangeText={setReviewComment}
-              placeholder="Share your experience..."
-              placeholderTextColor={C.textTertiary}
-              multiline
-              maxLength={500}
-            />
-            <Pressable
-              style={[styles.saveBtn, submittingReview && { opacity: 0.6 }]}
-              onPress={handleSubmitReview}
-              disabled={submittingReview}
-            >
-              {submittingReview ? (
-                <ActivityIndicator size="small" color="#FFF" />
-              ) : (
-                <Text style={styles.saveBtnText}>Submit Review</Text>
-              )}
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
 
       {/* Role Picker Modal */}
       <Modal
@@ -1376,120 +1325,6 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 16,
     fontFamily: 'Inter_700Bold',
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  addReviewBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    backgroundColor: C.primary + '10',
-  },
-  addReviewText: {
-    fontSize: 13,
-    fontFamily: 'Inter_600SemiBold',
-    color: C.primary,
-  },
-  ratingPicker: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    paddingVertical: 20,
-  },
-  reviewsList: {
-    gap: 12,
-  },
-});
-
-const trustStyles = StyleSheet.create({
-  trustHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  trustBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-  },
-  trustBadgeText: {
-    fontSize: 13,
-    fontFamily: 'Inter_600SemiBold',
-  },
-  trustScore: {
-    fontSize: 14,
-    fontFamily: 'Inter_700Bold',
-    color: C.textSecondary,
-  },
-  ratingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 12,
-  },
-  starsRow: {
-    flexDirection: 'row',
-    gap: 2,
-  },
-  ratingText: {
-    fontSize: 13,
-    fontFamily: 'Inter_400Regular',
-    color: C.textSecondary,
-  },
-  reviewsList: {
-    marginTop: 8,
-    gap: 10,
-  },
-  reviewItem: {
-    borderTopWidth: 1,
-    borderTopColor: C.borderLight,
-    paddingTop: 10,
-  },
-  reviewHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  reviewerName: {
-    fontSize: 14,
-    fontFamily: 'Inter_600SemiBold',
-    color: C.text,
-  },
-  reviewComment: {
-    fontSize: 13,
-    fontFamily: 'Inter_400Regular',
-    color: C.textSecondary,
-    lineHeight: 18,
-    marginBottom: 4,
-  },
-  reviewDate: {
-    fontSize: 11,
-    fontFamily: 'Inter_400Regular',
-    color: C.textTertiary,
-  },
-  noReviews: {
-    fontSize: 13,
-    fontFamily: 'Inter_400Regular',
-    color: C.textTertiary,
-    textAlign: 'center',
-    paddingVertical: 8,
-  },
-  starSelector: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 12,
   },
 });
 

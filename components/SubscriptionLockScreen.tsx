@@ -27,7 +27,6 @@ export default function SubscriptionLockScreen({ children }: { children: React.R
   const [status, setStatus] = useState<SubStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(false);
-  const [supportInfo, setSupportInfo] = useState<{ supportNumber: string; whatsappLink: string } | null>(null);
 
   const checkStatus = useCallback(async () => {
     if (!profile?.id) return;
@@ -49,18 +48,6 @@ export default function SubscriptionLockScreen({ children }: { children: React.R
     const interval = setInterval(checkStatus, 30000);
     return () => clearInterval(interval);
   }, [checkStatus]);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await apiRequest('GET', '/api/support-info');
-        const data = await res.json();
-        setSupportInfo(data);
-      } catch (e) {
-        setSupportInfo({ supportNumber: '+918179142535', whatsappLink: 'https://wa.me/918179142535' });
-      }
-    })();
-  }, []);
 
   const handlePay = async () => {
     if (!profile?.id) return;
@@ -104,66 +91,9 @@ export default function SubscriptionLockScreen({ children }: { children: React.R
     return <>{children}</>;
   }
 
-  const roleLabel = status.role === 'technician' ? 'Technician' : status.role === 'supplier' ? 'Supplier' : status.role === 'teacher' ? 'Teacher' : status.role === 'customer' ? 'Customer' : status.role || '';
+  const roleLabel = status.role === 'technician' ? 'Technician' : status.role === 'supplier' ? 'Supplier' : status.role === 'teacher' ? 'Teacher' : status.role || '';
   const amount = String(parseInt(status.amount || '0', 10) || 0);
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
-
-  // For customers, we show a contact-based popup instead of Razorpay
-  if (status.role === 'customer') {
-    return (
-      <View style={styles.overlay}>
-        <View style={[styles.darkOverlay, { paddingTop: (Platform.OS === 'web' ? webTopInset : insets.top) + 40 }]}>
-          <View style={styles.lockIconContainer}>
-            <View style={styles.lockCircle}>
-              <Ionicons name="lock-closed" size={48} color="#FF6B35" />
-            </View>
-          </View>
-
-          <Text style={styles.lockTitle}>Access Restricted</Text>
-          <Text style={styles.lockSubtitle}>
-            Your customer account is currently inactive. Please contact admin to activate your subscription and access all features.
-          </Text>
-
-          <View style={styles.planCard}>
-            <View style={styles.planHeader}>
-              <Ionicons name="shield-checkmark" size={24} color="#34C759" />
-              <Text style={styles.planName}>Customer Benefits</Text>
-            </View>
-
-            <View style={styles.featuresList}>
-              <FeatureItem text="Find & contact expert technicians" />
-              <FeatureItem text="Request repair services & get quotes" />
-              <FeatureItem text="Track your repair history" />
-              <FeatureItem text="Access exclusive mobile insurance" />
-            </View>
-          </View>
-
-          <View style={styles.contactCard}>
-            <Text style={styles.contactTitle}>Contact Admin to Activate</Text>
-            <Pressable
-              style={styles.contactRow}
-              onPress={() => Linking.openURL(`tel:${supportInfo?.supportNumber || '8179142535'}`)}
-            >
-              <Ionicons name="call" size={18} color="#34C759" />
-              <Text style={styles.contactText}>{supportInfo?.supportNumber || '8179142535'}</Text>
-            </Pressable>
-            <Pressable
-              style={styles.contactRow}
-              onPress={() => Linking.openURL(supportInfo?.whatsappLink || 'https://wa.me/918179142535')}
-            >
-              <Ionicons name="logo-whatsapp" size={18} color="#25D366" />
-              <Text style={styles.contactText}>Message on WhatsApp</Text>
-            </Pressable>
-          </View>
-
-          <Pressable onPress={checkStatus} style={[styles.refreshLink, { marginTop: 24 }]}>
-            <Ionicons name="refresh" size={16} color={C.textSecondary} />
-            <Text style={styles.refreshText}>Already activated? Tap to refresh</Text>
-          </Pressable>
-        </View>
-      </View>
-    );
-  }
 
   return (
     <View style={styles.overlay}>
@@ -199,8 +129,6 @@ export default function SubscriptionLockScreen({ children }: { children: React.R
             {status.role === 'supplier' && <FeatureItem text="List products in shop" />}
             {status.role === 'technician' && <FeatureItem text="Get job notifications" />}
             {status.role === 'teacher' && <FeatureItem text="Publish courses & earn revenue" />}
-            {status.role === 'customer' && <FeatureItem text="Find & contact technicians" />}
-            {status.role === 'customer' && <FeatureItem text="Request repair services" />}
           </View>
         </View>
 
@@ -227,26 +155,6 @@ export default function SubscriptionLockScreen({ children }: { children: React.R
           <Ionicons name="refresh" size={16} color={C.textSecondary} />
           <Text style={styles.refreshText}>Already paid? Tap to refresh</Text>
         </Pressable>
-
-        {supportInfo && (
-          <View style={styles.contactCard}>
-            <Text style={styles.contactTitle}>Need Help?</Text>
-            <Pressable
-              style={styles.contactRow}
-              onPress={() => Linking.openURL(`tel:${supportInfo.supportNumber}`)}
-            >
-              <Ionicons name="call" size={18} color="#34C759" />
-              <Text style={styles.contactText}>{supportInfo.supportNumber}</Text>
-            </Pressable>
-            <Pressable
-              style={styles.contactRow}
-              onPress={() => Linking.openURL(supportInfo.whatsappLink)}
-            >
-              <Ionicons name="logo-whatsapp" size={18} color="#25D366" />
-              <Text style={styles.contactText}>Contact on WhatsApp</Text>
-            </Pressable>
-          </View>
-        )}
       </View>
     </View>
   );
@@ -397,36 +305,5 @@ const styles = StyleSheet.create({
   refreshText: {
     fontSize: 13,
     color: C.textSecondary,
-  },
-  contactCard: {
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderRadius: 14,
-    padding: 16,
-    width: '100%',
-    maxWidth: 360,
-    marginTop: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-  },
-  contactTitle: {
-    fontSize: 15,
-    fontWeight: '700' as const,
-    color: '#FFF',
-    marginBottom: 12,
-    textAlign: 'center' as const,
-  },
-  contactRow: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderRadius: 10,
-    marginBottom: 8,
-  },
-  contactText: {
-    fontSize: 14,
-    color: '#D1D1D6',
   },
 });

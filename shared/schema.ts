@@ -405,86 +405,6 @@ export const emailCampaigns = pgTable("email_campaigns", {
   createdAt: bigint("created_at", { mode: "number" }).notNull().default(sql`EXTRACT(EPOCH FROM NOW()) * 1000`),
 });
 
-export const reviews = pgTable("reviews", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  reviewerId: text("reviewer_id").notNull(),
-  reviewerName: text("reviewer_name").notNull().default(""),
-  reviewerAvatar: text("reviewer_avatar").default(""),
-  revieweeId: text("reviewee_id").notNull(),
-  rating: integer("rating").notNull().default(5),
-  comment: text("comment").default(""),
-  interactionType: text("type").notNull().default("service"),
-  interactionId: text("reference_id").default(""),
-  createdAt: bigint("created_at", { mode: "number" }).notNull().default(sql`EXTRACT(EPOCH FROM NOW()) * 1000`),
-});
-
-export const serviceRequests = pgTable("service_requests", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  customerId: text("customer_id").notNull(),
-  customerName: text("customer_name").notNull().default(""),
-  customerPhone: text("customer_phone").default(""),
-  customerAvatar: text("customer_avatar").default(""),
-  title: text("title").notNull(),
-  description: text("description").notNull().default(""),
-  category: text("category").notNull().default("repair"),
-  city: text("city").notNull().default(""),
-  state: text("state").notNull().default(""),
-  latitude: text("latitude").default(""),
-  longitude: text("longitude").default(""),
-  status: text("status").notNull().default("open"),
-  responses: text("responses").notNull().default("[]"),
-  createdAt: bigint("created_at", { mode: "number" }).notNull().default(sql`EXTRACT(EPOCH FROM NOW()) * 1000`),
-});
-
-export const diagnostics = pgTable("diagnostics", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: text("user_id").notNull(),
-  userName: text("user_name").notNull().default(""),
-  deviceModel: text("device_model").default(""),
-  platform: text("platform").default(""),
-  batteryLevel: text("battery_level").default(""),
-  batteryHealth: text("battery_health").default("good"),
-  storageUsed: text("storage_used").default(""),
-  storageTotal: text("storage_total").default(""),
-  networkType: text("network_type").default(""),
-  networkStrength: text("network_strength").default("good"),
-  temperature: text("temperature").default("normal"),
-  sensorsStatus: text("sensors_status").default("good"),
-  overallScore: integer("overall_score").default(100),
-  issues: text("issues").notNull().default("[]"),
-  aiSuggestions: text("ai_suggestions").notNull().default("[]"),
-  createdAt: bigint("created_at", { mode: "number" }).notNull().default(sql`EXTRACT(EPOCH FROM NOW()) * 1000`),
-});
-
-export const insurancePlans = pgTable("insurance_plans", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  name: text("name").notNull(),
-  price: integer("price").notNull().default(30),
-  repairDiscount: integer("repair_discount").notNull().default(500),
-  coverage: text("coverage").notNull().default("[]"),
-  isActive: integer("is_active").notNull().default(1),
-  sortOrder: integer("sort_order").notNull().default(0),
-  createdAt: bigint("created_at", { mode: "number" }).notNull().default(sql`EXTRACT(EPOCH FROM NOW()) * 1000`),
-});
-
-export const insurancePolicies = pgTable("insurance_policies", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: text("user_id").notNull(),
-  userName: text("user_name").notNull().default(""),
-  userPhone: text("user_phone").default(""),
-  planId: text("plan_id").notNull(),
-  planName: text("plan_name").notNull().default(""),
-  planPrice: integer("plan_price").notNull().default(0),
-  status: text("status").notNull().default("active"),
-  startDate: bigint("start_date", { mode: "number" }).notNull().default(sql`EXTRACT(EPOCH FROM NOW()) * 1000`),
-  endDate: bigint("end_date", { mode: "number" }).notNull().default(0),
-  claimStatus: text("claim_status").default("none"),
-  claimDescription: text("claim_description").default(""),
-  claimPhoto: text("claim_photo").default(""),
-  claimSubmittedAt: bigint("claim_submitted_at", { mode: "number" }).default(0),
-  createdAt: bigint("created_at", { mode: "number" }).notNull().default(sql`EXTRACT(EPOCH FROM NOW()) * 1000`),
-});
-
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
@@ -517,8 +437,3 @@ export type DbVideoProgress = typeof videoProgress.$inferSelect;
 export type DbLivePoll = typeof livePolls.$inferSelect;
 export type DbLivePollVote = typeof livePollVotes.$inferSelect;
 export type DbEmailCampaign = typeof emailCampaigns.$inferSelect;
-export type DbReview = typeof reviews.$inferSelect;
-export type DbServiceRequest = typeof serviceRequests.$inferSelect;
-export type DbInsurancePlan = typeof insurancePlans.$inferSelect;
-export type DbInsurancePolicy = typeof insurancePolicies.$inferSelect;
-export type DbDiagnostic = typeof diagnostics.$inferSelect;

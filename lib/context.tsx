@@ -15,7 +15,6 @@ interface AppContextValue {
   conversations: Conversation[];
   allProfiles: UserProfile[];
   isLoading: boolean;
-  dataError: string | null;
   isOnboarded: boolean;
   setProfile: (profile: UserProfile) => Promise<void>;
   completeOnboarding: (profile: UserProfile, sessionToken: string) => Promise<void>;
@@ -204,7 +203,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [allProfiles, setAllProfiles] = useState<UserProfile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [dataError, setDataError] = useState<string | null>(null);
   const [isOnboarded, setIsOnboarded] = useState(false);
   const [liveChatUnread, setLiveChatUnread] = useState(0);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -358,24 +356,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   const refreshData = useCallback(async () => {
-    setDataError(null);
-    try {
-      const [serverPosts, serverJobs, serverProfiles] = await Promise.all([
-        fetchPostsFromServer(),
-        fetchJobsFromServer(),
-        fetchProfilesFromServer(),
-      ]);
-      setPosts(serverPosts);
-      setJobs(serverJobs);
-      setAllProfiles(serverProfiles);
+    const [serverPosts, serverJobs, serverProfiles] = await Promise.all([
+      fetchPostsFromServer(),
+      fetchJobsFromServer(),
+      fetchProfilesFromServer(),
+    ]);
+    setPosts(serverPosts);
+    setJobs(serverJobs);
+    setAllProfiles(serverProfiles);
 
-      if (profile) {
-        const serverConvos = await fetchConversationsFromServer(profile.id);
-        setConversations(serverConvos);
-      }
-    } catch (e: any) {
-      console.warn('[Context] refreshData error:', e);
-      setDataError('Could not load data. Check your connection and pull to refresh.');
+    if (profile) {
+      const serverConvos = await fetchConversationsFromServer(profile.id);
+      setConversations(serverConvos);
     }
   }, [profile]);
 
@@ -719,7 +711,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     updatePost: updatePostCb,
     addJob,
     deleteJob: deleteJobCb,
-    dataError,
     refreshData,
     startConversation,
     sendMessage,
@@ -732,7 +723,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     loadMessages,
     pollMessages,
     setActiveChatId,
-  }), [profile, posts, jobs, conversations, allProfiles, isLoading, dataError, isOnboarded, setProfile, completeOnboarding, loginWithProfile, addPost, toggleLike, addComment, deletePostCb, updatePostCb, addJob, deleteJobCb, refreshData, startConversation, sendMessage, deleteConversationCb, logout, totalUnread, liveChatUnread, resetLiveChatUnread, setLiveChatActive, loadMessages, pollMessages, setActiveChatId]);
+  }), [profile, posts, jobs, conversations, allProfiles, isLoading, isOnboarded, setProfile, completeOnboarding, loginWithProfile, addPost, toggleLike, addComment, deletePostCb, updatePostCb, addJob, deleteJobCb, refreshData, startConversation, sendMessage, deleteConversationCb, logout, totalUnread, liveChatUnread, resetLiveChatUnread, setLiveChatActive, loadMessages, pollMessages, setActiveChatId]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }

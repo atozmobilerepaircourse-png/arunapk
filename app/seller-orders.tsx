@@ -219,7 +219,7 @@ export default function SellerOrdersScreen() {
         <View style={styles.actionRow}>
           <Pressable style={styles.chatBuyerBtn} onPress={() => contactBuyer(item)}>
             <Ionicons name="chatbubble-outline" size={16} color={C.primary} />
-            <Text style={styles.chatBuyerText}>Live Chat</Text>
+            <Text style={styles.chatBuyerText}>Chat</Text>
           </Pressable>
           {isActionable && (
             <Pressable style={styles.updateBtn} onPress={() => showStatusAction(item)}>

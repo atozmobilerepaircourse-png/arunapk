@@ -19,7 +19,7 @@ import { router } from 'expo-router';
 import { useApp } from '@/lib/context';
 import { apiRequest, getApiUrl } from '@/lib/query-client';
 import { openLink } from '@/lib/open-link';
-import ErrorState from '@/components/ErrorState';
+import BuySellScreen from '@/app/buy-sell';
 
 const { width } = Dimensions.get('window');
 const ORANGE = '#FF6B2C';
@@ -88,7 +88,7 @@ function getInitials(name: string): string {
   return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
 }
 
-type TabKey = 'courses' | 'spare' | 'suppliers' | 'ads' | 'live';
+type TabKey = 'courses' | 'spare' | 'suppliers' | 'buysell' | 'ads' | 'live';
 
 interface LiveSession {
   id: string;
@@ -114,7 +114,229 @@ export default function MarketplaceScreen() {
   const topPad = (Platform.OS === 'web' ? webTopInset : insets.top) + 12;
   const webBottomInset = Platform.OS === 'web' ? 84 : 0;
 
-  const [activeTab, setActiveTab] = useState<TabKey>('spare');
+  const [activeTab, setActiveTab] = useState<TabKey>('live');
+  const [search, setSearch] = useState('');
+  const [teachFilter, setTeachFilter] = useState('All');
+  const [sellFilter, setSellFilter] = useState('All');
+
+  const [profiles, setProfiles] = useState<ProfileData[]>([]);
+  const [courses, setCourses] = useState<CourseData[]>([]);
+  const [products, setProducts] = useState<ProductData[]>([]);
+  const [adsList, setAdsList] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [liveSessions, setLiveSessions] = useState<LiveSession[]>([]);
+  const [liveLoading, setLiveLoading] = useState(false);
+  const [liveUrl, setLiveUrl] = useState('');
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (liveUrl) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1.2,
+            duration: 500,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 500,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    } else {
+      pulseAnim.setValue(1);
+    }
+  }, [liveUrl]);
+
+  const fetchLiveUrl = useCallback(async () => {
+    try {
+      const res = await apiRequest('GET', '/api/app-settings/live_url');
+      const data = await res.json();
+      if (data.value) setLiveUrl(data.value);
+      else setLiveUrl('');
+    } catch (e) {
+      setLiveUrl('');
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchLiveUrl();
+  }, [fetchLiveUrl]);
+
+  interface RecommendedCourse {
+    id: string;
+    title: string;
+    price: string;
+    coverImage?: string;
+    teacherName: string;
+    totalVideos?: number;
+    reason: string;
+  }
+  const [recommendations, setRecommendations] = useState<RecommendedCourse[]>([]);
+  const [recsLoading, setRecsLoading] = useState(false);
+  const shimmerAnim = useRef(new Animated.Value(0)).current;
+
+  const fetchLiveSessions = useCallback(async () => {
+    setLiveLoading(true);
+    try {
+      const res = await apiRequest('GET', '/api/teacher/live-sessions');
+      const data = await res.json();
+      if (data.sessions) setLiveSessions(data.sessions);
+    } catch (e) {
+      console.warn('[Live] Fetch error:', e);
+    } finally {
+      setLiveLoading(false);
+    }
+  }, []);
+
+  const fetchRecommendations = useCallback(async () => {
+    if (!profile?.id) return;
+    setRecsLoading(true);
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(shimmerAnim, { toValue: 1, duration: 900, useNativeDriver: false }),
+        Animated.timing(shimmerAnim, { toValue: 0, duration: 900, useNativeDriver: false }),
+      ])
+    ).start();
+    try {
+      const res = await apiRequest('GET', `/api/courses/personalized-recommendations?userId=${profile.id}`);
+      const data = await res.json();
+      if (data.recommendations) setRecommendations(data.recommendations);
+    } catch (e) {
+      console.warn('[Recommendations] fetch error:', e);
+    } finally {
+      setRecsLoading(false);
+      shimmerAnim.stopAnimation();
+    }
+  }, [profile?.id, shimmerAnim]);
+
+  const fetchAll = useCallback(async () => {
+    try {
+      const [profRes, courseRes, prodRes, adsRes] = await Promise.all([
+        apiRequest('GET', '/api/profiles'),
+        apiRequest('GET', '/api/courses'),
+        apiRequest('GET', '/api/products'),
+        apiRequest('GET', '/api/ads/active').catch(() => null),
+      ]);
+      const [profData, courseData, prodData] = await Promise.all([
+        profRes.json(),
+        courseRes.json(),
+        prodRes.json(),
+      ]);
+      if (Array.isArray(profData)) setProfiles(profData);
+      if (Array.isArray(courseData)) setCourses(courseData);
+      if (Array.isArray(prodData)) setProducts(prodData);
+      if (adsRes) {
+        const adsData = await adsRes.json();
+        if (Array.isArray(adsData)) setAdsList(adsData);
+      }
+    } catch (e) {
+      console.warn('[Shop] fetch error:', e);
+    }
+  }, []);
+
+  useEffect(() => {
+    setLoading(true);
+    fetchAll().finally(() => setLoading(false));
+  }, [fetchAll]);
+
+  useEffect(() => {
+    if (activeTab === 'courses' && profile?.id && recommendations.length === 0) {
+      fetchRecommendations();
+    }
+    if (activeTab === 'live') {
+      fetchLiveSessions();
+    }
+  }, [activeTab, profile?.id]);
+
+  // Auto-refresh live sessions every 10s when on the live tab so shared photos appear
+  useEffect(() => {
+    if (activeTab !== 'live') return;
+    const liveRefreshInterval = setInterval(fetchLiveSessions, 10000);
+    return () => clearInterval(liveRefreshInterval);
+  }, [activeTab, fetchLiveSessions]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchAll();
+    setRefreshing(false);
+  }, [fetchAll]);
+
+  const courseCounts = useMemo(() => {
+    const map: Record<string, number> = {};
+    courses.forEach(c => {
+      map[c.teacherId] = (map[c.teacherId] || 0) + 1;
+    });
+    return map;
+  }, [courses]);
+
+  const productCounts = useMemo(() => {
+    const map: Record<string, number> = {};
+    products.forEach(p => {
+      map[p.userId] = (map[p.userId] || 0) + 1;
+    });
+    return map;
+  }, [products]);
+
+  const suppliers = useMemo(() => {
+    const q = search.toLowerCase().trim();
+    return profiles
+      .filter(p => p.role === 'supplier')
+      .filter(p => {
+        if (q) {
+          const hay = [p.name, p.city, p.shopName, ...(p.skills || []), p.sellType].filter(Boolean).join(' ').toLowerCase();
+          if (!hay.includes(q)) return false;
+        }
+        if (sellFilter !== 'All' && p.sellType !== sellFilter) return false;
+        return true;
+      });
+  }, [profiles, search, sellFilter]);
+
+  const filteredCourses = useMemo(() => {
+    const q = search.toLowerCase().trim();
+    return courses.filter(c => {
+      if (q) {
+        const hay = [c.title, c.teacherName, c.category, c.language].filter(Boolean).join(' ').toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      if (teachFilter !== 'All') {
+        const cat = (c.category || '').replace(/_/g, ' ').toLowerCase();
+        if (!cat.includes(teachFilter.toLowerCase())) return false;
+      }
+      return true;
+    });
+  }, [courses, search, teachFilter]);
+
+  const spareProducts = useMemo(() => {
+    const q = search.toLowerCase().trim();
+    return products.filter(p => {
+      const cat = p.category || '';
+      const isSpare = ['spare_part', 'tool', 'component', 'accessory'].includes(cat) || !['course', 'tutorial', 'ebook'].includes(cat);
+      if (!isSpare) return false;
+      if (q) {
+        const hay = [p.title, p.userName, p.city, p.category].filter(Boolean).join(' ').toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      if (sellFilter !== 'All') {
+        const catMap: Record<string, string[]> = {
+          'Spare Parts': ['spare_part', 'component'],
+          'Accessories': ['accessory'],
+          'Tools': ['tool'],
+          'Software': ['software'],
+        };
+        const allowed = catMap[sellFilter] || [];
+        if (allowed.length > 0 && !allowed.includes(cat)) return false;
+      }
+      return true;
+    });
+  }, [products, search, sellFilter]);
+
+  if (isCustomer) {
+    return <BuySellScreen isEmbedded />;
+  }
 
   const renderCourseCard = (c: CourseData) => {
     const priceNum = parseFloat(c.price || '0');
@@ -254,6 +476,7 @@ export default function MarketplaceScreen() {
             { key: 'live', label: liveUrl ? 'Mobi Live' : 'Live', icon: 'radio', color: '#FF3B30' },
             { key: 'spare', label: 'Spare Parts', icon: 'cube' },
             { key: 'suppliers', label: 'Suppliers', icon: 'construct' },
+            { key: 'buysell', label: 'Buy & Sell', icon: 'pricetags' },
             { key: 'ads', label: 'Ads', icon: 'megaphone' },
           ].map(tab => {
             const isActive = activeTab === tab.key;
@@ -278,8 +501,8 @@ export default function MarketplaceScreen() {
         </View>
       </ScrollView>
 
-      {fetchError ? (
-        <ErrorState message={fetchError} onRetry={fetchAll} />
+      {activeTab === 'buysell' ? (
+        <BuySellScreen isEmbedded />
       ) : (
         <ScrollView
           style={{ flex: 1 }}
@@ -425,7 +648,6 @@ export default function MarketplaceScreen() {
           )}
 
           {loading && <ActivityIndicator size="large" color={ORANGE} style={{ marginTop: 20 }} />}
-          {!loading && fetchError && <ErrorState message={fetchError} onRetry={() => { setLoading(true); fetchAll().finally(() => setLoading(false)); }} />}
         </ScrollView>
       )}
     </View>

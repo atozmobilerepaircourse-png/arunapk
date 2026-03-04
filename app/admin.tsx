@@ -14,7 +14,7 @@ import { openLink } from '@/lib/open-link';
 
 const C = Colors.light;
 
-type AdminTab = 'dashboard' | 'users' | 'posts' | 'jobs' | 'subscriptions' | 'revenue' | 'ads' | 'links' | 'device' | 'notifications' | 'email' | 'security' | 'reviews' | 'insurance' | 'diagnostics';
+type AdminTab = 'dashboard' | 'users' | 'posts' | 'jobs' | 'subscriptions' | 'revenue' | 'ads' | 'links' | 'device' | 'notifications' | 'payouts' | 'email' | 'security';
 
 const ROLE_COLORS: Record<UserRole, string> = {
   technician: '#34C759',
@@ -309,6 +309,9 @@ export default function AdminScreen() {
 
   const [revenueData, setRevenueData] = useState<any>(null);
   const [revenueLoading, setRevenueLoading] = useState(false);
+  const [payoutsData, setPayoutsData] = useState<any[]>([]);
+  const [payoutsLoading, setPayoutsLoading] = useState(false);
+  const [payoutsUpdating, setPayoutsUpdating] = useState<string | null>(null);
   const [activeSubsList, setActiveSubsList] = useState<any[]>([]);
   const [activeSubsLoading, setActiveSubsLoading] = useState(false);
 
@@ -339,18 +342,7 @@ export default function AdminScreen() {
 
   const [lockNotifications, setLockNotifications] = useState<any[]>([]);
   const [lockNotifLoading, setLockNotifLoading] = useState(false);
-  const [reviewsList, setReviewsList] = useState<any[]>([]);
-  const [reviewsLoading, setReviewsLoading] = useState(false);
-  const [diagnosticsList, setDiagnosticsList] = useState<any[]>([]);
-  const [diagnosticsLoading, setDiagnosticsLoading] = useState(false);
-  const [insurancePlansAdmin, setInsurancePlansAdmin] = useState<any[]>([]);
-  const [insurancePoliciesAdmin, setInsurancePoliciesAdmin] = useState<any[]>([]);
-  const [insuranceLoading, setInsuranceLoading] = useState(false);
-  const [insuranceTab, setInsuranceTab] = useState<'plans' | 'policies'>('plans');
-  const [editingPlan, setEditingPlan] = useState<any | null>(null);
-  const [newPlan, setNewPlan] = useState({ name: '', price: '30', repairDiscount: '500', coverage: '' });
-  const [showNewPlan, setShowNewPlan] = useState(false);
-
+  const [supportNumber, setSupportNumber] = useState('+918179142535');
   const [whatsappLink, setWhatsappLink] = useState('https://wa.me/918179142535');
   const [supportSaving, setSupportSaving] = useState(false);
   const [unlockingUserId, setUnlockingUserId] = useState<string | null>(null);
@@ -471,13 +463,41 @@ export default function AdminScreen() {
     }
   }, []);
 
+  const fetchPayouts = useCallback(async () => {
+    setPayoutsLoading(true);
+    try {
+      const res = await apiRequest('GET', '/api/admin/teacher-payouts');
+      const data = await res.json();
+      if (data.success && Array.isArray(data.payouts)) setPayoutsData(data.payouts);
+    } catch (err) {
+      console.warn('Failed to fetch payouts:', err);
+    } finally {
+      setPayoutsLoading(false);
+    }
+  }, []);
+
+  const updatePayout = useCallback(async (payoutId: string, status: string, adminNotes: string) => {
+    setPayoutsUpdating(payoutId);
+    try {
+      const res = await apiRequest('PATCH', `/api/admin/teacher-payouts/${payoutId}`, { status, adminNotes });
+      const data = await res.json();
+      if (data.success) {
+        setPayoutsData(prev => prev.map(p => p.id === payoutId ? data.payout : p));
+      }
+    } catch (err) {
+      console.warn('Failed to update payout:', err);
+    } finally {
+      setPayoutsUpdating(null);
+    }
+  }, []);
 
   useEffect(() => {
     if (activeTab === 'revenue') {
       fetchRevenue();
       fetchActiveSubscriptions();
     }
-  }, [activeTab, fetchRevenue, fetchActiveSubscriptions]);
+    if (activeTab === 'payouts') fetchPayouts();
+  }, [activeTab, fetchRevenue, fetchActiveSubscriptions, fetchPayouts]);
 
   useEffect(() => {
     if (activeTab === 'subscriptions') fetchActiveSubscriptions();
@@ -502,508 +522,6 @@ export default function AdminScreen() {
   useEffect(() => {
     if (activeTab === 'email') fetchEmailStats();
   }, [activeTab, fetchEmailStats]);
-
-  const fetchReviews = useCallback(async () => {
-    setReviewsLoading(true);
-    try {
-      const res = await apiRequest('GET', '/api/admin/reviews');
-      const data = await res.json();
-      if (Array.isArray(data)) setReviewsList(data);
-    } catch (err) {
-      console.warn('Failed to fetch reviews:', err);
-    } finally {
-      setReviewsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (activeTab === 'reviews') fetchReviews();
-  }, [activeTab, fetchReviews]);
-
-  const fetchInsurance = useCallback(async () => {
-    setInsuranceLoading(true);
-    try {
-      const [plansRes, policiesRes] = await Promise.all([
-        apiRequest('GET', '/api/admin/insurance/plans'),
-        apiRequest('GET', '/api/admin/insurance/policies'),
-      ]);
-      const plansData = await plansRes.json();
-      const policiesData = await policiesRes.json();
-      if (plansData.plans) setInsurancePlansAdmin(plansData.plans);
-      if (policiesData.policies) setInsurancePoliciesAdmin(policiesData.policies);
-    } catch (err) {
-      console.warn('Failed to fetch insurance:', err);
-    } finally {
-      setInsuranceLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (activeTab === 'insurance') fetchInsurance();
-  }, [activeTab, fetchInsurance]);
-
-  const fetchDiagnostics = useCallback(async () => {
-    setDiagnosticsLoading(true);
-    try {
-      const res = await apiRequest('GET', '/api/admin/diagnostics');
-      const data = await res.json();
-      if (data.diagnostics) setDiagnosticsList(data.diagnostics);
-    } catch {}
-    setDiagnosticsLoading(false);
-  }, []);
-
-  useEffect(() => {
-    if (activeTab === 'diagnostics') fetchDiagnostics();
-  }, [activeTab, fetchDiagnostics]);
-
-  const renderDiagnostics = () => {
-    const avgScore = diagnosticsList.length > 0
-      ? Math.round(diagnosticsList.reduce((s, d) => s + (d.overallScore || 0), 0) / diagnosticsList.length)
-      : 0;
-    const withIssues = diagnosticsList.filter(d => {
-      try { return JSON.parse(d.issues || '[]').length > 0; } catch { return false; }
-    }).length;
-
-    return (
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
-        <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
-          <View style={[styles.statCard, { flex: 1, borderLeftColor: '#6C63FF' }]}>
-            <Ionicons name="pulse" size={22} color="#6C63FF" />
-            <Text style={styles.statNumber}>{diagnosticsList.length}</Text>
-            <Text style={styles.statLabel}>Total Scans</Text>
-          </View>
-          <View style={[styles.statCard, { flex: 1, borderLeftColor: '#34C759' }]}>
-            <Ionicons name="heart" size={22} color="#34C759" />
-            <Text style={styles.statNumber}>{avgScore}</Text>
-            <Text style={styles.statLabel}>Avg Score</Text>
-          </View>
-          <View style={[styles.statCard, { flex: 1, borderLeftColor: '#FF9500' }]}>
-            <Ionicons name="warning" size={22} color="#FF9500" />
-            <Text style={styles.statNumber}>{withIssues}</Text>
-            <Text style={styles.statLabel}>With Issues</Text>
-          </View>
-        </View>
-        {diagnosticsLoading ? (
-          <View style={styles.emptyState}><ActivityIndicator size="small" color="#6C63FF" /></View>
-        ) : diagnosticsList.length === 0 ? (
-          <View style={styles.emptyState}><Text style={styles.emptyText}>No scans yet</Text></View>
-        ) : (
-          diagnosticsList.map((diag: any) => {
-            const score = diag.overallScore || 0;
-            const scoreColor = score >= 80 ? '#34C759' : score >= 50 ? '#FF9500' : '#FF3B30';
-            let issueArr: string[] = [];
-            try { issueArr = JSON.parse(diag.issues || '[]'); } catch {}
-            return (
-              <View key={diag.id} style={[styles.sectionCard, { marginBottom: 10 }]}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 14, fontFamily: 'Inter_700Bold', color: C.text }}>{diag.userName || 'User'}</Text>
-                    <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: C.textSecondary, marginTop: 2 }}>
-                      {diag.deviceModel || 'Unknown device'} · {diag.platform || ''}
-                    </Text>
-                    <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: C.textTertiary, marginTop: 2 }}>
-                      {diag.createdAt ? new Date(diag.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
-                    </Text>
-                  </View>
-                  <View style={{ alignItems: 'center', backgroundColor: scoreColor + '20', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 6 }}>
-                    <Text style={{ fontSize: 18, fontFamily: 'Inter_700Bold', color: scoreColor }}>{score}</Text>
-                    <Text style={{ fontSize: 9, fontFamily: 'Inter_400Regular', color: scoreColor }}>/ 100</Text>
-                  </View>
-                </View>
-                {issueArr.length > 0 && (
-                  <View style={{ marginTop: 8, gap: 4 }}>
-                    {issueArr.map((issue: string, i: number) => (
-                      <View key={i} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 6 }}>
-                        <Ionicons name="warning-outline" size={12} color="#FF9500" style={{ marginTop: 2 }} />
-                        <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: C.textSecondary, flex: 1 }}>{issue}</Text>
-                      </View>
-                    ))}
-                  </View>
-                )}
-                <View style={{ flexDirection: 'row', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
-                  {[
-                    { label: 'Battery', value: diag.batteryLevel + '%' },
-                    { label: 'Storage', value: diag.storageUsed + '/' + diag.storageTotal },
-                    { label: 'Network', value: diag.networkType },
-                  ].map((item, i) => (
-                    <View key={i} style={{ backgroundColor: C.background, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 }}>
-                      <Text style={{ fontSize: 10, fontFamily: 'Inter_400Regular', color: C.textTertiary }}>{item.label}</Text>
-                      <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: C.text }}>{item.value || '—'}</Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
-            );
-          })
-        )}
-      </ScrollView>
-    );
-  };
-
-  const handleDeleteReview = (reviewId: string) => {
-    Alert.alert(
-      'Delete Review',
-      'Are you sure you want to delete this review? This cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await apiRequest('DELETE', `/api/admin/reviews/${reviewId}`);
-              fetchReviews();
-            } catch (err) {
-              Alert.alert('Error', 'Failed to delete review');
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  const renderReviews = () => {
-    const totalReviews = reviewsList.length;
-    const avgRating = totalReviews > 0
-      ? (reviewsList.reduce((sum: number, r: any) => sum + (r.rating || 0), 0) / totalReviews).toFixed(1)
-      : '0.0';
-
-    const renderStars = (rating: number) => {
-      const stars = [];
-      for (let i = 1; i <= 5; i++) {
-        stars.push(
-          <Ionicons
-            key={i}
-            name={i <= rating ? 'star' : i - 0.5 <= rating ? 'star-half' : 'star-outline'}
-            size={14}
-            color="#FFD60A"
-          />
-        );
-      }
-      return <View style={{ flexDirection: 'row', gap: 2 }}>{stars}</View>;
-    };
-
-    return (
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
-        <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16 }}>
-          <View style={[styles.statCard, { flex: 1, borderLeftColor: '#FFD60A' }]}>
-            <Ionicons name="star" size={22} color="#FFD60A" />
-            <Text style={styles.statNumber}>{totalReviews}</Text>
-            <Text style={styles.statLabel}>Total Reviews</Text>
-          </View>
-          <View style={[styles.statCard, { flex: 1, borderLeftColor: '#FF6B2C' }]}>
-            <Ionicons name="star-half" size={22} color="#FF6B2C" />
-            <Text style={styles.statNumber}>{avgRating}</Text>
-            <Text style={styles.statLabel}>Avg Rating</Text>
-          </View>
-        </View>
-
-        {reviewsLoading ? (
-          <View style={styles.emptyState}>
-            <ActivityIndicator size="small" color={C.primary} />
-            <Text style={[styles.emptyText, { marginTop: 8 }]}>Loading reviews...</Text>
-          </View>
-        ) : reviewsList.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyText}>No reviews yet</Text>
-          </View>
-        ) : (
-          reviewsList.map((review: any) => (
-            <View key={review.id} style={[styles.sectionCard, { marginBottom: 10 }]}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: C.text, fontSize: 14, fontFamily: 'Inter_600SemiBold' }}>
-                    {review.reviewerName || 'Unknown User'}
-                  </Text>
-                  <Text style={{ color: C.textTertiary, fontSize: 11, fontFamily: 'Inter_400Regular', marginTop: 2 }}>
-                    Reviewed user: {review.revieweeId || 'N/A'}
-                  </Text>
-                </View>
-                <Pressable hitSlop={12} onPress={() => handleDeleteReview(review.id)}>
-                  <Ionicons name="trash-outline" size={18} color="#FF3B30" />
-                </Pressable>
-              </View>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 }}>
-                {renderStars(review.rating || 0)}
-                <Text style={{ color: C.textSecondary, fontSize: 12, fontFamily: 'Inter_500Medium' }}>
-                  {review.rating || 0}/5
-                </Text>
-              </View>
-              {review.comment ? (
-                <Text style={{ color: C.text, fontSize: 13, fontFamily: 'Inter_400Regular', marginTop: 8, lineHeight: 18 }}>
-                  {review.comment}
-                </Text>
-              ) : null}
-              <Text style={{ color: C.textTertiary, fontSize: 11, fontFamily: 'Inter_400Regular', marginTop: 8 }}>
-                {review.createdAt ? new Date(review.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Unknown date'}
-              </Text>
-            </View>
-          ))
-        )}
-      </ScrollView>
-    );
-  };
-
-  const renderInsurance = () => {
-    const handleTogglePlan = async (plan: any) => {
-      try {
-        await apiRequest('PUT', `/api/admin/insurance/plans/${plan.id}`, {
-          ...plan,
-          isActive: plan.isActive === 1 ? 0 : 1,
-        });
-        await fetchInsurance();
-      } catch {
-        Alert.alert('Error', 'Failed to update plan');
-      }
-    };
-    const handleDeletePlan = (planId: string, planName: string) => {
-      Alert.alert('Delete Plan', `Delete "${planName}"? This cannot be undone.`, [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: async () => {
-          try {
-            await apiRequest('DELETE', `/api/admin/insurance/plans/${planId}`);
-            await fetchInsurance();
-          } catch { Alert.alert('Error', 'Failed to delete plan'); }
-        }},
-      ]);
-    };
-    const handleSaveNewPlan = async () => {
-      if (!newPlan.name.trim()) {
-        Alert.alert('Error', 'Plan name required');
-        return;
-      }
-      setInsuranceLoading(true);
-      try {
-        const coverageArr = newPlan.coverage.split('\n').map(s => s.trim()).filter(Boolean);
-        const res = await apiRequest('POST', '/api/admin/insurance/plans', {
-          name: newPlan.name.trim(),
-          price: parseInt(newPlan.price) || 30,
-          repairDiscount: parseInt(newPlan.repairDiscount) || 500,
-          coverage: coverageArr,
-          isActive: 1,
-          sortOrder: insurancePlansAdmin?.length || 0,
-        });
-        
-        if (!res.ok) {
-          const errorData = await res.json().catch(() => ({}));
-          throw new Error(errorData.message || 'Failed to create plan');
-        }
-
-        const data = await res.json();
-        if (data.success) {
-          Alert.alert('Success', 'Plan created successfully');
-          setNewPlan({
-            name: '',
-            price: '30',
-            repairDiscount: '500',
-            coverage: ''
-          });
-          setShowNewPlan(false);
-          await fetchInsurance();
-        } else {
-          Alert.alert('Error', data.message || 'Failed to create plan');
-        }
-      } catch (err: any) {
-        console.error('[Admin] Create plan error:', err);
-        Alert.alert('Error', err?.message || 'Connection failed');
-      } finally {
-        setInsuranceLoading(false);
-      }
-    };
-    const handleUpdateClaimStatus = async (policyId: string, status: string) => {
-      try {
-        await apiRequest('PUT', `/api/admin/insurance/claims/${policyId}`, { claimStatus: status });
-        await fetchInsurance();
-      } catch { Alert.alert('Error', 'Failed to update claim'); }
-    };
-
-    return (
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
-        <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
-          <View style={[styles.statCard, { flex: 1, borderLeftColor: '#5856D6' }]}>
-            <Ionicons name="shield-checkmark" size={22} color="#5856D6" />
-            <Text style={styles.statNumber}>{insurancePlansAdmin.filter(p => p.isActive === 1).length}</Text>
-            <Text style={styles.statLabel}>Active Plans</Text>
-          </View>
-          <View style={[styles.statCard, { flex: 1, borderLeftColor: '#34C759' }]}>
-            <Ionicons name="people" size={22} color="#34C759" />
-            <Text style={styles.statNumber}>{insurancePoliciesAdmin.filter(p => p.status === 'active').length}</Text>
-            <Text style={styles.statLabel}>Active Policies</Text>
-          </View>
-          <View style={[styles.statCard, { flex: 1, borderLeftColor: '#FF9500' }]}>
-            <Ionicons name="document-text" size={22} color="#FF9500" />
-            <Text style={styles.statNumber}>{insurancePoliciesAdmin.filter(p => p.claimStatus === 'pending').length}</Text>
-            <Text style={styles.statLabel}>Pending Claims</Text>
-          </View>
-        </View>
-
-        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
-          {(['plans', 'policies'] as const).map(tab => (
-            <Pressable
-              key={tab}
-              style={[{ flex: 1, padding: 10, borderRadius: 10, alignItems: 'center' },
-                insuranceTab === tab ? { backgroundColor: '#5856D6' } : { backgroundColor: C.surfaceElevated }]}
-              onPress={() => setInsuranceTab(tab)}
-            >
-              <Text style={{ fontSize: 13, fontFamily: 'Inter_600SemiBold', color: insuranceTab === tab ? '#fff' : C.textSecondary }}>
-                {tab === 'plans' ? 'Plans' : 'Policies & Claims'}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-
-        {insuranceLoading ? (
-          <View style={styles.emptyState}><ActivityIndicator size="small" color="#5856D6" /></View>
-        ) : insuranceTab === 'plans' ? (
-          <>
-            <Pressable
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#5856D6', borderRadius: 12, padding: 12, marginBottom: 16 }}
-              onPress={() => setShowNewPlan(!showNewPlan)}
-            >
-              <Ionicons name={showNewPlan ? 'close' : 'add'} size={20} color="#fff" />
-              <Text style={{ fontSize: 14, fontFamily: 'Inter_600SemiBold', color: '#fff' }}>
-                {showNewPlan ? 'Cancel' : 'Add New Plan'}
-              </Text>
-            </Pressable>
-            {showNewPlan && (
-              <View style={[styles.sectionCard, { marginBottom: 16 }]}>
-                <Text style={{ fontSize: 15, fontFamily: 'Inter_700Bold', color: C.text, marginBottom: 12 }}>New Plan</Text>
-                {[
-                  { label: 'Plan Name', key: 'name', placeholder: 'e.g. Basic Plan' },
-                  { label: 'Price (₹/month)', key: 'price', placeholder: '30' },
-                  { label: 'Repair Discount (₹)', key: 'repairDiscount', placeholder: '500' },
-                ].map(field => (
-                  <View key={field.key} style={{ marginBottom: 10 }}>
-                    <Text style={{ fontSize: 12, fontFamily: 'Inter_500Medium', color: C.textSecondary, marginBottom: 4 }}>{field.label}</Text>
-                    <TextInput
-                      style={[styles.input, { color: C.text }]}
-                      placeholder={field.placeholder}
-                      placeholderTextColor={C.textTertiary}
-                      value={(newPlan as any)[field.key]}
-                      onChangeText={v => setNewPlan(p => ({ ...p, [field.key]: v }))}
-                      keyboardType={field.key === 'name' ? 'default' : 'numeric'}
-                    />
-                  </View>
-                ))}
-                <Text style={{ fontSize: 12, fontFamily: 'Inter_500Medium', color: C.textSecondary, marginBottom: 4 }}>Coverage (one per line)</Text>
-                <TextInput
-                  style={[styles.input, { color: C.text, minHeight: 80, textAlignVertical: 'top' }]}
-                  placeholder={"Accidental damage\nScreen repair\nWater damage"}
-                  placeholderTextColor={C.textTertiary}
-                  value={newPlan.coverage}
-                  onChangeText={v => setNewPlan(p => ({ ...p, coverage: v }))}
-                  multiline
-                />
-                <Pressable 
-                  style={({ pressed }) => [{ backgroundColor: '#5856D6', borderRadius: 10, padding: 12, alignItems: 'center', marginTop: 12 }, pressed && { opacity: 0.8 }]} 
-                  onPress={handleSaveNewPlan}
-                  disabled={insuranceLoading}
-                >
-                  {insuranceLoading ? (
-                    <ActivityIndicator size="small" color="#fff" />
-                  ) : (
-                    <Text style={{ fontSize: 14, fontFamily: 'Inter_700Bold', color: '#fff' }}>Create Plan</Text>
-                  )}
-                </Pressable>
-              </View>
-            )}
-            {insurancePlansAdmin.length === 0 ? (
-              <View style={styles.emptyState}><Text style={styles.emptyText}>No plans yet</Text></View>
-            ) : (
-              insurancePlansAdmin.map(plan => {
-                const coverage = (() => { try { return JSON.parse(plan.coverage || '[]'); } catch { return []; } })();
-                return (
-                  <View key={plan.id} style={[styles.sectionCard, { marginBottom: 10 }]}>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ fontSize: 15, fontFamily: 'Inter_700Bold', color: C.text }}>{plan.name}</Text>
-                        <Text style={{ fontSize: 13, fontFamily: 'Inter_500Medium', color: '#5856D6', marginTop: 2 }}>₹{plan.price}/month</Text>
-                        <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: '#34C759', marginTop: 2 }}>₹{plan.repairDiscount} discount</Text>
-                      </View>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                        <Switch
-                          value={plan.isActive === 1}
-                          onValueChange={() => handleTogglePlan(plan)}
-                          trackColor={{ true: '#5856D6', false: C.border }}
-                          thumbColor="#fff"
-                        />
-                        <Pressable hitSlop={12} onPress={() => handleDeletePlan(plan.id, plan.name)}>
-                          <Ionicons name="trash-outline" size={18} color="#FF3B30" />
-                        </Pressable>
-                      </View>
-                    </View>
-                    {coverage.length > 0 && (
-                      <View style={{ marginTop: 8, gap: 4 }}>
-                        {coverage.map((item: string, i: number) => (
-                          <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                            <Ionicons name="checkmark-circle" size={14} color="#34C759" />
-                            <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: C.textSecondary }}>{item}</Text>
-                          </View>
-                        ))}
-                      </View>
-                    )}
-                  </View>
-                );
-              })
-            )}
-          </>
-        ) : (
-          insurancePoliciesAdmin.length === 0 ? (
-            <View style={styles.emptyState}><Text style={styles.emptyText}>No policies yet</Text></View>
-          ) : (
-            insurancePoliciesAdmin.map(policy => (
-              <View key={policy.id} style={[styles.sectionCard, { marginBottom: 10 }]}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 14, fontFamily: 'Inter_700Bold', color: C.text }}>{policy.userName || 'User'}</Text>
-                    <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: C.textSecondary, marginTop: 2 }}>{policy.planName} — ₹{policy.planPrice}/mo</Text>
-                    <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: C.textTertiary, marginTop: 2 }}>
-                      Expires: {policy.endDate ? new Date(policy.endDate).toLocaleDateString('en-IN') : '—'}
-                    </Text>
-                  </View>
-                  <View style={[{ paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
-                    policy.status === 'active' ? { backgroundColor: '#34C75920' } : { backgroundColor: '#FF3B3020' }
-                  ]}>
-                    <Text style={{ fontSize: 11, fontFamily: 'Inter_600SemiBold', color: policy.status === 'active' ? '#34C759' : '#FF3B30' }}>
-                      {policy.status}
-                    </Text>
-                  </View>
-                </View>
-                {policy.claimStatus && policy.claimStatus !== 'none' && (
-                  <View style={{ marginTop: 10, backgroundColor: C.background, borderRadius: 10, padding: 10 }}>
-                    <Text style={{ fontSize: 13, fontFamily: 'Inter_600SemiBold', color: C.text, marginBottom: 4 }}>
-                      Claim: <Text style={{ color: policy.claimStatus === 'pending' ? '#FF9500' : policy.claimStatus === 'approved' ? '#34C759' : '#FF3B30' }}>
-                        {policy.claimStatus}
-                      </Text>
-                    </Text>
-                    {policy.claimDescription ? (
-                      <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: C.textSecondary, marginBottom: 8 }}>{policy.claimDescription}</Text>
-                    ) : null}
-                    {policy.claimStatus === 'pending' && (
-                      <View style={{ flexDirection: 'row', gap: 8 }}>
-                        <Pressable
-                          style={{ flex: 1, backgroundColor: '#34C759', borderRadius: 8, padding: 8, alignItems: 'center' }}
-                          onPress={() => handleUpdateClaimStatus(policy.id, 'approved')}
-                        >
-                          <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: '#fff' }}>Approve</Text>
-                        </Pressable>
-                        <Pressable
-                          style={{ flex: 1, backgroundColor: '#FF3B30', borderRadius: 8, padding: 8, alignItems: 'center' }}
-                          onPress={() => handleUpdateClaimStatus(policy.id, 'rejected')}
-                        >
-                          <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: '#fff' }}>Reject</Text>
-                        </Pressable>
-                      </View>
-                    )}
-                  </View>
-                )}
-              </View>
-            ))
-          )
-        )}
-      </ScrollView>
-    );
-  };
 
   const pickAdImage = async () => {
     const { launchImageLibraryAsync, MediaTypeOptions } = await import('expo-image-picker');
@@ -1147,11 +665,86 @@ export default function AdminScreen() {
 
   if (!isAdmin) return null;
 
+  const renderPayouts = () => {
+    const pending = payoutsData.filter(p => p.status === 'pending');
+    const completed = payoutsData.filter(p => p.status !== 'pending');
+    const formatINR = (v: number) => `₹${Math.round((v || 0) / 100).toLocaleString('en-IN')}`;
+    const renderCard = (p: any) => (
+      <View key={p.id} style={{ backgroundColor: C.card, borderRadius: 14, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: C.border }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+          <Text style={{ color: C.text, fontFamily: 'Inter_700Bold', fontSize: 15 }}>{p.teacherName || 'Unknown Teacher'}</Text>
+          <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, backgroundColor: p.status === 'paid' ? '#34C75920' : p.status === 'rejected' ? '#FF3B3020' : '#FFD60A20' }}>
+            <Text style={{ color: p.status === 'paid' ? '#34C759' : p.status === 'rejected' ? '#FF3B30' : '#FFD60A', fontSize: 11, fontFamily: 'Inter_600SemiBold', textTransform: 'capitalize' }}>{p.status}</Text>
+          </View>
+        </View>
+        <Text style={{ color: C.textSecondary, fontSize: 13, fontFamily: 'Inter_400Regular', marginBottom: 2 }}>Amount: <Text style={{ color: C.text, fontFamily: 'Inter_600SemiBold' }}>{formatINR(Math.round((p.amount || 0) / 100))}</Text></Text>
+        {p.upiId ? <Text style={{ color: C.textSecondary, fontSize: 12, marginBottom: 2 }}>UPI: {p.upiId}</Text> : null}
+        {p.bankDetails ? <Text style={{ color: C.textSecondary, fontSize: 12, marginBottom: 2 }}>Bank: {p.bankDetails}</Text> : null}
+        {p.notes ? <Text style={{ color: C.textMuted, fontSize: 12, fontStyle: 'italic', marginBottom: 4 }}>Note: {p.notes}</Text> : null}
+        {p.adminNotes ? <Text style={{ color: C.textMuted, fontSize: 12, marginBottom: 4 }}>Admin notes: {p.adminNotes}</Text> : null}
+        <Text style={{ color: C.textMuted, fontSize: 11, marginBottom: 8 }}>Requested: {new Date(p.requestedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</Text>
+        {p.status === 'pending' && (
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <Pressable
+              style={{ flex: 1, backgroundColor: '#34C759', borderRadius: 10, paddingVertical: 9, alignItems: 'center' }}
+              disabled={payoutsUpdating === p.id}
+              onPress={() => Alert.alert('Mark Paid', `Mark ₹${Math.round((p.amount || 0) / 100).toLocaleString('en-IN')} as paid to ${p.teacherName}?`, [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Mark Paid', onPress: () => updatePayout(p.id, 'paid', p.adminNotes || '') },
+              ])}
+            >
+              {payoutsUpdating === p.id
+                ? <ActivityIndicator size="small" color="#fff" />
+                : <Text style={{ color: '#fff', fontFamily: 'Inter_700Bold', fontSize: 13 }}>Mark Paid</Text>}
+            </Pressable>
+            <Pressable
+              style={{ flex: 1, backgroundColor: '#FF3B3020', borderRadius: 10, paddingVertical: 9, alignItems: 'center', borderWidth: 1, borderColor: '#FF3B3040' }}
+              disabled={payoutsUpdating === p.id}
+              onPress={() => Alert.prompt
+                ? Alert.prompt('Reject Payout', 'Enter reason (optional)', (note) => updatePayout(p.id, 'rejected', note || ''))
+                : updatePayout(p.id, 'rejected', '')}
+            >
+              <Text style={{ color: '#FF3B30', fontFamily: 'Inter_700Bold', fontSize: 13 }}>Reject</Text>
+            </Pressable>
+          </View>
+        )}
+      </View>
+    );
+    return (
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 12, paddingBottom: 40 }} refreshControl={<RefreshControl refreshing={payoutsLoading} onRefresh={fetchPayouts} tintColor={C.textMuted} />}>
+        {payoutsLoading && payoutsData.length === 0 ? (
+          <ActivityIndicator color={C.textMuted} style={{ marginTop: 40 }} />
+        ) : payoutsData.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Ionicons name="cash-outline" size={36} color={C.textMuted} />
+            <Text style={styles.emptyText}>No payout requests yet</Text>
+          </View>
+        ) : (
+          <>
+            {pending.length > 0 && (
+              <>
+                <Text style={[styles.sectionTitle, { paddingHorizontal: 0, marginBottom: 8 }]}>Pending ({pending.length})</Text>
+                {pending.map(renderCard)}
+              </>
+            )}
+            {completed.length > 0 && (
+              <>
+                <Text style={[styles.sectionTitle, { paddingHorizontal: 0, marginBottom: 8, marginTop: 12 }]}>Completed ({completed.length})</Text>
+                {completed.map(renderCard)}
+              </>
+            )}
+          </>
+        )}
+      </ScrollView>
+    );
+  };
+
   const tabs: { key: AdminTab; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
     { key: 'dashboard', label: 'Dashboard', icon: 'grid' },
     { key: 'users', label: 'Users', icon: 'people' },
     { key: 'subscriptions', label: 'Subs', icon: 'card' },
     { key: 'revenue', label: 'Revenue', icon: 'trending-up' },
+    { key: 'payouts', label: 'Payouts', icon: 'cash' },
     { key: 'posts', label: 'Posts', icon: 'newspaper' },
     { key: 'jobs', label: 'Jobs', icon: 'briefcase' },
     { key: 'ads', label: 'Ads', icon: 'megaphone' },
@@ -1160,9 +753,6 @@ export default function AdminScreen() {
     { key: 'notifications', label: 'Notify', icon: 'notifications' },
     { key: 'email', label: 'Email', icon: 'mail' },
     { key: 'security', label: 'Security', icon: 'shield' },
-    { key: 'reviews', label: 'Reviews', icon: 'star-half-outline' },
-    { key: 'insurance', label: 'Insurance', icon: 'shield-checkmark-outline' },
-    { key: 'diagnostics', label: 'Scans', icon: 'pulse-outline' },
   ];
 
   const handleDeletePost = (postId: string, userName: string) => {
@@ -1399,7 +989,7 @@ export default function AdminScreen() {
               <View style={[styles.statCard, { borderLeftColor: '#FFD60A' }]}>
                 <Ionicons name="school" size={22} color="#FFD60A" />
                 <Text style={styles.statNumber}>₹{rd.platformCourseRevenue?.toLocaleString('en-IN', { maximumFractionDigits: 0 }) || '0'}</Text>
-                <Text style={styles.statLabel}>Course Revenue</Text>
+                <Text style={styles.statLabel}>Course Commission ({rd.commissionPercent || 30}%)</Text>
               </View>
               <View style={[styles.statCard, { borderLeftColor: '#FF6B2C' }]}>
                 <Ionicons name="people" size={22} color="#FF6B2C" />
@@ -1424,7 +1014,6 @@ export default function AdminScreen() {
                 { role: 'technician', label: 'Technicians', color: '#34C759' },
                 { role: 'teacher', label: 'Teachers', color: '#FFD60A' },
                 { role: 'supplier', label: 'Suppliers', color: '#FF6B2C' },
-                { role: 'customer', label: 'Customers', color: '#FF2D55' },
               ].map(({ role, label, color }) => {
                 const count = rd.activeSubscribersByRole?.[role] || 0;
                 const rev = rd.subscriptionRevenueByRole?.[role] || 0;
@@ -1495,20 +1084,23 @@ export default function AdminScreen() {
   const renderSubscriptions = () => (
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
       <Text style={styles.subHeading}>Control subscription settings for each role</Text>
-      {(['technician', 'teacher', 'supplier', 'customer'] as const).map(role => {
+      {(['technician', 'teacher', 'supplier'] as const).map(role => {
         const sub = subscriptions.find(s => s.role === role);
         const enabled = sub?.enabled === 1;
         const amount = sub?.amount || '0';
-        const roleColor = ROLE_COLORS[role] || '#007AFF';
-        const iconName = role === 'technician' ? 'construct' : role === 'teacher' ? 'school' : role === 'customer' ? 'person' : 'cube';
+        const roleColor = ROLE_COLORS[role];
         return (
           <View key={role} style={[styles.subCard, { borderLeftColor: roleColor, borderLeftWidth: 3 }]}>
             <View style={styles.subCardHeader}>
               <View style={styles.subCardLeft}>
                 <View style={[styles.subRoleIcon, { backgroundColor: roleColor + '20' }]}>
-                  <Ionicons name={iconName as any} size={20} color={roleColor} />
+                  <Ionicons
+                    name={role === 'technician' ? 'construct' : role === 'teacher' ? 'school' : 'cube'}
+                    size={20}
+                    color={roleColor}
+                  />
                 </View>
-                <Text style={styles.subRoleName}>{ROLE_LABELS[role] || 'Customer'}</Text>
+                <Text style={styles.subRoleName}>{ROLE_LABELS[role]}</Text>
               </View>
               <Switch
                 value={enabled}
@@ -1517,7 +1109,26 @@ export default function AdminScreen() {
                 thumbColor={enabled ? roleColor : C.textTertiary}
               />
             </View>
-            {enabled && (
+            {enabled && role === 'teacher' && (
+              <View style={styles.subAmountRow}>
+                <Text style={styles.subAmountLabel}>Commission on Sales (%)</Text>
+                <TextInput
+                  style={styles.subAmountInput}
+                  value={sub?.commissionPercent || '30'}
+                  onChangeText={(val) => {
+                    setSubscriptions(prev => prev.map(s => s.role === role ? { ...s, commissionPercent: val } : s));
+                  }}
+                  onBlur={() => {
+                    const cp = sub?.commissionPercent || '30';
+                    apiRequest('PATCH', `/api/subscription-settings/${role}`, { commissionPercent: cp }).catch(() => {});
+                  }}
+                  keyboardType="number-pad"
+                  placeholder="30"
+                  placeholderTextColor={C.textTertiary}
+                />
+              </View>
+            )}
+            {enabled && role !== 'teacher' && (
               <View style={styles.subAmountRow}>
                 <Text style={styles.subAmountLabel}>Monthly Amount (₹)</Text>
                 <TextInput
@@ -1528,7 +1139,7 @@ export default function AdminScreen() {
                   }}
                   onBlur={() => updateSubAmount(role, amount)}
                   keyboardType="number-pad"
-                  placeholder="99"
+                  placeholder={role === 'technician' ? '99' : '999'}
                   placeholderTextColor={C.textTertiary}
                 />
               </View>
@@ -2828,43 +2439,6 @@ export default function AdminScreen() {
           ))
         )}
       </View>
-
-      <View style={styles.sectionCard}>
-        <Text style={styles.sectionLabel}>Blocked Users</Text>
-        {allUsers.filter(u => u.fullProfile?.blocked === 1).length === 0 ? (
-          <Text style={{ color: C.textTertiary, fontSize: 13, fontFamily: 'Inter_400Regular', textAlign: 'center', paddingVertical: 20 }}>
-            No blocked users
-          </Text>
-        ) : (
-          allUsers.filter(u => u.fullProfile?.blocked === 1).map(user => (
-            <View key={user.id} style={{
-              padding: 14,
-              backgroundColor: '#FF3B3010',
-              borderRadius: 12,
-              marginBottom: 10,
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-            }}>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 14, fontFamily: 'Inter_600SemiBold', color: C.text }}>{user.name}</Text>
-                <Text style={{ fontSize: 12, color: C.textSecondary, fontFamily: 'Inter_400Regular' }}>{user.fullProfile?.phone || ''} · {user.role}</Text>
-              </View>
-              <TouchableOpacity
-                style={{ backgroundColor: '#34C759', borderRadius: 8, paddingVertical: 8, paddingHorizontal: 16 }}
-                onPress={() => {
-                  Alert.alert('Unblock User', `Unblock ${user.name}?`, [
-                    { text: 'Cancel', style: 'cancel' },
-                    { text: 'Unblock', onPress: () => executeBlockUser(user.id, user.name, false) }
-                  ]);
-                }}
-              >
-                <Text style={{ color: '#fff', fontSize: 13, fontFamily: 'Inter_600SemiBold' }}>Unblock</Text>
-              </TouchableOpacity>
-            </View>
-          ))
-        )}
-      </View>
     </ScrollView>
   );
 
@@ -2915,11 +2489,9 @@ export default function AdminScreen() {
         {activeTab === 'links' && renderLinks()}
         {activeTab === 'device' && renderDevice()}
         {activeTab === 'notifications' && renderNotifications()}
+        {activeTab === 'payouts' && renderPayouts()}
         {activeTab === 'email' && renderEmail()}
         {activeTab === 'security' && renderSecurity()}
-        {activeTab === 'reviews' && renderReviews()}
-        {activeTab === 'insurance' && renderInsurance()}
-        {activeTab === 'diagnostics' && renderDiagnostics()}
       </View>
     </View>
   );

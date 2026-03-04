@@ -12,7 +12,6 @@ import { useApp } from '@/lib/context';
 import { openLink } from '@/lib/open-link';
 import { PostCategory } from '@/lib/types';
 import PostCard from '@/components/PostCard';
-import ErrorState from '@/components/ErrorState';
 import { apiRequest } from '@/lib/query-client';
 
 const C2 = Colors.light;
@@ -94,37 +93,12 @@ const FILTERS: { key: PostCategory | 'all'; label: string }[] = [
   { key: 'job', label: 'Jobs' },
   { key: 'training', label: 'Training' },
   { key: 'supplier', label: 'Suppliers' },
+  { key: 'sell', label: 'For Sale' },
 ];
 
 export default function FeedScreen() {
   const insets = useSafeAreaInsets();
-  const { posts, profile, isLoading, dataError, isOnboarded, toggleLike, addComment, deletePost, updatePost, refreshData, totalUnread, liveChatUnread, setProfile } = useApp();
-  const [isSwitching, setIsSwitching] = useState(false);
-
-  const handleSwitchToCustomer = () => {
-    if (!profile) return;
-    Alert.alert(
-      'Switch to Customer',
-      'You will see the customer view for finding repair services.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Switch',
-          onPress: async () => {
-            setIsSwitching(true);
-            try {
-              const res = await apiRequest('POST', '/api/profile/change-role', { userId: profile.id, newRole: 'customer' });
-              if (res.ok) {
-                await setProfile({ ...profile, role: 'customer' as any });
-                router.replace('/(tabs)/customer-home');
-              }
-            } catch {}
-            setIsSwitching(false);
-          },
-        },
-      ]
-    );
-  };
+  const { posts, profile, isLoading, isOnboarded, toggleLike, addComment, deletePost, updatePost, refreshData, totalUnread, liveChatUnread } = useApp();
 
   useEffect(() => {
     if (!isLoading && !isOnboarded) {
@@ -143,18 +117,6 @@ export default function FeedScreen() {
   const [liveUrl, setLiveUrl] = useState('');
   const [schematicsUrl, setSchematicsUrl] = useState('');
   const [webToolsUrl, setWebToolsUrl] = useState('');
-  const [loadTimeout, setLoadTimeout] = useState(false);
-
-  useEffect(() => {
-    if (isLoading) {
-      const timer = setTimeout(() => {
-        setLoadTimeout(true);
-      }, 15000);
-      return () => clearTimeout(timer);
-    } else {
-      setLoadTimeout(false);
-    }
-  }, [isLoading]);
 
   useEffect(() => {
     apiRequest('GET', '/api/app-settings').then(r => r.json()).then(data => {
@@ -174,7 +136,7 @@ export default function FeedScreen() {
 
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
-  if (isLoading && !loadTimeout) {
+  if (isLoading) {
     return (
       <View style={styles.container}>
         <View style={[styles.header, { paddingTop: (Platform.OS === 'web' ? 67 : insets.top) + 12 }]}>
@@ -184,23 +146,6 @@ export default function FeedScreen() {
           </View>
         </View>
         {[1, 2, 3].map(i => <PostSkeleton key={i} />)}
-      </View>
-    );
-  }
-
-  if (loadTimeout || dataError) {
-    return (
-      <View style={styles.container}>
-        <View style={[styles.header, { paddingTop: (Platform.OS === 'web' ? 67 : insets.top) + 12 }]}>
-          <View style={styles.headerLeft}>
-            <Ionicons name="construct" size={26} color={C.primary} />
-            <Text style={styles.headerTitle}>Mobi</Text>
-          </View>
-        </View>
-        <ErrorState 
-          message={dataError || "Loading is taking too long. Check your connection."} 
-          onRetry={refreshData} 
-        />
       </View>
     );
   }
@@ -252,26 +197,14 @@ export default function FeedScreen() {
               <Text style={{ fontSize: 7, color: '#5E8BFF', marginTop: 1, fontWeight: '700' as const }}>Tools</Text>
             </HeaderButton>
           ) : null}
-          <HeaderButton delay={320} onPress={() => router.push('/snap-map')} style={{ alignItems: 'center' }}>
-            <Ionicons name="location" size={22} color="#FF2D55" />
-          </HeaderButton>
           <HeaderButton delay={400} onPress={() => router.push('/chats')}>
-            <Ionicons name="chatbubble-ellipses" size={24} color="#34C759" />
-            <Text style={{ fontSize: 7, color: '#34C759', marginTop: 1, fontWeight: '700' as const }}>Live Chat</Text>
+            <Ionicons name="chatbubbles" size={24} color="#34C759" />
             {totalUnread > 0 && (
               <View style={[styles.unreadDot, { backgroundColor: '#34C759' }]}>
                 <Text style={styles.unreadDotText}>{totalUnread}</Text>
               </View>
             )}
           </HeaderButton>
-          <Pressable
-            style={[styles.switchToCustomerBtn, isSwitching && { opacity: 0.5 }]}
-            onPress={handleSwitchToCustomer}
-            disabled={isSwitching}
-          >
-            <Ionicons name="person" size={14} color="#FFF" />
-            <Text style={styles.switchToCustomerText}>Customer</Text>
-          </Pressable>
         </View>
       </View>
 
@@ -331,15 +264,11 @@ export default function FeedScreen() {
           />
         }
         ListEmptyComponent={
-          dataError ? (
-            <ErrorState message={dataError} onRetry={refreshData} />
-          ) : (
-            <View style={styles.emptyState}>
-              <Ionicons name="newspaper-outline" size={48} color={C.textTertiary} />
-              <Text style={styles.emptyTitle}>No posts yet</Text>
-              <Text style={styles.emptyText}>Be the first to share something with the community</Text>
-            </View>
-          )
+          <View style={styles.emptyState}>
+            <Ionicons name="newspaper-outline" size={48} color={C.textTertiary} />
+            <Text style={styles.emptyTitle}>No posts yet</Text>
+            <Text style={styles.emptyText}>Be the first to share something with the community</Text>
+          </View>
         }
         showsVerticalScrollIndicator={false}
       />
@@ -445,19 +374,5 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 10,
     fontFamily: 'Inter_600SemiBold',
-  },
-  switchToCustomerBtn: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: 4,
-    backgroundColor: '#34C759',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 10,
-  },
-  switchToCustomerText: {
-    fontSize: 11,
-    fontFamily: 'Inter_600SemiBold',
-    color: '#FFF',
   },
 });

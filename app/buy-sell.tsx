@@ -417,7 +417,7 @@ export default function BuySellScreen({ isEmbedded }: { isEmbedded?: boolean } =
               {!isOwn && (
                 <Pressable style={styles.chatBtn} onPress={() => handleChatWithSeller(detailItem)}>
                   <Ionicons name="chatbubble-ellipses" size={20} color="#FFF" />
-                  <Text style={styles.chatBtnText}>Live Chat with Seller</Text>
+                  <Text style={styles.chatBtnText}>Chat with Seller</Text>
                 </Pressable>
               )}
 

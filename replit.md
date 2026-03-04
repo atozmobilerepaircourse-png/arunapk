@@ -5,7 +5,6 @@ Mobile-first social networking and directory platform for repair professionals i
 - **Frontend**: Expo/React Native (Firebase Hosting: `https://mobile-repair-app-276b6.web.app`)
 - **Backend**: Express/TypeScript (Google Cloud Run: `https://repair-backend-3siuld7gbq-el.a.run.app`)
 - **Database**: Neon.tech PostgreSQL
-- **Image Storage**: Google Cloud Storage (`mobi-app-uploads` bucket in asia-south1)
 
 ## Deployment Strategy
 
@@ -55,50 +54,28 @@ node build-steps.js && node push-oci.js
 - OTPs are stored in the `otp_tokens` PostgreSQL table (persists across Cloud Run restarts/scale-to-zero)
 - Twilio sends via WhatsApp first, falls back to SMS
 - Table is auto-created on server startup via migration in `server/index.ts`
-- Admin phone `8179142535` always receives OTP `123456`
 
-## Image Storage
-- **Bunny.net DISABLED** (`bunnyAvailable = false`, `bunnyStreamAvailable = false`)
-- Images uploaded to **Google Cloud Storage** bucket `mobi-app-uploads` (public read, CORS enabled)
-- Images auto-compressed with **sharp** (max 1200px, JPEG 80% quality) before upload
-- Fallback: local disk `/uploads/` if GCS unavailable (won't persist on Cloud Run)
+## Database — CRITICAL: Two Separate Databases
+**The local dev environment and production Cloud Run use DIFFERENT Neon databases:**
+- **Local dev** (`DATABASE_URL` in Replit env): `helium.neon.tech/heliumdb`
+- **Production** (in Cloud Run env vars): `ep-spring-pine-aeetxjpk-pooler.c-2.us-east-2.aws.neon.tech/neondb`
 
-## Database
-- **Local dev / Replit Deploy**: Replit's built-in PostgreSQL (internal hostname `helium`, accessed via `DATABASE_URL` env var — auto-injected by Replit)
-- **Production Cloud Run**: Neon.tech PostgreSQL `ep-spring-pine-aeetxjpk-pooler.c-2.us-east-2.aws.neon.tech/neondb`
-- **Replit Deploy is now configured** (autoscale) — clicking Deploy in Replit will use the Replit DB automatically
-- Schema push: `npm run db:push` → updates local Replit DB; for Cloud Run production push changes via `db:push` pointed at Neon URL
+**When running `npm run db:push`, it only updates the LOCAL database — NOT the production one.**
+To fix schema issues in production, connect directly with the production URL from Cloud Run env vars (retrieved via GCP API using SA key).
 
-## Database Tables
-Key tables: profiles, sessions, otp_tokens, posts, jobs, conversations, messages, products, orders, courses, payments, appSettings, emailCampaigns, reviews, service_requests, insurance_plans, insurance_policies, diagnostics
+### Getting the Production DATABASE_URL
+```js
+node -e "require('fs').writeFileSync('/tmp/gcp_sa.json', process.env.GCP_SA_KEY)"
+// Then use google-auth-library to GET:
+// https://run.googleapis.com/v2/projects/atoz-mobile-repair-488915/locations/asia-south1/services/repair-backend
+// and extract the DATABASE_URL from template.containers[0].env
+```
 
-## Features
-- **Trust & Reputation**: Trust scores, badges (New Member/Trusted/Pro/Verified Expert), ratings (1-5 stars), reviews
-- **Service Requests**: Customers post repair requests, technicians respond, location-based matching
-- **Subscriptions**: All roles (technician, teacher, supplier, customer) support subscription model. Admin controls pricing. Customer subscription disabled by default (enable from admin panel with pricing).
-- **Live Sessions**: Teachers go live with YouTube/Zoom links, share photos, users join via in-app browser
-- **Live Chat**: Real-time messaging between users
-- **Directory**: Sort by recently active, highest rated, most trusted, nearest location
-- **Admin Panel**: Users, Subscriptions, Security (blocked users with unblock), Reviews moderation, Revenue, Notifications, Insurance, Diagnostics tabs
-- **Diagnostics**: AI-powered device health scanner (battery, storage, network) with OpenAI suggestions, insurance discount display, nearby technician booking
-- **Insurance**: Basic (₹30/mo, ₹500 discount) and Premium (₹59/mo, ₹1000 discount) plans already seeded
-- **Customer Tabs**: Home, Experts, Diagnose, Profile (Shop tab removed from customers — not shown)
+### Applying Schema Changes to Production DB
+Run SQL directly against the production DATABASE_URL fetched above.
 
-## Key Notes
-- `UserProfile` type includes: `blocked`, `pushToken`, `lastSeen` fields (critical for admin security)
-- Admin OTP: `8179142535` → always `123456`
-- Session key: `mobi_session_token_v2`
-- Role change: `/api/profile/change-role` with `{ userId, newRole }` (NOT admin endpoint)
-- Trust scores: `/api/trust-score/:userId` (computed dynamically)
-- Batch trust scores: `/api/reviews/stats/all` (returns all user review stats in one call)
-- Chat renamed to "Live Chat" throughout the app
-- Admin panel: no payouts tab, no commission system; supports 4 roles for subscriptions
-- Customer subscription popup: shows admin phone (8179142535) + WhatsApp when inactive
-- Directory: Map removed from page; accessible via icon on Home screen
-- Error handling: 15-second timeout with retry on all major screens
-- Push notifications: sent on new messages, live session start, subscription expiry
-- Google login: popup-based OAuth flow with postMessage communication
-- APK icon: adaptive icon uses foregroundImage + backgroundColor only (no backgroundImage)
+## Database Tables (Neon PostgreSQL)
+Key tables: profiles, sessions, otp_tokens, posts, jobs, conversations, messages, products, orders, courses, payments, appSettings, emailCampaigns
 
 ## Android Builds (EAS)
 - **EAS CLI**: Installed in `node_modules/.bin/eas`

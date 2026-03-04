@@ -35,7 +35,7 @@ const ROLES: { key: UserRole; icon: keyof typeof Ionicons.glyphMap; color: strin
   { key: 'supplier', icon: 'cube', color: '#FF9F0A' },
 ];
 
-type ScreenName = 'phone' | 'otp' | 'email' | 'google-phone' | 'details' | 'selfie' | 'skills' | 'teachType' | 'businessDocs' | 'location';
+type ScreenName = 'phone' | 'otp' | 'email' | 'google-phone' | 'details' | 'selfie' | 'skills' | 'sellType' | 'teachType' | 'businessDocs' | 'location';
 
 export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
@@ -61,6 +61,7 @@ export default function OnboardingScreen() {
   const [otpResendTimer, setOtpResendTimer] = useState(0);
   const [googleEmail, setGoogleEmail] = useState('');
   const [googleSignedIn, setGoogleSignedIn] = useState(false);
+  const [sellTypes, setSellTypes] = useState<string[]>([]);
   const [teachType, setTeachType] = useState('');
   const [shopAddress, setShopAddress] = useState('');
   const [gstNumber, setGstNumber] = useState('');
@@ -89,6 +90,7 @@ export default function OnboardingScreen() {
   const isTechnician = role === 'technician';
   const needsSelfie = !isCustomer;
   const needsSkills = isTechnician;
+  const needsSellType = isSupplier;
   const needsTeachType = isTeacher;
   const needsBusinessDocs = isSupplier || isTeacher;
 
@@ -98,6 +100,7 @@ export default function OnboardingScreen() {
       : ['phone', 'otp', 'email', 'details'];
     if (needsSelfie) screens.push('selfie');
     if (needsSkills) screens.push('skills');
+    if (needsSellType) screens.push('sellType');
     if (needsTeachType) screens.push('teachType');
     if (needsBusinessDocs) screens.push('businessDocs');
     screens.push('location');
@@ -129,11 +132,8 @@ export default function OnboardingScreen() {
         setGoogleSignedIn(true);
         if (params.name) setUserName(params.name);
         setStep(0);
-        try {
-          router.setParams({ email: '', name: '', google: '' });
-        } catch (e) {
-          console.warn('[Google] Could not clear params:', e);
-        }
+        // Clear params from URL without refreshing
+        router.setParams({ email: undefined, name: undefined, google: undefined });
       }
     };
     checkGoogleRedirect();
@@ -351,35 +351,14 @@ export default function OnboardingScreen() {
       if (Platform.OS === 'web') {
         const returnUrl = window.location.origin + '/onboarding';
         console.log('[Google] Starting web sign-in with returnUrl:', returnUrl);
-        
-        // Add listener for message from popup
-        const handleMessage = (event: MessageEvent) => {
-          if (event.data?.type === 'GOOGLE_SIGN_IN_SUCCESS') {
-            console.log('[Google] Web sign-in message received:', event.data);
-            setGoogleEmail(event.data.email);
-            setGoogleSignedIn(true);
-            if (event.data.name) setUserName(event.data.name);
-            setStep(0);
-            window.removeEventListener('message', handleMessage);
-          }
-        };
-        window.addEventListener('message', handleMessage);
-
         await apiRequest('POST', '/api/auth/google/set-return-url', { token: clientToken, returnUrl });
         const urlRes = await apiRequest('POST', '/api/auth/google/get-login-url', { token: clientToken });
         const urlData = await urlRes.json();
         if (!urlData.success || !urlData.url) {
           Alert.alert('Error', urlData.message || 'Could not start Google sign-in.');
-          window.removeEventListener('message', handleMessage);
           return;
         }
-        
-        // Open in a popup instead of redirecting the whole page
-        const width = 500;
-        const height = 600;
-        const left = (window.innerWidth - width) / 2;
-        const top = (window.innerHeight - height) / 2;
-        window.open(urlData.url, 'GoogleSignIn', `width=${width},height=${height},left=${left},top=${top}`);
+        window.location.href = urlData.url;
         return;
       }
 

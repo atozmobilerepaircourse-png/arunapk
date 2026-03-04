@@ -21,26 +21,22 @@ function NativeTabLayout() {
     return (
       <NativeTabs initialRouteName="customer-home">
         <NativeTabs.Trigger name="customer-home">
-          <Icon sf={{ default: "house", selected: "house.fill" }} />
-          <Label>Home</Label>
-        </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="directory">
           <Icon sf={{ default: "magnifyingglass", selected: "magnifyingglass" }} />
-          <Label>Experts</Label>
+          <Label>Find</Label>
         </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="diagnostics">
-          <Icon sf={{ default: "waveform.badge.magnifyingglass", selected: "waveform.badge.magnifyingglass" }} />
-          <Label>Diagnose</Label>
+        <NativeTabs.Trigger name="marketplace">
+          <Icon sf={{ default: "bag", selected: "bag.fill" }} />
+          <Label>Buy & Sell</Label>
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="profile">
           <Icon sf={{ default: "person", selected: "person.fill" }} />
           <Label>Profile</Label>
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="index" hidden />
+        <NativeTabs.Trigger name="directory" hidden />
         <NativeTabs.Trigger name="create" hidden />
-        <NativeTabs.Trigger name="my-shop" hidden />
         <NativeTabs.Trigger name="jobs" hidden />
-        <NativeTabs.Trigger name="marketplace" hidden />
+        <NativeTabs.Trigger name="my-shop" hidden />
       </NativeTabs>
     );
   }
@@ -89,6 +85,10 @@ function NativeTabLayout() {
         <Icon sf={{ default: "plus.circle", selected: "plus.circle.fill" }} />
         <Label>Post</Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="marketplace">
+        <Icon sf={{ default: "bag", selected: "bag.fill" }} />
+        <Label>Shop</Label>
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="profile">
         <Icon sf={{ default: "person", selected: "person.fill" }} />
         <Label>Profile</Label>
@@ -96,7 +96,6 @@ function NativeTabLayout() {
       <NativeTabs.Trigger name="customer-home" hidden />
       <NativeTabs.Trigger name="jobs" hidden />
       <NativeTabs.Trigger name="my-shop" hidden />
-      <NativeTabs.Trigger name="marketplace" hidden />
     </NativeTabs>
   );
 }
@@ -146,10 +145,10 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="customer-home"
         options={{
-          title: "Home",
+          title: "Find",
           href: isCustomer ? '/customer-home' : null,
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? "home" : "home-outline"} size={24} color={color} />
+            <Ionicons name={focused ? "search" : "search-outline"} size={24} color={color} />
           ),
         }}
       />
@@ -166,10 +165,10 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="directory"
         options={{
-          title: isCustomer ? "Experts" : "Directory",
-          href: isCustomer ? '/directory' : (!isCustomer ? '/directory' : null),
+          title: "Directory",
+          href: isCustomer ? null : '/directory',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={isCustomer ? (focused ? "search" : "search-outline") : (focused ? "people" : "people-outline")} size={24} color={color} />
+            <Ionicons name={focused ? "people" : "people-outline"} size={24} color={color} />
           ),
         }}
       />
@@ -177,7 +176,7 @@ function ClassicTabLayout() {
         name="create"
         options={{
           title: "",
-          href: (isCustomer || isTeacherOrSupplier) ? null : '/create',
+          href: isCustomer ? null : '/create',
           tabBarIcon: ({ focused }) => (
             <View style={{
               width: 56,
@@ -212,20 +211,10 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="marketplace"
         options={{
-          title: "Shop",
-          href: null,
+          title: isCustomer ? "Buy & Sell" : "Shop",
+          href: isCustomer || (!isTeacherOrSupplier && !isCustomer) ? '/marketplace' : null,
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? "bag" : "bag-outline"} size={22} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="diagnostics"
-        options={{
-          title: "Diagnose",
-          href: isCustomer ? '/diagnostics' : null,
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? "pulse" : "pulse-outline"} size={22} color={color} />
           ),
         }}
       />
@@ -256,7 +245,7 @@ export default function TabLayout() {
   const { profile } = useApp();
   const cleanPhone = profile?.phone?.replace(/\D/g, "");
   const isAdmin = profile?.role === 'admin' || cleanPhone === "8179142535" || cleanPhone === "9876543210";
-  const needsSub = (profile?.role === 'technician' || profile?.role === 'supplier' || profile?.role === 'teacher' || profile?.role === 'customer') && !isAdmin;
+  const needsSub = (profile?.role === 'technician' || profile?.role === 'supplier' || profile?.role === 'teacher') && !isAdmin;
 
   const tabs = isLiquidGlassAvailable() ? <NativeTabLayout /> : <ClassicTabLayout />;
 

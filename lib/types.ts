@@ -27,9 +27,6 @@ export interface UserProfile {
   subscriptionOrderId?: string;
   deviceId?: string;
   deviceChangeCount?: number;
-  blocked?: number;
-  pushToken?: string;
-  lastSeen?: number;
   createdAt: number;
 }
 
@@ -43,7 +40,7 @@ export interface SubscriptionSetting {
   updatedAt: number;
 }
 
-export type PostCategory = 'repair' | 'job' | 'training' | 'supplier';
+export type PostCategory = 'repair' | 'job' | 'training' | 'supplier' | 'sell';
 
 export interface Post {
   id: string;

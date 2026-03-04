@@ -3,11 +3,8 @@ import { createServer, type Server } from "node:http";
 import { getFirestore } from "./firebase-admin";
 import { db } from "./db";
 import OpenAI from "openai";
-import { notifyAllUsers, notifyNewPost, notifyUser, checkSubscriptionExpiry } from "./push-notifications";
-import { profiles, conversations, messages, posts, jobs, reels, products, orders, subscriptionSettings, courses, courseChapters, courseVideos, courseEnrollments, dubbedVideos, ads, liveChatMessages, liveClasses, courseNotices, sessions, payments, teacherPayouts, appSettings, videoProgress, livePolls, livePollVotes, emailCampaigns, otpTokens, adminNotifications, reviews, serviceRequests, insurancePlans, insurancePolicies, diagnostics } from "@shared/schema";
-import { Storage } from "@google-cloud/storage";
-let sharp: any = null;
-try { sharp = require("sharp"); } catch { console.log("[Image] sharp not available, skipping compression"); }
+import { notifyAllUsers, notifyNewPost, notifyUser } from "./push-notifications";
+import { profiles, conversations, messages, posts, jobs, reels, products, orders, subscriptionSettings, courses, courseChapters, courseVideos, courseEnrollments, dubbedVideos, ads, liveChatMessages, liveClasses, courseNotices, sessions, payments, teacherPayouts, appSettings, videoProgress, livePolls, livePollVotes, emailCampaigns, otpTokens, adminNotifications } from "@shared/schema";
 import { sendWelcomeEmail } from "./lib/sendEmail";
 import { eq, or, and, desc, gt, lt, sql, ne, isNotNull } from "drizzle-orm";
 import { randomUUID } from "crypto";
@@ -32,12 +29,6 @@ function getGoogleClientSecret(): string | undefined {
   return raw;
 }
 
-function getGoogleRedirectUri(req?: any): string {
-  // If we are on Cloud Run, the production URL is fixed.
-  // Using the hardcoded production URL ensures consistency with Google Cloud Console settings.
-  return "https://repair-backend-3siuld7gbq-el.a.run.app/api/auth/google/callback";
-}
-
 setInterval(() => {
   const now = Date.now();
   for (const [key, val] of googleAuthTokens) {
@@ -57,12 +48,12 @@ const BUNNY_STORAGE_ENDPOINT = BUNNY_STORAGE_REGION === 'de'
   ? 'https://storage.bunnycdn.com' 
   : `https://${BUNNY_STORAGE_REGION}.storage.bunnycdn.com`;
 const BUNNY_CDN_URL = `https://Mobistorage.b-cdn.net`;
-const bunnyAvailable = false;
+const bunnyAvailable = !!(BUNNY_STORAGE_API_KEY && BUNNY_STORAGE_ZONE_NAME);
 
 // Bunny Stream — for video encoding + HLS streaming
 const BUNNY_STREAM_API_KEY = process.env.BUNNY_STREAM_API_KEY || '';
 const BUNNY_STREAM_LIBRARY_ID = process.env.BUNNY_STREAM_LIBRARY_ID || '';
-const bunnyStreamAvailable = false;
+const bunnyStreamAvailable = !!(BUNNY_STREAM_API_KEY && BUNNY_STREAM_LIBRARY_ID);
 
 if (bunnyAvailable) {
   console.log(`[Bunny] Storage initialized: zone=${BUNNY_STORAGE_ZONE_NAME}, region=${BUNNY_STORAGE_REGION}`);
@@ -75,51 +66,7 @@ if (bunnyStreamAvailable) {
   console.log('[BunnyStream] Missing BUNNY_STREAM_API_KEY or BUNNY_STREAM_LIBRARY_ID');
 }
 
-let gcsStorage: any = null;
-let gcsBucket: any = null;
-const GCS_BUCKET_NAME = "mobi-app-uploads";
-try {
-  const gcpKeyPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
-  if (gcpKeyPath && fs.existsSync(gcpKeyPath)) {
-    gcsStorage = new Storage({ keyFilename: gcpKeyPath });
-  } else if (process.env.GCP_SA_KEY) {
-    const keyData = JSON.parse(process.env.GCP_SA_KEY);
-    gcsStorage = new Storage({ credentials: keyData, projectId: keyData.project_id });
-  } else {
-    gcsStorage = new Storage();
-  }
-  gcsBucket = gcsStorage.bucket(GCS_BUCKET_NAME);
-  console.log(`[GCS] Storage initialized: bucket=${GCS_BUCKET_NAME}`);
-} catch (gcsErr) {
-  console.warn("[GCS] Could not initialize Google Cloud Storage:", gcsErr);
-}
-
-async function compressImage(buffer: Buffer): Promise<Buffer> {
-  if (!sharp) return buffer;
-  try {
-    const metadata = await sharp(buffer).metadata();
-    if (!metadata.format || !['jpeg', 'jpg', 'png', 'webp', 'gif'].includes(metadata.format)) {
-      return buffer;
-    }
-    const maxDim = 1200;
-    let pipeline = sharp(buffer);
-    if ((metadata.width || 0) > maxDim || (metadata.height || 0) > maxDim) {
-      pipeline = pipeline.resize(maxDim, maxDim, { fit: 'inside', withoutEnlargement: true });
-    }
-    const compressed = await pipeline.jpeg({ quality: 80, progressive: true }).toBuffer();
-    console.log(`[Image] Compressed: ${buffer.length} -> ${compressed.length} bytes (${Math.round(100 - (compressed.length / buffer.length) * 100)}% smaller)`);
-    return compressed;
-  } catch (err) {
-    console.warn("[Image] Compression failed, using original:", err);
-    return buffer;
-  }
-}
-
-async function uploadToStorage(buffer: Buffer, filename: string, compress = true): Promise<string> {
-  if (compress && filename.match(/\.(jpg|jpeg|png|webp|gif)$/i)) {
-    buffer = await compressImage(buffer);
-    filename = filename.replace(/\.[^.]+$/, '.jpg');
-  }
+async function uploadToStorage(buffer: Buffer, filename: string): Promise<string> {
   if (bunnyAvailable) {
     try {
       const url = `${BUNNY_STORAGE_ENDPOINT}/${BUNNY_STORAGE_ZONE_NAME}/${filename}`;
@@ -141,18 +88,6 @@ async function uploadToStorage(buffer: Buffer, filename: string, compress = true
       return `${BUNNY_CDN_URL}/${filename}`;
     } catch (error) {
       console.error("[Bunny] Upload failed, falling back to local:", error);
-    }
-  }
-  if (gcsBucket) {
-    try {
-      const gcsFile = gcsBucket.file(filename);
-      await gcsFile.save(buffer, { resumable: false, metadata: { cacheControl: 'public, max-age=31536000' } });
-      await gcsFile.makePublic();
-      const gcsUrl = `https://storage.googleapis.com/${GCS_BUCKET_NAME}/${filename}`;
-      console.log(`[GCS] Uploaded: ${filename} (${buffer.length} bytes)`);
-      return gcsUrl;
-    } catch (gcsErr) {
-      console.error("[GCS] Upload failed, falling back to local:", gcsErr);
     }
   }
   const localFilename = filename.replace(/^(images|videos)\//, "");
@@ -243,7 +178,7 @@ function sanitizeImageUrls(images: string[]): string[] {
     if (typeof url !== 'string') return false;
     if (url.startsWith('file://') || url.startsWith('content://') || url.startsWith('data:')) return false;
     // Support bunny.net CDN URLs
-    if (url.includes('b-cdn.net')) return false;
+    if (url.includes('b-cdn.net')) return true;
     return url.startsWith('http://') || url.startsWith('https://') || url.startsWith('/uploads/') || url.startsWith('/api/files/') || url.startsWith('/api/gcs/');
   });
 }
@@ -252,7 +187,7 @@ function sanitizeImageUrl(url: string): string {
   if (typeof url !== 'string') return '';
   if (url.startsWith('file://') || url.startsWith('content://') || url.startsWith('data:')) return '';
   // Support bunny.net CDN URLs
-  if (url.includes('b-cdn.net')) return '';
+  if (url.includes('b-cdn.net')) return url;
   return url;
 }
 
@@ -604,8 +539,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const cleanPhone = phone.replace(/\D/g, "");
-      const isAdmin = cleanPhone === '8179142535' || cleanPhone === '918179142535';
-      const otp = isAdmin ? '123456' : generateOTP();
+      const otp = generateOTP();
       const expiresAt = Date.now() + 5 * 60 * 1000;
 
       // Persist OTP in database so it survives server restarts
@@ -750,7 +684,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const clientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '456751858632-brh0ir7j9v2ks5kk6antp6q757kmhaus.apps.googleusercontent.com';
       if (!clientId) return res.status(500).json({ success: false, message: "Google OAuth not configured" });
       
-      const redirectUri = getGoogleRedirectUri(req);
+      const redirectUri = "https://repair-backend-3siuld7gbq-el.a.run.app/api/auth/google/callback";
       
       const stateObj = { token };
       const stateStr = Buffer.from(JSON.stringify(stateObj)).toString('base64');
@@ -838,7 +772,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return sendGoogleErrorPage(res, "Google OAuth is not configured on the server.");
       }
 
-      const redirectUri = getGoogleRedirectUri(req);
+      // Use request host for callback redirection
+      const host = "repair-backend-3siuld7gbq-el.a.run.app";
+      const protocol = 'https';
+      const redirectUri = "https://repair-backend-3siuld7gbq-el.a.run.app/api/auth/google/callback";
       console.log("[Google Auth] Using redirect_uri:", redirectUri);
 
       const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
@@ -940,10 +877,6 @@ setTimeout(function(){window.location.href="${deepLink}"},2000);
 <body><div class="c"><p>Session expired. Please try again.</p><a href="/">Go back</a></div></body></html>`);
     }
 
-    const data = googleAuthTokens.get(token as string)!;
-    const email = data.email;
-    const name = data.name;
-
     return res.send(`<!DOCTYPE html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Signed In</title>
@@ -959,14 +892,7 @@ h2{margin:0 0 12px;font-size:24px;color:#FF6B35}p{color:#ccc;margin:0 0 8px;font
 <p>Now switch back to the Mobi app.<br>Your sign-in will complete automatically.</p>
 <p style="color:#FF6B35;font-size:18px;font-weight:700;margin-top:24px">Swipe up from the bottom<br>and tap Expo Go in recent apps</p>
 <p class="sub">The app will detect your sign-in<br>and continue automatically</p>
-</div>
-<script>
-  if (window.opener) {
-    window.opener.postMessage({ type: 'GOOGLE_SIGN_IN_SUCCESS', email: '${email}', name: '${name}' }, '*');
-    setTimeout(() => window.close(), 1000);
-  }
-</script>
-</body></html>`);
+</div></body></html>`);
   });
 
   app.get("/api/auth/google/done", (req, res) => {
@@ -994,14 +920,15 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
         return res.status(400).json({ success: false, message: "No authorization code" });
       }
 
-      const clientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '456751858632-brh0ir7j9v2ks5kk6antp6q757kmhaus.apps.googleusercontent.com';
+      const clientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
       const clientSecret = getGoogleClientSecret();
 
       if (!clientId || !clientSecret) {
         return res.status(500).json({ success: false, message: "Google OAuth not configured" });
       }
 
-      const redirectUri = getGoogleRedirectUri(req);
+      const devDomain = "repair-backend-3siuld7gbq-el.a.run.app";
+      const redirectUri = "https://repair-backend-3siuld7gbq-el.a.run.app/api/auth/google/callback";
       console.log("[Google Auth] process-code redirect_uri:", redirectUri);
       console.log("[Google Auth] process-code code prefix:", code.substring(0, 10));
 
@@ -1095,7 +1022,7 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
         return res.json({
           success: true,
           exists: true,
-          profile: { ...found, skills: found.skills ? JSON.parse(found.skills) : [] },
+          profile: { ...found, skills: JSON.parse(found.skills) },
         });
       }
       return res.json({ success: true, exists: false });
@@ -1175,7 +1102,7 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
         return res.json({
           success: true,
           exists: true,
-          profile: { ...found, skills: found.skills ? JSON.parse(found.skills) : [] },
+          profile: { ...found, skills: JSON.parse(found.skills) },
         });
       }
       return res.json({ success: true, exists: false });
@@ -1237,7 +1164,6 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
         ...p,
         skills: JSON.parse(p.skills),
       }));
-      res.set('Cache-Control', 'public, max-age=300');
       return res.json(parsed);
     } catch (error) {
       console.error("[Profile] List error:", error);
@@ -1252,7 +1178,6 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
         return res.status(404).json({ success: false, message: "Profile not found" });
       }
       const p = result[0];
-      res.set('Cache-Control', 'public, max-age=300');
       return res.json({ ...p, skills: JSON.parse(p.skills) });
     } catch (error) {
       console.error("[Profile] Get error:", error);
@@ -1435,7 +1360,6 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
         images: JSON.parse(p.images),
         likes: JSON.parse(p.likes),
       }));
-      res.set('Cache-Control', 'public, max-age=300');
       return res.json(parsed);
     } catch (error) {
       console.error("[Products] Get error:", error);
@@ -1449,7 +1373,6 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
       if (result.length === 0) return res.status(404).json({ success: false, message: "Not found" });
       const p = result[0];
       await db.update(products).set({ views: (p.views || 0) + 1 }).where(eq(products.id, req.params.id));
-      res.set('Cache-Control', 'public, max-age=300');
       return res.json({ ...p, images: JSON.parse(p.images), likes: JSON.parse(p.likes), views: (p.views || 0) + 1 });
     } catch (error) {
       return res.status(500).json({ success: false });
@@ -1610,7 +1533,6 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
         likes: JSON.parse(p.likes),
         comments: JSON.parse(p.comments),
       }));
-      res.set('Cache-Control', 'public, max-age=120');
       return res.json(parsed);
     } catch (error) {
       console.error("[Posts] List error:", error);
@@ -3171,6 +3093,10 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
         return res.json({ success: true, required: false, active: true });
       }
 
+      if (role === 'customer') {
+        return res.json({ success: true, required: false, active: true });
+      }
+
       const now = Date.now();
       const isActive = user.subscriptionActive === 1 && (user.subscriptionEnd || 0) > now;
 
@@ -3203,7 +3129,7 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
       const role = user.role;
       const settings = await db.select().from(subscriptionSettings).where(eq(subscriptionSettings.role, role));
       const setting = settings[0];
-      if (!setting || !setting.enabled) {
+      if (!setting || !setting.enabled || role === 'customer') {
         return res.status(400).json({ success: false, message: "Subscription not required for this role" });
       }
 
@@ -4378,7 +4304,7 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
     }
   });
 
-  app.post("/api/admin/block-user", adminMiddleware, async (req, res) => {
+  app.post("/api/admin/block-user", async (req, res) => {
     try {
       const { userId, blocked } = req.body;
       if (!userId) return res.status(400).json({ success: false, message: "userId required" });
@@ -5108,13 +5034,6 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
       await firestore.collection("live_chat_messages").doc(messageId).set(msgData);
       await db.insert(liveChatMessages).values(msgData);
 
-      // Notify all users about new live chat message
-      notifyAllUsers({
-        title: `Live Chat: ${senderName}`,
-        body: message || (image ? "📷 Photo" : "🎥 Video"),
-        data: { type: 'live_chat', messageId },
-      }, senderId).catch(() => {});
-
       res.json({ success: true, message: msgData });
     } catch (error) {
       console.error("[API] Post live message error:", error);
@@ -5192,8 +5111,7 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
       const snapshot = await firestore.collection("teacher_live_sessions")
         .where("isLive", "==", true)
         .get();
-      const proto = req.get("x-forwarded-proto") || req.protocol;
-      const baseUrl = `${proto}://${req.get("host")}`;
+      const baseUrl = `${req.protocol}://${req.get("host")}`;
       const sessions = snapshot.docs
         .map(doc => {
           const data = doc.data();
@@ -5308,8 +5226,8 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
       const filename = `images/${randomUUID()}${path.extname(req.file.originalname)}`;
       const url = await uploadToStorage(req.file.buffer, filename);
       
-      const proto = req.get("x-forwarded-proto") || req.protocol;
-      const baseUrl = `${proto}://${req.get("host")}`;
+      // Ensure the URL is absolute for Firestore
+      const baseUrl = `${req.protocol}://${req.get("host")}`;
       const absoluteUrl = url.startsWith("/") ? baseUrl + url : url;
 
       // Build message text — include the join link so viewers can tap it
@@ -5335,14 +5253,6 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
       if (firestore) {
         await firestore.collection("live_chat_messages").doc(messageId).set(msgData);
         console.log("[Live Session Upload] Message added to Firestore live_chat_messages, id:", messageId);
-
-        // Notify all users about the shared photo
-        notifyAllUsers({
-          title: `Live Session: ${displayName}`,
-          body: "Shared a new photo!",
-          data: { type: 'live_chat', messageId, sessionId, image: absoluteUrl },
-        }).catch(() => {});
-
         // Also update the live session document so Mobi Live card shows latest photo
         try {
           await firestore.collection("teacher_live_sessions").doc(sessionId).update({
@@ -5576,489 +5486,6 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
       }
     });
   });
-
-  // ========== Self Role Change ==========
-  app.post("/api/profile/change-role", async (req, res) => {
-    try {
-      const { userId, newRole } = req.body;
-      const allowedRoles = ["teacher", "technician", "customer", "supplier", "job_provider"];
-      if (!userId || !allowedRoles.includes(newRole)) {
-        return res.status(400).json({ success: false, message: "Invalid role" });
-      }
-      await db.update(profiles).set({ role: newRole as any }).where(eq(profiles.id, userId));
-      res.json({ success: true, message: "Role updated successfully" });
-    } catch (error) {
-      res.status(500).json({ success: false, message: "Failed to update role" });
-    }
-  });
-
-  // ========== Reviews & Ratings ==========
-  app.get("/api/reviews/stats/all", async (_req, res) => {
-    try {
-      const allReviewsList = await db.select().from(reviews);
-      const statsMap: Record<string, { averageRating: number; totalReviews: number }> = {};
-      const grouped: Record<string, number[]> = {};
-      for (const r of allReviewsList) {
-        if (!grouped[r.revieweeId]) grouped[r.revieweeId] = [];
-        grouped[r.revieweeId].push(r.rating);
-      }
-      for (const [userId, ratings] of Object.entries(grouped)) {
-        const avg = ratings.reduce((s, r) => s + r, 0) / ratings.length;
-        statsMap[userId] = { averageRating: Math.round(avg * 10) / 10, totalReviews: ratings.length };
-      }
-      res.set('Cache-Control', 'public, max-age=300');
-      res.json(statsMap);
-    } catch (error) {
-      res.status(500).json({});
-    }
-  });
-
-  app.get("/api/reviews/:userId", async (req, res) => {
-    try {
-      const { userId } = req.params;
-      const userReviews = await db.select().from(reviews).where(eq(reviews.revieweeId, userId));
-      userReviews.sort((a, b) => b.createdAt - a.createdAt);
-      const avgRating = userReviews.length > 0
-        ? userReviews.reduce((sum, r) => sum + r.rating, 0) / userReviews.length
-        : 0;
-      res.json({ success: true, reviews: userReviews, averageRating: Math.round(avgRating * 10) / 10, totalReviews: userReviews.length });
-    } catch (error) {
-      res.status(500).json({ success: true, reviews: [], averageRating: 0, totalReviews: 0 });
-    }
-  });
-
-  app.post("/api/reviews", async (req, res) => {
-    try {
-      const { reviewerId, reviewerName, reviewerAvatar, revieweeId, rating, comment, interactionType, interactionId } = req.body;
-      if (!reviewerId || !revieweeId || !rating) {
-        return res.status(400).json({ success: false, message: "Missing required fields" });
-      }
-      if (reviewerId === revieweeId) {
-        return res.status(400).json({ success: false, message: "Cannot review yourself" });
-      }
-      const hasConversation = await db.select().from(conversations).where(
-        sql`(${conversations.participant1Id} = ${reviewerId} AND ${conversations.participant2Id} = ${revieweeId})
-            OR (${conversations.participant1Id} = ${revieweeId} AND ${conversations.participant2Id} = ${reviewerId})`
-      );
-      const hasOrder = await db.select().from(orders).where(
-        sql`(${orders.buyerId} = ${reviewerId} AND ${orders.sellerId} = ${revieweeId})
-            OR (${orders.buyerId} = ${revieweeId} AND ${orders.sellerId} = ${reviewerId})`
-      );
-      if (hasConversation.length === 0 && hasOrder.length === 0) {
-        return res.status(403).json({ success: false, message: "You need a conversation or order with this user before leaving a review" });
-      }
-      const existing = await db.select().from(reviews)
-        .where(and(eq(reviews.reviewerId, reviewerId), eq(reviews.revieweeId, revieweeId)));
-      if (existing.length > 0) {
-        await db.update(reviews).set({ rating, comment: comment || '', createdAt: Date.now() })
-          .where(and(eq(reviews.reviewerId, reviewerId), eq(reviews.revieweeId, revieweeId)));
-        return res.json({ success: true, message: "Review updated" });
-      }
-      await db.insert(reviews).values({
-        reviewerId, reviewerName: reviewerName || '', reviewerAvatar: reviewerAvatar || '',
-        revieweeId, rating, comment: comment || '',
-        interactionType: interactionType || 'service', interactionId: interactionId || '',
-      });
-      res.json({ success: true, message: "Review submitted" });
-    } catch (error) {
-      res.status(500).json({ success: false, message: "Failed to submit review" });
-    }
-  });
-
-  app.delete("/api/admin/reviews/:reviewId", adminMiddleware, async (req, res) => {
-    try {
-      await db.delete(reviews).where(eq(reviews.id, req.params.reviewId));
-      res.json({ success: true, message: "Review deleted" });
-    } catch (error) {
-      res.status(500).json({ success: false, message: "Failed to delete review" });
-    }
-  });
-
-  app.get("/api/admin/reviews", adminMiddleware, async (req, res) => {
-    try {
-      const allReviews = await db.select().from(reviews);
-      allReviews.sort((a, b) => b.createdAt - a.createdAt);
-      res.json({ success: true, reviews: allReviews });
-    } catch (error) {
-      res.status(500).json({ success: true, reviews: [] });
-    }
-  });
-
-  // ========== Trust Score ==========
-  app.get("/api/trust-score/:userId", async (req, res) => {
-    try {
-      const { userId } = req.params;
-      const allProfilesList = await db.select().from(profiles);
-      const profile = allProfilesList.find(p => p.id === userId);
-      if (!profile) return res.status(404).json({ success: false, score: 0, badge: 'New Member' });
-
-      let score = 0;
-      if (profile.name) score += 10;
-      if (profile.email) score += 10;
-      if (profile.phone) score += 15;
-      if (profile.city) score += 5;
-      if (profile.avatar) score += 10;
-      if (profile.bio) score += 5;
-      if (profile.aadhaarNumber) score += 10;
-      if (profile.panNumber) score += 5;
-      if (profile.subscriptionActive === 1) score += 15;
-
-      const userReviews = await db.select().from(reviews).where(eq(reviews.revieweeId, userId));
-      const avgRating = userReviews.length > 0
-        ? userReviews.reduce((sum, r) => sum + r.rating, 0) / userReviews.length : 0;
-      score += Math.min(userReviews.length * 2, 10);
-      score += Math.round(avgRating * 1);
-      score = Math.min(score, 100);
-
-      let badge = 'New Member';
-      if (score >= 80) badge = 'Verified Expert';
-      else if (score >= 60) badge = 'Pro';
-      else if (score >= 40) badge = 'Trusted';
-
-      res.json({ success: true, score, badge, totalReviews: userReviews.length, averageRating: Math.round(avgRating * 10) / 10 });
-    } catch (error) {
-      res.json({ success: true, score: 0, badge: 'New Member', totalReviews: 0, averageRating: 0 });
-    }
-  });
-
-  // ========== Service Requests (Nearby Work / Job Requests) ==========
-  app.get("/api/service-requests", async (req, res) => {
-    try {
-      const allRequests = await db.select().from(serviceRequests);
-      allRequests.sort((a, b) => b.createdAt - a.createdAt);
-      res.json({ success: true, requests: allRequests });
-    } catch (error) {
-      res.status(500).json({ success: true, requests: [] });
-    }
-  });
-
-  app.post("/api/service-requests", async (req, res) => {
-    try {
-      const { customerId, customerName, customerPhone, customerAvatar, title, description, category, city, state, latitude, longitude } = req.body;
-      if (!customerId || !title) {
-        return res.status(400).json({ success: false, message: "Customer ID and title are required" });
-      }
-      const newRequest = await db.insert(serviceRequests).values({
-        customerId, customerName: customerName || '', customerPhone: customerPhone || '',
-        customerAvatar: customerAvatar || '', title, description: description || '',
-        category: category || 'repair', city: city || '', state: state || '',
-        latitude: latitude || '', longitude: longitude || '',
-      }).returning();
-      
-      await notifyAllUsers({
-        title: '🔧 New Service Request',
-        body: `${customerName || 'A customer'}: ${title}`,
-        data: { type: 'service_request', requestId: newRequest[0]?.id },
-      }, customerId);
-      
-      res.json({ success: true, request: newRequest[0] });
-    } catch (error) {
-      res.status(500).json({ success: false, message: "Failed to create request" });
-    }
-  });
-
-  app.post("/api/service-requests/:id/respond", async (req, res) => {
-    try {
-      const { id } = req.params;
-      const { technicianId, technicianName, technicianPhone, message } = req.body;
-      if (!technicianId || !message) {
-        return res.status(400).json({ success: false, message: "Technician ID and message required" });
-      }
-      const existing = await db.select().from(serviceRequests).where(eq(serviceRequests.id, id));
-      if (existing.length === 0) return res.status(404).json({ success: false, message: "Request not found" });
-      
-      const currentResponses = JSON.parse(existing[0].responses || '[]');
-      currentResponses.push({
-        technicianId, technicianName: technicianName || '', technicianPhone: technicianPhone || '',
-        message, createdAt: Date.now()
-      });
-      await db.update(serviceRequests).set({ responses: JSON.stringify(currentResponses) }).where(eq(serviceRequests.id, id));
-      
-      if (existing[0].customerId) {
-        await notifyUser(existing[0].customerId, {
-          title: '💬 Response to your request',
-          body: `${technicianName || 'A technician'} responded to "${existing[0].title}"`,
-          data: { type: 'service_response', requestId: id },
-        });
-      }
-      
-      res.json({ success: true, message: "Response sent" });
-    } catch (error) {
-      res.status(500).json({ success: false, message: "Failed to respond" });
-    }
-  });
-
-  app.patch("/api/service-requests/:id/status", async (req, res) => {
-    try {
-      const { status } = req.body;
-      await db.update(serviceRequests).set({ status }).where(eq(serviceRequests.id, req.params.id));
-      res.json({ success: true });
-    } catch (error) {
-      res.status(500).json({ success: false, message: "Failed to update status" });
-    }
-  });
-
-  app.post("/api/admin/check-subscription-expiry", adminMiddleware, async (_req, res) => {
-    try {
-      const notified = await checkSubscriptionExpiry();
-      res.json({ success: true, notified });
-    } catch (error) {
-      res.status(500).json({ success: false, message: "Failed to check subscription expiry" });
-    }
-  });
-
-  setInterval(() => {
-    checkSubscriptionExpiry().catch(err => {
-      console.error('[Push] Scheduled subscription expiry check failed:', err);
-    });
-  }, 6 * 60 * 60 * 1000);
-
-  // ========== Diagnostics ==========
-  app.post("/api/diagnostics", async (req, res) => {
-    try {
-      const { userId, userName, deviceModel, platform, batteryLevel, batteryHealth,
-        storageUsed, storageTotal, networkType, networkStrength, temperature, sensorsStatus,
-        overallScore, issues } = req.body;
-      if (!userId) return res.status(400).json({ success: false, message: "userId required" });
-
-      // Generate AI suggestions using OpenAI
-      let aiSuggestions: any[] = [];
-      try {
-        const openai = new OpenAI();
-        const issueList = Array.isArray(issues) ? issues : JSON.parse(issues || '[]');
-        if (issueList.length > 0) {
-          const prompt = `You are a mobile phone repair expert in India. Based on these device health issues, provide repair suggestions with estimated costs in INR.
-
-Device: ${deviceModel || 'Smartphone'} (${platform || 'Android'})
-Issues detected:
-${issueList.map((iss: string, i: number) => `${i + 1}. ${iss}`).join('\n')}
-Battery: ${batteryLevel}% (${batteryHealth})
-Storage: ${storageUsed}/${storageTotal}
-
-Respond ONLY with a JSON array of suggestion objects, each with:
-- "issue": short issue name
-- "recommendation": what to do (1 sentence)
-- "estimatedCost": cost range in INR (e.g. "₹800-₹1200")
-- "urgency": "high", "medium", or "low"
-- "category": "hardware" or "software"
-
-Maximum 4 suggestions. Be concise and practical for Indian market pricing.`;
-
-          const completion = await openai.chat.completions.create({
-            model: "gpt-4o-mini",
-            messages: [{ role: "user", content: prompt }],
-            response_format: { type: "json_object" },
-            max_tokens: 600,
-          });
-          const raw = completion.choices[0]?.message?.content || '{"suggestions":[]}';
-          const parsed = JSON.parse(raw);
-          aiSuggestions = parsed.suggestions || parsed || [];
-          if (!Array.isArray(aiSuggestions)) aiSuggestions = Object.values(aiSuggestions)[0] as any[] || [];
-        }
-      } catch (aiErr) {
-        console.log('[Diagnostics] AI suggestions failed, using fallback:', aiErr);
-        // Fallback suggestions based on issues
-        const issueList = Array.isArray(issues) ? issues : (JSON.parse(issues || '[]'));
-        if (issueList.some((i: string) => i.toLowerCase().includes('battery'))) {
-          aiSuggestions.push({ issue: 'Battery Health', recommendation: 'Replace battery to restore performance', estimatedCost: '₹800-₹1500', urgency: 'medium', category: 'hardware' });
-        }
-        if (issueList.some((i: string) => i.toLowerCase().includes('storage'))) {
-          aiSuggestions.push({ issue: 'Storage Full', recommendation: 'Clean cache and move files to cloud', estimatedCost: '₹150-₹250', urgency: 'low', category: 'software' });
-        }
-      }
-
-      const result = await db.insert(diagnostics).values({
-        userId, userName: userName || '',
-        deviceModel: deviceModel || '', platform: platform || '',
-        batteryLevel: String(batteryLevel || ''), batteryHealth: batteryHealth || 'good',
-        storageUsed: String(storageUsed || ''), storageTotal: String(storageTotal || ''),
-        networkType: networkType || '', networkStrength: networkStrength || 'good',
-        temperature: temperature || 'normal', sensorsStatus: sensorsStatus || 'good',
-        overallScore: Math.min(100, Math.max(0, parseInt(String(overallScore)) || 100)),
-        issues: JSON.stringify(Array.isArray(issues) ? issues : (JSON.parse(issues || '[]'))),
-        aiSuggestions: JSON.stringify(aiSuggestions),
-      }).returning();
-
-      res.json({ success: true, diagnostic: result[0], aiSuggestions });
-    } catch (error) {
-      console.error('[Diagnostics] Error:', error);
-      res.status(500).json({ success: false, message: "Failed to save diagnostic" });
-    }
-  });
-
-  app.get("/api/diagnostics/user/:userId", async (req, res) => {
-    try {
-      const { userId } = req.params;
-      const userDiags = await db.select().from(diagnostics).where(eq(diagnostics.userId, userId));
-      userDiags.sort((a, b) => b.createdAt - a.createdAt);
-      res.json({ success: true, diagnostics: userDiags });
-    } catch (error) {
-      res.status(500).json({ success: false, diagnostics: [] });
-    }
-  });
-
-  app.get("/api/admin/diagnostics", adminMiddleware, async (req, res) => {
-    try {
-      const allDiags = await db.select().from(diagnostics);
-      allDiags.sort((a, b) => b.createdAt - a.createdAt);
-      res.json({ success: true, diagnostics: allDiags });
-    } catch (error) {
-      res.status(500).json({ success: false, diagnostics: [] });
-    }
-  });
-
-  // ========== Insurance Plans (Public) ==========
-  app.get("/api/insurance/plans", async (req, res) => {
-    try {
-      const plans = await db.select().from(insurancePlans).where(eq(insurancePlans.isActive, 1));
-      plans.sort((a, b) => a.sortOrder - b.sortOrder);
-      res.json({ success: true, plans });
-    } catch (error) {
-      res.status(500).json({ success: false, plans: [] });
-    }
-  });
-
-  app.get("/api/insurance/policy/:userId", async (req, res) => {
-    try {
-      const { userId } = req.params;
-      const policies = await db.select().from(insurancePolicies)
-        .where(and(eq(insurancePolicies.userId, userId), eq(insurancePolicies.status, "active")));
-      policies.sort((a, b) => b.createdAt - a.createdAt);
-      res.json({ success: true, policy: policies[0] || null });
-    } catch (error) {
-      res.status(500).json({ success: false, policy: null });
-    }
-  });
-
-  app.post("/api/insurance/subscribe", async (req, res) => {
-    try {
-      const { userId, userName, userPhone, planId } = req.body;
-      if (!userId || !planId) return res.status(400).json({ success: false, message: "userId and planId required" });
-      const plan = await db.select().from(insurancePlans).where(eq(insurancePlans.id, planId));
-      if (!plan.length) return res.status(404).json({ success: false, message: "Plan not found" });
-      const p = plan[0];
-      const existing = await db.select().from(insurancePolicies)
-        .where(and(eq(insurancePolicies.userId, userId), eq(insurancePolicies.status, "active")));
-      if (existing.length > 0) {
-        return res.status(400).json({ success: false, message: "You already have an active insurance policy" });
-      }
-      const startDate = Date.now();
-      const endDate = startDate + 30 * 24 * 60 * 60 * 1000;
-      await db.insert(insurancePolicies).values({
-        userId, userName: userName || '', userPhone: userPhone || '',
-        planId, planName: p.name, planPrice: p.price,
-        status: "active", startDate, endDate,
-      });
-      res.json({ success: true, message: "Insurance policy activated successfully" });
-    } catch (error) {
-      res.status(500).json({ success: false, message: "Failed to subscribe" });
-    }
-  });
-
-  app.post("/api/insurance/claim", async (req, res) => {
-    try {
-      const { userId, description, photo } = req.body;
-      if (!userId) return res.status(400).json({ success: false, message: "userId required" });
-      const policies = await db.select().from(insurancePolicies)
-        .where(and(eq(insurancePolicies.userId, userId), eq(insurancePolicies.status, "active")));
-      if (!policies.length) return res.status(404).json({ success: false, message: "No active policy found" });
-      const policy = policies[0];
-      if (policy.claimStatus && policy.claimStatus !== "none") {
-        return res.status(400).json({ success: false, message: "A claim is already pending or processed" });
-      }
-      await db.update(insurancePolicies).set({
-        claimStatus: "pending",
-        claimDescription: description || '',
-        claimPhoto: photo || '',
-        claimSubmittedAt: Date.now(),
-      }).where(eq(insurancePolicies.id, policy.id));
-      res.json({ success: true, message: "Claim submitted successfully. A technician will be assigned." });
-    } catch (error) {
-      res.status(500).json({ success: false, message: "Failed to submit claim" });
-    }
-  });
-
-  // ========== Admin Insurance Management ==========
-  app.get("/api/admin/insurance/plans", adminMiddleware, async (req, res) => {
-    try {
-      const plans = await db.select().from(insurancePlans);
-      plans.sort((a, b) => a.sortOrder - b.sortOrder);
-      res.json({ success: true, plans });
-    } catch (error) {
-      res.status(500).json({ success: false, plans: [] });
-    }
-  });
-
-  app.post("/api/admin/insurance/plans", adminMiddleware, async (req, res) => {
-    try {
-      const { name, price, repairDiscount, coverage, isActive, sortOrder } = req.body;
-      if (!name) return res.status(400).json({ success: false, message: "Plan name required" });
-      
-      const coverageStr = Array.isArray(coverage) ? JSON.stringify(coverage) : (typeof coverage === 'string' ? JSON.stringify(coverage.split('\n').map(s => s.trim()).filter(Boolean)) : '[]');
-
-      await db.insert(insurancePlans).values({
-        name, 
-        price: Number(price) || 30,
-        repairDiscount: Number(repairDiscount) || 500,
-        coverage: coverageStr,
-        isActive: isActive !== undefined ? (isActive ? 1 : 0) : 1,
-        sortOrder: sortOrder || 0,
-      });
-      res.json({ success: true, message: "Plan created" });
-    } catch (error) {
-      console.error("[Admin Insurance] Create plan error:", error);
-      res.status(500).json({ success: false, message: "Failed to create plan" });
-    }
-  });
-
-  app.put("/api/admin/insurance/plans/:id", adminMiddleware, async (req, res) => {
-    try {
-      const { name, price, repairDiscount, coverage, isActive, sortOrder } = req.body;
-      await db.update(insurancePlans).set({
-        name, price, repairDiscount,
-        coverage: typeof coverage === "string" ? coverage : JSON.stringify(coverage || []),
-        isActive, sortOrder,
-      }).where(eq(insurancePlans.id, req.params.id));
-      res.json({ success: true, message: "Plan updated" });
-    } catch (error) {
-      res.status(500).json({ success: false, message: "Failed to update plan" });
-    }
-  });
-
-  app.delete("/api/admin/insurance/plans/:id", adminMiddleware, async (req, res) => {
-    try {
-      await db.delete(insurancePlans).where(eq(insurancePlans.id, req.params.id));
-      res.json({ success: true, message: "Plan deleted" });
-    } catch (error) {
-      res.status(500).json({ success: false, message: "Failed to delete plan" });
-    }
-  });
-
-  app.get("/api/admin/insurance/policies", adminMiddleware, async (req, res) => {
-    try {
-      const policies = await db.select().from(insurancePolicies);
-      policies.sort((a, b) => b.createdAt - a.createdAt);
-      res.json({ success: true, policies });
-    } catch (error) {
-      res.status(500).json({ success: false, policies: [] });
-    }
-  });
-
-  app.put("/api/admin/insurance/claims/:id", adminMiddleware, async (req, res) => {
-    try {
-      const { claimStatus } = req.body;
-      await db.update(insurancePolicies).set({ claimStatus }).where(eq(insurancePolicies.id, req.params.id));
-      res.json({ success: true, message: "Claim status updated" });
-    } catch (error) {
-      res.status(500).json({ success: false, message: "Failed to update claim" });
-    }
-  });
-
-  setTimeout(() => {
-    checkSubscriptionExpiry().catch(err => {
-      console.error('[Push] Initial subscription expiry check failed:', err);
-    });
-  }, 30000);
 
   const httpServer = createServer(app);
   return httpServer;

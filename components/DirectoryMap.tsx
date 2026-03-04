@@ -168,7 +168,7 @@ export default function DirectoryMap({ markers, onMarkerPress, onChatPress }: Di
               style={styles.btnChat}
               onPress={() => { setSelected(null); onChatPress?.(selected.id); }}
             >
-              <Text style={styles.btnChatText}>Live Chat</Text>
+              <Text style={styles.btnChatText}>Chat</Text>
             </Pressable>
           </View>
         </View>

@@ -160,7 +160,7 @@ export default function ChatsScreen() {
           <Pressable onPress={() => router.back()} hitSlop={12} style={styles.backBtn}>
             <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
           </Pressable>
-          <Text style={styles.headerTitle}>Live Chat</Text>
+          <Text style={styles.headerTitle}>Chat</Text>
           <View style={{ width: 36 }} />
         </View>
 
@@ -177,7 +177,7 @@ export default function ChatsScreen() {
                 style={{ marginRight: 6 }}
               />
               <Text style={[styles.tabText, activeTab === 'messages' && styles.tabTextActive]}>
-                Live Chat
+                Messages
               </Text>
             </Pressable>
             <Pressable
@@ -191,7 +191,7 @@ export default function ChatsScreen() {
                 style={{ marginRight: 6 }}
               />
               <Text style={[styles.tabText, activeTab === 'live' && styles.tabTextActive]}>
-                Group Chat
+                Live Chat
               </Text>
             </Pressable>
           </View>
@@ -235,7 +235,7 @@ export default function ChatsScreen() {
           <View style={styles.emptyState}>
             <View style={styles.emptyIconOuter}>
               <View style={styles.emptyIconInner}>
-                <Ionicons name="chatbubble-ellipses-outline" size={36} color={C.primary} />
+                <Ionicons name="chatbubbles-outline" size={36} color={C.primary} />
               </View>
             </View>
             <Text style={styles.emptyTitle}>
@@ -244,7 +244,7 @@ export default function ChatsScreen() {
             <Text style={styles.emptyText}>
               {searchQuery
                 ? 'Try a different search term'
-                : 'Start a live chat from the Directory by tapping on any professional'}
+                : 'Start a chat from the Directory by tapping on any professional'}
             </Text>
           </View>
         }
