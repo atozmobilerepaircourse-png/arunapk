@@ -684,8 +684,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const clientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '456751858632-brh0ir7j9v2ks5kk6antp6q757kmhaus.apps.googleusercontent.com';
       if (!clientId) return res.status(500).json({ success: false, message: "Google OAuth not configured" });
       // Use the actual request host for redirect URI to handle different environments (dev/prod)
-      const host = req.headers.host || "repair-backend-3siuld7gbq-el.a.run.app";
-      const protocol = req.headers['x-forwarded-proto'] || 'https';
+      const host = "repair-backend-3siuld7gbq-el.a.run.app";
+      const protocol = 'https';
       const redirectUri = `${protocol}://${host}/api/auth/google/callback`;
       
       const stateObj = { token };
@@ -775,8 +775,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Use request host for callback redirection
-      const host = req.headers.host || "repair-backend-3siuld7gbq-el.a.run.app";
-      const protocol = req.headers['x-forwarded-proto'] || 'https';
+      const host = "repair-backend-3siuld7gbq-el.a.run.app";
+      const protocol = 'https';
       const redirectUri = `${protocol}://${host}/api/auth/google/callback`;
       console.log("[Google Auth] Using redirect_uri:", redirectUri);
 
@@ -930,7 +930,7 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
       }
 
       const devDomain = "repair-backend-3siuld7gbq-el.a.run.app";
-      const redirectUri = `https://${devDomain}/api/auth/google/callback`;
+      const redirectUri = "https://repair-backend-3siuld7gbq-el.a.run.app/api/auth/google/callback";
       console.log("[Google Auth] process-code redirect_uri:", redirectUri);
 
       const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
