@@ -1,14 +1,16 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, Pressable, Platform, Animated,
-  ScrollView, ActivityIndicator,
+  ScrollView, ActivityIndicator, TextInput, Alert,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import Colors from '@/constants/colors';
 import { useApp } from '@/lib/context';
+import { apiRequest } from '@/lib/query-client';
 
 const C = Colors.light;
 
@@ -37,6 +39,64 @@ export default function CustomerHomeScreen() {
   const [issueChecks, setIssues]            = useState<string[]>([]);
   const [healthScore, setHealthScore]       = useState(0);
   const [insuranceActive, setInsurance]     = useState(false);
+
+  const [showLive, setShowLive]             = useState(false);
+  const [liveSessions, setLiveSessions]     = useState<any[]>([]);
+  const [liveLoading, setLiveLoading]       = useState(false);
+  const [showPost, setShowPost]             = useState(false);
+  const [problemText, setProblemText]       = useState('');
+  const [posting, setPosting]               = useState(false);
+  const [postSuccess, setPostSuccess]       = useState(false);
+
+  const fetchLiveSessions = useCallback(async () => {
+    setLiveLoading(true);
+    try {
+      const res = await apiRequest('GET', '/api/teacher/live-sessions');
+      const data = await res.json();
+      setLiveSessions(data.sessions || []);
+    } catch {
+      setLiveSessions([]);
+    } finally {
+      setLiveLoading(false);
+    }
+  }, []);
+
+  const toggleLive = () => {
+    if (!showLive) fetchLiveSessions();
+    setShowLive(v => !v);
+    setShowPost(false);
+  };
+
+  const togglePost = () => {
+    setShowPost(v => !v);
+    setShowLive(false);
+    setPostSuccess(false);
+    setProblemText('');
+  };
+
+  const submitProblem = async () => {
+    if (!problemText.trim()) return;
+    if (!profile) { router.push('/onboarding'); return; }
+    setPosting(true);
+    try {
+      await apiRequest('POST', '/api/posts', {
+        userId: profile.id,
+        author: profile.name,
+        content: `🔧 Help Needed: ${problemText.trim()}`,
+        category: 'repair',
+        authorRole: 'customer',
+        authorAvatar: profile.avatar || '',
+      });
+      setPostSuccess(true);
+      setProblemText('');
+      if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch {
+      if (Platform.OS === 'web') window.alert('Failed to post. Please try again.');
+      else Alert.alert('Error', 'Failed to post. Please try again.');
+    } finally {
+      setPosting(false);
+    }
+  };
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const glowAnim  = useRef(new Animated.Value(0)).current;
@@ -179,6 +239,132 @@ export default function CustomerHomeScreen() {
             </View>
           ))}
         </View>
+
+        {/* ── Live Help & Post Problem ── */}
+        <View style={st.actionRow}>
+          <Pressable
+            style={({ pressed }) => [st.actionCard, showLive && st.actionCardActive, pressed && { opacity: 0.85 }]}
+            onPress={toggleLive}
+          >
+            <View style={[st.actionIcon, { backgroundColor: '#FF3B3015' }]}>
+              <View style={st.liveRedDot} />
+              <Ionicons name="videocam" size={20} color="#FF3B30" />
+            </View>
+            <Text style={st.actionCardTitle}>Watch Live Help</Text>
+            <Text style={st.actionCardSub}>See technicians live</Text>
+          </Pressable>
+
+          <Pressable
+            style={({ pressed }) => [st.actionCard, showPost && st.actionCardActive, pressed && { opacity: 0.85 }]}
+            onPress={togglePost}
+          >
+            <View style={[st.actionIcon, { backgroundColor: C.primary + '15' }]}>
+              <Ionicons name="chatbubble-ellipses" size={20} color={C.primary} />
+            </View>
+            <Text style={st.actionCardTitle}>Post My Problem</Text>
+            <Text style={st.actionCardSub}>Get help from experts</Text>
+          </Pressable>
+        </View>
+
+        {/* Live Sessions Panel */}
+        {showLive && (
+          <View style={st.panel}>
+            <View style={st.panelHeader}>
+              <View style={st.liveRedDot} />
+              <Text style={st.panelTitle}>Live Now</Text>
+              <Pressable onPress={fetchLiveSessions} style={{ marginLeft: 'auto' as any }}>
+                <Ionicons name="refresh" size={16} color={C.textTertiary} />
+              </Pressable>
+            </View>
+            {liveLoading ? (
+              <ActivityIndicator color={C.primary} style={{ marginVertical: 16 }} />
+            ) : liveSessions.length === 0 ? (
+              <View style={st.panelEmpty}>
+                <Ionicons name="videocam-off-outline" size={32} color={C.textTertiary} />
+                <Text style={st.panelEmptyText}>No live sessions right now</Text>
+                <Text style={st.panelEmptySub}>Check back soon!</Text>
+              </View>
+            ) : (
+              liveSessions.map(session => (
+                <Pressable
+                  key={session.id}
+                  style={({ pressed }) => [st.sessionCard, pressed && { opacity: 0.85 }]}
+                  onPress={() => router.push({ pathname: '/live-session', params: { url: session.link || session.streamUrl || '', title: session.title } })}
+                >
+                  <View style={st.sessionLeft}>
+                    {session.teacherAvatar ? (
+                      <Image source={{ uri: session.teacherAvatar }} style={st.sessionAvatar} contentFit="cover" />
+                    ) : (
+                      <View style={[st.sessionAvatar, { backgroundColor: '#FF3B3020', alignItems: 'center', justifyContent: 'center' }]}>
+                        <Text style={{ fontSize: 14, color: '#FF3B30', fontFamily: 'Inter_700Bold' }}>
+                          {(session.teacherName || 'T')[0].toUpperCase()}
+                        </Text>
+                      </View>
+                    )}
+                    <View style={st.liveBadge}><Text style={st.liveBadgeText}>LIVE</Text></View>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={st.sessionTitle} numberOfLines={1}>{session.title}</Text>
+                    <Text style={st.sessionHost} numberOfLines={1}>{session.teacherName || 'Technician'}</Text>
+                    <View style={st.sessionMeta}>
+                      <Ionicons name="people-outline" size={12} color={C.textTertiary} />
+                      <Text style={st.sessionMetaText}>{session.platform || 'Live'}</Text>
+                    </View>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color={C.textTertiary} />
+                </Pressable>
+              ))
+            )}
+          </View>
+        )}
+
+        {/* Post Problem Panel */}
+        {showPost && (
+          <View style={st.panel}>
+            <View style={st.panelHeader}>
+              <Ionicons name="chatbubble-ellipses" size={16} color={C.primary} />
+              <Text style={st.panelTitle}>Describe Your Problem</Text>
+            </View>
+            {postSuccess ? (
+              <View style={st.postSuccess}>
+                <Ionicons name="checkmark-circle" size={36} color="#34C759" />
+                <Text style={st.postSuccessTitle}>Posted Successfully!</Text>
+                <Text style={st.postSuccessSub}>Technicians will see your problem and can offer help.</Text>
+                <Pressable style={st.postAgainBtn} onPress={() => { setPostSuccess(false); setProblemText(''); }}>
+                  <Text style={st.postAgainText}>Post Another</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <>
+                <TextInput
+                  style={st.problemInput}
+                  placeholder="e.g. My phone screen is cracked, battery drains fast..."
+                  placeholderTextColor={C.textTertiary}
+                  multiline
+                  value={problemText}
+                  onChangeText={setProblemText}
+                  maxLength={300}
+                />
+                <Text style={st.charCount}>{problemText.length}/300</Text>
+                <Pressable
+                  style={({ pressed }) => [st.postBtn, (!problemText.trim() || posting) && st.postBtnDisabled, pressed && { opacity: 0.85 }]}
+                  onPress={submitProblem}
+                  disabled={!problemText.trim() || posting}
+                >
+                  {posting ? (
+                    <ActivityIndicator color="#FFF" size="small" />
+                  ) : (
+                    <>
+                      <Ionicons name="send" size={16} color="#FFF" />
+                      <Text style={st.postBtnText}>Get Live Help</Text>
+                    </>
+                  )}
+                </Pressable>
+                <Text style={st.postHint}>Your problem will be visible to all technicians in the feed</Text>
+              </>
+            )}
+          </View>
+        )}
 
         {insuranceActive && (
           <View style={st.activeInsuranceCard}>
@@ -671,4 +857,71 @@ const st = StyleSheet.create({
     borderWidth: 1, borderColor: C.primary + '30',
   },
   findTechText: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: C.primary },
+
+  actionRow: { flexDirection: 'row', gap: 10, alignSelf: 'stretch', marginBottom: 4 },
+  actionCard: {
+    flex: 1, backgroundColor: C.surface, borderRadius: 14, padding: 14,
+    borderWidth: 1, borderColor: C.border, alignItems: 'flex-start', gap: 6,
+  },
+  actionCardActive: { borderColor: C.primary, backgroundColor: C.primary + '08' },
+  actionIcon: {
+    width: 40, height: 40, borderRadius: 12,
+    alignItems: 'center', justifyContent: 'center',
+    flexDirection: 'row', gap: 3, position: 'relative',
+  },
+  liveRedDot: {
+    width: 7, height: 7, borderRadius: 4, backgroundColor: '#FF3B30',
+    position: 'absolute', top: 4, right: 4, zIndex: 1,
+  },
+  actionCardTitle: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: C.text },
+  actionCardSub:   { fontSize: 11, fontFamily: 'Inter_400Regular', color: C.textSecondary },
+
+  panel: {
+    alignSelf: 'stretch', backgroundColor: C.surface, borderRadius: 16,
+    padding: 16, borderWidth: 1, borderColor: C.border, marginBottom: 8,
+  },
+  panelHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 },
+  panelTitle:  { fontSize: 15, fontFamily: 'Inter_700Bold', color: C.text, flex: 1 },
+  panelEmpty:  { alignItems: 'center', paddingVertical: 20, gap: 8 },
+  panelEmptyText: { fontSize: 14, fontFamily: 'Inter_500Medium', color: C.textSecondary },
+  panelEmptySub:  { fontSize: 12, fontFamily: 'Inter_400Regular', color: C.textTertiary },
+
+  sessionCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: C.background, borderRadius: 12, padding: 12,
+    marginBottom: 8, borderWidth: 1, borderColor: C.border,
+  },
+  sessionLeft:   { position: 'relative' },
+  sessionAvatar: { width: 46, height: 46, borderRadius: 23 },
+  liveBadge: {
+    position: 'absolute', bottom: -2, right: -4,
+    backgroundColor: '#FF3B30', borderRadius: 4,
+    paddingHorizontal: 4, paddingVertical: 1,
+  },
+  liveBadgeText: { fontSize: 8, fontFamily: 'Inter_700Bold', color: '#FFF', letterSpacing: 0.5 },
+  sessionTitle:    { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: C.text, marginBottom: 2 },
+  sessionHost:     { fontSize: 11, fontFamily: 'Inter_400Regular', color: C.textSecondary, marginBottom: 3 },
+  sessionMeta:     { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  sessionMetaText: { fontSize: 11, fontFamily: 'Inter_400Regular', color: C.textTertiary },
+
+  problemInput: {
+    backgroundColor: C.background, borderRadius: 12, padding: 14,
+    minHeight: 96, fontSize: 14, fontFamily: 'Inter_400Regular',
+    color: C.text, borderWidth: 1, borderColor: C.border,
+    textAlignVertical: 'top', marginBottom: 6,
+  },
+  charCount: { fontSize: 11, fontFamily: 'Inter_400Regular', color: C.textTertiary, textAlign: 'right', marginBottom: 10 },
+  postBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    backgroundColor: C.primary, borderRadius: 12, paddingVertical: 13, marginBottom: 8,
+  },
+  postBtnDisabled: { backgroundColor: C.textTertiary },
+  postBtnText: { fontSize: 15, fontFamily: 'Inter_600SemiBold', color: '#FFF' },
+  postHint:    { fontSize: 11, fontFamily: 'Inter_400Regular', color: C.textTertiary, textAlign: 'center' },
+
+  postSuccess: { alignItems: 'center', paddingVertical: 12, gap: 8 },
+  postSuccessTitle: { fontSize: 16, fontFamily: 'Inter_700Bold', color: C.text },
+  postSuccessSub:   { fontSize: 13, fontFamily: 'Inter_400Regular', color: C.textSecondary, textAlign: 'center' },
+  postAgainBtn:     { marginTop: 4, paddingVertical: 8, paddingHorizontal: 20 },
+  postAgainText:    { fontSize: 13, fontFamily: 'Inter_500Medium', color: C.primary },
 });
