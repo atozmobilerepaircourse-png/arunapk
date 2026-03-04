@@ -13,7 +13,12 @@ export function getApiUrl(): string {
 async function getSessionToken(): Promise<string | null> {
   try {
     const token = await AsyncStorage.getItem(SESSION_KEY);
-    return token;
+    if (token) return token;
+    const legacyToken = await AsyncStorage.getItem("mobi_session_token");
+    if (legacyToken) {
+      await AsyncStorage.setItem(SESSION_KEY, legacyToken);
+    }
+    return legacyToken;
   } catch {
     return null;
   }

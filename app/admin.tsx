@@ -58,6 +58,7 @@ function UserDetailCard({ user, onBlock, onDelete }: { user: any; onBlock: (id: 
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showRolePicker, setShowRolePicker] = useState(false);
   const [changingRole, setChangingRole] = useState(false);
+  const [roleStatus, setRoleStatus] = useState<{msg: string; ok: boolean} | null>(null);
   const { refreshData } = useApp();
   const roleColor = ROLE_COLORS[user.role as UserRole] || C.textSecondary;
   const profile = user.fullProfile;
@@ -66,26 +67,29 @@ function UserDetailCard({ user, onBlock, onDelete }: { user: any; onBlock: (id: 
   const changeRole = async (newRole: UserRole) => {
     setShowRolePicker(false);
     setChangingRole(true);
+    setRoleStatus(null);
     try {
       const res = await apiRequest('POST', '/api/admin/change-role', { userId: user.id, newRole });
       const data = await res.json();
       if (data.success) {
-        Alert.alert('Success', `Role changed to ${ROLE_LABELS[newRole] || newRole}`);
+        setRoleStatus({ msg: `Changed to ${ROLE_LABELS[newRole] || newRole}`, ok: true });
         await refreshData();
       } else {
-        Alert.alert('Error', data.message || 'Failed to update role');
+        setRoleStatus({ msg: data.message || 'Failed', ok: false });
       }
-    } catch (e) {
-      Alert.alert('Error', 'Failed to update role. Please try again.');
+    } catch (e: any) {
+      setRoleStatus({ msg: e?.message || 'Network error', ok: false });
     } finally {
       setChangingRole(false);
+      setTimeout(() => setRoleStatus(null), 3000);
     }
   };
 
   const ROLES_LIST: UserRole[] = ['technician', 'teacher', 'supplier', 'customer', 'job_provider', 'admin'];
 
   return (
-    <Pressable style={[styles.userCard, isBlocked && { borderColor: '#FF3B30', borderWidth: 1 }]} onPress={() => setExpanded(!expanded)}>
+    <View style={[styles.userCard, isBlocked && { borderColor: '#FF3B30', borderWidth: 1 }]}>
+      <Pressable onPress={() => { setShowRolePicker(false); setExpanded(!expanded); }}>
       <View style={styles.userCardTop}>
         {profile?.avatar ? (
           <Image source={{ uri: profile.avatar }} style={[styles.userAvatarImg, isBlocked && { opacity: 0.5 }]} contentFit="cover" />
@@ -137,13 +141,20 @@ function UserDetailCard({ user, onBlock, onDelete }: { user: any; onBlock: (id: 
         </View>
         <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={18} color={C.textTertiary} />
       </View>
+      </Pressable>
+
+      {roleStatus && (
+        <View style={{ marginTop: 6, paddingHorizontal: 12, paddingVertical: 6, backgroundColor: roleStatus.ok ? '#34C75915' : '#FF3B3015', borderRadius: 8 }}>
+          <Text style={{ fontSize: 12, color: roleStatus.ok ? '#34C759' : '#FF3B30', fontFamily: 'Inter_600SemiBold' }}>{roleStatus.msg}</Text>
+        </View>
+      )}
 
       {showRolePicker && (
         <View style={{ marginTop: 8, backgroundColor: C.surfaceElevated, borderRadius: 10, overflow: 'hidden', borderWidth: 1, borderColor: C.border }}>
           {ROLES_LIST.map(r => (
             <Pressable
               key={r}
-              onPress={(e) => { e.stopPropagation?.(); changeRole(r); }}
+              onPress={() => changeRole(r)}
               style={[{
                 paddingVertical: 11,
                 paddingHorizontal: 14,
@@ -162,7 +173,7 @@ function UserDetailCard({ user, onBlock, onDelete }: { user: any; onBlock: (id: 
             </Pressable>
           ))}
           <Pressable
-            onPress={(e) => { e.stopPropagation?.(); setShowRolePicker(false); }}
+            onPress={() => setShowRolePicker(false)}
             style={{ paddingVertical: 11, paddingHorizontal: 14, alignItems: 'center' }}
           >
             <Text style={{ fontSize: 13, color: C.textTertiary, fontFamily: 'Inter_500Medium' }}>Cancel</Text>
@@ -270,7 +281,7 @@ function UserDetailCard({ user, onBlock, onDelete }: { user: any; onBlock: (id: 
           )}
         </View>
       )}
-    </Pressable>
+    </View>
   );
 }
 
