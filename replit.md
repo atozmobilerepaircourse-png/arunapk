@@ -76,3 +76,18 @@ Run SQL directly against the production DATABASE_URL fetched above.
 
 ## Database Tables (Neon PostgreSQL)
 Key tables: profiles, sessions, otp_tokens, posts, jobs, conversations, messages, products, orders, courses, payments, appSettings, emailCampaigns
+
+## Android Builds (EAS)
+- **EAS CLI**: Installed in `node_modules/.bin/eas`
+- **eas.json**: Configured with `preview` (APK) and `production` (AAB) profiles
+- **Package name**: `com.mobi.app`
+- **App icon**: Mobi logo from `assets/images/icon.png` (yellow background, #FFD000)
+- **Build workflows**: "Build APK (Testing)" and "Build AAB (Play Store)" in Replit
+
+### To Run Builds:
+1. Open Replit Shell and run: `./node_modules/.bin/eas login`
+2. First-time only: `./node_modules/.bin/eas build:configure` (links to Expo account)
+3. Click "Build APK (Testing)" workflow → APK for direct install
+4. Click "Build AAB (Play Store)" workflow → AAB for Google Play
+
+Builds run on Expo's cloud servers (10-25 min). Download from https://expo.dev dashboard.
