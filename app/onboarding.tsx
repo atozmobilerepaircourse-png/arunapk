@@ -300,10 +300,12 @@ export default function OnboardingScreen() {
       console.log('[OTP] Sending to:', cleanPhone, 'via:', baseUrl);
       const res = await apiRequest('POST', '/api/auth/check-phone', { phone: cleanPhone });
       const data = await res.json();
+      console.log('[Auth] Check-phone response:', data);
 
       if (data.success) {
         // Admin bypass
         if (cleanPhone === "8179142535" || data.isAdmin) {
+          console.log('[Auth] Admin bypass detected');
           if (data.profile) {
             await login(data.profile);
             router.replace('/');

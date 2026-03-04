@@ -1100,12 +1100,15 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
       if (cleanPhone === "8179142535") {
         const adminProfile = await db.select().from(profiles).where(eq(profiles.phone, "8179142535"));
         if (adminProfile.length > 0) {
+          console.log("[Auth] Admin bypass triggered for 8179142535");
           return res.json({
             success: true,
             exists: true,
             profile: { ...adminProfile[0], skills: JSON.parse(adminProfile[0].skills) },
             isAdmin: true
           });
+        } else {
+          console.log("[Auth] Admin bypass failed: profile not found for 8179142535");
         }
       }
 
