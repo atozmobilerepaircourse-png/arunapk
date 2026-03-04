@@ -683,9 +683,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!token) return res.status(400).json({ success: false, message: "Token required" });
       const clientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '456751858632-brh0ir7j9v2ks5kk6antp6q757kmhaus.apps.googleusercontent.com';
       if (!clientId) return res.status(500).json({ success: false, message: "Google OAuth not configured" });
-      // Use the actual request host for redirect URI to handle different environments (dev/prod)
-      const host = "repair-backend-3siuld7gbq-el.a.run.app";
-      const protocol = 'https';
+      
       const redirectUri = "https://repair-backend-3siuld7gbq-el.a.run.app/api/auth/google/callback";
       
       const stateObj = { token };
