@@ -19,8 +19,8 @@ function NativeTabLayout() {
 
   if (isCustomer) {
     return (
-      <NativeTabs initialRouteName="customer-home">
-        <NativeTabs.Trigger name="customer-home">
+      <NativeTabs initialRouteName="directory">
+        <NativeTabs.Trigger name="directory">
           <Icon sf={{ default: "magnifyingglass", selected: "magnifyingglass" }} />
           <Label>Find</Label>
         </NativeTabs.Trigger>
@@ -33,7 +33,7 @@ function NativeTabLayout() {
           <Label>Profile</Label>
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="index" hidden />
-        <NativeTabs.Trigger name="directory" hidden />
+        <NativeTabs.Trigger name="customer-home" hidden />
         <NativeTabs.Trigger name="create" hidden />
         <NativeTabs.Trigger name="jobs" hidden />
         <NativeTabs.Trigger name="my-shop" hidden />
@@ -146,7 +146,7 @@ function ClassicTabLayout() {
         name="customer-home"
         options={{
           title: "Find",
-          href: isCustomer ? '/customer-home' : null,
+          href: null,
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? "search" : "search-outline"} size={24} color={color} />
           ),
@@ -165,10 +165,10 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="directory"
         options={{
-          title: "Directory",
-          href: isCustomer ? null : '/directory',
+          title: isCustomer ? "Find" : "Directory",
+          href: '/directory',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? "people" : "people-outline"} size={24} color={color} />
+            <Ionicons name={isCustomer ? (focused ? "search" : "search-outline") : (focused ? "people" : "people-outline")} size={24} color={color} />
           ),
         }}
       />
