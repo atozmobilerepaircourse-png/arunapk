@@ -33,26 +33,8 @@ function getGoogleClientSecret(): string | undefined {
 }
 
 function getGoogleRedirectUri(req?: any): string {
-  try {
-    const raw = process.env.GOOGLE_CLIENT_SECRET;
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      const uris = parsed?.web?.redirect_uris || parsed?.installed?.redirect_uris || parsed?.redirect_uris;
-      if (Array.isArray(uris) && uris.length > 0) {
-        console.log("[Google Auth] Using redirect_uri from GOOGLE_CLIENT_SECRET:", uris[0]);
-        return uris[0];
-      }
-    }
-  } catch {}
-  if (req) {
-    const host = req.header('x-forwarded-host') || req.get('host');
-    const proto = req.header('x-forwarded-proto') || req.protocol || 'https';
-    if (host) {
-      const uri = `${proto}://${host}/api/auth/google/callback`;
-      console.log("[Google Auth] Using redirect_uri from request host:", uri);
-      return uri;
-    }
-  }
+  // If we are on Cloud Run, the production URL is fixed.
+  // Using the hardcoded production URL ensures consistency with Google Cloud Console settings.
   return "https://repair-backend-3siuld7gbq-el.a.run.app/api/auth/google/callback";
 }
 
