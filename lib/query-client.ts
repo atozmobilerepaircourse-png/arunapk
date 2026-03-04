@@ -7,7 +7,6 @@ const CLOUD_RUN_BACKEND = "https://repair-backend-3siuld7gbq-el.a.run.app";
 const SESSION_KEY = "mobi_session_token_v2";
 
 export function getApiUrl(): string {
-  // Always return the production backend URL for consistent behavior
   return CLOUD_RUN_BACKEND;
 }
 
@@ -54,9 +53,9 @@ export async function apiRequest(
   };
 
   if (Platform.OS === "web") {
-    // Explicitly set credentials to "omit" for web to avoid CORS/Cookie issues
-    // with our custom x-session-token header.
-    (fetchOptions as any).credentials = "omit";
+    // Removed credentials: "include" as it was causing 401 Invalid Session errors on web 
+    // when the browser doesn't have the session cookie, but we are manually sending 
+    // the x-session-token header.
   }
 
   const res = await fetch(url.toString(), fetchOptions);
@@ -84,8 +83,7 @@ export const getQueryFn: <T>(options: {
 
     const fetchOptions: RequestInit = { headers };
     if (Platform.OS === "web") {
-      // Match apiRequest behavior for web
-      (fetchOptions as any).credentials = "omit";
+      // Removed credentials: "include" to match apiRequest behavior
     }
 
     const res = await fetch(url.toString(), fetchOptions);

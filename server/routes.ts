@@ -210,25 +210,6 @@ async function sendWhatsAppOTP(phone: string, otp: string): Promise<boolean> {
 
   try {
     console.log(`[OTP] Sending WhatsApp OTP to ${formattedPhone}`);
-    // Bypass for admin number and any other specific numbers for testing
-    const adminPhones = ["+918179142535", "+919876543210", "8179142535", "9876543210"];
-    const cleanPhone = phone.replace(/\D/g, "");
-    if (adminPhones.includes(formattedPhone) || adminPhones.includes(cleanPhone)) {
-      const staticOtp = "123456";
-      console.log(`[OTP] Static bypass for ${formattedPhone} (clean: ${cleanPhone}) -> Using static OTP: ${staticOtp}`);
-      
-      // Ensure the OTP exists for validation
-      await db.insert(otpTokens).values({ 
-        phone: cleanPhone, 
-        otp: staticOtp, 
-        expiresAt: Date.now() + 10 * 60 * 1000 
-      }).onConflictDoUpdate({ 
-        target: otpTokens.phone, 
-        set: { otp: staticOtp, expiresAt: Date.now() + 10 * 60 * 1000 } 
-      });
-
-      return res.status(200).json({ success: true, message: "OTP sent (Bypass)" });
-    }
     const message = await client.messages.create({
       body: `Your Mobi verification code is: ${otp}. Valid for 5 minutes. Do not share this code with anyone.`,
       from: `whatsapp:${twilioPhone}`,
