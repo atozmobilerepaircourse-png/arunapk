@@ -247,6 +247,34 @@ export default function CustomerHomeScreen() {
               ))}
             </View>
 
+            <Pressable
+              style={({ pressed }) => [s.insuranceCard, pressed && { opacity: 0.9 }]}
+              onPress={() => {
+                if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                router.push('/insurance');
+              }}
+            >
+              <View style={s.insuranceLeft}>
+                <View style={s.insuranceIconCircle}>
+                  <Ionicons name="shield-checkmark" size={28} color="#5856D6" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.insuranceTitle}>Mobile Insurance</Text>
+                  <Text style={s.insuranceSub}>Protect your phone from damage</Text>
+                  <Text style={s.insurancePrice}>Starting ₹30 / month</Text>
+                </View>
+              </View>
+              <Pressable
+                style={s.insuranceBtn}
+                onPress={() => {
+                  if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  router.push('/insurance');
+                }}
+              >
+                <Text style={s.insuranceBtnText}>Get Insurance</Text>
+              </Pressable>
+            </Pressable>
+
             {onlineCount > 0 && (
               <View style={s.onlineBanner}>
                 <View style={s.pulseDot} />
@@ -383,4 +411,22 @@ const s = StyleSheet.create({
 
   emptyBox: { alignItems: 'center', paddingVertical: 40, paddingHorizontal: 32 },
   emptyText: { fontSize: 14, fontFamily: 'Inter_400Regular', color: '#999', marginTop: 10, textAlign: 'center' },
+
+  insuranceCard: {
+    marginHorizontal: 16, marginBottom: 16, backgroundColor: '#F0EFFE',
+    borderRadius: 18, padding: 16, borderWidth: 1.5, borderColor: '#D4D0FA',
+  },
+  insuranceLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 },
+  insuranceIconCircle: {
+    width: 52, height: 52, borderRadius: 26, backgroundColor: '#5856D620',
+    justifyContent: 'center', alignItems: 'center',
+  },
+  insuranceTitle: { fontSize: 16, fontFamily: 'Inter_700Bold', color: '#1A1A2E' },
+  insuranceSub: { fontSize: 12, fontFamily: 'Inter_400Regular', color: '#555', marginTop: 2 },
+  insurancePrice: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: '#5856D6', marginTop: 4 },
+  insuranceBtn: {
+    backgroundColor: '#5856D6', borderRadius: 12, paddingVertical: 10,
+    alignItems: 'center',
+  },
+  insuranceBtnText: { fontSize: 14, fontFamily: 'Inter_700Bold', color: '#fff' },
 });

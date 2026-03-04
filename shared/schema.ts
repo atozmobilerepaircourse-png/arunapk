@@ -436,6 +436,35 @@ export const serviceRequests = pgTable("service_requests", {
   createdAt: bigint("created_at", { mode: "number" }).notNull().default(sql`EXTRACT(EPOCH FROM NOW()) * 1000`),
 });
 
+export const insurancePlans = pgTable("insurance_plans", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  price: integer("price").notNull().default(30),
+  repairDiscount: integer("repair_discount").notNull().default(500),
+  coverage: text("coverage").notNull().default("[]"),
+  isActive: integer("is_active").notNull().default(1),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: bigint("created_at", { mode: "number" }).notNull().default(sql`EXTRACT(EPOCH FROM NOW()) * 1000`),
+});
+
+export const insurancePolicies = pgTable("insurance_policies", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: text("user_id").notNull(),
+  userName: text("user_name").notNull().default(""),
+  userPhone: text("user_phone").default(""),
+  planId: text("plan_id").notNull(),
+  planName: text("plan_name").notNull().default(""),
+  planPrice: integer("plan_price").notNull().default(0),
+  status: text("status").notNull().default("active"),
+  startDate: bigint("start_date", { mode: "number" }).notNull().default(sql`EXTRACT(EPOCH FROM NOW()) * 1000`),
+  endDate: bigint("end_date", { mode: "number" }).notNull().default(0),
+  claimStatus: text("claim_status").default("none"),
+  claimDescription: text("claim_description").default(""),
+  claimPhoto: text("claim_photo").default(""),
+  claimSubmittedAt: bigint("claim_submitted_at", { mode: "number" }).default(0),
+  createdAt: bigint("created_at", { mode: "number" }).notNull().default(sql`EXTRACT(EPOCH FROM NOW()) * 1000`),
+});
+
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
@@ -470,3 +499,5 @@ export type DbLivePollVote = typeof livePollVotes.$inferSelect;
 export type DbEmailCampaign = typeof emailCampaigns.$inferSelect;
 export type DbReview = typeof reviews.$inferSelect;
 export type DbServiceRequest = typeof serviceRequests.$inferSelect;
+export type DbInsurancePlan = typeof insurancePlans.$inferSelect;
+export type DbInsurancePolicy = typeof insurancePolicies.$inferSelect;

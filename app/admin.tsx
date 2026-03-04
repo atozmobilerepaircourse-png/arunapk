@@ -14,7 +14,7 @@ import { openLink } from '@/lib/open-link';
 
 const C = Colors.light;
 
-type AdminTab = 'dashboard' | 'users' | 'posts' | 'jobs' | 'subscriptions' | 'revenue' | 'ads' | 'links' | 'device' | 'notifications' | 'email' | 'security' | 'reviews';
+type AdminTab = 'dashboard' | 'users' | 'posts' | 'jobs' | 'subscriptions' | 'revenue' | 'ads' | 'links' | 'device' | 'notifications' | 'email' | 'security' | 'reviews' | 'insurance';
 
 const ROLE_COLORS: Record<UserRole, string> = {
   technician: '#34C759',
@@ -341,6 +341,13 @@ export default function AdminScreen() {
   const [lockNotifLoading, setLockNotifLoading] = useState(false);
   const [reviewsList, setReviewsList] = useState<any[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [insurancePlansAdmin, setInsurancePlansAdmin] = useState<any[]>([]);
+  const [insurancePoliciesAdmin, setInsurancePoliciesAdmin] = useState<any[]>([]);
+  const [insuranceLoading, setInsuranceLoading] = useState(false);
+  const [insuranceTab, setInsuranceTab] = useState<'plans' | 'policies'>('plans');
+  const [editingPlan, setEditingPlan] = useState<any | null>(null);
+  const [newPlan, setNewPlan] = useState({ name: '', price: '30', repairDiscount: '500', coverage: '' });
+  const [showNewPlan, setShowNewPlan] = useState(false);
   const [supportNumber, setSupportNumber] = useState('+918179142535');
   const [whatsappLink, setWhatsappLink] = useState('https://wa.me/918179142535');
   const [supportSaving, setSupportSaving] = useState(false);
@@ -511,6 +518,28 @@ export default function AdminScreen() {
     if (activeTab === 'reviews') fetchReviews();
   }, [activeTab, fetchReviews]);
 
+  const fetchInsurance = useCallback(async () => {
+    setInsuranceLoading(true);
+    try {
+      const [plansRes, policiesRes] = await Promise.all([
+        apiRequest('GET', '/api/admin/insurance/plans'),
+        apiRequest('GET', '/api/admin/insurance/policies'),
+      ]);
+      const plansData = await plansRes.json();
+      const policiesData = await policiesRes.json();
+      if (plansData.plans) setInsurancePlansAdmin(plansData.plans);
+      if (policiesData.policies) setInsurancePoliciesAdmin(policiesData.policies);
+    } catch (err) {
+      console.warn('Failed to fetch insurance:', err);
+    } finally {
+      setInsuranceLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'insurance') fetchInsurance();
+  }, [activeTab, fetchInsurance]);
+
   const handleDeleteReview = (reviewId: string) => {
     Alert.alert(
       'Delete Review',
@@ -610,6 +639,233 @@ export default function AdminScreen() {
               </Text>
             </View>
           ))
+        )}
+      </ScrollView>
+    );
+  };
+
+  const renderInsurance = () => {
+    const handleTogglePlan = async (plan: any) => {
+      try {
+        await apiRequest('PUT', `/api/admin/insurance/plans/${plan.id}`, {
+          ...plan,
+          isActive: plan.isActive === 1 ? 0 : 1,
+        });
+        await fetchInsurance();
+      } catch {
+        Alert.alert('Error', 'Failed to update plan');
+      }
+    };
+    const handleDeletePlan = (planId: string, planName: string) => {
+      Alert.alert('Delete Plan', `Delete "${planName}"? This cannot be undone.`, [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: async () => {
+          try {
+            await apiRequest('DELETE', `/api/admin/insurance/plans/${planId}`);
+            await fetchInsurance();
+          } catch { Alert.alert('Error', 'Failed to delete plan'); }
+        }},
+      ]);
+    };
+    const handleSaveNewPlan = async () => {
+      if (!newPlan.name.trim()) { Alert.alert('Error', 'Plan name required'); return; }
+      try {
+        const coverageArr = newPlan.coverage.split('\n').map(s => s.trim()).filter(Boolean);
+        await apiRequest('POST', '/api/admin/insurance/plans', {
+          name: newPlan.name.trim(),
+          price: parseInt(newPlan.price) || 30,
+          repairDiscount: parseInt(newPlan.repairDiscount) || 500,
+          coverage: coverageArr,
+          isActive: 1,
+          sortOrder: insurancePlansAdmin.length,
+        });
+        setNewPlan({ name: '', price: '30', repairDiscount: '500', coverage: '' });
+        setShowNewPlan(false);
+        await fetchInsurance();
+      } catch { Alert.alert('Error', 'Failed to create plan'); }
+    };
+    const handleUpdateClaimStatus = async (policyId: string, status: string) => {
+      try {
+        await apiRequest('PUT', `/api/admin/insurance/claims/${policyId}`, { claimStatus: status });
+        await fetchInsurance();
+      } catch { Alert.alert('Error', 'Failed to update claim'); }
+    };
+
+    return (
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+        <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
+          <View style={[styles.statCard, { flex: 1, borderLeftColor: '#5856D6' }]}>
+            <Ionicons name="shield-checkmark" size={22} color="#5856D6" />
+            <Text style={styles.statNumber}>{insurancePlansAdmin.filter(p => p.isActive === 1).length}</Text>
+            <Text style={styles.statLabel}>Active Plans</Text>
+          </View>
+          <View style={[styles.statCard, { flex: 1, borderLeftColor: '#34C759' }]}>
+            <Ionicons name="people" size={22} color="#34C759" />
+            <Text style={styles.statNumber}>{insurancePoliciesAdmin.filter(p => p.status === 'active').length}</Text>
+            <Text style={styles.statLabel}>Active Policies</Text>
+          </View>
+          <View style={[styles.statCard, { flex: 1, borderLeftColor: '#FF9500' }]}>
+            <Ionicons name="document-text" size={22} color="#FF9500" />
+            <Text style={styles.statNumber}>{insurancePoliciesAdmin.filter(p => p.claimStatus === 'pending').length}</Text>
+            <Text style={styles.statLabel}>Pending Claims</Text>
+          </View>
+        </View>
+
+        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
+          {(['plans', 'policies'] as const).map(tab => (
+            <Pressable
+              key={tab}
+              style={[{ flex: 1, padding: 10, borderRadius: 10, alignItems: 'center' },
+                insuranceTab === tab ? { backgroundColor: '#5856D6' } : { backgroundColor: C.surfaceElevated }]}
+              onPress={() => setInsuranceTab(tab)}
+            >
+              <Text style={{ fontSize: 13, fontFamily: 'Inter_600SemiBold', color: insuranceTab === tab ? '#fff' : C.textSecondary }}>
+                {tab === 'plans' ? 'Plans' : 'Policies & Claims'}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+
+        {insuranceLoading ? (
+          <View style={styles.emptyState}><ActivityIndicator size="small" color="#5856D6" /></View>
+        ) : insuranceTab === 'plans' ? (
+          <>
+            <Pressable
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#5856D6', borderRadius: 12, padding: 12, marginBottom: 16 }}
+              onPress={() => setShowNewPlan(!showNewPlan)}
+            >
+              <Ionicons name={showNewPlan ? 'close' : 'add'} size={20} color="#fff" />
+              <Text style={{ fontSize: 14, fontFamily: 'Inter_600SemiBold', color: '#fff' }}>
+                {showNewPlan ? 'Cancel' : 'Add New Plan'}
+              </Text>
+            </Pressable>
+            {showNewPlan && (
+              <View style={[styles.sectionCard, { marginBottom: 16 }]}>
+                <Text style={{ fontSize: 15, fontFamily: 'Inter_700Bold', color: C.text, marginBottom: 12 }}>New Plan</Text>
+                {[
+                  { label: 'Plan Name', key: 'name', placeholder: 'e.g. Basic Plan' },
+                  { label: 'Price (₹/month)', key: 'price', placeholder: '30' },
+                  { label: 'Repair Discount (₹)', key: 'repairDiscount', placeholder: '500' },
+                ].map(field => (
+                  <View key={field.key} style={{ marginBottom: 10 }}>
+                    <Text style={{ fontSize: 12, fontFamily: 'Inter_500Medium', color: C.textSecondary, marginBottom: 4 }}>{field.label}</Text>
+                    <TextInput
+                      style={[styles.input, { color: C.text }]}
+                      placeholder={field.placeholder}
+                      placeholderTextColor={C.textTertiary}
+                      value={(newPlan as any)[field.key]}
+                      onChangeText={v => setNewPlan(p => ({ ...p, [field.key]: v }))}
+                      keyboardType={field.key === 'name' ? 'default' : 'numeric'}
+                    />
+                  </View>
+                ))}
+                <Text style={{ fontSize: 12, fontFamily: 'Inter_500Medium', color: C.textSecondary, marginBottom: 4 }}>Coverage (one per line)</Text>
+                <TextInput
+                  style={[styles.input, { color: C.text, minHeight: 80, textAlignVertical: 'top' }]}
+                  placeholder={"Accidental damage\nScreen repair\nWater damage"}
+                  placeholderTextColor={C.textTertiary}
+                  value={newPlan.coverage}
+                  onChangeText={v => setNewPlan(p => ({ ...p, coverage: v }))}
+                  multiline
+                />
+                <Pressable style={{ backgroundColor: '#5856D6', borderRadius: 10, padding: 12, alignItems: 'center', marginTop: 12 }} onPress={handleSaveNewPlan}>
+                  <Text style={{ fontSize: 14, fontFamily: 'Inter_700Bold', color: '#fff' }}>Create Plan</Text>
+                </Pressable>
+              </View>
+            )}
+            {insurancePlansAdmin.length === 0 ? (
+              <View style={styles.emptyState}><Text style={styles.emptyText}>No plans yet</Text></View>
+            ) : (
+              insurancePlansAdmin.map(plan => {
+                const coverage = (() => { try { return JSON.parse(plan.coverage || '[]'); } catch { return []; } })();
+                return (
+                  <View key={plan.id} style={[styles.sectionCard, { marginBottom: 10 }]}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 15, fontFamily: 'Inter_700Bold', color: C.text }}>{plan.name}</Text>
+                        <Text style={{ fontSize: 13, fontFamily: 'Inter_500Medium', color: '#5856D6', marginTop: 2 }}>₹{plan.price}/month</Text>
+                        <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: '#34C759', marginTop: 2 }}>₹{plan.repairDiscount} discount</Text>
+                      </View>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                        <Switch
+                          value={plan.isActive === 1}
+                          onValueChange={() => handleTogglePlan(plan)}
+                          trackColor={{ true: '#5856D6', false: C.border }}
+                          thumbColor="#fff"
+                        />
+                        <Pressable hitSlop={12} onPress={() => handleDeletePlan(plan.id, plan.name)}>
+                          <Ionicons name="trash-outline" size={18} color="#FF3B30" />
+                        </Pressable>
+                      </View>
+                    </View>
+                    {coverage.length > 0 && (
+                      <View style={{ marginTop: 8, gap: 4 }}>
+                        {coverage.map((item: string, i: number) => (
+                          <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <Ionicons name="checkmark-circle" size={14} color="#34C759" />
+                            <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: C.textSecondary }}>{item}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    )}
+                  </View>
+                );
+              })
+            )}
+          </>
+        ) : (
+          insurancePoliciesAdmin.length === 0 ? (
+            <View style={styles.emptyState}><Text style={styles.emptyText}>No policies yet</Text></View>
+          ) : (
+            insurancePoliciesAdmin.map(policy => (
+              <View key={policy.id} style={[styles.sectionCard, { marginBottom: 10 }]}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 14, fontFamily: 'Inter_700Bold', color: C.text }}>{policy.userName || 'User'}</Text>
+                    <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: C.textSecondary, marginTop: 2 }}>{policy.planName} — ₹{policy.planPrice}/mo</Text>
+                    <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: C.textTertiary, marginTop: 2 }}>
+                      Expires: {policy.endDate ? new Date(policy.endDate).toLocaleDateString('en-IN') : '—'}
+                    </Text>
+                  </View>
+                  <View style={[{ paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
+                    policy.status === 'active' ? { backgroundColor: '#34C75920' } : { backgroundColor: '#FF3B3020' }
+                  ]}>
+                    <Text style={{ fontSize: 11, fontFamily: 'Inter_600SemiBold', color: policy.status === 'active' ? '#34C759' : '#FF3B30' }}>
+                      {policy.status}
+                    </Text>
+                  </View>
+                </View>
+                {policy.claimStatus && policy.claimStatus !== 'none' && (
+                  <View style={{ marginTop: 10, backgroundColor: C.background, borderRadius: 10, padding: 10 }}>
+                    <Text style={{ fontSize: 13, fontFamily: 'Inter_600SemiBold', color: C.text, marginBottom: 4 }}>
+                      Claim: <Text style={{ color: policy.claimStatus === 'pending' ? '#FF9500' : policy.claimStatus === 'approved' ? '#34C759' : '#FF3B30' }}>
+                        {policy.claimStatus}
+                      </Text>
+                    </Text>
+                    {policy.claimDescription ? (
+                      <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: C.textSecondary, marginBottom: 8 }}>{policy.claimDescription}</Text>
+                    ) : null}
+                    {policy.claimStatus === 'pending' && (
+                      <View style={{ flexDirection: 'row', gap: 8 }}>
+                        <Pressable
+                          style={{ flex: 1, backgroundColor: '#34C759', borderRadius: 8, padding: 8, alignItems: 'center' }}
+                          onPress={() => handleUpdateClaimStatus(policy.id, 'approved')}
+                        >
+                          <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: '#fff' }}>Approve</Text>
+                        </Pressable>
+                        <Pressable
+                          style={{ flex: 1, backgroundColor: '#FF3B30', borderRadius: 8, padding: 8, alignItems: 'center' }}
+                          onPress={() => handleUpdateClaimStatus(policy.id, 'rejected')}
+                        >
+                          <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: '#fff' }}>Reject</Text>
+                        </Pressable>
+                      </View>
+                    )}
+                  </View>
+                )}
+              </View>
+            ))
+          )
         )}
       </ScrollView>
     );
@@ -771,6 +1027,7 @@ export default function AdminScreen() {
     { key: 'email', label: 'Email', icon: 'mail' },
     { key: 'security', label: 'Security', icon: 'shield' },
     { key: 'reviews', label: 'Reviews', icon: 'star-half-outline' },
+    { key: 'insurance', label: 'Insurance', icon: 'shield-checkmark-outline' },
   ];
 
   const handleDeletePost = (postId: string, userName: string) => {
@@ -2526,6 +2783,7 @@ export default function AdminScreen() {
         {activeTab === 'email' && renderEmail()}
         {activeTab === 'security' && renderSecurity()}
         {activeTab === 'reviews' && renderReviews()}
+        {activeTab === 'insurance' && renderInsurance()}
       </View>
     </View>
   );

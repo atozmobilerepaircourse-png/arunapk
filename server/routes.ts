@@ -4,7 +4,7 @@ import { getFirestore } from "./firebase-admin";
 import { db } from "./db";
 import OpenAI from "openai";
 import { notifyAllUsers, notifyNewPost, notifyUser, checkSubscriptionExpiry } from "./push-notifications";
-import { profiles, conversations, messages, posts, jobs, reels, products, orders, subscriptionSettings, courses, courseChapters, courseVideos, courseEnrollments, dubbedVideos, ads, liveChatMessages, liveClasses, courseNotices, sessions, payments, teacherPayouts, appSettings, videoProgress, livePolls, livePollVotes, emailCampaigns, otpTokens, adminNotifications, reviews, serviceRequests } from "@shared/schema";
+import { profiles, conversations, messages, posts, jobs, reels, products, orders, subscriptionSettings, courses, courseChapters, courseVideos, courseEnrollments, dubbedVideos, ads, liveChatMessages, liveClasses, courseNotices, sessions, payments, teacherPayouts, appSettings, videoProgress, livePolls, livePollVotes, emailCampaigns, otpTokens, adminNotifications, reviews, serviceRequests, insurancePlans, insurancePolicies } from "@shared/schema";
 import { Storage } from "@google-cloud/storage";
 let sharp: any = null;
 try { sharp = require("sharp"); } catch { console.log("[Image] sharp not available, skipping compression"); }
@@ -5766,6 +5766,148 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
       console.error('[Push] Scheduled subscription expiry check failed:', err);
     });
   }, 6 * 60 * 60 * 1000);
+
+  // ========== Insurance Plans (Public) ==========
+  app.get("/api/insurance/plans", async (req, res) => {
+    try {
+      const plans = await db.select().from(insurancePlans).where(eq(insurancePlans.isActive, 1));
+      plans.sort((a, b) => a.sortOrder - b.sortOrder);
+      res.json({ success: true, plans });
+    } catch (error) {
+      res.status(500).json({ success: false, plans: [] });
+    }
+  });
+
+  app.get("/api/insurance/policy/:userId", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const policies = await db.select().from(insurancePolicies)
+        .where(and(eq(insurancePolicies.userId, userId), eq(insurancePolicies.status, "active")));
+      policies.sort((a, b) => b.createdAt - a.createdAt);
+      res.json({ success: true, policy: policies[0] || null });
+    } catch (error) {
+      res.status(500).json({ success: false, policy: null });
+    }
+  });
+
+  app.post("/api/insurance/subscribe", async (req, res) => {
+    try {
+      const { userId, userName, userPhone, planId } = req.body;
+      if (!userId || !planId) return res.status(400).json({ success: false, message: "userId and planId required" });
+      const plan = await db.select().from(insurancePlans).where(eq(insurancePlans.id, planId));
+      if (!plan.length) return res.status(404).json({ success: false, message: "Plan not found" });
+      const p = plan[0];
+      const existing = await db.select().from(insurancePolicies)
+        .where(and(eq(insurancePolicies.userId, userId), eq(insurancePolicies.status, "active")));
+      if (existing.length > 0) {
+        return res.status(400).json({ success: false, message: "You already have an active insurance policy" });
+      }
+      const startDate = Date.now();
+      const endDate = startDate + 30 * 24 * 60 * 60 * 1000;
+      await db.insert(insurancePolicies).values({
+        userId, userName: userName || '', userPhone: userPhone || '',
+        planId, planName: p.name, planPrice: p.price,
+        status: "active", startDate, endDate,
+      });
+      res.json({ success: true, message: "Insurance policy activated successfully" });
+    } catch (error) {
+      res.status(500).json({ success: false, message: "Failed to subscribe" });
+    }
+  });
+
+  app.post("/api/insurance/claim", async (req, res) => {
+    try {
+      const { userId, description, photo } = req.body;
+      if (!userId) return res.status(400).json({ success: false, message: "userId required" });
+      const policies = await db.select().from(insurancePolicies)
+        .where(and(eq(insurancePolicies.userId, userId), eq(insurancePolicies.status, "active")));
+      if (!policies.length) return res.status(404).json({ success: false, message: "No active policy found" });
+      const policy = policies[0];
+      if (policy.claimStatus && policy.claimStatus !== "none") {
+        return res.status(400).json({ success: false, message: "A claim is already pending or processed" });
+      }
+      await db.update(insurancePolicies).set({
+        claimStatus: "pending",
+        claimDescription: description || '',
+        claimPhoto: photo || '',
+        claimSubmittedAt: Date.now(),
+      }).where(eq(insurancePolicies.id, policy.id));
+      res.json({ success: true, message: "Claim submitted successfully. A technician will be assigned." });
+    } catch (error) {
+      res.status(500).json({ success: false, message: "Failed to submit claim" });
+    }
+  });
+
+  // ========== Admin Insurance Management ==========
+  app.get("/api/admin/insurance/plans", adminMiddleware, async (req, res) => {
+    try {
+      const plans = await db.select().from(insurancePlans);
+      plans.sort((a, b) => a.sortOrder - b.sortOrder);
+      res.json({ success: true, plans });
+    } catch (error) {
+      res.status(500).json({ success: false, plans: [] });
+    }
+  });
+
+  app.post("/api/admin/insurance/plans", adminMiddleware, async (req, res) => {
+    try {
+      const { name, price, repairDiscount, coverage, isActive, sortOrder } = req.body;
+      if (!name) return res.status(400).json({ success: false, message: "Plan name required" });
+      await db.insert(insurancePlans).values({
+        name, price: price || 30,
+        repairDiscount: repairDiscount || 500,
+        coverage: JSON.stringify(coverage || []),
+        isActive: isActive ?? 1,
+        sortOrder: sortOrder || 0,
+      });
+      res.json({ success: true, message: "Plan created" });
+    } catch (error) {
+      res.status(500).json({ success: false, message: "Failed to create plan" });
+    }
+  });
+
+  app.put("/api/admin/insurance/plans/:id", adminMiddleware, async (req, res) => {
+    try {
+      const { name, price, repairDiscount, coverage, isActive, sortOrder } = req.body;
+      await db.update(insurancePlans).set({
+        name, price, repairDiscount,
+        coverage: typeof coverage === "string" ? coverage : JSON.stringify(coverage || []),
+        isActive, sortOrder,
+      }).where(eq(insurancePlans.id, req.params.id));
+      res.json({ success: true, message: "Plan updated" });
+    } catch (error) {
+      res.status(500).json({ success: false, message: "Failed to update plan" });
+    }
+  });
+
+  app.delete("/api/admin/insurance/plans/:id", adminMiddleware, async (req, res) => {
+    try {
+      await db.delete(insurancePlans).where(eq(insurancePlans.id, req.params.id));
+      res.json({ success: true, message: "Plan deleted" });
+    } catch (error) {
+      res.status(500).json({ success: false, message: "Failed to delete plan" });
+    }
+  });
+
+  app.get("/api/admin/insurance/policies", adminMiddleware, async (req, res) => {
+    try {
+      const policies = await db.select().from(insurancePolicies);
+      policies.sort((a, b) => b.createdAt - a.createdAt);
+      res.json({ success: true, policies });
+    } catch (error) {
+      res.status(500).json({ success: false, policies: [] });
+    }
+  });
+
+  app.put("/api/admin/insurance/claims/:id", adminMiddleware, async (req, res) => {
+    try {
+      const { claimStatus } = req.body;
+      await db.update(insurancePolicies).set({ claimStatus }).where(eq(insurancePolicies.id, req.params.id));
+      res.json({ success: true, message: "Claim status updated" });
+    } catch (error) {
+      res.status(500).json({ success: false, message: "Failed to update claim" });
+    }
+  });
 
   setTimeout(() => {
     checkSubscriptionExpiry().catch(err => {
