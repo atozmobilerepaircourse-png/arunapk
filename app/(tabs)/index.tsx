@@ -106,11 +106,7 @@ export default function FeedScreen() {
     }
   }, [isLoading, isOnboarded]);
 
-  useEffect(() => {
-    if (!isLoading && profile?.role === 'customer') {
-      router.replace('/(tabs)/customer-home');
-    }
-  }, [isLoading, profile?.role]);
+  // Customers can visit the feed when explicitly navigating there (e.g. from Watch Live Help button)
 
   const [filter, setFilter] = useState<PostCategory | 'all'>('all');
   const [refreshing, setRefreshing] = useState(false);

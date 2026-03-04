@@ -62,16 +62,11 @@ export default function CustomerHomeScreen() {
   }, []);
 
   const toggleLive = () => {
-    if (!showLive) fetchLiveSessions();
-    setShowLive(v => !v);
-    setShowPost(false);
+    router.push('/');
   };
 
   const togglePost = () => {
-    setShowPost(v => !v);
-    setShowLive(false);
-    setPostSuccess(false);
-    setProblemText('');
+    router.push('/create');
   };
 
   const submitProblem = async () => {
@@ -265,106 +260,6 @@ export default function CustomerHomeScreen() {
             <Text style={st.actionCardSub}>Get help from experts</Text>
           </Pressable>
         </View>
-
-        {/* Live Sessions Panel */}
-        {showLive && (
-          <View style={st.panel}>
-            <View style={st.panelHeader}>
-              <View style={st.liveRedDot} />
-              <Text style={st.panelTitle}>Live Now</Text>
-              <Pressable onPress={fetchLiveSessions} style={{ marginLeft: 'auto' as any }}>
-                <Ionicons name="refresh" size={16} color={C.textTertiary} />
-              </Pressable>
-            </View>
-            {liveLoading ? (
-              <ActivityIndicator color={C.primary} style={{ marginVertical: 16 }} />
-            ) : liveSessions.length === 0 ? (
-              <View style={st.panelEmpty}>
-                <Ionicons name="videocam-off-outline" size={32} color={C.textTertiary} />
-                <Text style={st.panelEmptyText}>No live sessions right now</Text>
-                <Text style={st.panelEmptySub}>Check back soon!</Text>
-              </View>
-            ) : (
-              liveSessions.map(session => (
-                <Pressable
-                  key={session.id}
-                  style={({ pressed }) => [st.sessionCard, pressed && { opacity: 0.85 }]}
-                  onPress={() => router.push({ pathname: '/live-session', params: { url: session.link || session.streamUrl || '', title: session.title } })}
-                >
-                  <View style={st.sessionLeft}>
-                    {session.teacherAvatar ? (
-                      <Image source={{ uri: session.teacherAvatar }} style={st.sessionAvatar} contentFit="cover" />
-                    ) : (
-                      <View style={[st.sessionAvatar, { backgroundColor: '#FF3B3020', alignItems: 'center', justifyContent: 'center' }]}>
-                        <Text style={{ fontSize: 14, color: '#FF3B30', fontFamily: 'Inter_700Bold' }}>
-                          {(session.teacherName || 'T')[0].toUpperCase()}
-                        </Text>
-                      </View>
-                    )}
-                    <View style={st.liveBadge}><Text style={st.liveBadgeText}>LIVE</Text></View>
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={st.sessionTitle} numberOfLines={1}>{session.title}</Text>
-                    <Text style={st.sessionHost} numberOfLines={1}>{session.teacherName || 'Technician'}</Text>
-                    <View style={st.sessionMeta}>
-                      <Ionicons name="people-outline" size={12} color={C.textTertiary} />
-                      <Text style={st.sessionMetaText}>{session.platform || 'Live'}</Text>
-                    </View>
-                  </View>
-                  <Ionicons name="chevron-forward" size={18} color={C.textTertiary} />
-                </Pressable>
-              ))
-            )}
-          </View>
-        )}
-
-        {/* Post Problem Panel */}
-        {showPost && (
-          <View style={st.panel}>
-            <View style={st.panelHeader}>
-              <Ionicons name="chatbubble-ellipses" size={16} color={C.primary} />
-              <Text style={st.panelTitle}>Describe Your Problem</Text>
-            </View>
-            {postSuccess ? (
-              <View style={st.postSuccess}>
-                <Ionicons name="checkmark-circle" size={36} color="#34C759" />
-                <Text style={st.postSuccessTitle}>Posted Successfully!</Text>
-                <Text style={st.postSuccessSub}>Technicians will see your problem and can offer help.</Text>
-                <Pressable style={st.postAgainBtn} onPress={() => { setPostSuccess(false); setProblemText(''); }}>
-                  <Text style={st.postAgainText}>Post Another</Text>
-                </Pressable>
-              </View>
-            ) : (
-              <>
-                <TextInput
-                  style={st.problemInput}
-                  placeholder="e.g. My phone screen is cracked, battery drains fast..."
-                  placeholderTextColor={C.textTertiary}
-                  multiline
-                  value={problemText}
-                  onChangeText={setProblemText}
-                  maxLength={300}
-                />
-                <Text style={st.charCount}>{problemText.length}/300</Text>
-                <Pressable
-                  style={({ pressed }) => [st.postBtn, (!problemText.trim() || posting) && st.postBtnDisabled, pressed && { opacity: 0.85 }]}
-                  onPress={submitProblem}
-                  disabled={!problemText.trim() || posting}
-                >
-                  {posting ? (
-                    <ActivityIndicator color="#FFF" size="small" />
-                  ) : (
-                    <>
-                      <Ionicons name="send" size={16} color="#FFF" />
-                      <Text style={st.postBtnText}>Get Live Help</Text>
-                    </>
-                  )}
-                </Pressable>
-                <Text style={st.postHint}>Your problem will be visible to all technicians in the feed</Text>
-              </>
-            )}
-          </View>
-        )}
 
         {insuranceActive && (
           <View style={st.activeInsuranceCard}>
