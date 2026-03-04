@@ -114,7 +114,7 @@ export default function MarketplaceScreen() {
   const topPad = (Platform.OS === 'web' ? webTopInset : insets.top) + 12;
   const webBottomInset = Platform.OS === 'web' ? 84 : 0;
 
-  const [activeTab, setActiveTab] = useState<TabKey>('live');
+  const [activeTab, setActiveTab] = useState<TabKey>('spare');
 
   const renderCourseCard = (c: CourseData) => {
     const priceNum = parseFloat(c.price || '0');
