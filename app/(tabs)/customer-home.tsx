@@ -28,10 +28,10 @@ function isUserOnline(lastSeen: any): boolean {
 }
 
 const QUICK_ACTIONS: { icon: keyof typeof Ionicons.glyphMap; label: string; color: string; bg: string; action: string }[] = [
-  { icon: 'construct', label: 'Request\nRepair', color: '#FF6B2C', bg: '#FFF0E8', action: 'repair' },
-  { icon: 'people', label: 'Find\nTechnician', color: '#007AFF', bg: '#E8F2FF', action: 'find' },
-  { icon: 'bag-handle', label: 'Buy\nParts', color: '#34C759', bg: '#E8FAF0', action: 'shop' },
   { icon: 'videocam', label: 'Live\nHelp', color: '#FF2D55', bg: '#FFE8ED', action: 'live' },
+  { icon: 'location', label: 'Snap\nMap', color: '#007AFF', bg: '#E8F2FF', action: 'map' },
+  { icon: 'chatbubbles', label: 'Live\nChat', color: '#34C759', bg: '#E8FAF0', action: 'chat' },
+  { icon: 'notifications', label: 'My\nAlerts', color: '#FF9500', bg: '#FFF4E8', action: 'alerts' },
 ];
 
 export default function CustomerHomeScreen() {
@@ -124,21 +124,21 @@ export default function CustomerHomeScreen() {
   const handleQuickAction = (action: string) => {
     if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     switch (action) {
-      case 'repair':
-        router.push('/(tabs)/jobs');
-        break;
-      case 'find':
-        router.push('/(tabs)/directory');
-        break;
-      case 'shop':
-        router.push('/(tabs)/marketplace');
-        break;
       case 'live':
         if (liveSessions.length > 0) {
           router.push('/(tabs)/marketplace');
         } else {
           Alert.alert('No Live Sessions', 'No technicians are live right now. Check back later.');
         }
+        break;
+      case 'map':
+        router.push('/snap-map');
+        break;
+      case 'chat':
+        router.push('/chats');
+        break;
+      case 'alerts':
+        router.push('/(tabs)/profile');
         break;
     }
   };
