@@ -587,7 +587,7 @@ export default function MarketplaceScreen() {
                       {session.latestImage ? (
                         <View style={{ position: 'relative', marginBottom: 10 }}>
                           <Image
-                            source={{ uri: session.latestImage }}
+                            source={{ uri: getImageUri(session.latestImage) }}
                             style={{ width: '100%', height: 180, borderRadius: 10 }}
                             contentFit="cover"
                           />

@@ -5111,8 +5111,18 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
       const snapshot = await firestore.collection("teacher_live_sessions")
         .where("isLive", "==", true)
         .get();
+      const baseUrl = `${req.protocol}://${req.get("host")}`;
       const sessions = snapshot.docs
-        .map(doc => ({ id: doc.id, ...doc.data() }))
+        .map(doc => {
+          const data = doc.data();
+          if (data.latestImage && data.latestImage.startsWith("/")) {
+            data.latestImage = baseUrl + data.latestImage;
+          }
+          if (data.teacherAvatar && data.teacherAvatar.startsWith("/")) {
+            data.teacherAvatar = baseUrl + data.teacherAvatar;
+          }
+          return { id: doc.id, ...data };
+        })
         .sort((a: any, b: any) => (b.startedAt || 0) - (a.startedAt || 0));
       return res.json({ success: true, sessions });
     } catch (error) {
