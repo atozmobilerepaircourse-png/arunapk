@@ -24,6 +24,10 @@ function NativeTabLayout() {
           <Icon sf={{ default: "house", selected: "house.fill" }} />
           <Label>Home</Label>
         </NativeTabs.Trigger>
+        <NativeTabs.Trigger name="support">
+          <Icon sf={{ default: "headphones", selected: "headphones" }} />
+          <Label>Support</Label>
+        </NativeTabs.Trigger>
         <NativeTabs.Trigger name="directory">
           <Icon sf={{ default: "wrench.and.screwdriver", selected: "wrench.and.screwdriver.fill" }} />
           <Label>Repairs</Label>
@@ -159,6 +163,16 @@ function ClassicTabLayout() {
           href: isCustomer ? null : '/',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? "home" : "home-outline"} size={24} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="support"
+        options={{
+          title: "Support",
+          href: isCustomer ? '/support' : null,
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? "headset" : "headset-outline"} size={22} color={color} />
           ),
         }}
       />

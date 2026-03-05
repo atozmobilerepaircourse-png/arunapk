@@ -3122,7 +3122,13 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
       }
 
       if (role === 'customer') {
-        return res.json({ success: true, required: false, active: true });
+        const now = Date.now();
+        const isActive = user.subscriptionActive === 1 && (user.subscriptionEnd || 0) > now;
+        return res.json({
+          success: true, required: true, active: isActive,
+          amount: '30', period: 'monthly',
+          subscriptionEnd: user.subscriptionEnd || 0, role: 'customer',
+        });
       }
 
       const now = Date.now();
@@ -3226,6 +3232,65 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
     } catch (error) {
       console.error("[Subscription] Verify error:", error);
       return res.status(500).json({ success: false, message: "Failed to verify subscription" });
+    }
+  });
+
+  // Customer ₹30/month subscription order
+  app.post("/api/customer/subscription/create-order", async (req, res) => {
+    try {
+      if (!razorpayAvailable || !razorpayInstance) {
+        return res.status(503).json({ success: false, message: "Payment gateway not configured" });
+      }
+      const { userId } = req.body;
+      if (!userId) return res.status(400).json({ success: false, message: "userId required" });
+      const [user] = await db.select().from(profiles).where(eq(profiles.id, userId));
+      if (!user) return res.status(404).json({ success: false, message: "User not found" });
+      const amountInPaise = 3000; // ₹30
+      const options = {
+        amount: amountInPaise, currency: "INR",
+        receipt: `cust_sub_${Date.now()}`,
+        notes: { userId, role: 'customer', type: 'customer_subscription' },
+      };
+      const order = await razorpayInstance.orders.create(options);
+      return res.json({ success: true, orderId: order.id, amount: amountInPaise, currency: "INR", keyId: razorpayKeyId, displayAmount: '30' });
+    } catch (error) {
+      console.error("[Customer Sub] Create order error:", error);
+      return res.status(500).json({ success: false, message: "Failed to create order" });
+    }
+  });
+
+  app.post("/api/customer/subscription/verify", async (req, res) => {
+    try {
+      if (!razorpayAvailable) return res.status(503).json({ success: false, message: "Payment gateway not configured" });
+      const { razorpay_order_id, razorpay_payment_id, razorpay_signature, userId } = req.body;
+      if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature || !userId) {
+        return res.status(400).json({ success: false, message: "Missing payment data" });
+      }
+      const body = razorpay_order_id + "|" + razorpay_payment_id;
+      const expectedSig = crypto.createHmac('sha256', razorpayKeySecret).update(body).digest('hex');
+      if (expectedSig !== razorpay_signature) return res.status(400).json({ success: false, message: "Invalid signature" });
+      const now = Date.now();
+      const subscriptionEnd = now + 30 * 24 * 60 * 60 * 1000;
+      await db.update(profiles).set({ subscriptionActive: 1, subscriptionEnd, subscriptionOrderId: razorpay_order_id })
+        .where(eq(profiles.id, userId));
+      return res.json({ success: true, subscriptionActive: 1, subscriptionEnd });
+    } catch (error) {
+      console.error("[Customer Sub] Verify error:", error);
+      return res.status(500).json({ success: false, message: "Failed to verify" });
+    }
+  });
+
+  // Manual activate (admin or test use)
+  app.post("/api/customer/subscription/activate", async (req, res) => {
+    try {
+      const { userId } = req.body;
+      if (!userId) return res.status(400).json({ success: false });
+      const now = Date.now();
+      const subscriptionEnd = now + 30 * 24 * 60 * 60 * 1000;
+      await db.update(profiles).set({ subscriptionActive: 1, subscriptionEnd }).where(eq(profiles.id, userId));
+      return res.json({ success: true, subscriptionEnd });
+    } catch {
+      return res.status(500).json({ success: false });
     }
   });
 

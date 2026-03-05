@@ -48,6 +48,15 @@ export default function CustomerHomeScreen() {
   const [posting, setPosting]               = useState(false);
   const [postSuccess, setPostSuccess]       = useState(false);
 
+  const [subActive, setSubActive]           = useState(false);
+  const [subEnd, setSubEnd]                 = useState(0);
+  const [subLoading, setSubLoading]         = useState(true);
+  const [showLock, setShowLock]             = useState(false);
+  const [lockFeature, setLockFeature]       = useState('');
+  const [ordering, setOrdering]             = useState(false);
+
+  const [onlineTechs, setOnlineTechs]       = useState<any[]>([]);
+
   const fetchLiveSessions = useCallback(async () => {
     setLiveLoading(true);
     try {
@@ -61,11 +70,79 @@ export default function CustomerHomeScreen() {
     }
   }, []);
 
+  const fetchSubscription = useCallback(async () => {
+    if (!profile?.id) return;
+    setSubLoading(true);
+    try {
+      const res = await apiRequest('GET', `/api/subscription/status/${profile.id}`);
+      const data = await res.json();
+      setSubActive(data.active === true);
+      setSubEnd(data.subscriptionEnd || 0);
+    } catch {
+      setSubActive(false);
+    } finally {
+      setSubLoading(false);
+    }
+  }, [profile?.id]);
+
+  const fetchOnlineTechs = useCallback(async () => {
+    try {
+      const res = await apiRequest('GET', '/api/profiles?role=technician&limit=6');
+      const data = await res.json();
+      const list = (data.profiles || data || []).slice(0, 4);
+      setOnlineTechs(list);
+    } catch {
+      setOnlineTechs([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchSubscription();
+    fetchOnlineTechs();
+  }, [fetchSubscription, fetchOnlineTechs]);
+
+  const handleSubscribe = async () => {
+    if (!profile?.id) return;
+    setOrdering(true);
+    try {
+      const res = await apiRequest('POST', '/api/customer/subscription/create-order', { userId: profile.id });
+      const data = await res.json();
+      if (!data.success) {
+        if (Platform.OS === 'web') window.alert(data.message || 'Failed to create order');
+        else Alert.alert('Error', data.message || 'Failed to create order');
+        return;
+      }
+      const { orderId, keyId, amount } = data;
+      const checkoutUrl = new URL('/api/subscription/checkout', (await import('@/lib/query-client')).getApiUrl());
+      checkoutUrl.searchParams.set('orderId', orderId);
+      checkoutUrl.searchParams.set('amount', String(amount));
+      checkoutUrl.searchParams.set('keyId', keyId);
+      checkoutUrl.searchParams.set('role', 'customer');
+      checkoutUrl.searchParams.set('displayAmount', '30');
+      checkoutUrl.searchParams.set('userId', profile.id);
+      checkoutUrl.searchParams.set('userName', profile.name || '');
+      checkoutUrl.searchParams.set('userPhone', profile.phone || '');
+      if (Platform.OS === 'web') {
+        window.open(checkoutUrl.toString(), '_blank');
+        setTimeout(fetchSubscription, 5000);
+      } else {
+        router.push({ pathname: '/payment-webview', params: { url: checkoutUrl.toString(), type: 'customer_sub' } });
+      }
+    } catch {
+      if (Platform.OS === 'web') window.alert('Failed. Please try again.');
+      else Alert.alert('Error', 'Failed. Please try again.');
+    } finally {
+      setOrdering(false);
+    }
+  };
+
   const toggleLive = () => {
+    if (!subActive) { setLockFeature('Watch Live Help'); setShowLock(true); return; }
     router.push('/');
   };
 
   const togglePost = () => {
+    if (!subActive) { setLockFeature('Post My Problem'); setShowLock(true); return; }
     router.push('/create');
   };
 
@@ -260,6 +337,117 @@ export default function CustomerHomeScreen() {
             <Text style={st.actionCardSub}>Get help from experts</Text>
           </Pressable>
         </View>
+
+        {/* ── Premium Lock Modal ── */}
+        {showLock && (
+          <View style={st.lockOverlay}>
+            <View style={st.lockCard}>
+              <Pressable style={st.lockClose} onPress={() => setShowLock(false)}>
+                <Ionicons name="close" size={20} color={C.textSecondary} />
+              </Pressable>
+              <View style={st.lockIconWrap}>
+                <Ionicons name="lock-closed" size={28} color={C.primary} />
+              </View>
+              <Text style={st.lockTitle}>Premium Feature 🔒</Text>
+              <Text style={st.lockSub}>Subscribe to unlock <Text style={{ color: C.primary }}>{lockFeature}</Text> and talk with technicians</Text>
+              <View style={st.lockPerks}>
+                {['Chat with technicians','Post repair problems','Join live help sessions','Priority support'].map(p => (
+                  <View key={p} style={st.lockPerkRow}>
+                    <Ionicons name="checkmark-circle" size={16} color="#34C759" />
+                    <Text style={st.lockPerkText}>{p}</Text>
+                  </View>
+                ))}
+              </View>
+              <Text style={st.lockPrice}>₹30 / month</Text>
+              <Pressable
+                style={({ pressed }) => [st.lockSubBtn, pressed && { opacity: 0.88 }]}
+                onPress={() => { setShowLock(false); handleSubscribe(); }}
+                disabled={ordering}
+              >
+                {ordering
+                  ? <ActivityIndicator color="#FFF" size="small" />
+                  : <Text style={st.lockSubBtnText}>Subscribe Now</Text>
+                }
+              </Pressable>
+            </View>
+          </View>
+        )}
+
+        {/* ── Subscription Card ── */}
+        {subLoading ? null : subActive ? (
+          <View style={st.subActiveCard}>
+            <Ionicons name="star" size={18} color="#FFD700" />
+            <View style={{ flex: 1 }}>
+              <Text style={st.subActiveTitle}>Premium Active ✅</Text>
+              <Text style={st.subActiveSub}>Valid till {new Date(subEnd).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</Text>
+            </View>
+          </View>
+        ) : (
+          <View style={st.subCard}>
+            <View style={st.subCardHeader}>
+              <Ionicons name="star" size={18} color="#FFD700" />
+              <Text style={st.subCardTitle}>⭐ Premium Support Plan</Text>
+            </View>
+            <Text style={st.subCardTagline}>Talk to mobile technicians anytime</Text>
+            <View style={st.subPerks}>
+              {['Chat with technicians','Post repair problems','Join live help sessions','Priority support'].map(p => (
+                <View key={p} style={st.subPerkRow}>
+                  <Ionicons name="checkmark-circle" size={14} color="#34C759" />
+                  <Text style={st.subPerkText}>{p}</Text>
+                </View>
+              ))}
+            </View>
+            <View style={st.subCardBottom}>
+              <Text style={st.subPrice}>₹30 <Text style={st.subPricePer}>/ Month</Text></Text>
+              <Pressable
+                style={({ pressed }) => [st.subBtn, pressed && { opacity: 0.88 }]}
+                onPress={handleSubscribe}
+                disabled={ordering}
+              >
+                {ordering
+                  ? <ActivityIndicator color="#FFF" size="small" />
+                  : <Text style={st.subBtnText}>Subscribe Now</Text>
+                }
+              </Pressable>
+            </View>
+          </View>
+        )}
+
+        {/* ── Technicians Online Now ── */}
+        {onlineTechs.length > 0 && (
+          <View style={st.onlineSection}>
+            <View style={st.onlineHeader}>
+              <View style={st.onlineGreenDot} />
+              <Text style={st.onlineTitle}>Technicians Online Now</Text>
+              <Pressable onPress={() => router.push('/(tabs)/directory')} style={{ marginLeft: 'auto' as any }}>
+                <Text style={st.onlineSeeAll}>See all</Text>
+              </Pressable>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -4 }}>
+              {onlineTechs.map(tech => (
+                <Pressable
+                  key={tech.id}
+                  style={({ pressed }) => [st.techChip, pressed && { opacity: 0.85 }]}
+                  onPress={() => {
+                    if (!subActive) { setLockFeature('Chat with technicians'); setShowLock(true); return; }
+                    router.push({ pathname: '/chat', params: { userId: tech.id, userName: tech.name } });
+                  }}
+                >
+                  {tech.avatar ? (
+                    <Image source={{ uri: tech.avatar }} style={st.techChipAvatar} contentFit="cover" />
+                  ) : (
+                    <View style={[st.techChipAvatar, { backgroundColor: C.primary + '20', alignItems: 'center', justifyContent: 'center' }]}>
+                      <Text style={{ fontSize: 14, color: C.primary, fontFamily: 'Inter_700Bold' }}>{(tech.name || 'T')[0].toUpperCase()}</Text>
+                    </View>
+                  )}
+                  <View style={st.onlineDot} />
+                  <Text style={st.techChipName} numberOfLines={1}>{(tech.name || '').split(' ')[0]}</Text>
+                  <Text style={st.techChipRole}>Tech</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        )}
 
         {insuranceActive && (
           <View style={st.activeInsuranceCard}>
@@ -752,6 +940,69 @@ const st = StyleSheet.create({
     borderWidth: 1, borderColor: C.primary + '30',
   },
   findTechText: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: C.primary },
+
+  lockOverlay: {
+    alignSelf: 'stretch', backgroundColor: C.background, borderRadius: 20,
+    borderWidth: 1.5, borderColor: C.primary + '40', padding: 20, marginBottom: 12,
+    shadowColor: C.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 12, elevation: 8,
+  },
+  lockCard: { alignItems: 'center' },
+  lockClose: { position: 'absolute', top: 0, right: 0, padding: 4 },
+  lockIconWrap: {
+    width: 60, height: 60, borderRadius: 30,
+    backgroundColor: C.primary + '15', alignItems: 'center', justifyContent: 'center', marginBottom: 12,
+  },
+  lockTitle: { fontSize: 18, fontFamily: 'Inter_700Bold', color: C.text, marginBottom: 6 },
+  lockSub:   { fontSize: 13, fontFamily: 'Inter_400Regular', color: C.textSecondary, textAlign: 'center', marginBottom: 16, lineHeight: 18 },
+  lockPerks: { alignSelf: 'stretch', gap: 8, marginBottom: 16 },
+  lockPerkRow:  { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  lockPerkText: { fontSize: 13, fontFamily: 'Inter_400Regular', color: C.text },
+  lockPrice: { fontSize: 22, fontFamily: 'Inter_700Bold', color: C.primary, marginBottom: 16 },
+  lockSubBtn: { alignSelf: 'stretch', backgroundColor: C.primary, borderRadius: 14, paddingVertical: 14, alignItems: 'center' },
+  lockSubBtnText: { fontSize: 16, fontFamily: 'Inter_700Bold', color: '#FFF' },
+
+  subActiveCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: '#34C75912', borderRadius: 14, padding: 14,
+    borderWidth: 1, borderColor: '#34C75940', alignSelf: 'stretch', marginBottom: 8,
+  },
+  subActiveTitle: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: C.text },
+  subActiveSub:   { fontSize: 12, fontFamily: 'Inter_400Regular', color: C.textSecondary, marginTop: 2 },
+
+  subCard: {
+    alignSelf: 'stretch', backgroundColor: C.surface, borderRadius: 16, padding: 16,
+    borderWidth: 1.5, borderColor: C.primary + '40', marginBottom: 8,
+  },
+  subCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
+  subCardTitle:  { fontSize: 15, fontFamily: 'Inter_700Bold', color: C.text },
+  subCardTagline:{ fontSize: 12, fontFamily: 'Inter_400Regular', color: C.textSecondary, marginBottom: 12 },
+  subPerks:      { gap: 7, marginBottom: 14 },
+  subPerkRow:    { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  subPerkText:   { fontSize: 13, fontFamily: 'Inter_400Regular', color: C.text },
+  subCardBottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  subPrice:      { fontSize: 22, fontFamily: 'Inter_700Bold', color: C.primary },
+  subPricePer:   { fontSize: 13, fontFamily: 'Inter_400Regular', color: C.textSecondary },
+  subBtn:        { backgroundColor: C.primary, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 20 },
+  subBtnText:    { fontSize: 14, fontFamily: 'Inter_700Bold', color: '#FFF' },
+
+  onlineSection: { alignSelf: 'stretch', marginBottom: 12 },
+  onlineHeader:  { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12 },
+  onlineGreenDot:{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#34C759' },
+  onlineTitle:   { fontSize: 14, fontFamily: 'Inter_700Bold', color: C.text },
+  onlineSeeAll:  { fontSize: 12, fontFamily: 'Inter_500Medium', color: C.primary },
+  techChip: {
+    alignItems: 'center', backgroundColor: C.surface, borderRadius: 14,
+    padding: 12, marginRight: 8, width: 74, borderWidth: 1, borderColor: C.border,
+    position: 'relative',
+  },
+  techChipAvatar: { width: 40, height: 40, borderRadius: 20, marginBottom: 6 },
+  onlineDot: {
+    position: 'absolute', top: 10, right: 10,
+    width: 9, height: 9, borderRadius: 5, backgroundColor: '#34C759',
+    borderWidth: 1.5, borderColor: '#FFF',
+  },
+  techChipName: { fontSize: 11, fontFamily: 'Inter_600SemiBold', color: C.text, textAlign: 'center' },
+  techChipRole: { fontSize: 10, fontFamily: 'Inter_400Regular', color: C.textTertiary },
 
   actionRow: { flexDirection: 'row', gap: 10, alignSelf: 'stretch', marginBottom: 4 },
   actionCard: {
