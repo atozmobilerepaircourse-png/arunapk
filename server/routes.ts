@@ -580,8 +580,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       return res.json({
         success: true,
-        message: sent ? "OTP sent via WhatsApp" : "OTP generated",
+        message: sent ? "OTP sent via WhatsApp" : "OTP generated (SMS unavailable)",
         sent,
+        // Return OTP directly when SMS delivery fails so web users can still log in
+        ...((!sent) && { webOtp: otp }),
       });
     } catch (error: any) {
       console.error("[OTP] Send error:", error?.message || error, error?.stack?.split('\n').slice(0,3).join(' '));

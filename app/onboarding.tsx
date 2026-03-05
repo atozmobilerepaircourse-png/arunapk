@@ -159,7 +159,16 @@ export default function OnboardingScreen() {
       const data = await res.json();
       if (data.success) {
         setOtpSent(true);
-        setOtpResendTimer(60); // Increased to 60s
+        setOtpResendTimer(60);
+        if (data.webOtp) {
+          // SMS delivery unavailable — show OTP directly so user can log in
+          setOtpCode(String(data.webOtp));
+          if (Platform.OS === 'web') {
+            window.alert(`SMS unavailable. Your OTP is: ${data.webOtp}\n\nIt has been filled in for you automatically.`);
+          } else {
+            Alert.alert('SMS Unavailable', `Your OTP is: ${data.webOtp}\n\nIt has been filled in automatically.`);
+          }
+        }
       } else {
         Alert.alert('Error', data.message || 'Failed to send OTP');
       }
