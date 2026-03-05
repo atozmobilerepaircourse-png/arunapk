@@ -162,12 +162,13 @@ export default function OnboardingScreen() {
         setOtpResendTimer(60);
         if (data.webOtp) {
           // SMS delivery unavailable — show OTP directly so user can log in
-          setOtpCode(String(data.webOtp));
           if (Platform.OS === 'web') {
             window.alert(`SMS unavailable. Your OTP is: ${data.webOtp}\n\nIt has been filled in for you automatically.`);
           } else {
             Alert.alert('SMS Unavailable', `Your OTP is: ${data.webOtp}\n\nIt has been filled in automatically.`);
           }
+          // Set code AFTER alert to ensure user sees it
+          setOtpCode(String(data.webOtp));
         }
       } else {
         Alert.alert('Error', data.message || 'Failed to send OTP');
@@ -850,7 +851,13 @@ export default function OnboardingScreen() {
               placeholder="------"
               placeholderTextColor={C.textTertiary}
               value={otpCode}
-              onChangeText={(text) => setOtpCode(text.replace(/\D/g, '').slice(0, 6))}
+              onChangeText={(text) => {
+                const nextCode = text.replace(/\D/g, '').slice(0, 6);
+                setOtpCode(nextCode);
+                if (nextCode.length === 6) {
+                  verifyOtp();
+                }
+              }}
               keyboardType="number-pad"
               maxLength={6}
               autoFocus
