@@ -1,1073 +1,360 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, Pressable, Platform, Animated,
-  ScrollView, ActivityIndicator, TextInput, Alert,
+  ScrollView, TextInput, Dimensions,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
-import Colors from '@/constants/colors';
 import { useApp } from '@/lib/context';
-import { apiRequest, getApiUrl } from '@/lib/query-client';
+import { apiRequest } from '@/lib/query-client';
 
-const C = Colors.light;
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-type ScanPhase = 'idle' | 'detecting' | 'scanning' | 'results' | 'insurance' | 'repair';
+const PRIMARY = '#FF6B2C';
+const BG = '#F5F7FA';
+const CARD = '#FFFFFF';
+const DARK = '#1A1A2E';
+const GRAY = '#8E8E93';
+const BLUE = '#4F8EF7';
 
-const SCAN_CHECKS: { key: string; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
-  { key: 'screen',      label: 'Screen',      icon: 'phone-portrait-outline' },
-  { key: 'battery',     label: 'Battery',      icon: 'battery-half-outline'  },
-  { key: 'camera',      label: 'Camera',       icon: 'camera-outline'         },
-  { key: 'microphone',  label: 'Microphone',   icon: 'mic-outline'            },
-  { key: 'gps',         label: 'GPS',          icon: 'navigate-outline'       },
-  { key: 'network',     label: 'Network',      icon: 'wifi-outline'           },
-  { key: 'storage',     label: 'Storage',      icon: 'server-outline'         },
-  { key: 'sensors',     label: 'Sensors',      icon: 'pulse-outline'          },
+const BRANDS = [
+  { name: 'Apple',   icon: 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/fa/Apple_logo_black.svg/120px-Apple_logo_black.svg.png',   color: '#1C1C1E' },
+  { name: 'Samsung', icon: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/24/Samsung_Logo.svg/320px-Samsung_Logo.svg.png', color: '#1428A0' },
+  { name: 'Xiaomi',  icon: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/ae/Xiaomi_logo_%282021-%29.svg/320px-Xiaomi_logo_%282021-%29.svg.png', color: '#FF6900' },
+  { name: 'Vivo',    icon: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/86/Vivo_logo_2019.svg/320px-Vivo_logo_2019.svg.png',  color: '#415FFF' },
+  { name: 'Oppo',    icon: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a7/Oppo_logo.svg/320px-Oppo_logo.svg.png',   color: '#1F8EF1' },
+  { name: 'Realme',  icon: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/55/Realme_logo.svg/320px-Realme_logo.svg.png', color: '#FFD700' },
+  { name: 'OnePlus', icon: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/87/OnePlus_Logo.svg/320px-OnePlus_Logo.svg.png', color: '#F5010C' },
+  { name: 'More',    icon: '',                        color: PRIMARY },
 ];
 
-type DeviceInfo = { model: string; os: string; battery: number };
+const QUICK_ACTIONS = [
+  { icon: 'pulse',           label: 'Diagnose\nPhone',   color: '#4F8EF7', bg: '#EAF1FF', route: '/diagnose'     },
+  { icon: 'construct',       label: 'Repair\nPhone',     color: PRIMARY,   bg: '#FFF0EA', route: '/select-brand' },
+  { icon: 'phone-portrait',  label: 'Sell\nPhone',       color: '#34C759', bg: '#EAFAF1', route: '/sell-item'    },
+  { icon: 'shield-checkmark',label: 'Phone\nInsurance',  color: '#AF52DE', bg: '#F5EAFF', route: '/insurance'    },
+];
+
+const OFFERS = [
+  { title: '30% Off Screen Repair', sub: 'Valid till 31 March', color: PRIMARY, icon: 'phone-portrait' },
+  { title: 'Free Pickup & Drop',    sub: 'On orders above ₹500', color: BLUE,   icon: 'car'            },
+  { title: 'Battery Check Free',    sub: 'For all customers',    color: '#34C759', icon: 'battery-charging' },
+];
 
 export default function CustomerHomeScreen() {
   const insets = useSafeAreaInsets();
   const { profile } = useApp();
-
-  const [phase, setPhase]                   = useState<ScanPhase>('idle');
-  const [deviceInfo, setDeviceInfo]         = useState<DeviceInfo | null>(null);
-  const [completedChecks, setCompleted]     = useState<string[]>([]);
-  const [issueChecks, setIssues]            = useState<string[]>([]);
-  const [healthScore, setHealthScore]       = useState(0);
-  const [insuranceActive, setInsurance]     = useState(false);
-
-  const [showLive, setShowLive]             = useState(false);
-  const [liveSessions, setLiveSessions]     = useState<any[]>([]);
-  const [liveLoading, setLiveLoading]       = useState(false);
-  const [showPost, setShowPost]             = useState(false);
-  const [problemText, setProblemText]       = useState('');
-  const [posting, setPosting]               = useState(false);
-  const [postSuccess, setPostSuccess]       = useState(false);
-
-  const [subActive, setSubActive]           = useState(false);
-  const [subEnd, setSubEnd]                 = useState(0);
-  const [subLoading, setSubLoading]         = useState(true);
-  const [showLock, setShowLock]             = useState(false);
-  const [lockFeature, setLockFeature]       = useState('');
-  const [ordering, setOrdering]             = useState(false);
-
-  const [onlineTechs, setOnlineTechs]       = useState<any[]>([]);
-
-  const fetchLiveSessions = useCallback(async () => {
-    setLiveLoading(true);
-    try {
-      const res = await apiRequest('GET', '/api/teacher/live-sessions');
-      const data = await res.json();
-      setLiveSessions(data.sessions || []);
-    } catch {
-      setLiveSessions([]);
-    } finally {
-      setLiveLoading(false);
-    }
-  }, []);
-
-  const fetchSubscription = useCallback(async () => {
-    if (!profile?.id) return;
-    setSubLoading(true);
-    try {
-      const res = await apiRequest('GET', `/api/subscription/status/${profile.id}`);
-      const data = await res.json();
-      setSubActive(data.active === true);
-      setSubEnd(data.subscriptionEnd || 0);
-    } catch {
-      setSubActive(false);
-    } finally {
-      setSubLoading(false);
-    }
-  }, [profile?.id]);
-
-  const fetchOnlineTechs = useCallback(async () => {
-    try {
-      const res = await apiRequest('GET', '/api/profiles?role=technician&limit=6');
-      const data = await res.json();
-      const list = (data.profiles || data || []).slice(0, 4);
-      setOnlineTechs(list);
-    } catch {
-      setOnlineTechs([]);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchSubscription();
-    fetchOnlineTechs();
-  }, [fetchSubscription, fetchOnlineTechs]);
-
-  const handleSubscribe = async () => {
-    if (!profile?.id) return;
-    setOrdering(true);
-    try {
-      const res = await apiRequest('POST', '/api/customer/subscription/create-order', { userId: profile.id });
-      const data = await res.json();
-      if (!data.success) {
-        if (Platform.OS === 'web') window.alert(data.message || 'Failed to create order');
-        else Alert.alert('Error', data.message || 'Failed to create order');
-        return;
-      }
-      const { orderId, keyId, amount } = data;
-      const checkoutUrl = new URL('/api/subscription/checkout', getApiUrl());
-      checkoutUrl.searchParams.set('orderId', orderId);
-      checkoutUrl.searchParams.set('amount', String(amount));
-      checkoutUrl.searchParams.set('keyId', keyId);
-      checkoutUrl.searchParams.set('role', 'customer');
-      checkoutUrl.searchParams.set('displayAmount', '30');
-      checkoutUrl.searchParams.set('userId', profile.id);
-      checkoutUrl.searchParams.set('userName', profile.name || '');
-      checkoutUrl.searchParams.set('userPhone', profile.phone || '');
-      if (Platform.OS === 'web') {
-        window.open(checkoutUrl.toString(), '_blank');
-        setTimeout(fetchSubscription, 5000);
-      } else {
-        router.push({ pathname: '/payment-webview', params: { url: checkoutUrl.toString(), type: 'customer_sub' } });
-      }
-    } catch {
-      if (Platform.OS === 'web') window.alert('Failed. Please try again.');
-      else Alert.alert('Error', 'Failed. Please try again.');
-    } finally {
-      setOrdering(false);
-    }
-  };
-
-  const toggleLive = () => {
-    if (!subActive) { setLockFeature('Watch Live Help'); setShowLock(true); return; }
-    router.push('/');
-  };
-
-  const togglePost = () => {
-    if (!subActive) { setLockFeature('Post My Problem'); setShowLock(true); return; }
-    router.push('/create');
-  };
-
-  const submitProblem = async () => {
-    if (!problemText.trim()) return;
-    if (!profile) { router.push('/onboarding'); return; }
-    setPosting(true);
-    try {
-      await apiRequest('POST', '/api/posts', {
-        userId: profile.id,
-        author: profile.name,
-        content: `🔧 Help Needed: ${problemText.trim()}`,
-        category: 'repair',
-        authorRole: 'customer',
-        authorAvatar: profile.avatar || '',
-      });
-      setPostSuccess(true);
-      setProblemText('');
-      if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch {
-      if (Platform.OS === 'web') window.alert('Failed to post. Please try again.');
-      else Alert.alert('Error', 'Failed to post. Please try again.');
-    } finally {
-      setPosting(false);
-    }
-  };
-
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-  const glowAnim  = useRef(new Animated.Value(0)).current;
+  const [search, setSearch] = useState('');
+  const [onlineTechs, setOnlineTechs] = useState<any[]>([]);
+  const [recentOrders, setRecentOrders] = useState<any[]>([]);
+  const [offerIdx, setOfferIdx] = useState(0);
+  const offerAnim = useRef(new Animated.Value(0)).current;
 
   const topInset  = Platform.OS === 'web' ? 67 : insets.top;
   const bottomPad = Platform.OS === 'web' ? 84 + 34 : 100;
-
-  useEffect(() => {
-    if (phase !== 'idle') return;
-    const pulse = Animated.loop(Animated.sequence([
-      Animated.timing(pulseAnim, { toValue: 1.06, duration: 900, useNativeDriver: true }),
-      Animated.timing(pulseAnim, { toValue: 1.00, duration: 900, useNativeDriver: true }),
-    ]));
-    const glow = Animated.loop(Animated.sequence([
-      Animated.timing(glowAnim,  { toValue: 1, duration: 1400, useNativeDriver: true }),
-      Animated.timing(glowAnim,  { toValue: 0, duration: 1400, useNativeDriver: true }),
-    ]));
-    pulse.start(); glow.start();
-    return () => { pulse.stop(); glow.stop(); };
-  }, [phase]);
-
-  const getDeviceInfo = async (): Promise<DeviceInfo> => {
-    let model = 'Your Device', os = 'Android', battery = 78;
-    if (Platform.OS === 'web') {
-      const ua = navigator.userAgent;
-      if (ua.includes('iPhone')) model = 'iPhone';
-      else if (ua.includes('iPad')) model = 'iPad';
-      else if (ua.includes('Android')) {
-        const m = ua.match(/;\s*([^)]+)\)/);
-        model = m ? (m[1].trim().split(';').pop()?.trim() ?? 'Android Device') : 'Android Device';
-      } else model = 'Computer';
-      os = ua.includes('iPhone') || ua.includes('iPad') ? 'iOS'
-         : ua.includes('Android') ? 'Android' : 'Desktop';
-      try {
-        if ('getBattery' in navigator) {
-          const bat = await (navigator as any).getBattery();
-          battery = Math.round(bat.level * 100);
-        }
-      } catch {}
-    } else {
-      model = Platform.OS === 'ios' ? 'iPhone' : 'Android Phone';
-      os    = Platform.OS === 'ios' ? 'iOS' : 'Android';
-    }
-    return { model, os, battery };
-  };
-
-  const runScan = async () => {
-    if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    setPhase('detecting');
-    setCompleted([]);
-    setIssues([]);
-
-    const info = await getDeviceInfo();
-    await new Promise(r => setTimeout(r, 1200));
-    setDeviceInfo(info);
-    setPhase('scanning');
-
-    const found: string[] = [];
-    for (const check of SCAN_CHECKS) {
-      await new Promise(r => setTimeout(r, 320 + Math.random() * 260));
-      const bad = check.key === 'battery' && info.battery < 50;
-      if (bad) found.push(check.key);
-      setCompleted(p => [...p, check.key]);
-      if (bad) setIssues(p => [...p, check.key]);
-    }
-
-    await new Promise(r => setTimeout(r, 350));
-    const score = Math.max(62, 97 - found.length * 12 - (info.battery < 30 ? 10 : info.battery < 50 ? 5 : 0));
-    setHealthScore(score);
-    setPhase('results');
-    if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-  };
-
-  const proceedToInsurance = () => setPhase('insurance');
-  const activateInsurance  = () => { setInsurance(true);  setPhase('repair'); };
-  const skipInsurance      = () => { setInsurance(false); setPhase('repair'); };
-
-  const reset = () => {
-    setPhase('idle');
-    setCompleted([]);
-    setIssues([]);
-    setDeviceInfo(null);
-    setHealthScore(0);
-  };
-
-  const bookTechnician = () =>
-    router.push({ pathname: '/(tabs)/directory', params: { filter: 'technician' } });
-
-  const scoreColor = healthScore >= 85 ? '#34C759' : healthScore >= 70 ? '#FF9F0A' : '#FF3B30';
-  const glowOpacity = glowAnim.interpolate({ inputRange: [0, 1], outputRange: [0.12, 0.40] });
   const firstName = profile?.name?.split(' ')[0] || 'there';
 
-  /* ─── IDLE ─────────────────────────────────────────────────────── */
-  if (phase === 'idle') {
-    return (
-      <ScrollView
-        style={st.container}
-        contentContainerStyle={[st.idleContent, { paddingTop: topInset + 16, paddingBottom: bottomPad }]}
-        showsVerticalScrollIndicator={false}
-      >
-        <Text style={st.greeting}>Hello {firstName} 👋</Text>
-        <Text style={st.greetingSub}>Let's check your phone health today</Text>
+  const fetchData = useCallback(async () => {
+    try {
+      const res = await apiRequest('GET', '/api/profiles?role=technician&limit=6');
+      const data = await res.json();
+      setOnlineTechs((data.profiles || data || []).slice(0, 4));
+    } catch { setOnlineTechs([]); }
+    try {
+      if (profile?.id) {
+        const res = await apiRequest('GET', `/api/orders?buyerId=${profile.id}`);
+        const data = await res.json();
+        setRecentOrders(Array.isArray(data) ? data.slice(0, 3) : []);
+      }
+    } catch { setRecentOrders([]); }
+  }, [profile?.id]);
 
-        {deviceInfo && (
-          <View style={st.deviceCard}>
-            <Ionicons name="phone-portrait" size={18} color={C.primary} />
-            <Text style={st.deviceCardText}>
-              {deviceInfo.model} · {deviceInfo.os} · Battery {deviceInfo.battery}%
-            </Text>
-          </View>
-        )}
+  useEffect(() => { fetchData(); }, [fetchData]);
 
-        <View style={st.buttonArea}>
-          <Animated.View style={[st.glowRing, { opacity: glowOpacity }]} />
-          <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
-            <Pressable
-              style={({ pressed }) => [st.mainButton, pressed && st.mainButtonPressed]}
-              onPress={runScan}
-              testID="phone-check-btn"
-            >
-              <Ionicons name="shield-checkmark" size={54} color="#FFF" />
-              <Text style={st.mainBtnTitle}>Check & Protect{'\n'}My Phone</Text>
-              <Text style={st.mainBtnSub}>Tap for instant health scan</Text>
-            </Pressable>
-          </Animated.View>
-        </View>
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setOfferIdx(i => (i + 1) % OFFERS.length);
+    }, 3500);
+    return () => clearTimeout(t);
+  }, [offerIdx]);
 
-        <View style={st.flowRow}>
-          {[
-            { icon: 'hardware-chip-outline' as const, label: 'Auto Detect\nDevice' },
-            { icon: 'pulse-outline'          as const, label: 'Full\nDiagnosis' },
-            { icon: 'shield-outline'         as const, label: 'Health\nScore' },
-            { icon: 'umbrella-outline'       as const, label: 'Insurance\nOffer' },
-          ].map((f, i) => (
-            <View key={i} style={st.flowItem}>
-              <View style={st.flowIcon}>
-                <Ionicons name={f.icon} size={20} color={C.primary} />
-              </View>
-              <Text style={st.flowLabel}>{f.label}</Text>
-            </View>
-          ))}
-        </View>
+  const handleBrandPress = (brand: string) => {
+    if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (brand === 'More') { router.push('/select-brand'); return; }
+    router.push({ pathname: '/select-model', params: { brand } });
+  };
 
-        {/* ── Live Help & Post Problem ── */}
-        <View style={st.actionRow}>
-          <Pressable
-            style={({ pressed }) => [st.actionCard, showLive && st.actionCardActive, pressed && { opacity: 0.85 }]}
-            onPress={toggleLive}
-          >
-            <View style={[st.actionIcon, { backgroundColor: '#FF3B3015' }]}>
-              <View style={st.liveRedDot} />
-              <Ionicons name="videocam" size={20} color="#FF3B30" />
-            </View>
-            <Text style={st.actionCardTitle}>Watch Live Help</Text>
-            <Text style={st.actionCardSub}>See technicians live</Text>
-          </Pressable>
+  const handleQuickAction = (route: string) => {
+    if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push(route as any);
+  };
 
-          <Pressable
-            style={({ pressed }) => [st.actionCard, showPost && st.actionCardActive, pressed && { opacity: 0.85 }]}
-            onPress={togglePost}
-          >
-            <View style={[st.actionIcon, { backgroundColor: C.primary + '15' }]}>
-              <Ionicons name="chatbubble-ellipses" size={20} color={C.primary} />
-            </View>
-            <Text style={st.actionCardTitle}>Post My Problem</Text>
-            <Text style={st.actionCardSub}>Get help from experts</Text>
-          </Pressable>
-        </View>
-
-        {/* ── Premium Lock Modal ── */}
-        {showLock && (
-          <View style={st.lockOverlay}>
-            <View style={st.lockCard}>
-              <Pressable style={st.lockClose} onPress={() => setShowLock(false)}>
-                <Ionicons name="close" size={20} color={C.textSecondary} />
-              </Pressable>
-              <View style={st.lockIconWrap}>
-                <Ionicons name="lock-closed" size={28} color={C.primary} />
-              </View>
-              <Text style={st.lockTitle}>Premium Feature 🔒</Text>
-              <Text style={st.lockSub}>Subscribe to unlock <Text style={{ color: C.primary }}>{lockFeature}</Text> and talk with technicians</Text>
-              <View style={st.lockPerks}>
-                {['Chat with technicians','Post repair problems','Join live help sessions','Priority support'].map(p => (
-                  <View key={p} style={st.lockPerkRow}>
-                    <Ionicons name="checkmark-circle" size={16} color="#34C759" />
-                    <Text style={st.lockPerkText}>{p}</Text>
-                  </View>
-                ))}
-              </View>
-              <Text style={st.lockPrice}>₹30 / month</Text>
-              <Pressable
-                style={({ pressed }) => [st.lockSubBtn, pressed && { opacity: 0.88 }]}
-                onPress={() => { setShowLock(false); handleSubscribe(); }}
-                disabled={ordering}
-              >
-                {ordering
-                  ? <ActivityIndicator color="#FFF" size="small" />
-                  : <Text style={st.lockSubBtnText}>Subscribe Now</Text>
-                }
-              </Pressable>
-            </View>
-          </View>
-        )}
-
-        {/* ── Subscription Card ── */}
-        {subLoading ? null : subActive ? (
-          <View style={st.subActiveCard}>
-            <Ionicons name="star" size={18} color="#FFD700" />
-            <View style={{ flex: 1 }}>
-              <Text style={st.subActiveTitle}>Premium Active ✅</Text>
-              <Text style={st.subActiveSub}>Valid till {new Date(subEnd).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</Text>
-            </View>
-          </View>
-        ) : (
-          <View style={st.subCard}>
-            <View style={st.subCardHeader}>
-              <Ionicons name="star" size={18} color="#FFD700" />
-              <Text style={st.subCardTitle}>⭐ Premium Support Plan</Text>
-            </View>
-            <Text style={st.subCardTagline}>Talk to mobile technicians anytime</Text>
-            <View style={st.subPerks}>
-              {['Chat with technicians','Post repair problems','Join live help sessions','Priority support'].map(p => (
-                <View key={p} style={st.subPerkRow}>
-                  <Ionicons name="checkmark-circle" size={14} color="#34C759" />
-                  <Text style={st.subPerkText}>{p}</Text>
-                </View>
-              ))}
-            </View>
-            <View style={st.subCardBottom}>
-              <Text style={st.subPrice}>₹30 <Text style={st.subPricePer}>/ Month</Text></Text>
-              <Pressable
-                style={({ pressed }) => [st.subBtn, pressed && { opacity: 0.88 }]}
-                onPress={handleSubscribe}
-                disabled={ordering}
-              >
-                {ordering
-                  ? <ActivityIndicator color="#FFF" size="small" />
-                  : <Text style={st.subBtnText}>Subscribe Now</Text>
-                }
-              </Pressable>
-            </View>
-          </View>
-        )}
-
-        {/* ── Technicians Online Now ── */}
-        {onlineTechs.length > 0 && (
-          <View style={st.onlineSection}>
-            <View style={st.onlineHeader}>
-              <View style={st.onlineGreenDot} />
-              <Text style={st.onlineTitle}>Technicians Online Now</Text>
-              <Pressable onPress={() => router.push('/(tabs)/directory')} style={{ marginLeft: 'auto' as any }}>
-                <Text style={st.onlineSeeAll}>See all</Text>
-              </Pressable>
-            </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -4 }}>
-              {onlineTechs.map(tech => (
-                <Pressable
-                  key={tech.id}
-                  style={({ pressed }) => [st.techChip, pressed && { opacity: 0.85 }]}
-                  onPress={() => {
-                    if (!subActive) { setLockFeature('Chat with technicians'); setShowLock(true); return; }
-                    router.push({ pathname: '/chat', params: { userId: tech.id, userName: tech.name } });
-                  }}
-                >
-                  {tech.avatar ? (
-                    <Image source={{ uri: tech.avatar }} style={st.techChipAvatar} contentFit="cover" />
-                  ) : (
-                    <View style={[st.techChipAvatar, { backgroundColor: C.primary + '20', alignItems: 'center', justifyContent: 'center' }]}>
-                      <Text style={{ fontSize: 14, color: C.primary, fontFamily: 'Inter_700Bold' }}>{(tech.name || 'T')[0].toUpperCase()}</Text>
-                    </View>
-                  )}
-                  <View style={st.onlineDot} />
-                  <Text style={st.techChipName} numberOfLines={1}>{(tech.name || '').split(' ')[0]}</Text>
-                  <Text style={st.techChipRole}>Tech</Text>
-                </Pressable>
-              ))}
-            </ScrollView>
-          </View>
-        )}
-
-        {insuranceActive && (
-          <View style={st.activeInsuranceCard}>
-            <View style={st.activeInsuranceHeader}>
-              <Ionicons name="umbrella" size={18} color="#5E8BFF" />
-              <Text style={st.activeInsuranceTitle}>Active Insurance</Text>
-              <View style={st.activeBadge}><Text style={st.activeBadgeText}>ACTIVE</Text></View>
-            </View>
-            <Text style={st.activeInsuranceDesc}>Monthly Plan · ₹30/month · ₹500 repair discount</Text>
-          </View>
-        )}
-
-        {deviceInfo && (
-          <View style={st.recentSection}>
-            <Text style={st.recentTitle}>Recent Repairs</Text>
-            <View style={st.recentEmpty}>
-              <Ionicons name="construct-outline" size={28} color={C.textTertiary} />
-              <Text style={st.recentEmptyText}>No repairs yet</Text>
-            </View>
-          </View>
-        )}
-      </ScrollView>
-    );
-  }
-
-  /* ─── DETECTING ────────────────────────────────────────────────── */
-  if (phase === 'detecting') {
-    return (
-      <View style={[st.container, st.centered, { paddingTop: topInset }]}>
-        <View style={st.detectIcon}>
-          <Ionicons name="phone-portrait" size={52} color={C.primary} />
-        </View>
-        <Text style={st.phaseTitle}>Detecting Device...</Text>
-        <Text style={st.phaseSub}>Reading system information</Text>
-        <ActivityIndicator style={{ marginTop: 28 }} size="large" color={C.primary} />
-      </View>
-    );
-  }
-
-  /* ─── SCANNING ─────────────────────────────────────────────────── */
-  if (phase === 'scanning') {
-    const done = completedChecks.length;
-    const total = SCAN_CHECKS.length;
-    const pct = total > 0 ? done / total : 0;
-    return (
-      <View style={[st.container, { paddingTop: topInset + 20, paddingBottom: bottomPad }]}>
-        <Text style={[st.phaseTitle, { paddingHorizontal: 20 }]}>Running Device Check...</Text>
-
-        {deviceInfo && (
-          <View style={[st.devicePill, { marginHorizontal: 20 }]}>
-            <Ionicons name="phone-portrait-outline" size={15} color={C.primary} />
-            <Text style={st.devicePillText}>
-              {deviceInfo.model} · {deviceInfo.os} · Battery {deviceInfo.battery}%
-            </Text>
-          </View>
-        )}
-
-        <View style={[st.progressBar, { marginHorizontal: 20 }]}>
-          <Animated.View style={[st.progressFill, { width: `${Math.round(pct * 100)}%` as any }]} />
-        </View>
-        <Text style={[st.progressLabel, { marginHorizontal: 20 }]}>{done} / {total} checks</Text>
-
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={[st.checksList, { paddingHorizontal: 20 }]}>
-          {SCAN_CHECKS.map(check => {
-            const isDone  = completedChecks.includes(check.key);
-            const isIssue = issueChecks.includes(check.key);
-            return (
-              <View key={check.key} style={st.checkRow}>
-                <Ionicons
-                  name={check.icon}
-                  size={20}
-                  color={isDone ? (isIssue ? '#FF9F0A' : C.textSecondary) : C.textTertiary}
-                />
-                <Text style={[st.checkLabel, isDone && { color: C.text }]}>{check.label}</Text>
-                <View style={st.checkStatus}>
-                  {isDone
-                    ? <Ionicons
-                        name={isIssue ? 'warning' : 'checkmark-circle'}
-                        size={22}
-                        color={isIssue ? '#FF9F0A' : '#34C759'}
-                      />
-                    : <View style={st.checkPending} />
-                  }
-                </View>
-              </View>
-            );
-          })}
-        </ScrollView>
-      </View>
-    );
-  }
-
-  /* ─── RESULTS ──────────────────────────────────────────────────── */
-  if (phase === 'results') {
-    return (
-      <ScrollView
-        style={st.container}
-        contentContainerStyle={[st.resultsContent, { paddingTop: topInset + 16, paddingBottom: bottomPad }]}
-        showsVerticalScrollIndicator={false}
-      >
-        <Text style={st.phaseTitle}>Device Health Report</Text>
-
-        {deviceInfo && (
-          <View style={st.devicePill}>
-            <Ionicons name="phone-portrait-outline" size={15} color={C.primary} />
-            <Text style={st.devicePillText}>{deviceInfo.model} · Battery {deviceInfo.battery}%</Text>
-          </View>
-        )}
-
-        <View style={[st.scoreCard, { borderColor: scoreColor + '50' }]}>
-          <Text style={st.scoreLabel}>Device Health Score</Text>
-          <Text style={[st.scoreValue, { color: scoreColor }]}>
-            {healthScore}<Text style={st.scoreMax}>/100</Text>
-          </Text>
-          <View style={[st.scoreBar, { backgroundColor: scoreColor + '20' }]}>
-            <View style={[st.scoreBarFill, { width: `${healthScore}%` as any, backgroundColor: scoreColor }]} />
-          </View>
-          <Text style={[st.scoreStatus, { color: scoreColor }]}>
-            {healthScore >= 85 ? 'Excellent Condition' : healthScore >= 70 ? 'Good — Minor Issues' : 'Needs Attention'}
-          </Text>
-        </View>
-
-        <View style={st.checksGrid}>
-          {SCAN_CHECKS.map(check => {
-            const issue = issueChecks.includes(check.key);
-            return (
-              <View key={check.key} style={[st.checkChip, issue && st.checkChipIssue]}>
-                <Ionicons name={issue ? 'warning' : 'checkmark-circle'} size={13}
-                  color={issue ? '#FF9F0A' : '#34C759'} />
-                <Text style={[st.checkChipText, issue && { color: '#FF9F0A' }]}>{check.label}</Text>
-              </View>
-            );
-          })}
-        </View>
-
-        {issueChecks.length > 0 && (
-          <View style={st.aiCard}>
-            <View style={st.aiHeader}>
-              <Ionicons name="flash" size={16} color="#5E8BFF" />
-              <Text style={st.aiTitle}>AI Problem Detection</Text>
-            </View>
-            {issueChecks.includes('battery') && (
-              <View style={st.aiIssueRow}>
-                <Ionicons name="battery-half" size={18} color="#FF9F0A" />
-                <View style={{ flex: 1, marginLeft: 10 }}>
-                  <Text style={st.aiIssueName}>Battery Health Low</Text>
-                  <Text style={st.aiIssueDetail}>Recommended Repair: Battery Replacement</Text>
-                  <Text style={st.aiIssueCost}>Estimated Cost ₹900</Text>
-                </View>
-              </View>
-            )}
-          </View>
-        )}
-
-        <Pressable
-          style={({ pressed }) => [st.primaryBtn, pressed && { opacity: 0.85 }]}
-          onPress={proceedToInsurance}
-        >
-          <Ionicons name="umbrella-outline" size={18} color="#FFF" />
-          <Text style={st.primaryBtnText}>View Insurance Offer</Text>
-        </Pressable>
-
-        <Pressable style={st.secondaryBtn} onPress={reset}>
-          <Text style={st.secondaryBtnText}>Scan Again</Text>
-        </Pressable>
-      </ScrollView>
-    );
-  }
-
-  /* ─── INSURANCE ────────────────────────────────────────────────── */
-  if (phase === 'insurance') {
-    const repairCost      = issueChecks.length > 0 ? 900 : 0;
-    const discountedCost  = Math.round(repairCost * 0.44);
-    return (
-      <ScrollView
-        style={st.container}
-        contentContainerStyle={[st.resultsContent, { paddingTop: topInset + 16, paddingBottom: bottomPad }]}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={st.insuranceBadge}>
-          <Ionicons name="umbrella" size={36} color="#5E8BFF" />
-        </View>
-        <Text style={st.phaseTitle}>Protect Your Phone</Text>
-        <Text style={st.phaseSub}>One plan. Full coverage. Instant savings.</Text>
-
-        <View style={st.planCard}>
-          <View style={st.planRow}>
-            <View style={st.planBullet} />
-            <View style={{ flex: 1 }}>
-              <Text style={st.planName}>Monthly Plan</Text>
-              <Text style={st.planDesc}>Complete device protection</Text>
-            </View>
-            <Text style={st.planPrice}>₹30<Text style={st.planPer}>/mo</Text></Text>
-          </View>
-
-          <View style={st.planDivider} />
-
-          <View style={st.benefitsList}>
-            {[
-              { icon: 'cash-outline'        as const, text: '₹500 Repair Discount on every job'  },
-              { icon: 'construct-outline'   as const, text: 'Priority technician booking'          },
-              { icon: 'shield-checkmark'    as const, text: 'Accidental damage coverage'           },
-              { icon: 'chatbubbles-outline' as const, text: '24/7 expert support'                  },
-            ].map((b, i) => (
-              <View key={i} style={st.benefitRow}>
-                <Ionicons name={b.icon} size={16} color="#5E8BFF" />
-                <Text style={st.benefitText}>{b.text}</Text>
-              </View>
-            ))}
-          </View>
-
-          {issueChecks.length > 0 && (
-            <View style={st.savingsBox}>
-              <Text style={st.savingsLabel}>Your Savings Today</Text>
-              <View style={st.savingsRow}>
-                <View style={st.savingsItem}>
-                  <Text style={st.savingsAmt}>₹{repairCost}</Text>
-                  <Text style={st.savingsSub}>Without Plan</Text>
-                </View>
-                <Ionicons name="arrow-forward" size={18} color={C.textTertiary} />
-                <View style={st.savingsItem}>
-                  <Text style={[st.savingsAmt, { color: '#34C759' }]}>₹{discountedCost}</Text>
-                  <Text style={st.savingsSub}>With Plan</Text>
-                </View>
-              </View>
-            </View>
-          )}
-        </View>
-
-        <Pressable
-          style={({ pressed }) => [st.activateBtn, pressed && { opacity: 0.85 }]}
-          onPress={activateInsurance}
-        >
-          <Ionicons name="shield-checkmark" size={18} color="#FFF" />
-          <Text style={st.primaryBtnText}>Activate Protection</Text>
-        </Pressable>
-
-        <Pressable style={st.secondaryBtn} onPress={skipInsurance}>
-          <Text style={st.secondaryBtnText}>Skip for now</Text>
-        </Pressable>
-      </ScrollView>
-    );
-  }
-
-  /* ─── REPAIR (final) ───────────────────────────────────────────── */
-  const repairCost     = 900;
-  const discountedCost = 400;
+  const offer = OFFERS[offerIdx];
 
   return (
     <ScrollView
-      style={st.container}
-      contentContainerStyle={[st.resultsContent, { paddingTop: topInset + 16, paddingBottom: bottomPad }]}
+      style={styles.container}
+      contentContainerStyle={[styles.content, { paddingTop: topInset + 12, paddingBottom: bottomPad }]}
       showsVerticalScrollIndicator={false}
     >
-      {insuranceActive && (
-        <View style={st.insuranceConfirmCard}>
-          <Ionicons name="shield-checkmark" size={22} color="#5E8BFF" />
-          <Text style={st.insuranceConfirmText}>Protection Activated! ₹30/month</Text>
+      {/* ── Header ── */}
+      <View style={styles.header}>
+        <View style={styles.headerLeft}>
+          <Text style={styles.greeting}>Hello, {firstName} 👋</Text>
+          <View style={styles.locationRow}>
+            <Ionicons name="location" size={13} color={PRIMARY} />
+            <Text style={styles.location}>{profile?.city || 'Set Location'}</Text>
+          </View>
         </View>
-      )}
-
-      {issueChecks.length > 0 ? (
-        <>
-          <Text style={st.phaseTitle}>Problem Detected</Text>
-          <Text style={st.phaseSub}>Here's what we found and how to fix it</Text>
-
-          {issueChecks.includes('battery') && (
-            <View style={st.repairCard}>
-              <View style={st.repairHeader}>
-                <View style={[st.repairIconWrap, { backgroundColor: '#FF9F0A18' }]}>
-                  <Ionicons name="battery-half" size={22} color="#FF9F0A" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={st.repairName}>Battery Weak</Text>
-                  <Text style={st.repairSub}>Draining faster than normal</Text>
-                </View>
-              </View>
-              <View style={st.repairCostRow}>
-                <View style={st.repairCostItem}>
-                  <Text style={st.repairCostLabel}>Repair Cost</Text>
-                  <Text style={[st.repairCostValue, insuranceActive && st.strikethrough]}>₹{repairCost}</Text>
-                </View>
-                {insuranceActive && (
-                  <View style={st.repairCostItem}>
-                    <Text style={st.repairCostLabel}>With Insurance</Text>
-                    <Text style={[st.repairCostValue, { color: '#34C759' }]}>₹{discountedCost}</Text>
-                  </View>
-                )}
-              </View>
-              <Pressable
-                style={({ pressed }) => [st.primaryBtn, { marginTop: 12 }, pressed && { opacity: 0.85 }]}
-                onPress={bookTechnician}
-              >
-                <Ionicons name="construct-outline" size={18} color="#FFF" />
-                <Text style={st.primaryBtnText}>Book Technician</Text>
-              </Pressable>
+        <Pressable
+          style={styles.avatarBtn}
+          onPress={() => router.push('/(tabs)/profile')}
+        >
+          {profile?.avatar ? (
+            <Image source={{ uri: profile.avatar }} style={styles.avatar} contentFit="cover" />
+          ) : (
+            <View style={[styles.avatar, styles.avatarFallback]}>
+              <Text style={styles.avatarLetter}>{(profile?.name || 'U')[0].toUpperCase()}</Text>
             </View>
           )}
-        </>
-      ) : (
-        <View style={st.allGoodCard}>
-          <Ionicons name="checkmark-circle" size={42} color="#34C759" />
-          <Text style={st.allGoodTitle}>Your phone is in great shape!</Text>
-          <Text style={st.allGoodSub}>No issues detected. Keep it well maintained.</Text>
+          <View style={styles.avatarOnlineDot} />
+        </Pressable>
+      </View>
+
+      {/* ── Search Bar ── */}
+      <View style={styles.searchBar}>
+        <Ionicons name="search" size={18} color={GRAY} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search services, brands, technicians..."
+          placeholderTextColor={GRAY}
+          value={search}
+          onChangeText={setSearch}
+          onSubmitEditing={() => { if (search.trim()) router.push('/select-brand' as any); }}
+        />
+        {search.length > 0 && (
+          <Pressable onPress={() => setSearch('')}>
+            <Ionicons name="close-circle" size={18} color={GRAY} />
+          </Pressable>
+        )}
+      </View>
+
+      {/* ── Quick Actions ── */}
+      <Text style={styles.sectionTitle}>What do you need?</Text>
+      <View style={styles.quickGrid}>
+        {QUICK_ACTIONS.map((a) => (
+          <Pressable
+            key={a.label}
+            style={({ pressed }) => [styles.quickCard, { opacity: pressed ? 0.85 : 1 }]}
+            onPress={() => handleQuickAction(a.route)}
+          >
+            <View style={[styles.quickIcon, { backgroundColor: a.bg }]}>
+              <Ionicons name={a.icon as any} size={26} color={a.color} />
+            </View>
+            <Text style={styles.quickLabel}>{a.label}</Text>
+          </Pressable>
+        ))}
+      </View>
+
+      {/* ── Offer Banner ── */}
+      <Pressable
+        style={[styles.offerBanner, { backgroundColor: offer.color }]}
+        onPress={() => router.push('/insurance' as any)}
+      >
+        <View style={styles.offerLeft}>
+          <Ionicons name={offer.icon as any} size={28} color="#FFF" />
+          <View style={{ marginLeft: 12 }}>
+            <Text style={styles.offerTitle}>{offer.title}</Text>
+            <Text style={styles.offerSub}>{offer.sub}</Text>
+          </View>
         </View>
+        <View style={styles.offerArrow}>
+          <Ionicons name="chevron-forward" size={18} color="#FFF" />
+        </View>
+      </Pressable>
+      <View style={styles.offerDots}>
+        {OFFERS.map((_, i) => (
+          <View key={i} style={[styles.dot, i === offerIdx && styles.dotActive]} />
+        ))}
+      </View>
+
+      {/* ── Top Brands ── */}
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Top Brands</Text>
+        <Pressable onPress={() => router.push('/select-brand' as any)}>
+          <Text style={styles.seeAll}>See All</Text>
+        </Pressable>
+      </View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.brandRow} contentContainerStyle={{ paddingHorizontal: 4, gap: 10 }}>
+        {BRANDS.map((b) => (
+          <Pressable
+            key={b.name}
+            style={({ pressed }) => [styles.brandChip, { opacity: pressed ? 0.8 : 1 }]}
+            onPress={() => handleBrandPress(b.name)}
+          >
+            {b.name === 'More' ? (
+              <View style={[styles.brandIconWrap, { backgroundColor: '#FFF0EA' }]}>
+                <Ionicons name="grid" size={22} color={PRIMARY} />
+              </View>
+            ) : b.icon ? (
+              <View style={styles.brandIconWrap}>
+                <Image
+                  source={{ uri: b.icon }}
+                  style={styles.brandImg}
+                  contentFit="contain"
+                />
+              </View>
+            ) : null}
+            <Text style={styles.brandName}>{b.name}</Text>
+          </Pressable>
+        ))}
+      </ScrollView>
+
+      {/* ── Nearby Technicians ── */}
+      {onlineTechs.length > 0 && (
+        <>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Nearby Technicians</Text>
+            <Pressable onPress={() => router.push('/(tabs)/directory' as any)}>
+              <Text style={styles.seeAll}>See All</Text>
+            </Pressable>
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 4, gap: 12 }}>
+            {onlineTechs.map((t) => (
+              <Pressable
+                key={t.id}
+                style={({ pressed }) => [styles.techCard, { opacity: pressed ? 0.9 : 1 }]}
+                onPress={() => router.push({ pathname: '/user-profile', params: { id: t.id } } as any)}
+              >
+                {t.avatar ? (
+                  <Image source={{ uri: t.avatar }} style={styles.techAvatar} contentFit="cover" />
+                ) : (
+                  <View style={[styles.techAvatar, styles.techAvatarFallback]}>
+                    <Text style={styles.techAvatarLetter}>{(t.name || 'T')[0].toUpperCase()}</Text>
+                  </View>
+                )}
+                <View style={styles.techOnlineBadge} />
+                <Text style={styles.techName} numberOfLines={1}>{(t.name || '').split(' ')[0]}</Text>
+                <View style={styles.techRatingRow}>
+                  <Ionicons name="star" size={10} color="#FFD700" />
+                  <Text style={styles.techRating}>4.8</Text>
+                </View>
+                <Text style={styles.techSpec} numberOfLines={1}>
+                  {Array.isArray(t.skills) && t.skills.length > 0 ? t.skills[0] : 'Mobile Repair'}
+                </Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </>
       )}
 
-      <Pressable
-        style={({ pressed }) => [st.findTechBtn, pressed && { opacity: 0.85 }]}
-        onPress={bookTechnician}
-      >
-        <Ionicons name="people-outline" size={18} color={C.primary} />
-        <Text style={st.findTechText}>Find Technicians Near You</Text>
-      </Pressable>
+      {/* ── Recent Orders ── */}
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Recent Repairs</Text>
+        <Pressable onPress={() => router.push('/(tabs)/orders' as any)}>
+          <Text style={styles.seeAll}>See All</Text>
+        </Pressable>
+      </View>
+      {recentOrders.length === 0 ? (
+        <View style={styles.emptyOrders}>
+          <Ionicons name="construct-outline" size={36} color={GRAY} />
+          <Text style={styles.emptyOrdersText}>No repairs yet</Text>
+          <Pressable
+            style={styles.bookNowBtn}
+            onPress={() => router.push('/select-brand' as any)}
+          >
+            <Text style={styles.bookNowText}>Book a Repair</Text>
+          </Pressable>
+        </View>
+      ) : (
+        recentOrders.map((o) => (
+          <View key={o.id} style={styles.orderCard}>
+            <View style={styles.orderLeft}>
+              <View style={[styles.orderStatusDot, { backgroundColor: o.status === 'completed' ? '#34C759' : PRIMARY }]} />
+              <View>
+                <Text style={styles.orderTitle} numberOfLines={1}>{o.productTitle || 'Repair Order'}</Text>
+                <Text style={styles.orderStatus}>{o.status || 'Pending'}</Text>
+              </View>
+            </View>
+            <Text style={styles.orderPrice}>₹{o.productPrice || '--'}</Text>
+          </View>
+        ))
+      )}
 
-      <Pressable style={st.secondaryBtn} onPress={reset}>
-        <Text style={st.secondaryBtnText}>Back to Home</Text>
+      {/* ── Services Banner ── */}
+      <Pressable style={styles.promoCard} onPress={() => router.push('/select-brand' as any)}>
+        <View>
+          <Text style={styles.promoTitle}>Get Your Phone Fixed Today</Text>
+          <Text style={styles.promoSub}>Expert technicians at your doorstep</Text>
+        </View>
+        <View style={styles.promoBtn}>
+          <Text style={styles.promoBtnText}>Book Now</Text>
+        </View>
       </Pressable>
     </ScrollView>
   );
 }
 
-const BUTTON_SIZE = 196;
-
-const st = StyleSheet.create({
-  container: { flex: 1, backgroundColor: C.background },
-  centered:  { justifyContent: 'center', alignItems: 'center' },
-
-  idleContent: { alignItems: 'center', paddingHorizontal: 24 },
-
-  greeting:    { fontSize: 28, fontFamily: 'Inter_700Bold', color: C.text, textAlign: 'center' },
-  greetingSub: { fontSize: 14, fontFamily: 'Inter_400Regular', color: C.textSecondary, marginTop: 4, marginBottom: 20, textAlign: 'center' },
-
-  deviceCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: C.surface, borderRadius: 12,
-    paddingHorizontal: 14, paddingVertical: 10,
-    borderWidth: 1, borderColor: C.border, marginBottom: 24, alignSelf: 'stretch',
-  },
-  deviceCardText: { fontSize: 13, fontFamily: 'Inter_500Medium', color: C.text },
-
-  buttonArea:  { alignItems: 'center', justifyContent: 'center', marginBottom: 32, position: 'relative' },
-  glowRing: {
-    position: 'absolute',
-    width: BUTTON_SIZE + 52, height: BUTTON_SIZE + 52,
-    borderRadius: (BUTTON_SIZE + 52) / 2,
-    backgroundColor: C.primary,
-  },
-  mainButton: {
-    width: BUTTON_SIZE, height: BUTTON_SIZE,
-    borderRadius: BUTTON_SIZE / 2,
-    backgroundColor: C.primary,
-    alignItems: 'center', justifyContent: 'center',
-    shadowColor: C.primary, shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.45, shadowRadius: 22, elevation: 14,
-  },
-  mainButtonPressed: { opacity: 0.9, transform: [{ scale: 0.96 }] },
-  mainBtnTitle: { fontSize: 15, fontFamily: 'Inter_700Bold', color: '#FFF', marginTop: 10, textAlign: 'center', lineHeight: 20 },
-  mainBtnSub:   { fontSize: 11, fontFamily: 'Inter_400Regular', color: 'rgba(255,255,255,0.8)', marginTop: 5, textAlign: 'center' },
-
-  flowRow: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', gap: 6, marginBottom: 24 },
-  flowItem: { flex: 1, alignItems: 'center', gap: 6 },
-  flowIcon: { width: 42, height: 42, borderRadius: 12, backgroundColor: C.primary + '12', alignItems: 'center', justifyContent: 'center' },
-  flowLabel: { fontSize: 10, fontFamily: 'Inter_500Medium', color: C.textSecondary, textAlign: 'center', lineHeight: 14 },
-
-  activeInsuranceCard: {
-    backgroundColor: '#5E8BFF12', borderRadius: 14, padding: 14,
-    borderWidth: 1, borderColor: '#5E8BFF30', alignSelf: 'stretch', marginBottom: 14,
-  },
-  activeInsuranceHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
-  activeInsuranceTitle:  { flex: 1, fontSize: 14, fontFamily: 'Inter_600SemiBold', color: C.text },
-  activeBadge: { backgroundColor: '#34C759', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
-  activeBadgeText: { fontSize: 10, fontFamily: 'Inter_700Bold', color: '#FFF' },
-  activeInsuranceDesc: { fontSize: 12, fontFamily: 'Inter_400Regular', color: C.textSecondary },
-
-  recentSection:   { alignSelf: 'stretch', marginBottom: 8 },
-  recentTitle:     { fontSize: 16, fontFamily: 'Inter_600SemiBold', color: C.text, marginBottom: 10 },
-  recentEmpty:     { alignItems: 'center', paddingVertical: 20, gap: 8 },
-  recentEmptyText: { fontSize: 13, fontFamily: 'Inter_400Regular', color: C.textTertiary },
-
-  detectIcon: { width: 96, height: 96, borderRadius: 48, backgroundColor: C.primary + '15', alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
-  phaseTitle: { fontSize: 22, fontFamily: 'Inter_700Bold', color: C.text, textAlign: 'center', marginBottom: 6 },
-  phaseSub:   { fontSize: 13, fontFamily: 'Inter_400Regular', color: C.textSecondary, textAlign: 'center', marginBottom: 4 },
-
-  devicePill: {
-    flexDirection: 'row', alignItems: 'center', gap: 7,
-    backgroundColor: C.primary + '12', paddingHorizontal: 14, paddingVertical: 8,
-    borderRadius: 20, alignSelf: 'center', marginTop: 10, marginBottom: 14,
-  },
-  devicePillText: { fontSize: 12, fontFamily: 'Inter_500Medium', color: C.primary },
-
-  progressBar:   { height: 5, backgroundColor: C.border, borderRadius: 3, marginTop: 4, overflow: 'hidden' },
-  progressFill:  { height: '100%', backgroundColor: C.primary, borderRadius: 3 },
-  progressLabel: { fontSize: 11, fontFamily: 'Inter_400Regular', color: C.textTertiary, marginTop: 4, marginBottom: 10 },
-
-  checksList: { gap: 6 },
-  checkRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: C.surface, borderRadius: 12,
-    paddingHorizontal: 16, paddingVertical: 13,
-    borderWidth: 1, borderColor: C.border,
-  },
-  checkLabel:   { flex: 1, fontSize: 14, fontFamily: 'Inter_500Medium', color: C.textSecondary },
-  checkStatus:  { width: 22, alignItems: 'center' },
-  checkPending: { width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: C.border },
-
-  resultsContent: { paddingHorizontal: 20 },
-
-  scoreCard: { backgroundColor: C.surface, borderRadius: 16, padding: 20, borderWidth: 1.5, alignItems: 'center', marginTop: 14, marginBottom: 14 },
-  scoreLabel:   { fontSize: 12, fontFamily: 'Inter_500Medium', color: C.textSecondary, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
-  scoreValue:   { fontSize: 58, fontFamily: 'Inter_700Bold', lineHeight: 62 },
-  scoreMax:     { fontSize: 22, fontFamily: 'Inter_400Regular', color: C.textTertiary },
-  scoreBar:     { width: '100%', height: 6, borderRadius: 3, marginTop: 10, marginBottom: 8, overflow: 'hidden' },
-  scoreBarFill: { height: '100%', borderRadius: 3 },
-  scoreStatus:  { fontSize: 13, fontFamily: 'Inter_600SemiBold' },
-
-  checksGrid:    { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginBottom: 14 },
-  checkChip:     { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#34C75912', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 },
-  checkChipIssue:{ backgroundColor: '#FF9F0A12' },
-  checkChipText: { fontSize: 11, fontFamily: 'Inter_500Medium', color: '#34C759' },
-
-  aiCard: { backgroundColor: '#5E8BFF0D', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: '#5E8BFF25', marginBottom: 14 },
-  aiHeader: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 12 },
-  aiTitle:  { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: '#5E8BFF' },
-  aiIssueRow:  { flexDirection: 'row', alignItems: 'flex-start' },
-  aiIssueName: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: C.text, marginBottom: 2 },
-  aiIssueDetail:{ fontSize: 12, fontFamily: 'Inter_400Regular', color: C.textSecondary },
-  aiIssueCost:  { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: '#FF9F0A', marginTop: 3 },
-
-  primaryBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: C.primary, borderRadius: 14, paddingVertical: 15, marginBottom: 10,
-  },
-  primaryBtnText: { fontSize: 15, fontFamily: 'Inter_600SemiBold', color: '#FFF' },
-
-  activateBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: '#5E8BFF', borderRadius: 14, paddingVertical: 15, marginBottom: 10,
-  },
-
-  secondaryBtn: { alignItems: 'center', paddingVertical: 12 },
-  secondaryBtnText: { fontSize: 14, fontFamily: 'Inter_500Medium', color: C.textSecondary },
-
-  insuranceBadge: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#5E8BFF15', alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginBottom: 12 },
-
-  planCard: { backgroundColor: C.surface, borderRadius: 16, padding: 18, borderWidth: 1, borderColor: C.border, marginTop: 14, marginBottom: 16 },
-  planRow:  { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  planBullet: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#5E8BFF' },
-  planName:  { fontSize: 16, fontFamily: 'Inter_700Bold', color: C.text },
-  planDesc:  { fontSize: 12, fontFamily: 'Inter_400Regular', color: C.textSecondary, marginTop: 2 },
-  planPrice: { fontSize: 26, fontFamily: 'Inter_700Bold', color: '#5E8BFF' },
-  planPer:   { fontSize: 14, fontFamily: 'Inter_400Regular', color: C.textSecondary },
-  planDivider: { height: 1, backgroundColor: C.border, marginVertical: 14 },
-  benefitsList: { gap: 10 },
-  benefitRow:  { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  benefitText: { fontSize: 13, fontFamily: 'Inter_400Regular', color: C.text },
-
-  savingsBox: { backgroundColor: '#34C75908', borderRadius: 12, padding: 14, marginTop: 14, borderWidth: 1, borderColor: '#34C75925' },
-  savingsLabel: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: '#34C759', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.5 },
-  savingsRow:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 20 },
-  savingsItem: { alignItems: 'center', gap: 4 },
-  savingsAmt:  { fontSize: 22, fontFamily: 'Inter_700Bold', color: C.text },
-  savingsSub:  { fontSize: 11, fontFamily: 'Inter_400Regular', color: C.textSecondary },
-
-  insuranceConfirmCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: '#5E8BFF12', borderRadius: 12,
-    padding: 14, borderWidth: 1, borderColor: '#5E8BFF30', marginBottom: 16,
-  },
-  insuranceConfirmText: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: '#5E8BFF', flex: 1 },
-
-  repairCard: { backgroundColor: C.surface, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: C.border, marginTop: 14, marginBottom: 14 },
-  repairHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 },
-  repairIconWrap: { width: 42, height: 42, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  repairName: { fontSize: 16, fontFamily: 'Inter_700Bold', color: C.text },
-  repairSub:  { fontSize: 12, fontFamily: 'Inter_400Regular', color: C.textSecondary, marginTop: 2 },
-  repairCostRow: { flexDirection: 'row', gap: 20, marginBottom: 4 },
-  repairCostItem: { gap: 3 },
-  repairCostLabel: { fontSize: 11, fontFamily: 'Inter_400Regular', color: C.textSecondary, textTransform: 'uppercase', letterSpacing: 0.3 },
-  repairCostValue: { fontSize: 22, fontFamily: 'Inter_700Bold', color: C.text },
-  strikethrough: { textDecorationLine: 'line-through', color: C.textTertiary },
-
-  allGoodCard: { backgroundColor: '#34C75910', borderRadius: 14, padding: 20, alignItems: 'center', borderWidth: 1, borderColor: '#34C75930', marginBottom: 14, marginTop: 14 },
-  allGoodTitle: { fontSize: 16, fontFamily: 'Inter_700Bold', color: C.text, marginTop: 10, textAlign: 'center' },
-  allGoodSub:   { fontSize: 13, fontFamily: 'Inter_400Regular', color: C.textSecondary, marginTop: 6, textAlign: 'center' },
-
-  findTechBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: C.primary + '15', borderRadius: 12, paddingVertical: 13, marginBottom: 8,
-    borderWidth: 1, borderColor: C.primary + '30',
-  },
-  findTechText: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: C.primary },
-
-  lockOverlay: {
-    alignSelf: 'stretch', backgroundColor: C.background, borderRadius: 20,
-    borderWidth: 1.5, borderColor: C.primary + '40', padding: 20, marginBottom: 12,
-    shadowColor: C.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 12, elevation: 8,
-  },
-  lockCard: { alignItems: 'center' },
-  lockClose: { position: 'absolute', top: 0, right: 0, padding: 4 },
-  lockIconWrap: {
-    width: 60, height: 60, borderRadius: 30,
-    backgroundColor: C.primary + '15', alignItems: 'center', justifyContent: 'center', marginBottom: 12,
-  },
-  lockTitle: { fontSize: 18, fontFamily: 'Inter_700Bold', color: C.text, marginBottom: 6 },
-  lockSub:   { fontSize: 13, fontFamily: 'Inter_400Regular', color: C.textSecondary, textAlign: 'center', marginBottom: 16, lineHeight: 18 },
-  lockPerks: { alignSelf: 'stretch', gap: 8, marginBottom: 16 },
-  lockPerkRow:  { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  lockPerkText: { fontSize: 13, fontFamily: 'Inter_400Regular', color: C.text },
-  lockPrice: { fontSize: 22, fontFamily: 'Inter_700Bold', color: C.primary, marginBottom: 16 },
-  lockSubBtn: { alignSelf: 'stretch', backgroundColor: C.primary, borderRadius: 14, paddingVertical: 14, alignItems: 'center' },
-  lockSubBtnText: { fontSize: 16, fontFamily: 'Inter_700Bold', color: '#FFF' },
-
-  subActiveCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: '#34C75912', borderRadius: 14, padding: 14,
-    borderWidth: 1, borderColor: '#34C75940', alignSelf: 'stretch', marginBottom: 8,
-  },
-  subActiveTitle: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: C.text },
-  subActiveSub:   { fontSize: 12, fontFamily: 'Inter_400Regular', color: C.textSecondary, marginTop: 2 },
-
-  subCard: {
-    alignSelf: 'stretch', backgroundColor: C.surface, borderRadius: 16, padding: 16,
-    borderWidth: 1.5, borderColor: C.primary + '40', marginBottom: 8,
-  },
-  subCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
-  subCardTitle:  { fontSize: 15, fontFamily: 'Inter_700Bold', color: C.text },
-  subCardTagline:{ fontSize: 12, fontFamily: 'Inter_400Regular', color: C.textSecondary, marginBottom: 12 },
-  subPerks:      { gap: 7, marginBottom: 14 },
-  subPerkRow:    { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  subPerkText:   { fontSize: 13, fontFamily: 'Inter_400Regular', color: C.text },
-  subCardBottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  subPrice:      { fontSize: 22, fontFamily: 'Inter_700Bold', color: C.primary },
-  subPricePer:   { fontSize: 13, fontFamily: 'Inter_400Regular', color: C.textSecondary },
-  subBtn:        { backgroundColor: C.primary, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 20 },
-  subBtnText:    { fontSize: 14, fontFamily: 'Inter_700Bold', color: '#FFF' },
-
-  onlineSection: { alignSelf: 'stretch', marginBottom: 12 },
-  onlineHeader:  { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12 },
-  onlineGreenDot:{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#34C759' },
-  onlineTitle:   { fontSize: 14, fontFamily: 'Inter_700Bold', color: C.text },
-  onlineSeeAll:  { fontSize: 12, fontFamily: 'Inter_500Medium', color: C.primary },
-  techChip: {
-    alignItems: 'center', backgroundColor: C.surface, borderRadius: 14,
-    padding: 12, marginRight: 8, width: 74, borderWidth: 1, borderColor: C.border,
-    position: 'relative',
-  },
-  techChipAvatar: { width: 40, height: 40, borderRadius: 20, marginBottom: 6 },
-  onlineDot: {
-    position: 'absolute', top: 10, right: 10,
-    width: 9, height: 9, borderRadius: 5, backgroundColor: '#34C759',
-    borderWidth: 1.5, borderColor: '#FFF',
-  },
-  techChipName: { fontSize: 11, fontFamily: 'Inter_600SemiBold', color: C.text, textAlign: 'center' },
-  techChipRole: { fontSize: 10, fontFamily: 'Inter_400Regular', color: C.textTertiary },
-
-  actionRow: { flexDirection: 'row', gap: 10, alignSelf: 'stretch', marginBottom: 4 },
-  actionCard: {
-    flex: 1, backgroundColor: C.surface, borderRadius: 14, padding: 14,
-    borderWidth: 1, borderColor: C.border, alignItems: 'flex-start', gap: 6,
-  },
-  actionCardActive: { borderColor: C.primary, backgroundColor: C.primary + '08' },
-  actionIcon: {
-    width: 40, height: 40, borderRadius: 12,
-    alignItems: 'center', justifyContent: 'center',
-    flexDirection: 'row', gap: 3, position: 'relative',
-  },
-  liveRedDot: {
-    width: 7, height: 7, borderRadius: 4, backgroundColor: '#FF3B30',
-    position: 'absolute', top: 4, right: 4, zIndex: 1,
-  },
-  actionCardTitle: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: C.text },
-  actionCardSub:   { fontSize: 11, fontFamily: 'Inter_400Regular', color: C.textSecondary },
-
-  panel: {
-    alignSelf: 'stretch', backgroundColor: C.surface, borderRadius: 16,
-    padding: 16, borderWidth: 1, borderColor: C.border, marginBottom: 8,
-  },
-  panelHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 },
-  panelTitle:  { fontSize: 15, fontFamily: 'Inter_700Bold', color: C.text, flex: 1 },
-  panelEmpty:  { alignItems: 'center', paddingVertical: 20, gap: 8 },
-  panelEmptyText: { fontSize: 14, fontFamily: 'Inter_500Medium', color: C.textSecondary },
-  panelEmptySub:  { fontSize: 12, fontFamily: 'Inter_400Regular', color: C.textTertiary },
-
-  sessionCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: C.background, borderRadius: 12, padding: 12,
-    marginBottom: 8, borderWidth: 1, borderColor: C.border,
-  },
-  sessionLeft:   { position: 'relative' },
-  sessionAvatar: { width: 46, height: 46, borderRadius: 23 },
-  liveBadge: {
-    position: 'absolute', bottom: -2, right: -4,
-    backgroundColor: '#FF3B30', borderRadius: 4,
-    paddingHorizontal: 4, paddingVertical: 1,
-  },
-  liveBadgeText: { fontSize: 8, fontFamily: 'Inter_700Bold', color: '#FFF', letterSpacing: 0.5 },
-  sessionTitle:    { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: C.text, marginBottom: 2 },
-  sessionHost:     { fontSize: 11, fontFamily: 'Inter_400Regular', color: C.textSecondary, marginBottom: 3 },
-  sessionMeta:     { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  sessionMetaText: { fontSize: 11, fontFamily: 'Inter_400Regular', color: C.textTertiary },
-
-  problemInput: {
-    backgroundColor: C.background, borderRadius: 12, padding: 14,
-    minHeight: 96, fontSize: 14, fontFamily: 'Inter_400Regular',
-    color: C.text, borderWidth: 1, borderColor: C.border,
-    textAlignVertical: 'top', marginBottom: 6,
-  },
-  charCount: { fontSize: 11, fontFamily: 'Inter_400Regular', color: C.textTertiary, textAlign: 'right', marginBottom: 10 },
-  postBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: C.primary, borderRadius: 12, paddingVertical: 13, marginBottom: 8,
-  },
-  postBtnDisabled: { backgroundColor: C.textTertiary },
-  postBtnText: { fontSize: 15, fontFamily: 'Inter_600SemiBold', color: '#FFF' },
-  postHint:    { fontSize: 11, fontFamily: 'Inter_400Regular', color: C.textTertiary, textAlign: 'center' },
-
-  postSuccess: { alignItems: 'center', paddingVertical: 12, gap: 8 },
-  postSuccessTitle: { fontSize: 16, fontFamily: 'Inter_700Bold', color: C.text },
-  postSuccessSub:   { fontSize: 13, fontFamily: 'Inter_400Regular', color: C.textSecondary, textAlign: 'center' },
-  postAgainBtn:     { marginTop: 4, paddingVertical: 8, paddingHorizontal: 20 },
-  postAgainText:    { fontSize: 13, fontFamily: 'Inter_500Medium', color: C.primary },
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: BG },
+  content: { paddingHorizontal: 16 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
+  headerLeft: { flex: 1 },
+  greeting: { fontSize: 22, fontFamily: 'Inter_700Bold', color: DARK },
+  locationRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
+  location: { fontSize: 13, fontFamily: 'Inter_400Regular', color: GRAY },
+  avatarBtn: { position: 'relative' },
+  avatar: { width: 44, height: 44, borderRadius: 22 },
+  avatarFallback: { backgroundColor: PRIMARY + '20', alignItems: 'center', justifyContent: 'center' },
+  avatarLetter: { fontSize: 18, fontFamily: 'Inter_700Bold', color: PRIMARY },
+  avatarOnlineDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#34C759', position: 'absolute', bottom: 1, right: 1, borderWidth: 2, borderColor: BG },
+  searchBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: CARD, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12, gap: 10, marginBottom: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2 },
+  searchInput: { flex: 1, fontSize: 14, fontFamily: 'Inter_400Regular', color: DARK, padding: 0 },
+  sectionTitle: { fontSize: 17, fontFamily: 'Inter_700Bold', color: DARK, marginBottom: 12 },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  seeAll: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: PRIMARY },
+  quickGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 20 },
+  quickCard: { width: (SCREEN_WIDTH - 56) / 2, backgroundColor: CARD, borderRadius: 16, padding: 16, alignItems: 'flex-start', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2 },
+  quickIcon: { width: 52, height: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
+  quickLabel: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: DARK, lineHeight: 20 },
+  offerBanner: { borderRadius: 16, padding: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  offerLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+  offerTitle: { color: '#FFF', fontSize: 15, fontFamily: 'Inter_700Bold' },
+  offerSub: { color: 'rgba(255,255,255,0.85)', fontSize: 12, fontFamily: 'Inter_400Regular', marginTop: 2 },
+  offerArrow: { width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
+  offerDots: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginBottom: 20 },
+  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#D1D1D6' },
+  dotActive: { backgroundColor: PRIMARY, width: 20 },
+  brandRow: { marginBottom: 20, marginHorizontal: -4 },
+  brandChip: { alignItems: 'center', width: 68 },
+  brandIconWrap: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#F2F2F7', alignItems: 'center', justifyContent: 'center', marginBottom: 6, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 1 },
+  brandImg: { width: 34, height: 34 },
+  brandName: { fontSize: 11, fontFamily: 'Inter_500Medium', color: DARK, textAlign: 'center' },
+  techCard: { width: 110, backgroundColor: CARD, borderRadius: 16, padding: 12, alignItems: 'center', position: 'relative', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 8, elevation: 2 },
+  techAvatar: { width: 56, height: 56, borderRadius: 28, marginBottom: 8 },
+  techAvatarFallback: { backgroundColor: PRIMARY + '20', alignItems: 'center', justifyContent: 'center' },
+  techAvatarLetter: { fontSize: 22, fontFamily: 'Inter_700Bold', color: PRIMARY },
+  techOnlineBadge: { position: 'absolute', top: 38, right: 26, width: 12, height: 12, borderRadius: 6, backgroundColor: '#34C759', borderWidth: 2, borderColor: CARD },
+  techName: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: DARK, marginBottom: 2 },
+  techRatingRow: { flexDirection: 'row', alignItems: 'center', gap: 2, marginBottom: 4 },
+  techRating: { fontSize: 11, fontFamily: 'Inter_600SemiBold', color: '#FFD700' },
+  techSpec: { fontSize: 10, fontFamily: 'Inter_400Regular', color: GRAY, textAlign: 'center' },
+  emptyOrders: { backgroundColor: CARD, borderRadius: 16, padding: 24, alignItems: 'center', gap: 8, marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2 },
+  emptyOrdersText: { fontSize: 14, fontFamily: 'Inter_400Regular', color: GRAY },
+  bookNowBtn: { marginTop: 4, backgroundColor: PRIMARY, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20 },
+  bookNowText: { color: '#FFF', fontSize: 14, fontFamily: 'Inter_600SemiBold' },
+  orderCard: { backgroundColor: CARD, borderRadius: 14, padding: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 1 },
+  orderLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
+  orderStatusDot: { width: 10, height: 10, borderRadius: 5 },
+  orderTitle: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: DARK },
+  orderStatus: { fontSize: 12, fontFamily: 'Inter_400Regular', color: GRAY, marginTop: 2, textTransform: 'capitalize' },
+  orderPrice: { fontSize: 15, fontFamily: 'Inter_700Bold', color: DARK },
+  promoCard: { backgroundColor: DARK, borderRadius: 16, padding: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 },
+  promoTitle: { color: '#FFF', fontSize: 16, fontFamily: 'Inter_700Bold' },
+  promoSub: { color: 'rgba(255,255,255,0.6)', fontSize: 12, fontFamily: 'Inter_400Regular', marginTop: 4 },
+  promoBtn: { backgroundColor: PRIMARY, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20 },
+  promoBtnText: { color: '#FFF', fontSize: 13, fontFamily: 'Inter_600SemiBold' },
 });
