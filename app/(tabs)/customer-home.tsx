@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, Pressable, Platform, Animated,
-  ScrollView, TextInput, Dimensions,
+  ScrollView, Dimensions,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,79 +13,88 @@ import { apiRequest } from '@/lib/query-client';
 
 const { width: SW } = Dimensions.get('window');
 
-const BG      = '#F2F4F7';
-const CARD    = '#FFFFFF';
-const DARK    = '#0F172A';
-const GRAY    = '#64748B';
-const LGRAY   = '#94A3B8';
-const PRIMARY = '#FF6B2C';
-const BLUE    = '#3B82F6';
-
-const BRANDS = [
-  { name: 'Apple',   emoji: '🍎', bg: '#F5F5F7', color: '#1C1C1E' },
-  { name: 'Samsung', emoji: '🔵', bg: '#EAF0FF', color: '#1428A0' },
-  { name: 'Xiaomi',  emoji: '🟠', bg: '#FFF0E8', color: '#FF6900' },
-  { name: 'Vivo',    emoji: '🔷', bg: '#EAEDFF', color: '#415FFF' },
-  { name: 'Oppo',    emoji: '🔹', bg: '#E8F4FF', color: '#1F8EF1' },
-  { name: 'Realme',  emoji: '🟡', bg: '#FFF8E8', color: '#E8A100' },
-  { name: 'OnePlus', emoji: '🔴', bg: '#FFEBEB', color: '#F5010C' },
-  { name: 'More',    emoji: '⊕',  bg: '#F2F4F7', color: PRIMARY  },
-];
+// ── Mobix Design System ──────────────────────────────────────────────────────
+const PRIMARY   = '#0F172A';   // dark navy
+const GREEN     = '#00E676';   // electric green accent
+const BG        = '#F8FAFC';   // very light blue-gray
+const CARD      = '#FFFFFF';
+const GRAY      = '#64748B';
+const LGRAY     = '#94A3B8';
+const RED       = '#FF3B30';   // SOS red
+const INDIGO    = '#4F46E5';
+const TEAL      = '#0D9488';
+// ─────────────────────────────────────────────────────────────────────────────
 
 const QUICK_ACTIONS = [
-  { icon: 'pulse',            label: 'Diagnose',  sub: 'Check health',  color: BLUE,    bg: '#EFF6FF', route: '/diagnose'     },
-  { icon: 'construct',        label: 'Repair',    sub: 'Fix my phone',  color: PRIMARY, bg: '#FFF7F3', route: '/select-brand' },
-  { icon: 'cash',             label: 'Sell Phone',sub: 'Best price',    color: '#16A34A',bg: '#F0FDF4', route: '/sell-item'    },
-  { icon: 'shield-checkmark', label: 'Insurance', sub: 'Protect it',   color: '#9333EA',bg: '#FAF5FF', route: '/insurance'    },
+  { icon: 'radar',     label: 'Quick\nScan',    color: PRIMARY, bg: '#EFF6FF', route: '/diagnose'     },
+  { icon: 'construct', label: 'Book\nRepair',   color: INDIGO,  bg: '#EEF2FF', route: '/select-brand' },
+  { icon: 'warning',   label: 'SOS\nRepair',    color: RED,     bg: '#FFF5F5', route: '/select-brand', sos: true },
+  { icon: 'headset',   label: 'Buy\nParts',     color: TEAL,    bg: '#F0FDFA', route: '/select-brand' },
 ];
 
-const BANNERS = [
-  { title: '30% Off Screen Repair', sub: 'Valid till 31 March 2026',  color: '#FF6B2C', icon: 'phone-portrait' },
-  { title: 'Free Pickup & Drop',    sub: 'On orders above ₹500',      color: '#3B82F6', icon: 'car'            },
-  { title: 'Battery Check Free',    sub: 'For all new customers',     color: '#16A34A', icon: 'battery-charging'},
+const DIAGNOSTIC_ITEMS = [
+  { icon: 'battery-full',   label: 'Battery',  status: 'Good',       color: '#22C55E' },
+  { icon: 'volume-high',    label: 'Speaker',  status: 'Check',      color: '#F97316' },
+  { icon: 'camera',         label: 'Camera',   status: 'Perfect',    color: '#22C55E' },
 ];
+
+const ACCESSORIES = [
+  { name: 'Pro Wireless\nEarbuds', price: '₹1,299', badge: '20% OFF', icon: 'headset' },
+  { name: '20W Fast\nCharger',     price: '₹499',   badge: null,       icon: 'flash'   },
+  { name: 'Silicone\nCase',        price: '₹299',   badge: 'Trending', icon: 'phone-portrait' },
+  { name: 'Screen\nProtector',     price: '₹199',   badge: null,       icon: 'phone-portrait-outline' },
+];
+
+const HEALTH_SCORE = 92;
 
 export default function CustomerHomeScreen() {
   const insets = useSafeAreaInsets();
   const { profile } = useApp();
-  const [search, setSearch] = useState('');
   const [onlineTechs, setOnlineTechs] = useState<any[]>([]);
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
-  const [bannerIdx, setBannerIdx] = useState(0);
-  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const pulse = useRef(new Animated.Value(1)).current;
 
   const topInset  = Platform.OS === 'web' ? 67 : insets.top;
-  const bottomPad = Platform.OS === 'web' ? 84 + 34 : 100;
+  const bottomPad = Platform.OS === 'web' ? 84 + 34 : 104;
   const firstName = profile?.name?.split(' ')[0] || 'there';
+
+  // Pulse animation for SOS badge
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 1.2, duration: 700, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 1.0, duration: 700, useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, []);
 
   const fetchData = useCallback(async () => {
     try {
       const res = await apiRequest('GET', '/api/profiles?role=technician&limit=6');
       const data = await res.json();
-      setOnlineTechs((data.profiles || data || []).slice(0, 5));
+      setOnlineTechs((data.profiles || data || []).slice(0, 4));
     } catch { setOnlineTechs([]); }
     try {
       if (profile?.id) {
         const res = await apiRequest('GET', `/api/orders?buyerId=${profile.id}`);
         const data = await res.json();
-        setRecentOrders(Array.isArray(data) ? data.slice(0, 3) : []);
+        setRecentOrders(Array.isArray(data) ? data.slice(0, 2) : []);
       }
     } catch { setRecentOrders([]); }
   }, [profile?.id]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  useEffect(() => {
-    const t = setTimeout(() => setBannerIdx(i => (i + 1) % BANNERS.length), 3800);
-    return () => clearTimeout(t);
-  }, [bannerIdx]);
-
   const press = (route: string) => {
     if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.push(route as any);
   };
 
-  const banner = BANNERS[bannerIdx];
+  // Health score ring percentage
+  const circumference = 2 * Math.PI * 32;
+  const strokeOffset = circumference - (HEALTH_SCORE / 100) * circumference;
 
   return (
     <ScrollView
@@ -93,129 +102,141 @@ export default function CustomerHomeScreen() {
       contentContainerStyle={[styles.content, { paddingTop: topInset + 8, paddingBottom: bottomPad }]}
       showsVerticalScrollIndicator={false}
     >
-      {/* ── Top Header ── */}
+      {/* ── Header ──────────────────────────────────────────────── */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.greeting}>Hello, {firstName} 👋</Text>
-          <Pressable style={styles.locationRow} onPress={() => {}}>
-            <Ionicons name="location" size={13} color={PRIMARY} />
-            <Text style={styles.locationText}>{profile?.city || 'Set your location'}</Text>
-            <Ionicons name="chevron-down" size={12} color={GRAY} />
+          <Text style={styles.welcomeText}>Welcome back,</Text>
+          <Text style={styles.nameText}>{firstName}</Text>
+        </View>
+        <View style={styles.headerRight}>
+          <Pressable style={styles.notifBtn} onPress={() => {}}>
+            <Ionicons name="notifications-outline" size={22} color={PRIMARY} />
+            <View style={styles.notifDot} />
+          </Pressable>
+          <Pressable onPress={() => router.push('/(tabs)/profile' as any)}>
+            {profile?.avatar ? (
+              <Image source={{ uri: profile.avatar }} style={styles.avatar} contentFit="cover" />
+            ) : (
+              <View style={[styles.avatar, styles.avatarFallback]}>
+                <Text style={styles.avatarLetter}>{(profile?.name || 'U')[0].toUpperCase()}</Text>
+              </View>
+            )}
           </Pressable>
         </View>
-        <Pressable onPress={() => router.push('/(tabs)/profile' as any)} style={styles.avatarWrap}>
-          {profile?.avatar ? (
-            <Image source={{ uri: profile.avatar }} style={styles.avatar} contentFit="cover" />
-          ) : (
-            <View style={[styles.avatar, styles.avatarFallback]}>
-              <Text style={styles.avatarLetter}>{(profile?.name || 'U')[0].toUpperCase()}</Text>
-            </View>
-          )}
-          <View style={styles.onlineDot} />
-        </Pressable>
       </View>
 
-      {/* ── Search Bar ── */}
-      <Pressable style={styles.searchBar} onPress={() => router.push('/select-brand' as any)}>
-        <Ionicons name="search" size={18} color={LGRAY} />
-        <Text style={styles.searchPlaceholder}>Search services, brands, repairs...</Text>
-        <View style={styles.searchFilter}>
-          <Ionicons name="options-outline" size={16} color={PRIMARY} />
-        </View>
-      </Pressable>
+      {/* ── Device Health Card ───────────────────────────────────── */}
+      <View style={styles.deviceCard}>
+        {/* Glow circles */}
+        <View style={styles.glowTopRight} />
+        <View style={styles.glowBottomLeft} />
 
-      {/* ── Quick Actions ── */}
-      <View style={styles.quickGrid}>
+        <View style={styles.deviceCardTop}>
+          <View style={{ flex: 1 }}>
+            <View style={styles.autoDetectBadge}>
+              <Animated.View style={[styles.pulseDot, { transform: [{ scale: pulse }] }]} />
+              <Text style={styles.autoDetectText}>AUTO-DETECTED</Text>
+            </View>
+            <Text style={styles.deviceName}>
+              {profile?.device || 'Your Device'}
+            </Text>
+            <Text style={styles.deviceSub}>
+              {profile?.city ? `${profile.city} · ` : ''}Active Plan
+            </Text>
+          </View>
+          {/* Health Score Ring */}
+          <View style={styles.scoreWrap}>
+            <View style={styles.scoreRingOuter}>
+              <Text style={styles.scoreNumber}>{HEALTH_SCORE}</Text>
+            </View>
+            <Text style={styles.scoreLabel}>Health</Text>
+          </View>
+        </View>
+
+        <View style={styles.deviceCardBottom}>
+          <View style={styles.greenDotIcon}>
+            <Ionicons name="shield-checkmark" size={16} color={GREEN} />
+          </View>
+          <View>
+            <Text style={styles.conditionTitle}>Excellent Condition</Text>
+            <Text style={styles.conditionSub}>Battery health at 98%</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* ── Quick Actions (4-column) ─────────────────────────────── */}
+      <View style={styles.quickRow}>
         {QUICK_ACTIONS.map((a) => (
           <Pressable
             key={a.label}
-            style={({ pressed }) => [styles.quickCard, { backgroundColor: a.bg, opacity: pressed ? 0.88 : 1 }]}
+            style={({ pressed }) => [styles.quickItem, { opacity: pressed ? 0.8 : 1 }]}
             onPress={() => press(a.route)}
           >
-            <View style={[styles.quickIcon, { backgroundColor: a.color + '20' }]}>
+            <View style={[styles.quickIconBox, { backgroundColor: a.bg }]}>
               <Ionicons name={a.icon as any} size={24} color={a.color} />
+              {a.sos && (
+                <Animated.View style={[styles.sosBadge, { transform: [{ scale: pulse }] }]} />
+              )}
             </View>
-            <Text style={[styles.quickLabel, { color: DARK }]}>{a.label}</Text>
-            <Text style={styles.quickSub}>{a.sub}</Text>
+            <Text style={[styles.quickLabel, a.sos && { color: RED, fontFamily: 'Inter_700Bold' }]}>
+              {a.label}
+            </Text>
           </Pressable>
         ))}
       </View>
 
-      {/* ── Promo Banner ── */}
-      <Pressable style={[styles.banner, { backgroundColor: banner.color }]} onPress={() => press('/insurance')}>
-        <View style={styles.bannerContent}>
-          <View style={styles.bannerIconWrap}>
-            <Ionicons name={banner.icon as any} size={28} color="#FFF" />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.bannerTitle}>{banner.title}</Text>
-            <Text style={styles.bannerSub}>{banner.sub}</Text>
-          </View>
-          <View style={styles.bannerArrow}>
-            <Ionicons name="arrow-forward" size={16} color="#FFF" />
+      {/* ── Diagnostic Health Card ───────────────────────────────── */}
+      <View style={styles.card}>
+        <View style={styles.cardHeader}>
+          <Text style={styles.cardTitle}>Diagnostic Health</Text>
+          <Pressable onPress={() => press('/diagnose')} style={styles.detailsBtn}>
+            <Text style={styles.detailsBtnText}>Details</Text>
+            <Ionicons name="chevron-forward" size={14} color={PRIMARY} />
+          </Pressable>
+        </View>
+        <View style={styles.diagGrid}>
+          {DIAGNOSTIC_ITEMS.map(d => (
+            <View key={d.label} style={styles.diagItem}>
+              <Ionicons name={d.icon as any} size={20} color={d.color} />
+              <Text style={styles.diagLabel}>{d.label}</Text>
+              <Text style={[styles.diagStatus, { color: d.color }]}>{d.status}</Text>
+            </View>
+          ))}
+        </View>
+        <Pressable
+          style={({ pressed }) => [styles.diagBtn, { opacity: pressed ? 0.9 : 1 }]}
+          onPress={() => press('/diagnose')}
+        >
+          <Ionicons name="analytics" size={18} color={GREEN} />
+          <Text style={styles.diagBtnText}>Run Full Diagnostics</Text>
+        </Pressable>
+      </View>
+
+      {/* ── Mobix Shield Banner ──────────────────────────────────── */}
+      <Pressable
+        style={({ pressed }) => [styles.shieldBanner, { opacity: pressed ? 0.95 : 1 }]}
+        onPress={() => press('/insurance')}
+      >
+        <View style={styles.shieldGlow} />
+        <View style={styles.shieldLeft}>
+          <Text style={styles.shieldSubtitle}>MOBIX SHIELD</Text>
+          <Text style={styles.shieldTitle}>Protection Plan</Text>
+          <Text style={styles.shieldDesc}>Cover accidental damages from ₹199/yr</Text>
+          <View style={styles.shieldBtn}>
+            <Text style={styles.shieldBtnText}>View Plans</Text>
           </View>
         </View>
-        <View style={styles.bannerDots}>
-          {BANNERS.map((_, i) => (
-            <View key={i} style={[styles.bannerDot, i === bannerIdx && styles.bannerDotActive]} />
-          ))}
+        <View style={styles.shieldIconWrap}>
+          <Ionicons name="shield" size={64} color={GREEN + 'CC'} />
         </View>
       </Pressable>
 
-      {/* ── Top Brands ── */}
-      <View style={styles.sectionRow}>
-        <Text style={styles.sectionTitle}>Repair by Brand</Text>
-        <Pressable onPress={() => press('/select-brand')}>
-          <Text style={styles.seeAll}>View All</Text>
-        </Pressable>
-      </View>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.brandScroll}>
-        {BRANDS.map((b) => (
-          <Pressable
-            key={b.name}
-            style={({ pressed }) => [styles.brandChip, { opacity: pressed ? 0.8 : 1 }]}
-            onPress={() => b.name === 'More' ? press('/select-brand') : router.push({ pathname: '/select-model', params: { brand: b.name } } as any)}
-          >
-            <View style={[styles.brandIcon, { backgroundColor: b.bg }]}>
-              <Text style={{ fontSize: 20 }}>{b.emoji}</Text>
-            </View>
-            <Text style={styles.brandLabel}>{b.name}</Text>
-          </Pressable>
-        ))}
-      </ScrollView>
-
-      {/* ── Common Repairs ── */}
-      <View style={styles.sectionRow}>
-        <Text style={styles.sectionTitle}>Common Repairs</Text>
-      </View>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.repairScroll}>
-        {[
-          { label: 'Screen\nReplacement', icon: 'phone-portrait', color: BLUE,     bg: '#EFF6FF', from: '₹999'  },
-          { label: 'Battery\nReplacement',icon: 'battery-charging',color: '#16A34A',bg: '#F0FDF4', from: '₹499'  },
-          { label: 'Charging\nPort',      icon: 'flash',          color: '#F59E0B', bg: '#FFFBEB', from: '₹399'  },
-          { label: 'Camera\nRepair',      icon: 'camera',         color: PRIMARY,   bg: '#FFF7F3', from: '₹699'  },
-          { label: 'Back Panel',          icon: 'phone-portrait-outline', color: '#9333EA', bg: '#FAF5FF', from: '₹599' },
-        ].map(r => (
-          <Pressable
-            key={r.label}
-            style={({ pressed }) => [styles.repairCard, { opacity: pressed ? 0.88 : 1 }]}
-            onPress={() => press('/select-brand')}
-          >
-            <View style={[styles.repairIcon, { backgroundColor: r.bg }]}>
-              <Ionicons name={r.icon as any} size={22} color={r.color} />
-            </View>
-            <Text style={styles.repairLabel}>{r.label}</Text>
-            <Text style={styles.repairFrom}>From {r.from}</Text>
-          </Pressable>
-        ))}
-      </ScrollView>
-
-      {/* ── Nearby Technicians ── */}
+      {/* ── Nearby Technicians ───────────────────────────────────── */}
       {onlineTechs.length > 0 && (
         <>
           <View style={styles.sectionRow}>
             <View style={styles.sectionTitleRow}>
-              <View style={styles.onlinePulse} />
+              <View style={styles.onlineDot} />
               <Text style={styles.sectionTitle}>Technicians Online</Text>
             </View>
             <Pressable onPress={() => router.push('/(tabs)/directory' as any)}>
@@ -238,63 +259,87 @@ export default function CustomerHomeScreen() {
                 )}
                 <View style={styles.techOnlineBadge} />
                 <Text style={styles.techName} numberOfLines={1}>{(t.name || '').split(' ')[0]}</Text>
-                <View style={styles.techStars}>
-                  <Ionicons name="star" size={9} color="#F59E0B" />
-                  <Text style={styles.techRating}>4.8</Text>
+                <View style={styles.techRatingRow}>
+                  <Ionicons name="star" size={10} color="#F59E0B" />
+                  <Text style={styles.techRating}>4.9</Text>
                 </View>
-                <Text style={styles.techSpecialty} numberOfLines={1}>
-                  {Array.isArray(t.skills) && t.skills[0] ? t.skills[0] : 'Repair Expert'}
-                </Text>
               </Pressable>
             ))}
           </ScrollView>
         </>
       )}
 
-      {/* ── Recent Orders ── */}
+      {/* ── Trending Accessories ─────────────────────────────────── */}
       <View style={styles.sectionRow}>
-        <Text style={styles.sectionTitle}>Recent Repairs</Text>
-        <Pressable onPress={() => router.push('/(tabs)/orders' as any)}>
+        <Text style={styles.sectionTitle}>Trending Accessories</Text>
+        <Pressable onPress={() => {}}>
           <Text style={styles.seeAll}>See All</Text>
         </Pressable>
       </View>
-
-      {recentOrders.length === 0 ? (
-        <View style={styles.emptyOrders}>
-          <View style={styles.emptyOrdersIcon}>
-            <Ionicons name="construct-outline" size={32} color={LGRAY} />
-          </View>
-          <Text style={styles.emptyOrdersTitle}>No repairs yet</Text>
-          <Text style={styles.emptyOrdersSub}>Get your phone fixed by expert technicians</Text>
-          <Pressable style={styles.emptyOrdersBtn} onPress={() => press('/select-brand')}>
-            <Ionicons name="add" size={16} color="#FFF" />
-            <Text style={styles.emptyOrdersBtnText}>Book a Repair</Text>
-          </Pressable>
-        </View>
-      ) : (
-        <View style={styles.ordersCard}>
-          {recentOrders.map((o, i) => (
-            <View key={o.id} style={[styles.orderRow, i < recentOrders.length - 1 && styles.orderRowBorder]}>
-              <View style={[styles.orderStatusBar, { backgroundColor: o.status === 'completed' ? '#16A34A' : PRIMARY }]} />
-              <View style={styles.orderLeft}>
-                <Text style={styles.orderTitle} numberOfLines={1}>{o.productTitle || 'Repair Order'}</Text>
-                <Text style={styles.orderStatus}>{o.status || 'Pending'}</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.accScroll}>
+        {ACCESSORIES.map(a => (
+          <Pressable
+            key={a.name}
+            style={({ pressed }) => [styles.accCard, { opacity: pressed ? 0.88 : 1 }]}
+            onPress={() => {}}
+          >
+            <View style={styles.accImgBox}>
+              {a.badge && (
+                <View style={styles.accBadge}>
+                  <Text style={styles.accBadgeText}>{a.badge}</Text>
+                </View>
+              )}
+              <View style={styles.accIconWrap}>
+                <Ionicons name={a.icon as any} size={36} color={LGRAY} />
               </View>
-              <Text style={styles.orderPrice}>₹{o.productPrice || '--'}</Text>
             </View>
-          ))}
-        </View>
+            <Text style={styles.accName}>{a.name}</Text>
+            <View style={styles.accBottom}>
+              <Text style={styles.accPrice}>{a.price}</Text>
+              <View style={styles.accAddBtn}>
+                <Ionicons name="add" size={14} color={GRAY} />
+              </View>
+            </View>
+          </Pressable>
+        ))}
+      </ScrollView>
+
+      {/* ── Recent Orders ────────────────────────────────────────── */}
+      {recentOrders.length > 0 && (
+        <>
+          <View style={styles.sectionRow}>
+            <Text style={styles.sectionTitle}>Recent Repairs</Text>
+            <Pressable onPress={() => router.push('/(tabs)/orders' as any)}>
+              <Text style={styles.seeAll}>See All</Text>
+            </Pressable>
+          </View>
+          <View style={styles.ordersCard}>
+            {recentOrders.map((o, i) => (
+              <View key={o.id} style={[styles.orderRow, i < recentOrders.length - 1 && styles.orderRowBorder]}>
+                <View style={[styles.orderDot, { backgroundColor: o.status === 'completed' ? '#22C55E' : GREEN }]} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.orderTitle} numberOfLines={1}>{o.productTitle || 'Repair Order'}</Text>
+                  <Text style={styles.orderStatus}>{o.status || 'Pending'}</Text>
+                </View>
+                <Text style={styles.orderPrice}>₹{o.productPrice || '--'}</Text>
+              </View>
+            ))}
+          </View>
+        </>
       )}
 
-      {/* ── Bottom CTA ── */}
-      <Pressable style={styles.ctaBanner} onPress={() => press('/select-brand')}>
+      {/* ── Book CTA strip ───────────────────────────────────────── */}
+      <Pressable
+        style={({ pressed }) => [styles.ctaStrip, { opacity: pressed ? 0.92 : 1 }]}
+        onPress={() => press('/select-brand')}
+      >
         <View>
-          <Text style={styles.ctaTitle}>Doorstep Repair Service</Text>
-          <Text style={styles.ctaSub}>Certified technicians come to you</Text>
+          <Text style={styles.ctaTitle}>Doorstep Repair</Text>
+          <Text style={styles.ctaSub}>Certified experts come to you</Text>
         </View>
         <View style={styles.ctaBtn}>
           <Text style={styles.ctaBtnText}>Book Now</Text>
-          <Ionicons name="arrow-forward" size={14} color="#FFF" />
+          <Ionicons name="arrow-forward" size={14} color={PRIMARY} />
         </View>
       </Pressable>
     </ScrollView>
@@ -305,83 +350,110 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: BG },
   content: { paddingHorizontal: 16 },
 
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
-  greeting: { fontSize: 22, fontFamily: 'Inter_700Bold', color: DARK },
-  locationRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 3 },
-  locationText: { fontSize: 13, fontFamily: 'Inter_400Regular', color: GRAY },
-  avatarWrap: { position: 'relative' },
-  avatar: { width: 46, height: 46, borderRadius: 23, borderWidth: 2, borderColor: '#E2E8F0' },
-  avatarFallback: { backgroundColor: PRIMARY + '20', alignItems: 'center', justifyContent: 'center' },
-  avatarLetter: { fontSize: 18, fontFamily: 'Inter_700Bold', color: PRIMARY },
-  onlineDot: { position: 'absolute', bottom: 2, right: 2, width: 11, height: 11, borderRadius: 6, backgroundColor: '#22C55E', borderWidth: 2, borderColor: BG },
+  // Header
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
+  welcomeText: { fontSize: 13, fontFamily: 'Inter_400Regular', color: GRAY },
+  nameText: { fontSize: 22, fontFamily: 'Inter_700Bold', color: PRIMARY, marginTop: 1 },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  notifBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: CARD, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2, position: 'relative' },
+  notifDot: { position: 'absolute', top: 9, right: 9, width: 8, height: 8, borderRadius: 4, backgroundColor: RED, borderWidth: 1.5, borderColor: CARD },
+  avatar: { width: 40, height: 40, borderRadius: 20, borderWidth: 2, borderColor: '#E2E8F0' },
+  avatarFallback: { backgroundColor: PRIMARY + '18', alignItems: 'center', justifyContent: 'center' },
+  avatarLetter: { fontSize: 16, fontFamily: 'Inter_700Bold', color: PRIMARY },
 
-  searchBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: CARD, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 13, gap: 10, marginBottom: 18, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 10, elevation: 3 },
-  searchPlaceholder: { flex: 1, fontSize: 14, fontFamily: 'Inter_400Regular', color: LGRAY },
-  searchFilter: { width: 32, height: 32, borderRadius: 10, backgroundColor: PRIMARY + '12', alignItems: 'center', justifyContent: 'center' },
+  // Device Card
+  deviceCard: { backgroundColor: PRIMARY, borderRadius: 24, padding: 20, marginBottom: 20, overflow: 'hidden', shadowColor: PRIMARY, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 16, elevation: 8 },
+  glowTopRight: { position: 'absolute', top: -30, right: -30, width: 100, height: 100, borderRadius: 50, backgroundColor: 'rgba(255,255,255,0.04)' },
+  glowBottomLeft: { position: 'absolute', bottom: -30, left: -30, width: 100, height: 100, borderRadius: 50, backgroundColor: GREEN + '14' },
+  deviceCardTop: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 16 },
+  autoDetectBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, marginBottom: 10, alignSelf: 'flex-start' },
+  pulseDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: GREEN },
+  autoDetectText: { fontSize: 9, fontFamily: 'Inter_700Bold', color: 'rgba(255,255,255,0.75)', letterSpacing: 1 },
+  deviceName: { fontSize: 22, fontFamily: 'Inter_700Bold', color: CARD, marginBottom: 3 },
+  deviceSub: { fontSize: 13, fontFamily: 'Inter_400Regular', color: 'rgba(255,255,255,0.55)' },
+  scoreWrap: { alignItems: 'center', gap: 4 },
+  scoreRingOuter: { width: 64, height: 64, borderRadius: 32, borderWidth: 4, borderColor: GREEN, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,230,118,0.08)' },
+  scoreNumber: { fontSize: 22, fontFamily: 'Inter_700Bold', color: GREEN },
+  scoreLabel: { fontSize: 11, fontFamily: 'Inter_500Medium', color: 'rgba(255,255,255,0.55)' },
+  deviceCardBottom: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 14, padding: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+  greenDotIcon: { width: 32, height: 32, borderRadius: 16, backgroundColor: GREEN + '22', alignItems: 'center', justifyContent: 'center' },
+  conditionTitle: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: CARD },
+  conditionSub: { fontSize: 11, fontFamily: 'Inter_400Regular', color: 'rgba(255,255,255,0.5)', marginTop: 1 },
 
-  quickGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 },
-  quickCard: { width: (SW - 42) / 2, borderRadius: 16, padding: 14, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 1 },
-  quickIcon: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
-  quickLabel: { fontSize: 15, fontFamily: 'Inter_700Bold', marginBottom: 2 },
-  quickSub: { fontSize: 12, fontFamily: 'Inter_400Regular', color: GRAY },
+  // Quick Actions
+  quickRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
+  quickItem: { alignItems: 'center', width: (SW - 48) / 4 },
+  quickIconBox: { width: 56, height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginBottom: 6, position: 'relative' },
+  sosBadge: { position: 'absolute', top: -3, right: -3, width: 10, height: 10, borderRadius: 5, backgroundColor: RED, borderWidth: 2, borderColor: BG },
+  quickLabel: { fontSize: 11, fontFamily: 'Inter_500Medium', color: GRAY, textAlign: 'center', lineHeight: 14 },
 
-  banner: { borderRadius: 18, padding: 18, marginBottom: 20 },
-  bannerContent: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  bannerIconWrap: { width: 50, height: 50, borderRadius: 25, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
-  bannerTitle: { color: '#FFF', fontSize: 16, fontFamily: 'Inter_700Bold', marginBottom: 3 },
-  bannerSub: { color: 'rgba(255,255,255,0.85)', fontSize: 13, fontFamily: 'Inter_400Regular' },
-  bannerArrow: { width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
-  bannerDots: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 14 },
-  bannerDot: { width: 5, height: 5, borderRadius: 2.5, backgroundColor: 'rgba(255,255,255,0.4)' },
-  bannerDotActive: { width: 18, backgroundColor: '#FFF' },
+  // Diagnostic Health Card
+  card: { backgroundColor: CARD, borderRadius: 20, padding: 18, marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 12, elevation: 2 },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
+  cardTitle: { fontSize: 17, fontFamily: 'Inter_700Bold', color: PRIMARY },
+  detailsBtn: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  detailsBtnText: { fontSize: 13, fontFamily: 'Inter_500Medium', color: PRIMARY },
+  diagGrid: { flexDirection: 'row', gap: 8, marginBottom: 14 },
+  diagItem: { flex: 1, backgroundColor: BG, borderRadius: 14, padding: 12, alignItems: 'center', gap: 4 },
+  diagLabel: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: PRIMARY },
+  diagStatus: { fontSize: 10, fontFamily: 'Inter_500Medium' },
+  diagBtn: { backgroundColor: PRIMARY, borderRadius: 14, paddingVertical: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  diagBtnText: { color: CARD, fontSize: 14, fontFamily: 'Inter_600SemiBold' },
 
+  // Shield Banner
+  shieldBanner: { backgroundColor: PRIMARY, borderRadius: 24, padding: 20, marginBottom: 20, flexDirection: 'row', alignItems: 'center', overflow: 'hidden', shadowColor: PRIMARY, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.25, shadowRadius: 12, elevation: 6 },
+  shieldGlow: { position: 'absolute', right: 0, top: 0, bottom: 0, width: '50%', backgroundColor: GREEN + '18' },
+  shieldLeft: { flex: 1, zIndex: 1 },
+  shieldSubtitle: { fontSize: 10, fontFamily: 'Inter_700Bold', color: GREEN, letterSpacing: 1.5, marginBottom: 4 },
+  shieldTitle: { fontSize: 18, fontFamily: 'Inter_700Bold', color: CARD, marginBottom: 4 },
+  shieldDesc: { fontSize: 12, fontFamily: 'Inter_400Regular', color: 'rgba(255,255,255,0.65)', marginBottom: 12 },
+  shieldBtn: { backgroundColor: CARD, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, alignSelf: 'flex-start' },
+  shieldBtnText: { fontSize: 12, fontFamily: 'Inter_700Bold', color: PRIMARY },
+  shieldIconWrap: { zIndex: 1 },
+
+  // Section
   sectionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
-  sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  sectionTitle: { fontSize: 17, fontFamily: 'Inter_700Bold', color: DARK },
-  seeAll: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: PRIMARY },
-  onlinePulse: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#22C55E' },
+  sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  sectionTitle: { fontSize: 17, fontFamily: 'Inter_700Bold', color: PRIMARY },
+  seeAll: { fontSize: 13, fontFamily: 'Inter_500Medium', color: GRAY },
+  onlineDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: GREEN },
 
-  brandScroll: { gap: 12, paddingRight: 4, paddingBottom: 4, marginBottom: 20 },
-  brandChip: { alignItems: 'center', width: 62 },
-  brandIcon: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center', marginBottom: 6, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 1 },
-  brandLabel: { fontSize: 11, fontFamily: 'Inter_500Medium', color: DARK, textAlign: 'center' },
-
-  repairScroll: { gap: 10, paddingRight: 4, paddingBottom: 4, marginBottom: 20 },
-  repairCard: { width: 110, backgroundColor: CARD, borderRadius: 14, padding: 12, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 6, elevation: 1 },
-  repairIcon: { width: 46, height: 46, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
-  repairLabel: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: DARK, textAlign: 'center', marginBottom: 4, lineHeight: 16 },
-  repairFrom: { fontSize: 11, fontFamily: 'Inter_500Medium', color: PRIMARY },
-
+  // Technicians
   techScroll: { gap: 12, paddingRight: 4, paddingBottom: 4, marginBottom: 20 },
-  techCard: { width: 100, backgroundColor: CARD, borderRadius: 16, padding: 12, alignItems: 'center', position: 'relative', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 8, elevation: 2 },
-  techAvatar: { width: 52, height: 52, borderRadius: 26, marginBottom: 6 },
-  techAvatarFallback: { backgroundColor: PRIMARY + '20', alignItems: 'center', justifyContent: 'center' },
-  techAvatarLetter: { fontSize: 20, fontFamily: 'Inter_700Bold', color: PRIMARY },
-  techOnlineBadge: { position: 'absolute', top: 36, right: 24, width: 11, height: 11, borderRadius: 6, backgroundColor: '#22C55E', borderWidth: 2, borderColor: CARD },
-  techName: { fontSize: 13, fontFamily: 'Inter_700Bold', color: DARK, marginBottom: 3 },
-  techStars: { flexDirection: 'row', alignItems: 'center', gap: 2, marginBottom: 3 },
+  techCard: { width: 90, backgroundColor: CARD, borderRadius: 16, padding: 12, alignItems: 'center', position: 'relative', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2 },
+  techAvatar: { width: 50, height: 50, borderRadius: 25, marginBottom: 6 },
+  techAvatarFallback: { backgroundColor: PRIMARY + '18', alignItems: 'center', justifyContent: 'center' },
+  techAvatarLetter: { fontSize: 18, fontFamily: 'Inter_700Bold', color: PRIMARY },
+  techOnlineBadge: { position: 'absolute', top: 34, right: 22, width: 10, height: 10, borderRadius: 5, backgroundColor: GREEN, borderWidth: 2, borderColor: CARD },
+  techName: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: PRIMARY },
+  techRatingRow: { flexDirection: 'row', alignItems: 'center', gap: 2, marginTop: 3 },
   techRating: { fontSize: 11, fontFamily: 'Inter_600SemiBold', color: '#F59E0B' },
-  techSpecialty: { fontSize: 10, fontFamily: 'Inter_400Regular', color: GRAY, textAlign: 'center' },
 
-  emptyOrders: { backgroundColor: CARD, borderRadius: 18, padding: 24, alignItems: 'center', marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2 },
-  emptyOrdersIcon: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#F8FAFC', alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
-  emptyOrdersTitle: { fontSize: 17, fontFamily: 'Inter_700Bold', color: DARK, marginBottom: 4 },
-  emptyOrdersSub: { fontSize: 13, fontFamily: 'Inter_400Regular', color: GRAY, textAlign: 'center', marginBottom: 16, paddingHorizontal: 8 },
-  emptyOrdersBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: PRIMARY, paddingHorizontal: 20, paddingVertical: 11, borderRadius: 14, shadowColor: PRIMARY, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 8, elevation: 4 },
-  emptyOrdersBtnText: { color: '#FFF', fontSize: 14, fontFamily: 'Inter_600SemiBold' },
+  // Accessories
+  accScroll: { gap: 10, paddingRight: 4, paddingBottom: 4, marginBottom: 20 },
+  accCard: { width: 140, backgroundColor: CARD, borderRadius: 16, padding: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 1 },
+  accImgBox: { height: 90, backgroundColor: BG, borderRadius: 12, marginBottom: 10, alignItems: 'center', justifyContent: 'center', position: 'relative' },
+  accBadge: { position: 'absolute', top: 6, left: 6, backgroundColor: GREEN, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
+  accBadgeText: { fontSize: 9, fontFamily: 'Inter_700Bold', color: PRIMARY },
+  accIconWrap: { opacity: 0.4 },
+  accName: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: PRIMARY, marginBottom: 6, lineHeight: 16 },
+  accBottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  accPrice: { fontSize: 15, fontFamily: 'Inter_700Bold', color: PRIMARY },
+  accAddBtn: { width: 24, height: 24, borderRadius: 12, backgroundColor: BG, alignItems: 'center', justifyContent: 'center' },
 
-  ordersCard: { backgroundColor: CARD, borderRadius: 16, overflow: 'hidden', marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2 },
+  // Orders
+  ordersCard: { backgroundColor: CARD, borderRadius: 16, overflow: 'hidden', marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
   orderRow: { flexDirection: 'row', alignItems: 'center', padding: 14, gap: 12 },
-  orderRowBorder: { borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
-  orderStatusBar: { width: 4, height: 36, borderRadius: 2 },
-  orderLeft: { flex: 1 },
-  orderTitle: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: DARK },
+  orderRowBorder: { borderBottomWidth: 1, borderBottomColor: BG },
+  orderDot: { width: 8, height: 8, borderRadius: 4 },
+  orderTitle: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: PRIMARY },
   orderStatus: { fontSize: 12, fontFamily: 'Inter_400Regular', color: GRAY, marginTop: 2, textTransform: 'capitalize' as const },
-  orderPrice: { fontSize: 16, fontFamily: 'Inter_700Bold', color: DARK },
+  orderPrice: { fontSize: 15, fontFamily: 'Inter_700Bold', color: PRIMARY },
 
-  ctaBanner: { backgroundColor: DARK, borderRadius: 18, padding: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
-  ctaTitle: { color: '#FFF', fontSize: 16, fontFamily: 'Inter_700Bold', marginBottom: 3 },
-  ctaSub: { color: 'rgba(255,255,255,0.55)', fontSize: 12, fontFamily: 'Inter_400Regular' },
-  ctaBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: PRIMARY, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, shadowColor: PRIMARY, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
-  ctaBtnText: { color: '#FFF', fontSize: 13, fontFamily: 'Inter_600SemiBold' },
+  // CTA Strip
+  ctaStrip: { backgroundColor: GREEN, borderRadius: 20, padding: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  ctaTitle: { fontSize: 16, fontFamily: 'Inter_700Bold', color: PRIMARY, marginBottom: 2 },
+  ctaSub: { fontSize: 12, fontFamily: 'Inter_400Regular', color: PRIMARY + 'AA' },
+  ctaBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: CARD, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20 },
+  ctaBtnText: { color: PRIMARY, fontSize: 13, fontFamily: 'Inter_700Bold' },
 });
