@@ -29,7 +29,7 @@ const QUICK_ACTIONS = [
   { icon: 'pulse',     label: 'Quick\nScan',    color: PRIMARY, bg: '#EFF6FF', route: '/diagnose'     },
   { icon: 'construct', label: 'Book\nRepair',   color: INDIGO,  bg: '#EEF2FF', route: '/select-brand' },
   { icon: 'warning',   label: 'SOS\nRepair',    color: RED,     bg: '#FFF5F5', route: '/select-brand', sos: true },
-  { icon: 'headset',   label: 'Buy\nParts',     color: TEAL,    bg: '#F0FDFA', route: '/select-brand' },
+  { icon: 'headset',   label: 'Buy\nAccessories', color: TEAL,    bg: '#F0FDFA', route: '/select-brand' },
 ];
 
 const DIAGNOSTIC_ITEMS = [
@@ -39,10 +39,9 @@ const DIAGNOSTIC_ITEMS = [
 ];
 
 const ACCESSORIES = [
-  { name: 'Pro Wireless\nEarbuds', price: '₹1,299', badge: '20% OFF', icon: 'headset' },
-  { name: '20W Fast\nCharger',     price: '₹499',   badge: null,       icon: 'flash'   },
-  { name: 'Silicone\nCase',        price: '₹299',   badge: 'Trending', icon: 'phone-portrait' },
-  { name: 'Screen\nProtector',     price: '₹199',   badge: null,       icon: 'phone-portrait-outline' },
+  { name: 'Pro Wireless\nEarbuds', price: '₹1,299', badge: '20% OFF', image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAIVVPtzwdulVXPy7yzJlXqFzlPCaBN2pU5AifrL2mPbxKcbU9cs4bxFL6bH0Gm8Cc_jAGR1eIEEBfMV5w80ziW-BSe21THSjQYYarALROQZrL6z8LlRIGNQ0FYN47Nf2T-UiDmfs6D4pAHFHOJpI5A5jBTR-gFZaHVFyQEy5L2dx2_VpD9mWyMbiwuqAT_jlhenClSfyH4TLMIH4-I5GE2qxilyMn8aFtCAHIPxoBVkFSS79gkAhg6zM4aVyg31OQYOpw0B2XocHQ' },
+  { name: '20W Fast\nCharger',     price: '₹499',   badge: null,       image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuB8QAuHcipFUyWkPruHXlMR-p-n72uSUX3l8Cgtqg86qxKn0OOnQvfAnwahEcpa-qZT_qW-f23tQqCC7AG8gk90N9_eWWbDbyLadC-Py9zgqyHGKS-qnKjd3c-8kHkKXU0zPbVOHff3taum--zarN-D6JFdQSOcTuFr0UDYcNvejc46xPt_PWySWeBPZuEQywNWu--M9cLFVxvldYtOwQPVrHTcAxSl9MQPe7gk826K2LUE0S-Nc0K1mfwGDJerOrLx6qufZZpByvQ'   },
+  { name: 'Silicone\nCase',        price: '₹299',   badge: 'Trending', image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBo_29p3nC8Px555oTL_usbZvHcG1jNLRhCbZGpsHICxUEcNkbZmshzBsnQ3FdZUpYucMCEm4GixZP1Qqffo7p7zwR-6ch9cfJJvg2RmoKK2ycAJqqK5TwL2UUucCFv-AM1bo73f7QxyFQZ0n_wBCWlZ656vj_LAMPU75u2lMMzFFD1Nn0yoqVTgmvfdhtU3Jm3X1-hpVw7bJAOYVFeoLLUs4CqZ6y60lhi5N9knV894GgVG_R-chmXF57HKgih4-cHXEyEYofv9kY' },
 ];
 
 const HEALTH_SCORE = 92;
@@ -114,13 +113,11 @@ export default function CustomerHomeScreen() {
             <View style={styles.notifDot} />
           </Pressable>
           <Pressable onPress={() => router.push('/(tabs)/profile' as any)}>
-            {profile?.avatar ? (
-              <Image source={{ uri: profile.avatar }} style={styles.avatar} contentFit="cover" />
-            ) : (
-              <View style={[styles.avatar, styles.avatarFallback]}>
-                <Text style={styles.avatarLetter}>{(profile?.name || 'U')[0].toUpperCase()}</Text>
-              </View>
-            )}
+            <Image 
+              source={{ uri: "https://lh3.googleusercontent.com/aida-public/AB6AXuCMpOKrRB5AaApxTvKi1T3Au_7jDAsGIjstWXNrQNsc47quhFR2byJ1I9oHc2NnFk2h_h5E20_3woQFxPrjuXjKjTMZ7EK54XEOs01CN7WJHJB84dxcVsWqBWRo7_inTrPvoQyBXL7TQtzWX7xv0dFkHmJ6QJnq5IUw-DGC87wNOM766bK1LpGnr5nksnotGNgWVZUYjfgmM68JXaB2G832mR58eOwvJZiQD5Je4y7ZLfiie8IaCS1a51JhpKbRMddZw5P2D8R1YUA" }} 
+              style={styles.avatar} 
+              contentFit="cover" 
+            />
           </Pressable>
         </View>
       </View>
@@ -289,9 +286,13 @@ export default function CustomerHomeScreen() {
                   <Text style={styles.accBadgeText}>{a.badge}</Text>
                 </View>
               )}
-              <View style={styles.accIconWrap}>
-                <Ionicons name={a.icon as any} size={36} color={LGRAY} />
-              </View>
+              {a.image ? (
+                <Image source={{ uri: a.image }} style={styles.accImage} contentFit="contain" />
+              ) : (
+                <View style={styles.accIconWrap}>
+                  <Ionicons name="cube-outline" size={36} color={LGRAY} />
+                </View>
+              )}
             </View>
             <Text style={styles.accName}>{a.name}</Text>
             <View style={styles.accBottom}>
@@ -432,8 +433,9 @@ const styles = StyleSheet.create({
   // Accessories
   accScroll: { gap: 10, paddingRight: 4, paddingBottom: 4, marginBottom: 20 },
   accCard: { width: 140, backgroundColor: CARD, borderRadius: 16, padding: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 1 },
-  accImgBox: { height: 90, backgroundColor: BG, borderRadius: 12, marginBottom: 10, alignItems: 'center', justifyContent: 'center', position: 'relative' },
-  accBadge: { position: 'absolute', top: 6, left: 6, backgroundColor: GREEN, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
+  accImgBox: { height: 90, backgroundColor: BG, borderRadius: 12, marginBottom: 10, alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' },
+  accImage: { width: '80%', height: '80%' },
+  accBadge: { position: 'absolute', top: 6, left: 6, backgroundColor: GREEN, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2, zIndex: 1 },
   accBadgeText: { fontSize: 9, fontFamily: 'Inter_700Bold', color: PRIMARY },
   accIconWrap: { opacity: 0.4 },
   accName: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: PRIMARY, marginBottom: 6, lineHeight: 16 },
