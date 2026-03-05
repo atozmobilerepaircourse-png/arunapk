@@ -12,10 +12,10 @@ import { apiRequest, getApiUrl } from '@/lib/query-client';
 
 const { width: SW } = Dimensions.get('window');
 
-// ── Mobix Design System (Matching Home Screen) ──────────────────────────────
-const PRIMARY_DARK = '#0F230F'; // Dark background-dark from HTML
-const ACCENT_GREEN = '#06F906'; // Primary green from HTML
-const LIGHT_BG     = '#F5F8F5'; // Background-light from HTML
+// ── Mobix Design System (Matching HTML specs) ──────────────────────────────
+const PRIMARY_DARK = '#0F230F'; // background-dark
+const ACCENT_GREEN = '#06F906'; // primary
+const LIGHT_BG     = '#F5F8F5'; // background-light
 const WHITE        = '#FFFFFF';
 const SLATE_500    = '#64748B';
 const SLATE_900    = '#0F172A';
@@ -62,8 +62,8 @@ export default function InsuranceScreen() {
     try {
       const res = await apiRequest('POST', '/api/customer/subscription/create-order', {
         userId: profile.id,
-        planId: 'premium', // Defaulting to the one in design
-        amount: 199 * 100, // Matching the ₹199 from design
+        planId: 'premium',
+        amount: 50 * 100, // Matching the ₹50 from new design
       });
       const data = await res.json();
       if (!data.success) {
@@ -77,7 +77,7 @@ export default function InsuranceScreen() {
       url.searchParams.set('amount', String(amount));
       url.searchParams.set('keyId', keyId);
       url.searchParams.set('role', 'customer');
-      url.searchParams.set('displayAmount', '199');
+      url.searchParams.set('displayAmount', '50');
       url.searchParams.set('userId', profile.id);
       url.searchParams.set('userName', profile.name || '');
       url.searchParams.set('userPhone', profile.phone || '');
@@ -104,9 +104,9 @@ export default function InsuranceScreen() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: subActive ? PRIMARY_DARK : LIGHT_BG }]}>
+    <View style={[styles.container, { backgroundColor: subActive ? '#152E15' : LIGHT_BG }]}>
       {/* ── Top Bar ────────────────────────────────────────────── */}
-      <View style={[styles.navBar, { paddingTop: topInset, backgroundColor: subActive ? PRIMARY_DARK : WHITE }]}>
+      <View style={[styles.navBar, { paddingTop: topInset, backgroundColor: subActive ? '#152E15' : WHITE }]}>
         <Pressable style={styles.backBtn} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={24} color={subActive ? WHITE : SLATE_900} />
         </Pressable>
@@ -135,14 +135,14 @@ export default function InsuranceScreen() {
               />
               <View style={styles.heroOverlay} />
               <View style={styles.shieldWrap}>
-                <Ionicons name="shield-checkmark" size={32} color={ACCENT_GREEN} />
+                <Ionicons name="verified-user" size={32} color={ACCENT_GREEN} />
               </View>
             </View>
 
             <View style={styles.cardContent}>
               <Text style={[styles.planTitle, { color: subActive ? WHITE : SLATE_900 }]}>All-Round Protection</Text>
               <Text style={[styles.planSub, { color: subActive ? '#8ECC8E' : SLATE_500 }]}>
-                Mobix Premium Device Coverage
+                Pay ₹50 Get ₹500 Discount On Repair
               </Text>
             </View>
           </View>
@@ -155,7 +155,7 @@ export default function InsuranceScreen() {
             {COVERAGE_ITEMS.map(item => (
               <View key={item.id} style={styles.itemRow}>
                 <View style={styles.checkWrap}>
-                  <Ionicons name="checkmark" size={14} color={ACCENT_GREEN} strokeWidth={4} />
+                  <Ionicons name="checkmark" size={14} color={ACCENT_GREEN} />
                 </View>
                 <Text style={[styles.itemLabel, { color: subActive ? WHITE : SLATE_900 }]}>
                   {item.label} {item.sub && <Text style={styles.itemSubLabel}>{item.sub}</Text>}
@@ -168,24 +168,21 @@ export default function InsuranceScreen() {
         {/* ── Plan Benefits ─────────────────────────────────────── */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: subActive ? WHITE : SLATE_900 }]}>Plan Benefits</Text>
-          <View style={styles.benefitGrid}>
-            {BENEFITS.map(b => (
-              <View key={b.label} style={[styles.benefitCard, { backgroundColor: subActive ? '#1D401D' : '#F8FAFC' }]}>
-                <View style={[styles.benefitIcon, { backgroundColor: subActive ? 'rgba(59,130,246,0.1)' : b.bg }]}>
-                  <Ionicons name={b.icon as any} size={20} color={b.color} />
-                </View>
-                <Text style={[styles.benefitLabel, { color: subActive ? WHITE : SLATE_900 }]}>{b.label}</Text>
+          <div style={styles.benefitGrid}>
+            <View style={[styles.benefitCard, { backgroundColor: subActive ? '#1D401D' : '#F8FAFC' }]}>
+              <View style={[styles.benefitIcon, { backgroundColor: subActive ? 'rgba(59,130,246,0.1)' : '#EFF6FF' }]}>
+                <Ionicons name="engineering" size={20} color="#3B82F6" />
               </View>
-            ))}
-          </View>
+              <Text style={[styles.benefitLabel, { color: subActive ? WHITE : SLATE_900 }]}>Certified Techs</Text>
+            </View>
+            <View style={[styles.benefitCard, { backgroundColor: subActive ? '#1D401D' : '#F8FAFC' }]}>
+              <View style={[styles.benefitIcon, { backgroundColor: subActive ? 'rgba(245,158,11,0.1)' : '#FFFBEB' }]}>
+                <Ionicons name="memory" size={20} color="#F59E0B" />
+              </View>
+              <Text style={[styles.benefitLabel, { color: subActive ? WHITE : SLATE_900 }]}>Genuine Parts</Text>
+            </View>
+          </div>
         </View>
-
-        {/* ── Footer Link ───────────────────────────────────────── */}
-        {!subActive && (
-          <View style={styles.termsWrap}>
-             <Text style={styles.termsText}>Pay ₹199 Get complete coverage on repair</Text>
-          </View>
-        )}
       </ScrollView>
 
       {/* ── Sticky Bottom Bar ──────────────────────────────────── */}
@@ -246,11 +243,8 @@ const styles = StyleSheet.create({
   benefitIcon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   benefitLabel: { fontSize: 14, fontFamily: 'Inter_700Bold' },
 
-  termsWrap: { padding: 20, alignItems: 'center' },
-  termsText: { fontSize: 13, fontFamily: 'Inter_500Medium', color: SLATE_500 },
-
-  bottomBar: { position: 'absolute', bottom: 0, left: 0, right: 16, paddingHorizontal: 16, paddingTop: 16, borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.05)', alignItems: 'center', width: '100%' },
-  mainBtn: { width: '100%', backgroundColor: ACCENT_GREEN, borderRadius: 30, paddingVertical: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, shadowColor: ACCENT_GREEN, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 14, elevation: 8 },
+  bottomBar: { position: 'absolute', bottom: 0, left: 0, right: 0, paddingHorizontal: 16, paddingTop: 16, borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.05)', alignItems: 'center' },
+  mainBtn: { width: '100%', backgroundColor: ACCENT_GREEN, borderRadius: 30, paddingVertical: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
   mainBtnText: { color: PRIMARY_DARK, fontSize: 18, fontFamily: 'Inter_700Bold' },
   termsLink: { fontSize: 12, color: SLATE_500, marginTop: 12, textDecorationLine: 'underline' },
 });
