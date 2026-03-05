@@ -2,7 +2,7 @@ import admin from 'firebase-admin';
 
 let initialized = false;
 
-export function getFirestore(): admin.firestore.Firestore {
+function ensureInitialized() {
   if (!initialized) {
     const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT;
     if (!serviceAccountJson) {
@@ -20,5 +20,14 @@ export function getFirestore(): admin.firestore.Firestore {
     initialized = true;
     console.log('[Firebase] Admin SDK initialized for project:', (serviceAccount as any).project_id);
   }
+}
+
+export function getFirestore(): admin.firestore.Firestore {
+  ensureInitialized();
   return admin.firestore();
+}
+
+export function getAdminAuth(): admin.auth.Auth {
+  ensureInitialized();
+  return admin.auth();
 }

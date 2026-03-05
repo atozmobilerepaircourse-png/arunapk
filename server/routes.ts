@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "node:http";
-import { getFirestore } from "./firebase-admin";
+import { getFirestore, getAdminAuth } from "./firebase-admin";
 import { db } from "./db";
 import OpenAI from "openai";
 import { notifyAllUsers, notifyNewPost, notifyUser } from "./push-notifications";
@@ -13,7 +13,6 @@ import * as fs from "fs";
 import * as path from "path";
 import * as crypto from "crypto";
 import Razorpay from "razorpay";
-import twilio from "twilio";
 
 const googleAuthTokens = new Map<string, { email: string; name: string; createdAt: number }>();
 
@@ -169,8 +168,6 @@ const videoUpload = multer({
   },
 });
 
-
-// OTP is now stored in the database (otpTokens table) for persistence across restarts
 
 function sanitizeImageUrls(images: string[]): string[] {
   if (!Array.isArray(images)) return [];
