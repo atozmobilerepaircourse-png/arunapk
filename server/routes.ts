@@ -316,7 +316,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const sessionToken = req.headers['x-session-token'] as string;
       const { newRole } = req.body;
-      const allowedRoles = ["teacher", "technician", "customer", "supplier", "job_provider"];
+      const allowedRoles = ["teacher", "technician", "customer", "supplier", "job_provider", "admin"];
       if (!allowedRoles.includes(newRole)) {
         return res.status(400).json({ success: false, message: "Invalid role" });
       }
