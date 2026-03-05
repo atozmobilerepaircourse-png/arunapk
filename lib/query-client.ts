@@ -31,7 +31,14 @@ async function getSessionToken(): Promise<string | null> {
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
-    throw new Error(`${res.status}: ${text}`);
+    try {
+      const json = JSON.parse(text);
+      const msg = json.message || json.error || text;
+      throw new Error(msg);
+    } catch (e: any) {
+      if (e.message && !e.message.includes('JSON')) throw e;
+      throw new Error(text || `Request failed (${res.status})`);
+    }
   }
 }
 
@@ -66,6 +73,14 @@ export async function apiRequest(
 
   if (res.status === 401 && !route.includes('/api/otp/') && !route.includes('/api/auth/')) {
     console.log('[API] 401 Unauthorized for', route, '— session token may be missing');
+    try {
+      const cloned = res.clone();
+      const body = await cloned.json();
+      if (body.message === 'Invalid session') {
+        await AsyncStorage.removeItem(SESSION_KEY);
+        console.log('[API] Cleared stale session token');
+      }
+    } catch {}
   }
 
   await throwIfResNotOk(res);
