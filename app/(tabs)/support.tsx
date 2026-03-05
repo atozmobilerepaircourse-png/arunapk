@@ -9,7 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import Colors from '@/constants/colors';
 import { useApp } from '@/lib/context';
-import { apiRequest } from '@/lib/query-client';
+import { apiRequest, getApiUrl } from '@/lib/query-client';
 
 const C = Colors.light;
 
@@ -79,7 +79,6 @@ export default function SupportScreen() {
         return;
       }
       const { orderId, keyId, amount } = data;
-      const { getApiUrl } = await import('@/lib/query-client');
       const checkoutUrl = new URL('/api/subscription/checkout', getApiUrl());
       checkoutUrl.searchParams.set('orderId', orderId);
       checkoutUrl.searchParams.set('amount', String(amount));

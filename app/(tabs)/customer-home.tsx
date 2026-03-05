@@ -10,7 +10,7 @@ import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import Colors from '@/constants/colors';
 import { useApp } from '@/lib/context';
-import { apiRequest } from '@/lib/query-client';
+import { apiRequest, getApiUrl } from '@/lib/query-client';
 
 const C = Colors.light;
 
@@ -113,7 +113,7 @@ export default function CustomerHomeScreen() {
         return;
       }
       const { orderId, keyId, amount } = data;
-      const checkoutUrl = new URL('/api/subscription/checkout', (await import('@/lib/query-client')).getApiUrl());
+      const checkoutUrl = new URL('/api/subscription/checkout', getApiUrl());
       checkoutUrl.searchParams.set('orderId', orderId);
       checkoutUrl.searchParams.set('amount', String(amount));
       checkoutUrl.searchParams.set('keyId', keyId);
