@@ -116,7 +116,7 @@ export default function DiagnoseScreen() {
         <View style={styles.idleHero}>
           <View style={styles.heroImgWrap}>
             <Image 
-              source={{ uri: "https://lh3.googleusercontent.com/aida-public/AB6AXuAJohRWnQFyaBgFCNED57sA9-r3mghsT0kDgjH2asGNPfSIsMw0ECB4VN5nvxMSRKf5JjQ8pex0eH24VzIpq8VZmdddxCx2IObrTl2Ef0ve5O6oWr22s-xQ47k-eDGSnrqWbEXWDLauXMwgkLS6M02tEM00ub2OsuGTYrkh_CZ7T7-_0My3SbtaHqQA1R735aw83V7jbSywlw3tv6XMgOShue1i_Fprz2N-TbFDQR8jYkiGMeBnzM_7kAXttRrTgSWf-qU45rjfv4g" }} 
+              source={{ uri: "https://cdn-icons-png.flaticon.com/512/3067/3067451.png" }} 
               style={styles.heroImg}
               contentFit="contain"
             />
