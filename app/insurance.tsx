@@ -129,20 +129,20 @@ export default function InsuranceScreen() {
             {/* Visual Hero */}
             <View style={styles.heroWrap}>
               <Image 
-                source={{ uri: "https://lh3.googleusercontent.com/aida-public/AB6AXuAJohRWnQFyaBgFCNED57sA9-r3mghsT0kDgjH2asGNPfSIsMw0ECB4VN5nvxMSRKf5JjQ8pex0eH24VzIpq8VZmdddxCx2IObrTl2Ef0ve5O6oWr22s-xQ47k-eDGSnrqWbEXWDLauXMwgkLS6M02tEM00ub2OsuGTYrkh_CZ7T7-_0My3SbtaHqQA1R735aw83V7jbSywlw3tv6XMgOShue1i_Fprz2N-TbFDQR8jYkiGMeBnzM_7kAXttRrTgSWf-qU45rjfv4g" }} 
+                source={{ uri: "https://images.unsplash.com/photo-1616348436168-de43ad0db179?auto=format&fit=crop&q=80&w=800" }} 
                 style={styles.heroImg}
                 contentFit="cover"
               />
               <View style={styles.heroOverlay} />
               <View style={styles.shieldWrap}>
-                <Ionicons name="verified-user" size={32} color={ACCENT_GREEN} />
+                <Ionicons name="shield-checkmark" size={32} color={ACCENT_GREEN} />
               </View>
             </View>
 
             <View style={styles.cardContent}>
               <Text style={[styles.planTitle, { color: subActive ? WHITE : SLATE_900 }]}>All-Round Protection</Text>
               <Text style={[styles.planSub, { color: subActive ? '#8ECC8E' : SLATE_500 }]}>
-                Pay ₹50 Get ₹500 Discount On Repair
+                Mobix Premium Device Coverage
               </Text>
             </View>
           </View>
@@ -168,20 +168,20 @@ export default function InsuranceScreen() {
         {/* ── Plan Benefits ─────────────────────────────────────── */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: subActive ? WHITE : SLATE_900 }]}>Plan Benefits</Text>
-          <div style={styles.benefitGrid}>
+          <View style={styles.benefitGrid}>
             <View style={[styles.benefitCard, { backgroundColor: subActive ? '#1D401D' : '#F8FAFC' }]}>
               <View style={[styles.benefitIcon, { backgroundColor: subActive ? 'rgba(59,130,246,0.1)' : '#EFF6FF' }]}>
-                <Ionicons name="engineering" size={20} color="#3B82F6" />
+                <Ionicons name="people" size={20} color="#3B82F6" />
               </View>
               <Text style={[styles.benefitLabel, { color: subActive ? WHITE : SLATE_900 }]}>Certified Techs</Text>
             </View>
             <View style={[styles.benefitCard, { backgroundColor: subActive ? '#1D401D' : '#F8FAFC' }]}>
               <View style={[styles.benefitIcon, { backgroundColor: subActive ? 'rgba(245,158,11,0.1)' : '#FFFBEB' }]}>
-                <Ionicons name="memory" size={20} color="#F59E0B" />
+                <Ionicons name="hardware-chip" size={20} color="#F59E0B" />
               </View>
               <Text style={[styles.benefitLabel, { color: subActive ? WHITE : SLATE_900 }]}>Genuine Parts</Text>
             </View>
-          </div>
+          </View>
         </View>
       </ScrollView>
 
@@ -239,12 +239,12 @@ const styles = StyleSheet.create({
   itemSubLabel: { color: SLATE_500, fontSize: 14 },
 
   benefitGrid: { flexDirection: 'row', gap: 16 },
-  benefitCard: { flex: 1, padding: 20, borderRadius: 20, alignItems: 'center', gap: 8, borderWidth: 1, borderColor: 'rgba(0,0,0,0.05)' },
+  benefitCard: { flex: 1, padding: 20, borderRadius: 24, alignItems: 'center', gap: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
   benefitIcon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   benefitLabel: { fontSize: 14, fontFamily: 'Inter_700Bold' },
 
-  bottomBar: { position: 'absolute', bottom: 0, left: 0, right: 0, paddingHorizontal: 16, paddingTop: 16, borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.05)', alignItems: 'center' },
-  mainBtn: { width: '100%', backgroundColor: ACCENT_GREEN, borderRadius: 30, paddingVertical: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
+  bottomBar: { position: 'absolute', bottom: 0, left: 0, right: 0, paddingHorizontal: 16, paddingTop: 16, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)', alignItems: 'center' },
+  mainBtn: { width: '100%', backgroundColor: ACCENT_GREEN, borderRadius: 30, paddingVertical: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, shadowColor: ACCENT_GREEN, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 8 },
   mainBtnText: { color: PRIMARY_DARK, fontSize: 18, fontFamily: 'Inter_700Bold' },
   termsLink: { fontSize: 12, color: SLATE_500, marginTop: 12, textDecorationLine: 'underline' },
 });
