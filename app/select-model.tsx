@@ -1,175 +1,324 @@
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, Pressable, Platform, FlatList, TextInput,
+  View, Text, StyleSheet, Pressable, Platform, SectionList, TextInput, Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { router, useLocalSearchParams } from 'expo-router';
 
-const PRIMARY = '#FF6B2C';
-const BG      = '#F5F7FA';
-const CARD    = '#FFFFFF';
-const DARK    = '#1A1A2E';
-const GRAY    = '#8E8E93';
+const { width: SW } = Dimensions.get('window');
 
-const MODELS: Record<string, { name: string; year: string; popular?: boolean }[]> = {
+const BG    = '#F2F4F7';
+const CARD  = '#FFFFFF';
+const DARK  = '#0F172A';
+const GRAY  = '#64748B';
+const LGRAY = '#94A3B8';
+const PRIMARY = '#FF6B2C';
+
+type ModelEntry = { name: string; colors?: string[]; popular?: boolean };
+type Series     = { series: string; year: string; icon: string; color: string; models: ModelEntry[] };
+
+const BRAND_DATA: Record<string, Series[]> = {
   Apple: [
-    { name: 'iPhone 16 Pro Max', year: '2024', popular: true },
-    { name: 'iPhone 16 Pro',     year: '2024', popular: true },
-    { name: 'iPhone 16',         year: '2024' },
-    { name: 'iPhone 16 Plus',    year: '2024' },
-    { name: 'iPhone 15 Pro Max', year: '2023', popular: true },
-    { name: 'iPhone 15 Pro',     year: '2023' },
-    { name: 'iPhone 15',         year: '2023' },
-    { name: 'iPhone 14 Pro Max', year: '2022' },
-    { name: 'iPhone 14 Pro',     year: '2022' },
-    { name: 'iPhone 14',         year: '2022' },
-    { name: 'iPhone 13 Pro Max', year: '2021' },
-    { name: 'iPhone 13',         year: '2021' },
-    { name: 'iPhone 12',         year: '2020' },
-    { name: 'iPhone 11',         year: '2019' },
-    { name: 'iPhone SE (3rd)',   year: '2022' },
+    { series: 'iPhone 16 Series', year: '2024', icon: '📱', color: '#1C1C1E', models: [
+      { name: 'iPhone 16 Pro Max', popular: true, colors: ['#4E4F53','#F0E6D3','#FAFAFA'] },
+      { name: 'iPhone 16 Pro',     popular: true, colors: ['#4E4F53','#F0E6D3','#FAFAFA'] },
+      { name: 'iPhone 16 Plus',                   colors: ['#0071E3','#FF6B2C','#34C759','#FAFAFA','#1C1C1E'] },
+      { name: 'iPhone 16',                        colors: ['#0071E3','#FF6B2C','#34C759','#FAFAFA','#1C1C1E'] },
+    ]},
+    { series: 'iPhone 15 Series', year: '2023', icon: '📱', color: '#1C1C1E', models: [
+      { name: 'iPhone 15 Pro Max', popular: true, colors: ['#4E4F53','#F4F4F4','#6B4F3A'] },
+      { name: 'iPhone 15 Pro',                    colors: ['#4E4F53','#F4F4F4','#6B4F3A'] },
+      { name: 'iPhone 15 Plus',                   colors: ['#E8C9A0','#CFE2F3','#FAFAFA','#2C2C2E'] },
+      { name: 'iPhone 15',                        colors: ['#E8C9A0','#CFE2F3','#FAFAFA','#2C2C2E'] },
+    ]},
+    { series: 'iPhone 14 Series', year: '2022', icon: '📱', color: '#1C1C1E', models: [
+      { name: 'iPhone 14 Pro Max', popular: true },
+      { name: 'iPhone 14 Pro' },
+      { name: 'iPhone 14 Plus' },
+      { name: 'iPhone 14' },
+    ]},
+    { series: 'iPhone 13 Series', year: '2021', icon: '📱', color: '#1C1C1E', models: [
+      { name: 'iPhone 13 Pro Max' },
+      { name: 'iPhone 13 Pro' },
+      { name: 'iPhone 13' },
+      { name: 'iPhone 13 Mini' },
+    ]},
+    { series: 'iPhone 12 Series', year: '2020', icon: '📱', color: '#1C1C1E', models: [
+      { name: 'iPhone 12 Pro Max' },
+      { name: 'iPhone 12 Pro' },
+      { name: 'iPhone 12' },
+      { name: 'iPhone 12 Mini' },
+    ]},
+    { series: 'iPhone SE & Older', year: '2019 & below', icon: '📱', color: '#8E8E93', models: [
+      { name: 'iPhone SE (3rd Gen)' },
+      { name: 'iPhone SE (2nd Gen)' },
+      { name: 'iPhone 11 Pro Max' },
+      { name: 'iPhone 11 Pro' },
+      { name: 'iPhone 11' },
+      { name: 'iPhone XS Max' },
+      { name: 'iPhone XS' },
+      { name: 'iPhone XR' },
+      { name: 'iPhone X' },
+    ]},
   ],
   Samsung: [
-    { name: 'Galaxy S24 Ultra', year: '2024', popular: true },
-    { name: 'Galaxy S24+',      year: '2024', popular: true },
-    { name: 'Galaxy S24',       year: '2024' },
-    { name: 'Galaxy S23 Ultra', year: '2023' },
-    { name: 'Galaxy A55',       year: '2024', popular: true },
-    { name: 'Galaxy A35',       year: '2024' },
-    { name: 'Galaxy A15',       year: '2024' },
-    { name: 'Galaxy M55',       year: '2024' },
-    { name: 'Galaxy M35',       year: '2024' },
-    { name: 'Galaxy F55',       year: '2024' },
-    { name: 'Galaxy Z Fold 6',  year: '2024' },
-    { name: 'Galaxy Z Flip 6',  year: '2024' },
+    { series: 'Galaxy S24 Series', year: '2024', icon: '📱', color: '#1428A0', models: [
+      { name: 'Galaxy S24 Ultra', popular: true },
+      { name: 'Galaxy S24+',      popular: true },
+      { name: 'Galaxy S24' },
+    ]},
+    { series: 'Galaxy A55/A35 Series', year: '2024', icon: '📱', color: '#1428A0', models: [
+      { name: 'Galaxy A55 5G', popular: true },
+      { name: 'Galaxy A35 5G' },
+      { name: 'Galaxy A25 5G' },
+      { name: 'Galaxy A15 5G' },
+    ]},
+    { series: 'Galaxy M Series', year: '2024', icon: '📱', color: '#1428A0', models: [
+      { name: 'Galaxy M55 5G' },
+      { name: 'Galaxy M35 5G' },
+      { name: 'Galaxy M15 5G' },
+    ]},
+    { series: 'Galaxy Z Series', year: '2024', icon: '📱', color: '#1428A0', models: [
+      { name: 'Galaxy Z Fold 6' },
+      { name: 'Galaxy Z Flip 6' },
+    ]},
+    { series: 'Galaxy S23 & Older', year: '2023 & below', icon: '📱', color: '#8E8E93', models: [
+      { name: 'Galaxy S23 Ultra' },
+      { name: 'Galaxy S23+' },
+      { name: 'Galaxy S23' },
+      { name: 'Galaxy S22 Ultra' },
+      { name: 'Galaxy S22' },
+    ]},
   ],
   Xiaomi: [
-    { name: 'Xiaomi 14 Ultra',  year: '2024', popular: true },
-    { name: 'Xiaomi 14',        year: '2024' },
-    { name: 'Redmi Note 13 Pro+', year: '2024', popular: true },
-    { name: 'Redmi Note 13 Pro',  year: '2024' },
-    { name: 'Redmi Note 13',      year: '2024' },
-    { name: 'Redmi 13C',          year: '2024' },
-    { name: 'POCO X6 Pro',        year: '2024' },
-    { name: 'POCO F6 Pro',        year: '2024' },
-    { name: 'POCO M6 Pro',        year: '2024' },
+    { series: 'Xiaomi 14 Series', year: '2024', icon: '📱', color: '#FF6900', models: [
+      { name: 'Xiaomi 14 Ultra', popular: true },
+      { name: 'Xiaomi 14 Pro' },
+      { name: 'Xiaomi 14' },
+    ]},
+    { series: 'Redmi Note 13 Series', year: '2024', icon: '📱', color: '#FF6900', models: [
+      { name: 'Redmi Note 13 Pro+ 5G', popular: true },
+      { name: 'Redmi Note 13 Pro 5G' },
+      { name: 'Redmi Note 13 5G' },
+      { name: 'Redmi Note 13' },
+    ]},
+    { series: 'POCO Series', year: '2024', icon: '📱', color: '#FF6900', models: [
+      { name: 'POCO X6 Pro 5G', popular: true },
+      { name: 'POCO F6 Pro' },
+      { name: 'POCO M6 Pro' },
+      { name: 'POCO C65' },
+    ]},
+    { series: 'Redmi 13 Series', year: '2024', icon: '📱', color: '#FF6900', models: [
+      { name: 'Redmi 13C 5G' },
+      { name: 'Redmi 13C' },
+    ]},
   ],
   Vivo: [
-    { name: 'Vivo X100 Pro',  year: '2024', popular: true },
-    { name: 'Vivo V30 Pro',   year: '2024', popular: true },
-    { name: 'Vivo V30',       year: '2024' },
-    { name: 'Vivo T3 Pro',    year: '2024' },
-    { name: 'Vivo Y200',      year: '2024' },
-    { name: 'Vivo Y100',      year: '2024' },
-    { name: 'Vivo Y58',       year: '2024' },
+    { series: 'Vivo X100 Series', year: '2024', icon: '📱', color: '#415FFF', models: [
+      { name: 'Vivo X100 Pro', popular: true },
+      { name: 'Vivo X100' },
+    ]},
+    { series: 'Vivo V30 Series', year: '2024', icon: '📱', color: '#415FFF', models: [
+      { name: 'Vivo V30 Pro', popular: true },
+      { name: 'Vivo V30' },
+      { name: 'Vivo V30e' },
+    ]},
+    { series: 'Vivo Y Series', year: '2024', icon: '📱', color: '#415FFF', models: [
+      { name: 'Vivo Y200' },
+      { name: 'Vivo Y100' },
+      { name: 'Vivo Y58' },
+      { name: 'Vivo Y28' },
+    ]},
   ],
   Oppo: [
-    { name: 'OPPO Find X7 Ultra', year: '2024', popular: true },
-    { name: 'OPPO Reno 12 Pro',   year: '2024', popular: true },
-    { name: 'OPPO Reno 12',       year: '2024' },
-    { name: 'OPPO A3 Pro',        year: '2024' },
-    { name: 'OPPO A60',           year: '2024' },
+    { series: 'OPPO Find X7 Series', year: '2024', icon: '📱', color: '#1F8EF1', models: [
+      { name: 'OPPO Find X7 Ultra', popular: true },
+      { name: 'OPPO Find X7' },
+    ]},
+    { series: 'OPPO Reno 12 Series', year: '2024', icon: '📱', color: '#1F8EF1', models: [
+      { name: 'OPPO Reno 12 Pro', popular: true },
+      { name: 'OPPO Reno 12' },
+    ]},
+    { series: 'OPPO A Series', year: '2024', icon: '📱', color: '#1F8EF1', models: [
+      { name: 'OPPO A3 Pro' },
+      { name: 'OPPO A60' },
+      { name: 'OPPO A38' },
+    ]},
   ],
   Realme: [
-    { name: 'Realme GT 6',       year: '2024', popular: true },
-    { name: 'Realme 12 Pro+',    year: '2024', popular: true },
-    { name: 'Realme 12 Pro',     year: '2024' },
-    { name: 'Realme Narzo 70',   year: '2024' },
-    { name: 'Realme C65',        year: '2024' },
+    { series: 'Realme GT 6 Series', year: '2024', icon: '📱', color: '#E8A100', models: [
+      { name: 'Realme GT 6T', popular: true },
+      { name: 'Realme GT 6' },
+    ]},
+    { series: 'Realme 12 Series', year: '2024', icon: '📱', color: '#E8A100', models: [
+      { name: 'Realme 12 Pro+', popular: true },
+      { name: 'Realme 12 Pro' },
+      { name: 'Realme 12' },
+    ]},
+    { series: 'Realme Narzo Series', year: '2024', icon: '📱', color: '#E8A100', models: [
+      { name: 'Realme Narzo 70 Pro' },
+      { name: 'Realme Narzo 70' },
+    ]},
   ],
   OnePlus: [
-    { name: 'OnePlus 12',        year: '2024', popular: true },
-    { name: 'OnePlus 12R',       year: '2024', popular: true },
-    { name: 'OnePlus Nord 4',    year: '2024' },
-    { name: 'OnePlus Nord CE 4', year: '2024' },
-    { name: 'OnePlus Open',      year: '2024' },
+    { series: 'OnePlus 12 Series', year: '2024', icon: '📱', color: '#F5010C', models: [
+      { name: 'OnePlus 12', popular: true },
+      { name: 'OnePlus 12R' },
+    ]},
+    { series: 'OnePlus Nord Series', year: '2024', icon: '📱', color: '#F5010C', models: [
+      { name: 'OnePlus Nord 4' },
+      { name: 'OnePlus Nord CE 4' },
+      { name: 'OnePlus Nord CE 4 Lite' },
+    ]},
+    { series: 'OnePlus Open', year: '2024', icon: '📱', color: '#F5010C', models: [
+      { name: 'OnePlus Open' },
+    ]},
   ],
 };
 
-const DEFAULT_MODELS = [
-  { name: 'Latest Model', year: '2024', popular: true },
-  { name: 'Previous Model', year: '2023' },
-  { name: 'Older Model', year: '2022' },
+const DEFAULT_SERIES: Series[] = [
+  { series: 'Latest Models', year: '2024', icon: '📱', color: PRIMARY, models: [
+    { name: 'Latest Flagship', popular: true },
+    { name: 'Mid-Range Model' },
+    { name: 'Budget Model' },
+  ]},
 ];
 
 export default function SelectModelScreen() {
   const insets = useSafeAreaInsets();
   const { brand } = useLocalSearchParams<{ brand?: string }>();
   const [search, setSearch] = useState('');
+  const [expanded, setExpanded] = useState<string | null>(null);
+
   const topInset  = Platform.OS === 'web' ? 67 : insets.top;
   const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom + 16;
 
-  const allModels = MODELS[brand || ''] || DEFAULT_MODELS;
-  const filtered = allModels.filter(m => m.name.toLowerCase().includes(search.toLowerCase()));
+  const allSeries = BRAND_DATA[brand || ''] || DEFAULT_SERIES;
+
+  const filteredSections = search.trim()
+    ? allSeries.map(s => ({
+        ...s,
+        models: s.models.filter(m => m.name.toLowerCase().includes(search.toLowerCase())),
+      })).filter(s => s.models.length > 0)
+    : allSeries;
 
   const handleModel = (model: string) => {
     if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.push({ pathname: '/repair-services', params: { brand, model } } as any);
   };
 
+  const toggleSeries = (seriesName: string) => {
+    if (Platform.OS !== 'web') Haptics.selectionAsync();
+    setExpanded(prev => prev === seriesName ? null : seriesName);
+  };
+
   return (
-    <View style={[styles.container, { paddingTop: topInset }]}>
-      <View style={styles.navBar}>
+    <View style={[styles.root, { paddingTop: topInset }]}>
+      {/* Nav */}
+      <View style={styles.nav}>
         <Pressable style={styles.backBtn} onPress={() => router.back()}>
           <Ionicons name="chevron-back" size={22} color={DARK} />
         </Pressable>
-        <Text style={styles.navTitle}>{brand || 'Select Model'}</Text>
-        <View style={{ width: 40 }} />
+        <View>
+          <Text style={styles.navTitle}>{brand || 'Select Model'}</Text>
+          <Text style={styles.navSub}>Choose your device series & model</Text>
+        </View>
       </View>
 
-      <Text style={styles.subTitle}>Select your model</Text>
-
-      <View style={styles.searchBar}>
+      {/* Search */}
+      <View style={styles.searchWrap}>
         <Ionicons name="search" size={18} color={GRAY} />
         <TextInput
           style={styles.searchInput}
           placeholder="Search model..."
           placeholderTextColor={GRAY}
           value={search}
-          onChangeText={setSearch}
+          onChangeText={(t) => { setSearch(t); if (t) setExpanded(null); }}
         />
         {search.length > 0 && (
-          <Pressable onPress={() => setSearch('')}>
+          <Pressable onPress={() => setSearch('')} hitSlop={8}>
             <Ionicons name="close-circle" size={18} color={GRAY} />
           </Pressable>
         )}
       </View>
 
-      <FlatList
-        data={filtered}
-        keyExtractor={item => item.name}
-        contentContainerStyle={[styles.list, { paddingBottom: bottomPad + 16 }]}
+      <SectionList
+        sections={filteredSections.map(s => ({
+          ...s,
+          data: (expanded === s.series || search.trim()) ? s.models : [],
+          key: s.series,
+        }))}
+        keyExtractor={(item, i) => `${item.name}-${i}`}
         showsVerticalScrollIndicator={false}
-        renderItem={({ item }) => (
-          <Pressable
-            style={({ pressed }) => [styles.modelRow, { opacity: pressed ? 0.88 : 1 }]}
-            onPress={() => handleModel(item.name)}
-          >
-            <View style={styles.modelLeft}>
-              <View style={styles.modelIconWrap}>
-                <Ionicons name="phone-portrait-outline" size={20} color={PRIMARY} />
+        contentContainerStyle={{ paddingBottom: bottomPad + 24 }}
+        stickySectionHeadersEnabled={false}
+        renderSectionHeader={({ section }) => {
+          const isOpen = expanded === section.series || !!search.trim();
+          return (
+            <Pressable
+              style={({ pressed }) => [styles.seriesCard, { opacity: pressed ? 0.95 : 1 }]}
+              onPress={() => !search.trim() && toggleSeries(section.series)}
+            >
+              <View style={[styles.seriesIconWrap, { backgroundColor: section.color + '18' }]}>
+                <Text style={styles.seriesEmoji}>{section.icon}</Text>
               </View>
-              <View>
-                <View style={styles.modelNameRow}>
-                  <Text style={styles.modelName}>{item.name}</Text>
-                  {item.popular && (
-                    <View style={styles.popularBadge}>
-                      <Text style={styles.popularText}>Popular</Text>
+              <View style={styles.seriesInfo}>
+                <Text style={styles.seriesName}>{section.series}</Text>
+                <Text style={styles.seriesYear}>{section.year} · {section.models.length} models</Text>
+              </View>
+              {!search.trim() && (
+                <View style={[styles.chevronWrap, isOpen && styles.chevronWrapOpen]}>
+                  <Ionicons name={isOpen ? 'chevron-up' : 'chevron-down'} size={16} color={isOpen ? PRIMARY : GRAY} />
+                </View>
+              )}
+            </Pressable>
+          );
+        }}
+        renderItem={({ item, section }) => {
+          const isOpen = expanded === section.series || !!search.trim();
+          if (!isOpen) return null;
+          return (
+            <Pressable
+              style={({ pressed }) => [styles.modelRow, { opacity: pressed ? 0.88 : 1 }]}
+              onPress={() => handleModel(item.name)}
+            >
+              <View style={styles.modelLeft}>
+                <View style={[styles.phoneIcon, { backgroundColor: (section as Series).color + '15' }]}>
+                  <Ionicons name="phone-portrait" size={18} color={(section as Series).color} />
+                </View>
+                <View>
+                  <View style={styles.modelNameRow}>
+                    <Text style={styles.modelName}>{item.name}</Text>
+                    {item.popular && (
+                      <View style={styles.hotBadge}>
+                        <Text style={styles.hotText}>🔥 Hot</Text>
+                      </View>
+                    )}
+                  </View>
+                  {item.colors && item.colors.length > 0 && (
+                    <View style={styles.colorDots}>
+                      {item.colors.slice(0, 5).map((c, i) => (
+                        <View key={i} style={[styles.colorDot, { backgroundColor: c, borderColor: c === '#FAFAFA' || c === '#F4F4F4' ? '#E0E0E0' : c }]} />
+                      ))}
+                      {item.colors.length > 5 && (
+                        <Text style={styles.moreColors}>+{item.colors.length - 5}</Text>
+                      )}
                     </View>
                   )}
                 </View>
-                <Text style={styles.modelYear}>{item.year}</Text>
               </View>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={GRAY} />
-          </Pressable>
-        )}
+              <View style={styles.selectArrow}>
+                <Ionicons name="chevron-forward" size={18} color={PRIMARY} />
+              </View>
+            </Pressable>
+          );
+        }}
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Ionicons name="search" size={40} color={GRAY} />
-            <Text style={styles.emptyText}>No models found</Text>
+            <Ionicons name="search" size={40} color={LGRAY} />
+            <Text style={styles.emptyText}>No models found for "{search}"</Text>
           </View>
         }
       />
@@ -178,22 +327,32 @@ export default function SelectModelScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: BG },
-  navBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 },
+  root: { flex: 1, backgroundColor: BG },
+  nav: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingBottom: 16 },
   backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: CARD, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 4, elevation: 2 },
-  navTitle: { fontSize: 17, fontFamily: 'Inter_700Bold', color: DARK },
-  subTitle: { fontSize: 22, fontFamily: 'Inter_700Bold', color: DARK, paddingHorizontal: 16, marginBottom: 14 },
-  searchBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: CARD, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12, gap: 10, marginHorizontal: 16, marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2 },
+  navTitle: { fontSize: 20, fontFamily: 'Inter_700Bold', color: DARK },
+  navSub: { fontSize: 13, fontFamily: 'Inter_400Regular', color: GRAY, marginTop: 1 },
+  searchWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: CARD, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12, gap: 10, marginHorizontal: 16, marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2 },
   searchInput: { flex: 1, fontSize: 14, fontFamily: 'Inter_400Regular', color: DARK, padding: 0 },
-  list: { paddingHorizontal: 16, paddingTop: 4, gap: 8 },
-  modelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: CARD, borderRadius: 14, padding: 14, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 1 },
+  seriesCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: CARD, marginHorizontal: 16, marginTop: 10, borderRadius: 16, padding: 14, gap: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2 },
+  seriesIconWrap: { width: 52, height: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  seriesEmoji: { fontSize: 26 },
+  seriesInfo: { flex: 1 },
+  seriesName: { fontSize: 15, fontFamily: 'Inter_700Bold', color: DARK, marginBottom: 3 },
+  seriesYear: { fontSize: 12, fontFamily: 'Inter_400Regular', color: GRAY },
+  chevronWrap: { width: 30, height: 30, borderRadius: 15, backgroundColor: '#F2F4F7', alignItems: 'center', justifyContent: 'center' },
+  chevronWrapOpen: { backgroundColor: PRIMARY + '15' },
+  modelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginHorizontal: 16, marginTop: 2, paddingHorizontal: 14, paddingVertical: 12, backgroundColor: '#FAFBFC', borderRadius: 12, borderLeftWidth: 3, borderLeftColor: PRIMARY + '40' },
   modelLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
-  modelIconWrap: { width: 40, height: 40, borderRadius: 12, backgroundColor: PRIMARY + '15', alignItems: 'center', justifyContent: 'center' },
+  phoneIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   modelNameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  modelName: { fontSize: 15, fontFamily: 'Inter_600SemiBold', color: DARK },
-  popularBadge: { backgroundColor: PRIMARY + '18', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 },
-  popularText: { fontSize: 10, fontFamily: 'Inter_600SemiBold', color: PRIMARY },
-  modelYear: { fontSize: 12, fontFamily: 'Inter_400Regular', color: GRAY, marginTop: 2 },
+  modelName: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: DARK },
+  hotBadge: { backgroundColor: '#FFF3E0', borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2 },
+  hotText: { fontSize: 11, fontFamily: 'Inter_600SemiBold', color: '#FF9800' },
+  colorDots: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 5 },
+  colorDot: { width: 12, height: 12, borderRadius: 6, borderWidth: 1 },
+  moreColors: { fontSize: 11, fontFamily: 'Inter_400Regular', color: GRAY },
+  selectArrow: { width: 30, height: 30, borderRadius: 15, backgroundColor: PRIMARY + '10', alignItems: 'center', justifyContent: 'center' },
   empty: { alignItems: 'center', paddingTop: 60, gap: 12 },
-  emptyText: { fontSize: 16, fontFamily: 'Inter_400Regular', color: GRAY },
+  emptyText: { fontSize: 15, fontFamily: 'Inter_400Regular', color: GRAY },
 });
