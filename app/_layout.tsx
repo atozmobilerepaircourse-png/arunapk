@@ -50,6 +50,12 @@ function SecuredApp() {
         <Stack.Screen name="buy-sell" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="technician-needs" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="live-chat" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="diagnose" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="select-brand" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="select-model" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="repair-services" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="repair-booking" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="insurance" options={{ animation: 'slide_from_bottom' }} />
       </Stack>
       <FloatingUploadBanner />
     </SecurityProvider>

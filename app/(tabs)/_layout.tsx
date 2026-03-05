@@ -24,18 +24,19 @@ function NativeTabLayout() {
           <Icon sf={{ default: "house", selected: "house.fill" }} />
           <Label>Home</Label>
         </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="support">
-          <Icon sf={{ default: "headphones", selected: "headphones" }} />
-          <Label>Support</Label>
-        </NativeTabs.Trigger>
         <NativeTabs.Trigger name="directory">
           <Icon sf={{ default: "wrench.and.screwdriver", selected: "wrench.and.screwdriver.fill" }} />
-          <Label>Repairs</Label>
+          <Label>Technicians</Label>
+        </NativeTabs.Trigger>
+        <NativeTabs.Trigger name="orders">
+          <Icon sf={{ default: "list.clipboard", selected: "list.clipboard.fill" }} />
+          <Label>Orders</Label>
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="profile">
           <Icon sf={{ default: "person", selected: "person.fill" }} />
           <Label>Profile</Label>
         </NativeTabs.Trigger>
+        <NativeTabs.Trigger name="support" hidden />
         <NativeTabs.Trigger name="index" hidden />
         <NativeTabs.Trigger name="marketplace" hidden />
         <NativeTabs.Trigger name="create" hidden />
@@ -170,16 +171,26 @@ function ClassicTabLayout() {
         name="support"
         options={{
           title: "Support",
-          href: isCustomer ? '/support' : null,
+          href: isCustomer ? null : null,
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? "headset" : "headset-outline"} size={22} color={color} />
           ),
         }}
       />
       <Tabs.Screen
+        name="orders"
+        options={{
+          title: "Orders",
+          href: isCustomer ? '/orders' : null,
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? "list" : "list-outline"} size={22} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="directory"
         options={{
-          title: isCustomer ? "Repairs" : "Directory",
+          title: isCustomer ? "Technicians" : "Directory",
           href: '/directory',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
