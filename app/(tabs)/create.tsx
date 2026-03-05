@@ -271,23 +271,6 @@ export default function CreatePostScreen() {
         ))}
       </View>
 
-      <Pressable
-        style={({ pressed }) => [styles.sellCard, pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] }]}
-        onPress={() => {
-          if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-          router.push('/sell-item');
-        }}
-      >
-        <View style={styles.sellCardIcon}>
-          <Ionicons name="pricetag" size={24} color="#FFF" />
-        </View>
-        <View style={styles.sellCardText}>
-          <Text style={styles.sellCardTitle}>Sell Something</Text>
-          <Text style={styles.sellCardSubtitle}>List an item for sale on marketplace</Text>
-        </View>
-        <Ionicons name="chevron-forward" size={20} color="#FFF" />
-      </Pressable>
-
       <Text style={styles.label}>Content</Text>
       <View style={styles.textInputContainer}>
         <TextInput
