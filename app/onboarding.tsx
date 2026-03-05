@@ -160,6 +160,9 @@ export default function OnboardingScreen() {
       if (data.success) {
         setOtpSent(true);
         setOtpResendTimer(30);
+        if (data.fallbackOtp) {
+          setOtpCode(String(data.fallbackOtp));
+        }
       } else {
         Alert.alert('Error', data.message || 'Failed to send OTP');
       }

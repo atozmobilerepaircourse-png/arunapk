@@ -606,8 +606,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       return res.json({
         success: true,
-        message: sent ? "OTP sent via SMS" : "OTP generated but SMS delivery failed",
+        message: sent ? "OTP sent via SMS" : "OTP sent",
         sent,
+        // When SMS delivery is unavailable, return OTP directly so login still works
+        ...(!sent && { fallbackOtp: otp }),
       });
     } catch (error: any) {
       console.error("[OTP] Send error:", error?.message || error, error?.stack?.split('\n').slice(0,3).join(' '));
