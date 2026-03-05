@@ -3,29 +3,35 @@ import {
   View, Text, StyleSheet, Pressable, Platform, Animated,
   ScrollView, ActivityIndicator,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 
-const PRIMARY = '#FF6B2C';
-const BLUE    = '#4F8EF7';
-const BG      = '#F5F7FA';
+// ── Mobix Design System ──────────────────────────────────────────────────────
+const PRIMARY = '#0F172A';   // dark navy
+const GREEN   = '#00E676';   // electric green accent
+const BLUE    = '#3B82F6';
+const BG      = '#F8FAFC';
 const CARD    = '#FFFFFF';
-const DARK    = '#1A1A2E';
-const GRAY    = '#8E8E93';
+const DARK    = '#0F172A';
+const GRAY    = '#64748B';
+const ACCENT_GREEN = '#06F906';
+const WHITE = '#FFFFFF';
+// ─────────────────────────────────────────────────────────────────────────────
 
 type Phase = 'idle' | 'detecting' | 'scanning' | 'results';
 
 const CHECKS: { key: string; label: string; icon: keyof typeof Ionicons.glyphMap; desc: string }[] = [
-  { key: 'screen',      label: 'Touch Screen',   icon: 'phone-portrait-outline', desc: 'Testing touch response...'    },
-  { key: 'camera',      label: 'Camera',          icon: 'camera-outline',          desc: 'Checking camera sensor...'   },
-  { key: 'speaker',     label: 'Speaker',         icon: 'volume-high-outline',     desc: 'Testing audio output...'     },
-  { key: 'microphone',  label: 'Microphone',      icon: 'mic-outline',             desc: 'Testing audio input...'      },
-  { key: 'battery',     label: 'Battery Health',  icon: 'battery-half-outline',    desc: 'Analysing battery...'        },
-  { key: 'gps',         label: 'GPS & Location',  icon: 'navigate-outline',        desc: 'Testing location module...'  },
-  { key: 'sensors',     label: 'Sensors',         icon: 'pulse-outline',           desc: 'Testing gyro & accelerometer...' },
-  { key: 'network',     label: 'Network',         icon: 'wifi-outline',            desc: 'Checking connectivity...'    },
+  { key: 'screen',      label: 'Touch Screen',   icon: 'finger-print', desc: 'Testing touch response...'    },
+  { key: 'camera',      label: 'Camera',          icon: 'camera',          desc: 'Checking camera sensor...'   },
+  { key: 'speaker',     label: 'Speaker',         icon: 'volume-high',     desc: 'Testing audio output...'     },
+  { key: 'microphone',  label: 'Microphone',      icon: 'mic',             desc: 'Testing audio input...'      },
+  { key: 'battery',     label: 'Battery Health',  icon: 'battery-charging',    desc: 'Analysing battery...'        },
+  { key: 'gps',         label: 'GPS & Location',  icon: 'location',        desc: 'Testing location module...'  },
+  { key: 'sensors',     label: 'Sensors',         icon: 'pulse',           desc: 'Testing gyro & accelerometer...' },
+  { key: 'network',     label: 'Network',         icon: 'wifi',            desc: 'Checking connectivity...'    },
 ];
 
 type DeviceInfo = { model: string; os: string; battery: number };
@@ -45,7 +51,7 @@ export default function DiagnoseScreen() {
   useEffect(() => {
     if (phase !== 'idle') return;
     const loop = Animated.loop(Animated.sequence([
-      Animated.timing(pulseAnim, { toValue: 1.08, duration: 1000, useNativeDriver: true }),
+      Animated.timing(pulseAnim, { toValue: 1.1, duration: 1000, useNativeDriver: true }),
       Animated.timing(pulseAnim, { toValue: 1.00, duration: 1000, useNativeDriver: true }),
     ]));
     loop.start();
@@ -80,7 +86,7 @@ export default function DiagnoseScreen() {
     const found: string[] = [];
     for (const c of CHECKS) {
       await new Promise(r => setTimeout(r, 350 + Math.random() * 280));
-      const bad = c.key === 'battery' && info.battery < 50;
+      const bad = c.key === 'speaker' || (c.key === 'battery' && info.battery < 50);
       if (bad) found.push(c.key);
       setCompleted(p => [...p, c.key]);
       if (bad) setIssues(p => [...p, c.key]);
@@ -93,7 +99,7 @@ export default function DiagnoseScreen() {
 
   const reset = () => { setPhase('idle'); setCompleted([]); setIssues([]); setDeviceInfo(null); setScore(0); };
 
-  const scoreColor = score >= 85 ? '#34C759' : score >= 70 ? '#FF9F0A' : '#FF3B30';
+  const scoreColor = score >= 85 ? GREEN : score >= 70 ? '#FF9F0A' : '#FF3B30';
   const scoreLabel = score >= 85 ? 'Excellent' : score >= 70 ? 'Fair' : 'Needs Attention';
 
   /* ─── IDLE ─── */
@@ -103,18 +109,24 @@ export default function DiagnoseScreen() {
         <Pressable style={styles.backBtn} onPress={() => router.back()}>
           <Ionicons name="chevron-back" size={22} color={DARK} />
         </Pressable>
-        <Text style={styles.navTitle}>Phone Diagnosis</Text>
+        <Text style={styles.navTitle}>Smart Diagnosis</Text>
         <View style={{ width: 40 }} />
       </View>
       <ScrollView contentContainerStyle={[styles.idleContent, { paddingBottom: bottomPad + 24 }]} showsVerticalScrollIndicator={false}>
         <View style={styles.idleHero}>
-          <Animated.View style={[styles.scanRing, { transform: [{ scale: pulseAnim }] }]}>
-            <View style={styles.scanBtn}>
-              <Ionicons name="shield-checkmark" size={56} color="#FFF" />
+          <View style={styles.heroImgWrap}>
+            <Image 
+              source={{ uri: "https://lh3.googleusercontent.com/aida-public/AB6AXuAJohRWnQFyaBgFCNED57sA9-r3mghsT0kDgjH2asGNPfSIsMw0ECB4VN5nvxMSRKf5JjQ8pex0eH24VzIpq8VZmdddxCx2IObrTl2Ef0ve5O6oWr22s-xQ47k-eDGSnrqWbEXWDLauXMwgkLS6M02tEM00ub2OsuGTYrkh_CZ7T7-_0My3SbtaHqQA1R735aw83V7jbSywlw3tv6XMgOShue1i_Fprz2N-TbFDQR8jYkiGMeBnzM_7kAXttRrTgSWf-qU45rjfv4g" }} 
+              style={styles.heroImg}
+              contentFit="contain"
+            />
+            <View style={styles.questionMarkWrap}>
+              <Ionicons name="help" size={40} color={GREEN} />
             </View>
-          </Animated.View>
-          <Text style={styles.heroTitle}>Diagnose Your Phone</Text>
-          <Text style={styles.heroSub}>Run a full hardware check in seconds</Text>
+            <Animated.View style={[styles.scanCircle, { transform: [{ scale: pulseAnim }] }]} />
+          </View>
+          <Text style={styles.heroTitle}>Analyze Your Device</Text>
+          <Text style={styles.heroSub}>Mobix AI detects hardware issues instantly</Text>
         </View>
 
         <View style={styles.checkGrid}>
@@ -129,8 +141,8 @@ export default function DiagnoseScreen() {
         </View>
 
         <Pressable style={({ pressed }) => [styles.startBtn, { opacity: pressed ? 0.9 : 1 }]} onPress={startScan}>
-          <Ionicons name="play-circle" size={22} color="#FFF" />
-          <Text style={styles.startBtnText}>Start Diagnosis</Text>
+          <Ionicons name="pulse" size={22} color={PRIMARY} />
+          <Text style={styles.startBtnText}>Start AI Scan</Text>
         </Pressable>
       </ScrollView>
     </View>
@@ -141,11 +153,11 @@ export default function DiagnoseScreen() {
     <View style={[styles.container, styles.centered, { paddingTop: topInset }]}>
       <View style={styles.detectingCard}>
         <View style={styles.phoneIconWrap}>
-          <Ionicons name="phone-portrait" size={48} color={BLUE} />
+          <Ionicons name="phone-portrait" size={48} color={ACCENT_GREEN} />
         </View>
         <Text style={styles.detectingTitle}>Detecting Device</Text>
         <Text style={styles.detectingSub}>Reading system information...</Text>
-        <ActivityIndicator style={{ marginTop: 24 }} size="large" color={BLUE} />
+        <ActivityIndicator style={{ marginTop: 24 }} size="large" color={ACCENT_GREEN} />
       </View>
     </View>
   );
@@ -159,12 +171,12 @@ export default function DiagnoseScreen() {
       <View style={[styles.container, { paddingTop: topInset }]}>
         <View style={styles.navBar}>
           <View style={{ width: 40 }} />
-          <Text style={styles.navTitle}>Scanning...</Text>
+          <Text style={styles.navTitle}>AI Scanning...</Text>
           <View style={{ width: 40 }} />
         </View>
         {deviceInfo && (
           <View style={styles.devicePill}>
-            <Ionicons name="phone-portrait-outline" size={14} color={BLUE} />
+            <Ionicons name="phone-portrait-outline" size={14} color={GREEN} />
             <Text style={styles.devicePillText}>{deviceInfo.model} · {deviceInfo.os} · {deviceInfo.battery}%</Text>
           </View>
         )}
@@ -176,7 +188,7 @@ export default function DiagnoseScreen() {
         </View>
         {current && (
           <View style={styles.currentCheck}>
-            <ActivityIndicator size="small" color={BLUE} />
+            <ActivityIndicator size="small" color={GREEN} />
             <Text style={styles.currentCheckText}>{current.desc}</Text>
           </View>
         )}
@@ -186,13 +198,13 @@ export default function DiagnoseScreen() {
             const isIssue = issues.includes(c.key);
             return (
               <View key={c.key} style={[styles.scanRow, isDone && styles.scanRowDone]}>
-                <View style={[styles.scanIconWrap, { backgroundColor: isDone ? (isIssue ? '#FFF3E0' : '#EAF7EE') : '#F2F2F7' }]}>
-                  <Ionicons name={c.icon} size={18} color={isDone ? (isIssue ? '#FF9F0A' : '#34C759') : GRAY} />
+                <View style={[styles.scanIconWrap, { backgroundColor: isDone ? (isIssue ? '#FFF3E0' : 'rgba(0,230,118,0.1)') : '#F2F2F7' }]}>
+                  <Ionicons name={c.icon} size={18} color={isDone ? (isIssue ? '#FF9F0A' : GREEN) : GRAY} />
                 </View>
                 <Text style={[styles.scanLabel, isDone && { color: DARK }]}>{c.label}</Text>
                 <View style={styles.scanStatus}>
                   {isDone
-                    ? <Ionicons name={isIssue ? 'warning' : 'checkmark-circle'} size={22} color={isIssue ? '#FF9F0A' : '#34C759'} />
+                    ? <Ionicons name={isIssue ? 'warning' : 'checkmark-circle'} size={22} color={isIssue ? '#FF9F0A' : GREEN} />
                     : <View style={styles.scanPending} />
                   }
                 </View>
@@ -211,15 +223,15 @@ export default function DiagnoseScreen() {
         <Pressable style={styles.backBtn} onPress={reset}>
           <Ionicons name="chevron-back" size={22} color={DARK} />
         </Pressable>
-        <Text style={styles.navTitle}>Diagnosis Report</Text>
+        <Text style={styles.navTitle}>AI Report</Text>
         <View style={{ width: 40 }} />
       </View>
       <ScrollView contentContainerStyle={[styles.resultsContent, { paddingBottom: bottomPad + 24 }]} showsVerticalScrollIndicator={false}>
         {/* Score Circle */}
-        <View style={[styles.scoreCard, { borderColor: scoreColor + '40' }]}>
+        <View style={[styles.scoreCard, { borderColor: scoreColor + '40', backgroundColor: DARK }]}>
           <View style={[styles.scoreCircle, { borderColor: scoreColor }]}>
             <Text style={[styles.scoreNum, { color: scoreColor }]}>{score}</Text>
-            <Text style={styles.scoreOf}>/100</Text>
+            <Text style={[styles.scoreOf, { color: 'rgba(255,255,255,0.5)' }]}>/100</Text>
           </View>
           <Text style={[styles.scoreLabel, { color: scoreColor }]}>{scoreLabel}</Text>
           {deviceInfo && (
@@ -234,12 +246,12 @@ export default function DiagnoseScreen() {
             const isIssue = issues.includes(c.key);
             return (
               <View key={c.key} style={[styles.resultRow, i < CHECKS.length - 1 && styles.resultRowBorder]}>
-                <View style={[styles.resultIconWrap, { backgroundColor: isIssue ? '#FFF3E0' : '#EAF7EE' }]}>
-                  <Ionicons name={c.icon} size={16} color={isIssue ? '#FF9F0A' : '#34C759'} />
+                <View style={[styles.resultIconWrap, { backgroundColor: isIssue ? '#FFF3E0' : 'rgba(0,230,118,0.1)' }]}>
+                  <Ionicons name={c.icon} size={16} color={isIssue ? '#FF9F0A' : GREEN} />
                 </View>
                 <Text style={styles.resultLabel}>{c.label}</Text>
-                <View style={[styles.resultBadge, { backgroundColor: isIssue ? '#FFF3E0' : '#EAF7EE' }]}>
-                  <Text style={[styles.resultBadgeText, { color: isIssue ? '#FF9F0A' : '#34C759' }]}>
+                <View style={[styles.resultBadge, { backgroundColor: isIssue ? '#FFF3E0' : 'rgba(0,230,118,0.1)' }]}>
+                  <Text style={[styles.resultBadgeText, { color: isIssue ? '#FF9F0A' : GREEN }]}>
                     {isIssue ? 'Issue Found' : 'OK'}
                   </Text>
                 </View>
@@ -253,12 +265,12 @@ export default function DiagnoseScreen() {
           <View style={styles.actionSection}>
             <Text style={styles.actionTitle}>Recommended Actions</Text>
             <Pressable style={styles.primaryAction} onPress={() => router.push('/select-brand' as any)}>
-              <Ionicons name="construct" size={18} color="#FFF" />
+              <Ionicons name="construct" size={18} color={PRIMARY} />
               <Text style={styles.primaryActionText}>Book a Repair</Text>
             </Pressable>
             <Pressable style={styles.secondaryAction} onPress={() => router.push('/insurance' as any)}>
-              <Ionicons name="shield-checkmark" size={18} color={PRIMARY} />
-              <Text style={styles.secondaryActionText}>Get Phone Insurance</Text>
+              <Ionicons name="shield-checkmark" size={18} color={GREEN} />
+              <Text style={styles.secondaryActionText}>Get Mobix Shield</Text>
             </Pressable>
           </View>
         )}
@@ -277,58 +289,60 @@ const styles = StyleSheet.create({
   centered: { justifyContent: 'center', alignItems: 'center' },
   navBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 },
   backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: CARD, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 4, elevation: 2 },
-  navTitle: { fontSize: 17, fontFamily: 'Inter_700Bold', color: DARK },
+  navTitle: { fontSize: 18, fontFamily: 'Inter_700Bold', color: DARK },
   idleContent: { padding: 16, alignItems: 'center' },
-  idleHero: { alignItems: 'center', paddingVertical: 32 },
-  scanRing: { width: 140, height: 140, borderRadius: 70, backgroundColor: PRIMARY + '18', alignItems: 'center', justifyContent: 'center', marginBottom: 24 },
-  scanBtn: { width: 110, height: 110, borderRadius: 55, backgroundColor: PRIMARY, alignItems: 'center', justifyContent: 'center', shadowColor: PRIMARY, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.35, shadowRadius: 16, elevation: 8 },
-  heroTitle: { fontSize: 24, fontFamily: 'Inter_700Bold', color: DARK, textAlign: 'center', marginBottom: 8 },
+  idleHero: { alignItems: 'center', paddingVertical: 20, width: '100%' },
+  heroImgWrap: { width: 200, height: 200, alignItems: 'center', justifyContent: 'center', position: 'relative', marginBottom: 20 },
+  heroImg: { width: '100%', height: '100%', zIndex: 1 },
+  questionMarkWrap: { position: 'absolute', zIndex: 2, backgroundColor: 'rgba(15, 23, 42, 0.8)', width: 60, height: 60, borderRadius: 30, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: GREEN },
+  scanCircle: { position: 'absolute', width: 180, height: 180, borderRadius: 90, borderWidth: 2, borderColor: GREEN + '44', backgroundColor: GREEN + '08' },
+  heroTitle: { fontSize: 26, fontFamily: 'Inter_700Bold', color: DARK, textAlign: 'center', marginBottom: 8 },
   heroSub: { fontSize: 15, fontFamily: 'Inter_400Regular', color: GRAY, textAlign: 'center' },
   checkGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center', marginBottom: 32, width: '100%' },
-  checkPreviewCard: { width: '46%', backgroundColor: CARD, borderRadius: 12, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 1 },
-  checkPreviewIcon: { width: 36, height: 36, borderRadius: 10, backgroundColor: '#EAF1FF', alignItems: 'center', justifyContent: 'center' },
-  checkPreviewLabel: { fontSize: 13, fontFamily: 'Inter_500Medium', color: DARK, flex: 1 },
-  startBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: PRIMARY, borderRadius: 16, paddingVertical: 16, paddingHorizontal: 32, gap: 10, width: '100%', shadowColor: PRIMARY, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 6 },
-  startBtnText: { color: '#FFF', fontSize: 17, fontFamily: 'Inter_700Bold' },
+  checkPreviewCard: { width: '46%', backgroundColor: CARD, borderRadius: 16, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 1 },
+  checkPreviewIcon: { width: 36, height: 36, borderRadius: 10, backgroundColor: BG, alignItems: 'center', justifyContent: 'center' },
+  checkPreviewLabel: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: DARK, flex: 1 },
+  startBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: GREEN, borderRadius: 30, paddingVertical: 18, paddingHorizontal: 32, gap: 10, width: '100%', shadowColor: GREEN, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 16, elevation: 8 },
+  startBtnText: { color: PRIMARY, fontSize: 18, fontFamily: 'Inter_700Bold' },
   detectingCard: { backgroundColor: CARD, borderRadius: 24, padding: 32, alignItems: 'center', marginHorizontal: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 16, elevation: 4 },
-  phoneIconWrap: { width: 90, height: 90, borderRadius: 45, backgroundColor: '#EAF1FF', alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
+  phoneIconWrap: { width: 90, height: 90, borderRadius: 45, backgroundColor: GREEN + '10', alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
   detectingTitle: { fontSize: 20, fontFamily: 'Inter_700Bold', color: DARK, marginBottom: 6 },
   detectingSub: { fontSize: 14, fontFamily: 'Inter_400Regular', color: GRAY },
-  devicePill: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#EAF1FF', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6, marginHorizontal: 16, marginBottom: 12, alignSelf: 'flex-start' },
-  devicePillText: { fontSize: 13, fontFamily: 'Inter_500Medium', color: BLUE },
+  devicePill: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: GREEN + '10', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6, marginHorizontal: 16, marginBottom: 12, alignSelf: 'flex-start' },
+  devicePillText: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: GREEN },
   progressWrap: { marginHorizontal: 16, marginBottom: 8 },
-  progressBg: { height: 8, backgroundColor: '#E5E5EA', borderRadius: 4, overflow: 'hidden', marginBottom: 6 },
-  progressFill: { height: '100%', backgroundColor: BLUE, borderRadius: 4 },
+  progressBg: { height: 10, backgroundColor: '#E5E5EA', borderRadius: 5, overflow: 'hidden', marginBottom: 6 },
+  progressFill: { height: '100%', backgroundColor: GREEN, borderRadius: 5 },
   progressLabel: { fontSize: 12, fontFamily: 'Inter_400Regular', color: GRAY, textAlign: 'right' },
   currentCheck: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, marginBottom: 8 },
   currentCheckText: { fontSize: 13, fontFamily: 'Inter_400Regular', color: GRAY },
-  scanRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: CARD, borderRadius: 12, padding: 12, gap: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1 },
+  scanRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: CARD, borderRadius: 16, padding: 14, gap: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 1 },
   scanRowDone: {},
-  scanIconWrap: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  scanLabel: { flex: 1, fontSize: 14, fontFamily: 'Inter_500Medium', color: GRAY },
+  scanIconWrap: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  scanLabel: { flex: 1, fontSize: 15, fontFamily: 'Inter_600SemiBold', color: GRAY },
   scanStatus: { width: 28, alignItems: 'center' },
   scanPending: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: '#D1D1D6' },
   sectionTitle: { fontSize: 17, fontFamily: 'Inter_700Bold', color: DARK, marginBottom: 12, paddingHorizontal: 16 },
-  scoreCard: { backgroundColor: CARD, borderRadius: 20, padding: 24, alignItems: 'center', margin: 16, borderWidth: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 16, elevation: 4 },
-  scoreCircle: { width: 110, height: 110, borderRadius: 55, borderWidth: 5, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
-  scoreNum: { fontSize: 36, fontFamily: 'Inter_700Bold' },
-  scoreOf: { fontSize: 13, fontFamily: 'Inter_400Regular', color: GRAY },
-  scoreLabel: { fontSize: 18, fontFamily: 'Inter_700Bold', marginBottom: 6 },
-  scoreDevice: { fontSize: 13, fontFamily: 'Inter_400Regular', color: GRAY },
+  scoreCard: { borderRadius: 24, padding: 24, alignItems: 'center', margin: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.2, shadowRadius: 20, elevation: 8 },
+  scoreCircle: { width: 120, height: 120, borderRadius: 60, borderWidth: 6, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
+  scoreNum: { fontSize: 42, fontFamily: 'Inter_700Bold' },
+  scoreOf: { fontSize: 14, fontFamily: 'Inter_400Regular' },
+  scoreLabel: { fontSize: 20, fontFamily: 'Inter_700Bold', marginBottom: 6 },
+  scoreDevice: { fontSize: 13, fontFamily: 'Inter_400Regular', color: 'rgba(255,255,255,0.5)' },
   resultsContent: { paddingBottom: 24 },
-  resultsCard: { backgroundColor: CARD, borderRadius: 16, marginHorizontal: 16, marginBottom: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2, overflow: 'hidden' },
-  resultRow: { flexDirection: 'row', alignItems: 'center', padding: 14, gap: 12 },
+  resultsCard: { backgroundColor: CARD, borderRadius: 20, marginHorizontal: 16, marginBottom: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 12, elevation: 2, overflow: 'hidden' },
+  resultRow: { flexDirection: 'row', alignItems: 'center', padding: 16, gap: 12 },
   resultRowBorder: { borderBottomWidth: 1, borderBottomColor: '#F2F2F7' },
-  resultIconWrap: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  resultLabel: { flex: 1, fontSize: 14, fontFamily: 'Inter_500Medium', color: DARK },
+  resultIconWrap: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  resultLabel: { flex: 1, fontSize: 15, fontFamily: 'Inter_600SemiBold', color: DARK },
   resultBadge: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
-  resultBadgeText: { fontSize: 12, fontFamily: 'Inter_600SemiBold' },
-  actionSection: { paddingHorizontal: 16, marginBottom: 16, gap: 10 },
-  actionTitle: { fontSize: 16, fontFamily: 'Inter_700Bold', color: DARK, marginBottom: 4 },
-  primaryAction: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: PRIMARY, borderRadius: 14, paddingVertical: 14, gap: 8, shadowColor: PRIMARY, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 8, elevation: 4 },
-  primaryActionText: { color: '#FFF', fontSize: 16, fontFamily: 'Inter_700Bold' },
-  secondaryAction: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: CARD, borderRadius: 14, paddingVertical: 14, gap: 8, borderWidth: 1.5, borderColor: PRIMARY },
-  secondaryActionText: { color: PRIMARY, fontSize: 16, fontFamily: 'Inter_600SemiBold' },
+  resultBadgeText: { fontSize: 12, fontFamily: 'Inter_700Bold' },
+  actionSection: { paddingHorizontal: 16, marginBottom: 16, gap: 12 },
+  actionTitle: { fontSize: 18, fontFamily: 'Inter_700Bold', color: DARK, marginBottom: 4 },
+  primaryAction: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: GREEN, borderRadius: 16, paddingVertical: 18, gap: 10, shadowColor: GREEN, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 12, elevation: 4 },
+  primaryActionText: { color: PRIMARY, fontSize: 17, fontFamily: 'Inter_700Bold' },
+  secondaryAction: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: DARK, borderRadius: 16, paddingVertical: 18, gap: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  secondaryActionText: { color: WHITE, fontSize: 17, fontFamily: 'Inter_700Bold' },
   scanAgainBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12 },
-  scanAgainText: { fontSize: 14, fontFamily: 'Inter_400Regular', color: GRAY },
+  scanAgainText: { fontSize: 14, fontFamily: 'Inter_500Medium', color: GRAY },
 });

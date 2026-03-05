@@ -26,7 +26,7 @@ const TEAL      = '#0D9488';
 // ─────────────────────────────────────────────────────────────────────────────
 
 const QUICK_ACTIONS = [
-  { icon: 'radar',     label: 'Quick\nScan',    color: PRIMARY, bg: '#EFF6FF', route: '/diagnose'     },
+  { icon: 'pulse',     label: 'Quick\nScan',    color: PRIMARY, bg: '#EFF6FF', route: '/diagnose'     },
   { icon: 'construct', label: 'Book\nRepair',   color: INDIGO,  bg: '#EEF2FF', route: '/select-brand' },
   { icon: 'warning',   label: 'SOS\nRepair',    color: RED,     bg: '#FFF5F5', route: '/select-brand', sos: true },
   { icon: 'headset',   label: 'Buy\nParts',     color: TEAL,    bg: '#F0FDFA', route: '/select-brand' },
