@@ -192,42 +192,62 @@ function generateOTP(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-async function sendWhatsAppOTP(phone: string, otp: string): Promise<boolean> {
-  const accountSid = process.env.TWILIO_ACCOUNT_SID;
-  const authToken = process.env.TWILIO_AUTH_TOKEN;
-  const twilioPhone = process.env.TWILIO_PHONE_NUMBER;
+// Rate limiting: track OTP requests per phone number
+const otpRateLimitMap = new Map<string, { count: number; windowStart: number }>();
+const OTP_RATE_LIMIT = 3;
+const OTP_RATE_WINDOW_MS = 60 * 1000;
 
-  if (!accountSid || !authToken || !twilioPhone) {
-    console.log(`[OTP] Twilio credentials not set. OTP for ${phone}: ${otp}`);
+function checkOtpRateLimit(phone: string): { allowed: boolean; retryAfterMs: number } {
+  const now = Date.now();
+  const entry = otpRateLimitMap.get(phone);
+  if (!entry || now - entry.windowStart > OTP_RATE_WINDOW_MS) {
+    otpRateLimitMap.set(phone, { count: 1, windowStart: now });
+    return { allowed: true, retryAfterMs: 0 };
+  }
+  if (entry.count >= OTP_RATE_LIMIT) {
+    const retryAfterMs = OTP_RATE_WINDOW_MS - (now - entry.windowStart);
+    return { allowed: false, retryAfterMs };
+  }
+  entry.count += 1;
+  return { allowed: true, retryAfterMs: 0 };
+}
+
+async function sendFast2SMSOTP(phone: string, otp: string): Promise<boolean> {
+  const apiKey = process.env.FAST2SMS_API_KEY;
+  if (!apiKey) {
+    console.error("[OTP] FAST2SMS_API_KEY not set");
     return false;
   }
 
-  const formattedPhone = phone.startsWith("+") ? phone : `+91${phone.replace(/^91/, "")}`;
-  const client = twilio(accountSid, authToken);
+  const cleanPhone = phone.replace(/\D/g, "").replace(/^91/, "");
 
   try {
-    console.log(`[OTP] Sending WhatsApp OTP to ${formattedPhone}`);
-    const message = await client.messages.create({
-      body: `Your Mobi verification code is: ${otp}. Valid for 5 minutes. Do not share this code with anyone.`,
-      from: `whatsapp:${twilioPhone}`,
-      to: `whatsapp:${formattedPhone}`,
+    const response = await fetch("https://www.fast2sms.com/dev/bulkV2", {
+      method: "POST",
+      headers: {
+        authorization: apiKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        route: "otp",
+        variables_values: otp,
+        numbers: cleanPhone,
+      }),
     });
-    console.log(`[OTP] WhatsApp OTP sent successfully, SID: ${message.sid}`);
-    return true;
-  } catch (waError: any) {
-    console.warn(`[OTP] WhatsApp failed: ${waError?.message}. Falling back to SMS...`);
-    try {
-      const smsMessage = await client.messages.create({
-        body: `Your Mobi verification code is: ${otp}. Valid for 5 minutes. Do not share this code with anyone.`,
-        from: twilioPhone,
-        to: formattedPhone,
-      });
-      console.log(`[OTP] SMS fallback sent successfully, SID: ${smsMessage.sid}`);
+
+    const data = await response.json() as any;
+    console.log(`[OTP] Fast2SMS response for ${cleanPhone}:`, JSON.stringify(data));
+
+    if (data.return === true) {
+      console.log(`[OTP] SMS sent successfully to ${cleanPhone}`);
       return true;
-    } catch (smsError: any) {
-      console.error("[OTP] Both WhatsApp and SMS failed:", smsError?.message || smsError);
+    } else {
+      console.error(`[OTP] Fast2SMS error:`, data.message || data);
       return false;
     }
+  } catch (err: any) {
+    console.error("[OTP] Fast2SMS request failed:", err?.message || err);
+    return false;
   }
 }
 
@@ -564,23 +584,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const cleanPhone = phone.replace(/\D/g, "");
+
+      // Rate limiting: max 3 OTP requests per phone per minute
+      const rateCheck = checkOtpRateLimit(cleanPhone);
+      if (!rateCheck.allowed) {
+        const secondsLeft = Math.ceil(rateCheck.retryAfterMs / 1000);
+        return res.status(429).json({
+          success: false,
+          message: `Too many OTP requests. Please wait ${secondsLeft} seconds before trying again.`,
+        });
+      }
+
       const otp = generateOTP();
       const expiresAt = Date.now() + 5 * 60 * 1000;
 
-      // Persist OTP in database so it survives server restarts
       await db.delete(otpTokens).where(eq(otpTokens.phone, cleanPhone));
       await db.insert(otpTokens).values({ phone: cleanPhone, otp, expiresAt });
 
-      const sent = await sendWhatsAppOTP(cleanPhone, otp);
-
-      console.log(`[OTP] Generated for ${cleanPhone}: ${otp} | Sent: ${sent}`);
+      const sent = await sendFast2SMSOTP(cleanPhone, otp);
+      console.log(`[OTP] Generated for ${cleanPhone} | Sent via Fast2SMS: ${sent}`);
 
       return res.json({
         success: true,
-        message: sent ? "OTP sent via WhatsApp" : "OTP generated (SMS unavailable)",
+        message: sent ? "OTP sent via SMS" : "OTP generated but SMS delivery failed",
         sent,
-        // Return OTP directly when SMS delivery fails so web users can still log in
-        ...((!sent) && { webOtp: otp }),
       });
     } catch (error: any) {
       console.error("[OTP] Send error:", error?.message || error, error?.stack?.split('\n').slice(0,3).join(' '));
@@ -4769,12 +4796,9 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
       if (phone !== '8179142535') return res.status(403).json({ success: false, message: "Admin only" });
       if (!message?.trim()) return res.status(400).json({ success: false, message: "Message required" });
 
-      const twilioSid = process.env.TWILIO_ACCOUNT_SID;
-      const twilioAuth = process.env.TWILIO_AUTH_TOKEN;
-      const twilioFrom = process.env.TWILIO_PHONE_NUMBER;
-
-      if (!twilioSid || !twilioAuth || !twilioFrom) {
-        return res.status(500).json({ success: false, message: "Twilio not configured. Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER in secrets." });
+      const fast2smsKey = process.env.FAST2SMS_API_KEY;
+      if (!fast2smsKey) {
+        return res.status(500).json({ success: false, message: "Fast2SMS not configured. Set FAST2SMS_API_KEY in secrets." });
       }
 
       let userRows;
@@ -4784,37 +4808,53 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
         userRows = await db.select({ phone: profiles.phone }).from(profiles).where(eq(profiles.role, role));
       }
 
-      const phones = userRows
+      const phoneNumbers = userRows
         .map(r => r.phone?.trim())
         .filter(Boolean)
         .map(p => {
           const digits = p!.replace(/\D/g, '');
-          if (digits.startsWith('91') && digits.length === 12) return `+${digits}`;
-          if (digits.length === 10) return `+91${digits}`;
-          return `+${digits}`;
-        });
+          if (digits.startsWith('91') && digits.length === 12) return digits.slice(2);
+          return digits.slice(-10);
+        })
+        .filter(p => p.length === 10);
 
-      if (phones.length === 0) {
+      if (phoneNumbers.length === 0) {
         return res.json({ success: true, sent: 0, message: 'No phone numbers found for this role' });
       }
 
-      const { default: twilio } = await import('twilio');
-      const client = twilio(twilioSid, twilioAuth);
-
+      // Fast2SMS bulk DLT route for custom messages
       let sent = 0;
       let failed = 0;
-      for (const to of phones) {
+      // Send in batches of 100 (Fast2SMS limit)
+      for (let i = 0; i < phoneNumbers.length; i += 100) {
+        const batch = phoneNumbers.slice(i, i + 100);
         try {
-          await client.messages.create({ body: message.trim(), from: twilioFrom, to });
-          sent++;
-        } catch (smsErr: any) {
-          console.error(`[SMS] Failed to send to ${to}:`, smsErr.message);
-          failed++;
+          const resp = await fetch("https://www.fast2sms.com/dev/bulkV2", {
+            method: "POST",
+            headers: { authorization: fast2smsKey, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              route: "q",
+              message: message.trim(),
+              language: "english",
+              flash: 0,
+              numbers: batch.join(","),
+            }),
+          });
+          const data = await resp.json() as any;
+          if (data.return === true) {
+            sent += batch.length;
+          } else {
+            console.error(`[SMS] Fast2SMS batch error:`, data.message);
+            failed += batch.length;
+          }
+        } catch (batchErr: any) {
+          console.error(`[SMS] Batch failed:`, batchErr.message);
+          failed += batch.length;
         }
       }
 
-      console.log(`[SMS] Sent ${sent} messages, failed ${failed}`);
-      res.json({ success: true, sent, failed, total: phones.length });
+      console.log(`[SMS] Sent ${sent} messages via Fast2SMS, failed ${failed}`);
+      res.json({ success: true, sent, failed, total: phoneNumbers.length });
     } catch (error: any) {
       console.error("[Admin] send-sms error:", error);
       res.status(500).json({ success: false, message: error.message || "Failed to send SMS" });
