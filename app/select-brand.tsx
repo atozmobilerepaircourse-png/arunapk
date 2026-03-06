@@ -126,7 +126,7 @@ export default function SelectBrandScreen() {
                 )}
               </View>
               <Text style={styles.brandName} numberOfLines={1}>{b.name}</Text>
-              <Text style={styles.brandModels}>{b.models} models</Text>
+              <Text style={styles.brandPrice}>Starts ₹199</Text>
             </Pressable>
           ))}
         </View>
@@ -153,5 +153,5 @@ const styles = StyleSheet.create({
   logoBox: { width: 64, height: 64, borderRadius: 18, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
   logo: { width: 44, height: 44 },
   brandName: { fontSize: 13, fontFamily: 'Inter_700Bold', color: DARK, marginBottom: 2, textAlign: 'center' },
-  brandModels: { fontSize: 11, fontFamily: 'Inter_400Regular', color: GRAY },
+  brandPrice: { fontSize: 11, fontFamily: 'Inter_600SemiBold', color: PRIMARY },
 });

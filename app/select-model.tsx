@@ -266,7 +266,7 @@ export default function SelectModelScreen() {
               </View>
               <View style={styles.seriesInfo}>
                 <Text style={styles.seriesName}>{section.series}</Text>
-                <Text style={styles.seriesYear}>{section.year} · {section.models.length} models</Text>
+                <Text style={styles.seriesPrice}>Repair starts ₹499</Text>
               </View>
               {!search.trim() && (
                 <View style={[styles.chevronWrap, isOpen && styles.chevronWrapOpen]}>
@@ -339,7 +339,7 @@ const styles = StyleSheet.create({
   seriesEmoji: { fontSize: 26 },
   seriesInfo: { flex: 1 },
   seriesName: { fontSize: 15, fontFamily: 'Inter_700Bold', color: DARK, marginBottom: 3 },
-  seriesYear: { fontSize: 12, fontFamily: 'Inter_400Regular', color: GRAY },
+  seriesPrice: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: PRIMARY },
   chevronWrap: { width: 30, height: 30, borderRadius: 15, backgroundColor: '#F2F4F7', alignItems: 'center', justifyContent: 'center' },
   chevronWrapOpen: { backgroundColor: PRIMARY + '15' },
   modelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginHorizontal: 16, marginTop: 2, paddingHorizontal: 14, paddingVertical: 12, backgroundColor: '#FAFBFC', borderRadius: 12, borderLeftWidth: 3, borderLeftColor: PRIMARY + '40' },
