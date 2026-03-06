@@ -28,21 +28,15 @@ const POPULAR_BRANDS = [
 ];
 
 const ALL_BRANDS = [
-  { name: 'Apple',    logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/fa/Apple_logo_black.svg/120px-Apple_logo_black.svg.png',   bg: '#F5F5F7', models: 48 },
-  { name: 'Samsung',  logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/24/Samsung_Logo.svg/320px-Samsung_Logo.svg.png',             bg: '#EAF0FF', models: 76 },
-  { name: 'Xiaomi',   logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/ae/Xiaomi_logo_%282021-%29.svg/320px-Xiaomi_logo_%282021-%29.svg.png', bg: '#FFF0E8', models: 52 },
-  { name: 'Vivo',     logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/86/Vivo_logo_2019.svg/320px-Vivo_logo_2019.svg.png',         bg: '#EAEDFF', models: 44 },
-  { name: 'Oppo',     logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a7/Oppo_logo.svg/320px-Oppo_logo.svg.png',                   bg: '#E8F4FF', models: 38 },
-  { name: 'Realme',   logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/55/Realme_logo.svg/320px-Realme_logo.svg.png',               bg: '#FFF8E8', models: 42 },
-  { name: 'OnePlus',  logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/87/OnePlus_Logo.svg/320px-OnePlus_Logo.svg.png',             bg: '#FFEBEB', models: 28 },
-  { name: 'Motorola', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e2/Motorola_2021_logo.svg/320px-Motorola_2021_logo.svg.png', bg: '#F0F0F0', models: 32 },
-  { name: 'Nokia',    logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/02/Nokia_wordmark.svg/320px-Nokia_wordmark.svg.png',         bg: '#E8EEFF', models: 22 },
-  { name: 'Google',   logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/Google_2015_logo.svg/320px-Google_2015_logo.svg.png',    bg: '#EAF7EE', models: 14 },
-  { name: 'Asus',     logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2e/ASUS_Logo.svg/320px-ASUS_Logo.svg.png',                  bg: '#F3EEFF', models: 18 },
-  { name: 'Poco',     logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/81/POCO_Logo.svg/320px-POCO_Logo.svg.png',                  bg: '#FFF0E8', models: 24 },
-  { name: 'iQOO',     logo: '',                                                                                                                   bg: '#E8F0FF', models: 16 },
-  { name: 'Infinix',  logo: '',                                                                                                                   bg: '#E8FFE8', models: 12 },
-  { name: 'Tecno',    logo: '',                                                                                                                   bg: '#FFE8F0', models: 10 },
+  { name: 'Apple',    logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/fa/Apple_logo_black.svg/120px-Apple_logo_black.svg.png',   bg: '#FFFFFF' },
+  { name: 'Samsung',  logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/24/Samsung_Logo.svg/320px-Samsung_Logo.svg.png',             bg: '#FFFFFF' },
+  { name: 'Xiaomi',   logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/ae/Xiaomi_logo_%282021-%29.svg/320px-Xiaomi_logo_%282021-%29.svg.png', bg: '#FFFFFF' },
+  { name: 'Vivo',     logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/86/Vivo_logo_2019.svg/320px-Vivo_logo_2019.svg.png',         bg: '#FFFFFF' },
+  { name: 'Oppo',     logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a7/Oppo_logo.svg/320px-Oppo_logo.svg.png',                   bg: '#FFFFFF' },
+  { name: 'Realme',   logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/55/Realme_logo.svg/320px-Realme_logo.svg.png',               bg: '#FFFFFF' },
+  { name: 'OnePlus',  logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/87/OnePlus_Logo.svg/320px-OnePlus_Logo.svg.png',             bg: '#FFFFFF' },
+  { name: 'Motorola', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e2/Motorola_2021_logo.svg/320px-Motorola_2021_logo.svg.png', bg: '#FFFFFF' },
+  { name: 'Google',   logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/Google_2015_logo.svg/320px-Google_2015_logo.svg.png',    bg: '#FFFFFF' },
 ];
 
 export default function SelectBrandScreen() {
@@ -149,9 +143,9 @@ const styles = StyleSheet.create({
   popularEmoji: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
   popularChipName: { fontSize: 11, fontFamily: 'Inter_500Medium', color: DARK, textAlign: 'center' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 12, gap: 10 },
-  brandCard: { width: CARD_W, backgroundColor: CARD, borderRadius: 16, padding: 14, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2 },
-  logoBox: { width: 64, height: 64, borderRadius: 18, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
-  logo: { width: 44, height: 44 },
+  brandCard: { width: CARD_W, backgroundColor: CARD, borderRadius: 20, padding: 12, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 3, borderWidth: 1, borderColor: '#F1F5F9' },
+  logoBox: { width: '100%', height: 60, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
+  logo: { width: '70%', height: '70%' },
   brandName: { fontSize: 13, fontFamily: 'Inter_700Bold', color: DARK, marginBottom: 2, textAlign: 'center' },
   brandPrice: { fontSize: 11, fontFamily: 'Inter_600SemiBold', color: PRIMARY },
 });
