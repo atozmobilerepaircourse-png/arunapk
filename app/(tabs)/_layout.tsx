@@ -190,7 +190,7 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="directory"
         options={{
-          title: isCustomer ? "Technicians" : "Directory",
+          title: isCustomer ? "Repair" : "Directory",
           href: '/directory',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
@@ -241,7 +241,7 @@ function ClassicTabLayout() {
         name="marketplace"
         options={{
           title: "Shop",
-          href: isCustomer ? null : (!isTeacherOrSupplier ? '/marketplace' : null),
+          href: isCustomer ? '/marketplace' : (!isTeacherOrSupplier ? '/marketplace' : null),
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? "bag" : "bag-outline"} size={22} color={color} />
           ),
