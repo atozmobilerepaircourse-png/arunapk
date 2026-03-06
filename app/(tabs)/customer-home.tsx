@@ -26,10 +26,10 @@ const TEAL      = '#0D9488';
 // ─────────────────────────────────────────────────────────────────────────────
 
 const QUICK_ACTIONS = [
-  { icon: 'radio-outline', label: 'Quick\nScan',    color: PRIMARY, bg: '#EFF6FF', route: '/diagnose'     },
+  { icon: 'scan-outline',  label: 'Quick\nScan',    color: PRIMARY, bg: '#EFF6FF', route: '/diagnose'     },
   { icon: 'construct',     label: 'Book\nRepair',   color: INDIGO,  bg: '#EEF2FF', route: '/select-brand' },
-  { icon: 'star',          label: 'SOS\nRepair',    color: RED,     bg: '#FFF5F5', route: '/select-brand', sos: true },
-  { icon: 'headset',       label: 'Buy\nAccessories', color: TEAL,    bg: '#F0FDFA', route: '/select-brand' },
+  { icon: 'flash',         label: 'SOS\nRepair',    color: RED,     bg: '#FFF5F5', route: '/select-brand', sos: true },
+  { icon: 'cart',          label: 'Buy\nAccessories', color: TEAL,    bg: '#F0FDFA', route: '/select-brand' },
 ];
 
 const DIAGNOSTIC_ITEMS = [

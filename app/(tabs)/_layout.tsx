@@ -26,11 +26,11 @@ function NativeTabLayout() {
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="directory">
           <Icon sf={{ default: "wrench.and.screwdriver", selected: "wrench.and.screwdriver.fill" }} />
-          <Label>Technicians</Label>
+          <Label>Repair</Label>
         </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="orders">
-          <Icon sf={{ default: "list.clipboard", selected: "list.clipboard.fill" }} />
-          <Label>Orders</Label>
+        <NativeTabs.Trigger name="marketplace">
+          <Icon sf={{ default: "bag", selected: "bag.fill" }} />
+          <Label>Shop</Label>
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="profile">
           <Icon sf={{ default: "person", selected: "person.fill" }} />
