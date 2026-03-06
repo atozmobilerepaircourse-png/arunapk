@@ -9,7 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { useApp } from '@/lib/context';
-import { apiRequest, getApiUrl } from '@/lib/query-client';
+import { apiRequest } from '@/lib/query-client';
 
 const { width: SW } = Dimensions.get('window');
 
@@ -25,10 +25,11 @@ const INDIGO    = '#4F46E5';
 const TEAL      = '#0D9488';
 const NAVY_DARK = '#1E293B';
 
-// Asset Constants (Adjust paths based on actual extracted folder structure)
-const ASSETS_PATH = '/public/customer_assets'; 
-const DEVICE_IMG = `${ASSETS_PATH}/iphone_hero.png`;
-const BANNER_IMG = `${ASSETS_PATH}/shield_banner.png`;
+// Asset Constants (Adjusted for zip structure)
+const ASSETS_BASE = '/public/customer_assets/ccccccc'; 
+const DEVICE_IMG = `${ASSETS_BASE}/device_hero.png`;
+const BANNER_IMG = `${ASSETS_BASE}/shield_banner.png`;
+const CHIP_ICON = `${ASSETS_BASE}/chip.png`;
 
 const QUICK_ACTIONS = [
   { id: 'repair', label: 'Repair', icon: 'construct-outline', color: '#4F46E5', bg: '#EEF2FF', route: '/select-brand' },
@@ -44,20 +45,22 @@ export default function CustomerHomeScreen() {
   const { profile } = useApp();
   const [onlineTechs, setOnlineTechs] = useState<any[]>([]);
   const pulse = useRef(new Animated.Value(1)).current;
+  const slideAnim = useRef(new Animated.Value(50)).current;
 
   const topInset  = Platform.OS === 'web' ? 67 : insets.top;
   const bottomPad = Platform.OS === 'web' ? 84 + 34 : 104;
   const firstName = profile?.name?.split(' ')[0] || 'there';
 
   useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulse, { toValue: 1.1, duration: 1000, useNativeDriver: true }),
-        Animated.timing(pulse, { toValue: 1.0, duration: 1000, useNativeDriver: true }),
-      ])
-    );
-    loop.start();
-    return () => loop.stop();
+    Animated.parallel([
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulse, { toValue: 1.1, duration: 1000, useNativeDriver: true }),
+          Animated.timing(pulse, { toValue: 1.0, duration: 1000, useNativeDriver: true }),
+        ])
+      ),
+      Animated.spring(slideAnim, { toValue: 0, tension: 50, friction: 7, useNativeDriver: true })
+    ]).start();
   }, []);
 
   const fetchData = useCallback(async () => {
@@ -94,7 +97,7 @@ export default function CustomerHomeScreen() {
             </Pressable>
             <Pressable onPress={() => router.push('/(tabs)/profile' as any)}>
               <Image 
-                source={{ uri: profile?.avatar || "https://lh3.googleusercontent.com/aida-public/AB6AXuCMpOKrRB5AaApxTvKi1T3Au_7jDAsGIjstWXNrQNsc47quhFR2byJ1I9oHc2NnFk2h_h5E20_3woQFxPrjuXjKjTMZ7EK54XEOs01CN7WJHJB84dxcVsWqBWRo7_inTrPvoQyBXL7TQtzWX7xv0dFkHmJ6QJnq5IUw-DGC87wNOM766bK1LpGnr5nksnotGNgWVZUYjfgmM68JXaB2G832mR58eOwvJZiQD5Je4y7ZLfiie8IaCS1a51JhpKbRMddZw5P2D8R1YUA" }} 
+                source={{ uri: profile?.avatar || "https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100&h=100&fit=crop" }} 
                 style={styles.avatar} 
                 contentFit="cover" 
               />
@@ -103,7 +106,7 @@ export default function CustomerHomeScreen() {
         </View>
 
         {/* ── Premium Dark Hero Card ────────────────────────────── */}
-        <View style={styles.heroCard}>
+        <Animated.View style={[styles.heroCard, { transform: [{ translateY: slideAnim }] }]}>
           <View style={styles.heroGlow} />
           <View style={styles.heroTop}>
             <View style={{ flex: 1 }}>
@@ -122,19 +125,30 @@ export default function CustomerHomeScreen() {
             </View>
           </View>
           
-          {/* Optional: Add device image if exists */}
-          <Image 
-            source={{ uri: DEVICE_IMG }} 
-            style={styles.heroImage} 
-            contentFit="contain"
-          />
+          <View style={styles.heroVisuals}>
+            <Image 
+              source={{ uri: DEVICE_IMG }} 
+              style={styles.heroDeviceImg} 
+              contentFit="contain"
+            />
+            <View style={styles.techStats}>
+              <View style={styles.statItem}>
+                <Ionicons name="battery-charging" size={14} color={GREEN} />
+                <Text style={styles.statText}>98%</Text>
+              </View>
+              <View style={styles.statItem}>
+                <Ionicons name="cellular" size={14} color={GREEN} />
+                <Text style={styles.statText}>5G</Text>
+              </View>
+            </View>
+          </View>
 
           <View style={styles.heroDivider} />
           <View style={styles.heroFooter}>
             <Ionicons name="shield-checkmark" size={16} color={GREEN} />
             <Text style={styles.heroFooterText}>Protected by Mobix Shield</Text>
           </View>
-        </View>
+        </Animated.View>
 
         {/* ── Quick Actions ───────────────────────────────────────── */}
         <View style={styles.quickGrid}>
@@ -150,22 +164,22 @@ export default function CustomerHomeScreen() {
 
         {/* ── Mobix Shield Banner ─────────────────────────────────── */}
         <Pressable style={styles.banner} onPress={() => press('/insurance')}>
+          <Image source={{ uri: BANNER_IMG }} style={StyleSheet.absoluteFill} contentFit="cover" />
+          <View style={styles.bannerOverlay} />
           <View style={styles.bannerContent}>
             <Text style={styles.bannerOverline}>MOBIX SHIELD</Text>
-            <Text style={styles.bannerTitle}>Protection Plan</Text>
-            <Text style={styles.bannerDesc}>Covers screen & liquid damage</Text>
+            <Text style={styles.bannerTitle}>Total Device Protection</Text>
+            <Text style={styles.bannerDesc}>Covers screen, liquid & accidental damage</Text>
             <View style={styles.bannerBtn}>
               <Text style={styles.bannerBtnText}>View Plans</Text>
+              <Ionicons name="arrow-forward" size={14} color={PRIMARY} />
             </View>
-          </View>
-          <View style={styles.bannerImageWrap}>
-             <Ionicons name="shield-half" size={80} color="rgba(0,230,118,0.2)" />
           </View>
         </Pressable>
 
         {/* ── Nearby Technicians ──────────────────────────────────── */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Book Technician</Text>
+          <Text style={styles.sectionTitle}>Certified Technicians</Text>
           <Pressable onPress={() => router.push('/(tabs)/directory' as any)}>
             <Text style={styles.seeAll}>See All</Text>
           </Pressable>
@@ -183,7 +197,7 @@ export default function CustomerHomeScreen() {
             </Pressable>
           )) : (
             <View style={styles.techEmpty}>
-              <Text style={styles.techEmptyText}>Finding technicians...</Text>
+              <Text style={styles.techEmptyText}>Finding expert technicians...</Text>
             </View>
           )}
         </ScrollView>
@@ -192,7 +206,7 @@ export default function CustomerHomeScreen() {
         <View style={styles.earnRow}>
           <Pressable style={styles.earnCard} onPress={() => press('/referral')}>
             <View style={[styles.earnIcon, { backgroundColor: '#FFFBEB' }]}>
-              <Ionicons name="gift-outline" size={20} color="#F59E0B" />
+              <Ionicons name="gift" size={20} color="#F59E0B" />
             </View>
             <View>
               <Text style={styles.earnTitle}>Refer & Earn</Text>
@@ -201,7 +215,7 @@ export default function CustomerHomeScreen() {
           </Pressable>
           <Pressable style={styles.earnCard} onPress={() => press('/wallet')}>
             <View style={[styles.earnIcon, { backgroundColor: '#EFF6FF' }]}>
-              <Ionicons name="wallet-outline" size={20} color="#3B82F6" />
+              <Ionicons name="wallet" size={20} color="#3B82F6" />
             </View>
             <View>
               <Text style={styles.earnTitle}>Mobi Wallet</Text>
@@ -232,12 +246,16 @@ const styles = StyleSheet.create({
   heroCard: { backgroundColor: '#1E293B', borderRadius: 32, padding: 24, marginBottom: 24, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.2, shadowRadius: 24, elevation: 12 },
   heroGlow: { position: 'absolute', right: -40, top: -40, width: 150, height: 150, borderRadius: 75, backgroundColor: 'rgba(0,230,118,0.1)' },
   heroTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  badge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.1)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, marginBottom: 12 },
+  badge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.1)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, marginBottom: 12, alignSelf: 'flex-start' },
   pulseDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: GREEN },
   badgeText: { fontSize: 10, fontFamily: 'Inter_700Bold', color: '#CBD5E1', letterSpacing: 1 },
   heroDevice: { fontSize: 26, fontFamily: 'Inter_700Bold', color: '#FFF', marginBottom: 4 },
   heroStatus: { fontSize: 14, fontFamily: 'Inter_400Regular', color: '#94A3B8' },
-  heroImage: { width: '100%', height: 120, marginTop: 10 },
+  heroVisuals: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 20 },
+  heroDeviceImg: { width: 120, height: 120 },
+  techStats: { gap: 10 },
+  statItem: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.05)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12 },
+  statText: { color: '#FFF', fontSize: 12, fontFamily: 'Inter_600SemiBold' },
   scoreBox: { alignItems: 'center', gap: 6 },
   scoreCircle: { width: 72, height: 72, borderRadius: 36, borderWidth: 5, borderColor: GREEN, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,230,118,0.1)' },
   scoreNum: { fontSize: 24, fontFamily: 'Inter_700Bold', color: GREEN },
@@ -253,23 +271,23 @@ const styles = StyleSheet.create({
   quickLabel: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: PRIMARY },
 
   // Banner
-  banner: { backgroundColor: '#1E293B', borderRadius: 32, padding: 24, marginBottom: 24, flexDirection: 'row', overflow: 'hidden', position: 'relative' },
-  bannerContent: { flex: 1, zIndex: 1 },
+  banner: { backgroundColor: '#1E293B', borderRadius: 32, padding: 24, marginBottom: 24, overflow: 'hidden', position: 'relative', minHeight: 160, justifyContent: 'center' },
+  bannerOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(30, 41, 59, 0.7)' },
+  bannerContent: { zIndex: 1 },
   bannerOverline: { fontSize: 11, fontFamily: 'Inter_800ExtraBold', color: GREEN, letterSpacing: 1.5, marginBottom: 6 },
-  bannerTitle: { fontSize: 20, fontFamily: 'Inter_700Bold', color: '#FFF', marginBottom: 6 },
-  bannerDesc: { fontSize: 14, fontFamily: 'Inter_400Regular', color: '#94A3B8', marginBottom: 16 },
-  bannerBtn: { backgroundColor: '#FFF', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 24, alignSelf: 'flex-start' },
+  bannerTitle: { fontSize: 22, fontFamily: 'Inter_700Bold', color: '#FFF', marginBottom: 6 },
+  bannerDesc: { fontSize: 14, fontFamily: 'Inter_400Regular', color: '#CBD5E1', marginBottom: 16, maxWidth: '80%' },
+  bannerBtn: { backgroundColor: '#FFF', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 24, alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6 },
   bannerBtnText: { fontSize: 13, fontFamily: 'Inter_700Bold', color: PRIMARY },
-  bannerImageWrap: { position: 'absolute', right: -10, bottom: -10 },
 
   // Technicians
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
   sectionTitle: { fontSize: 18, fontFamily: 'Inter_700Bold', color: PRIMARY },
   seeAll: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: GRAY },
   techScroll: { gap: 16, paddingRight: 20, marginBottom: 24 },
-  techCard: { width: 100, backgroundColor: CARD, borderRadius: 24, padding: 16, alignItems: 'center', position: 'relative', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
-  techAvatar: { width: 60, height: 60, borderRadius: 30, marginBottom: 8 },
-  techOnline: { position: 'absolute', top: 55, right: 30, width: 12, height: 12, borderRadius: 6, backgroundColor: GREEN, borderWidth: 2, borderColor: CARD },
+  techCard: { width: 110, backgroundColor: CARD, borderRadius: 24, padding: 16, alignItems: 'center', position: 'relative', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
+  techAvatar: { width: 64, height: 64, borderRadius: 32, marginBottom: 8 },
+  techOnline: { position: 'absolute', top: 60, right: 30, width: 14, height: 14, borderRadius: 7, backgroundColor: GREEN, borderWidth: 3, borderColor: CARD },
   techName: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: PRIMARY },
   techRating: { flexDirection: 'row', alignItems: 'center', gap: 2, marginTop: 4 },
   techRatingText: { fontSize: 11, fontFamily: 'Inter_600SemiBold', color: '#F59E0B' },
