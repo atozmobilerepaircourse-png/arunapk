@@ -5537,7 +5537,7 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
 
   app.post("/api/teacher/go-live", async (req, res) => {
     try {
-      const { teacherId, teacherName, teacherAvatar, title, description, platform, link } = req.body;
+      const { teacherId, teacherName, teacherAvatar, title, description, platform, link, thumbnailUrl } = req.body;
       if (!teacherId || !title || !link) {
         return res.status(400).json({ success: false, message: "teacherId, title, and link are required" });
       }
@@ -5563,6 +5563,7 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
         description: description || "",
         platform: platform || "other",
         link,
+        thumbnailUrl: thumbnailUrl || "",
         isLive: true,
         startedAt: Date.now(),
         viewerCount: 0,

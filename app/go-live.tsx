@@ -18,6 +18,7 @@ interface LiveSession {
   title: string;
   platform: string;
   link: string;
+  thumbnailUrl?: string;
   startedAt: number;
 }
 
@@ -37,10 +38,12 @@ export default function GoLiveScreen() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [link, setLink] = useState('');
+  const [thumbnailUri, setThumbnailUri] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [activeSession, setActiveSession] = useState<LiveSession | null>(null);
   const [loadingSession, setLoadingSession] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
+  const [isPickingThumbnail, setIsPickingThumbnail] = useState(false);
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
 
@@ -116,6 +119,49 @@ export default function GoLiveScreen() {
     }
   };
 
+  const handlePickThumbnail = async () => {
+    setIsPickingThumbnail(true);
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        quality: 0.8,
+      });
+      if (!result.canceled && result.assets?.[0]) {
+        setThumbnailUri(result.assets[0].uri);
+      }
+    } catch (e) {
+      Alert.alert('Error', 'Failed to pick image');
+    } finally {
+      setIsPickingThumbnail(false);
+    }
+  };
+
+  const uploadThumbnail = async (): Promise<string | null> => {
+    if (!thumbnailUri) return null;
+    try {
+      const formData = new FormData();
+      if (Platform.OS === 'web') {
+        const response = await globalThis.fetch(thumbnailUri);
+        const blob = await response.blob();
+        formData.append('image', blob, 'thumbnail.jpg');
+      } else {
+        const name = thumbnailUri.split('/').pop() || 'thumbnail.jpg';
+        formData.append('image', { uri: thumbnailUri, name, type: 'image/jpeg' } as any);
+      }
+      const baseUrl = getApiUrl();
+      const uploadUrl = new URL('/api/teacher/live-session/upload-thumbnail', baseUrl).toString();
+      const res = await globalThis.fetch(uploadUrl, {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await res.json();
+      return data.success ? data.url : null;
+    } catch (e) {
+      console.error('[GoLive] Thumbnail upload error:', e);
+      return null;
+    }
+  };
+
   const handleGoLive = async () => {
     if (!title.trim()) {
       Alert.alert('Missing Title', 'Please enter a session title.');
@@ -132,6 +178,10 @@ export default function GoLiveScreen() {
     }
     setSubmitting(true);
     try {
+      let thumbnailUrl = '';
+      if (thumbnailUri) {
+        thumbnailUrl = await uploadThumbnail() || '';
+      }
       const res = await apiRequest('POST', '/api/teacher/go-live', {
         teacherId: profile?.id,
         teacherName: profile?.name,
@@ -140,6 +190,7 @@ export default function GoLiveScreen() {
         description: description.trim(),
         platform,
         link: link.trim(),
+        thumbnailUrl,
       });
       const data = await res.json();
       if (data.success) {
@@ -147,6 +198,7 @@ export default function GoLiveScreen() {
         setTitle('');
         setDescription('');
         setLink('');
+        setThumbnailUri(null);
         Alert.alert('You are LIVE!', 'All users have been notified. Tap "Open Link" to join your stream.');
       } else {
         Alert.alert('Error', data.message || 'Failed to go live');
@@ -326,6 +378,25 @@ export default function GoLiveScreen() {
               keyboardType="url"
             />
 
+            <Text style={styles.sectionLabel}>Thumbnail Image (Optional)</Text>
+            <Pressable
+              style={[styles.thumbnailPickerBtn, thumbnailUri && styles.thumbnailPickerBtnActive]}
+              onPress={handlePickThumbnail}
+              disabled={isPickingThumbnail}
+            >
+              {thumbnailUri ? (
+                <>
+                  <Ionicons name="checkmark-circle" size={20} color="#34C759" />
+                  <Text style={styles.thumbnailPickerBtnText}>Image selected</Text>
+                </>
+              ) : (
+                <>
+                  <Ionicons name="image-outline" size={20} color={GRAY} />
+                  <Text style={styles.thumbnailPickerBtnText}>Choose thumbnail image</Text>
+                </>
+              )}
+            </Pressable>
+
             <Pressable
               style={[styles.goLiveBtn, submitting && { opacity: 0.6 }]}
               onPress={handleGoLive}
@@ -367,6 +438,9 @@ const styles = StyleSheet.create({
   platformLabel: { fontSize: 13, fontWeight: '600' as const, color: '#999' },
   input: { backgroundColor: '#F8F8F8', borderRadius: 14, borderWidth: 1.5, borderColor: '#E8E8E8', paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: '#000', marginBottom: 18 },
   textArea: { height: 88, textAlignVertical: 'top' },
+  thumbnailPickerBtn: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#F8F8F8', borderRadius: 14, borderWidth: 1.5, borderColor: '#E8E8E8', paddingHorizontal: 14, paddingVertical: 14, marginBottom: 18 },
+  thumbnailPickerBtnActive: { borderColor: '#34C759', backgroundColor: '#F0FFF4' },
+  thumbnailPickerBtnText: { fontSize: 15, color: GRAY },
   goLiveBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: RED, borderRadius: 18, paddingVertical: 18, marginTop: 8 },
   goLiveDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#FFF' },
   goLiveBtnText: { fontSize: 17, fontWeight: '800' as const, color: '#FFF' },
