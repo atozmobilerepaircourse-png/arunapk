@@ -240,6 +240,7 @@ export default function CustomerHomeScreen() {
 
 // ── Tech Card ───────────────────────────────────────────────────────────────
 function TechCard({ tech }: { tech: any }) {
+  const { profile, startConversation } = useApp();
   const distNum  = typeof tech.distance === 'number' ? tech.distance : null;
   const distStr  = distNum != null ? `${distNum.toFixed(1)} km` : null;
   const eta      = distNum != null ? etaFromDist(distNum) : `${15 + Math.floor(seededRandom(tech.id + 'eta') * 20)} mins`;
@@ -247,9 +248,16 @@ function TechCard({ tech }: { tech: any }) {
   const reviews  = techReviews(tech.id ?? '0');
   const isVerified = tech.blocked !== 1;
 
-  const handleBook = () => {
+  const handleChat = async () => {
     if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    router.push('/select-brand' as any);
+    if (tech.id && tech.id !== profile?.id) {
+      try {
+        const convoId = await startConversation(tech.id, tech.name, 'technician');
+        if (convoId) router.push({ pathname: '/chat/[id]', params: { id: convoId } });
+      } catch (e) {
+        console.error('Failed to start conversation:', e);
+      }
+    }
   };
 
   return (
@@ -307,8 +315,8 @@ function TechCard({ tech }: { tech: any }) {
           <Ionicons name="time-outline" size={12} color={GREEN} />
           <Text style={styles.etaTxt}>{eta}</Text>
         </View>
-        <Pressable style={styles.bookBtn} onPress={handleBook}>
-          <Text style={styles.bookBtnTxt}>Book</Text>
+        <Pressable style={styles.chatBtn} onPress={handleChat}>
+          <Ionicons name="chatbubble-outline" size={16} color="#FFF" />
         </Pressable>
       </View>
     </View>
@@ -414,11 +422,12 @@ const styles = StyleSheet.create({
   etaRow:       { flexDirection: 'row', alignItems: 'center', gap: 3 },
   etaTxt:       { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: GREEN },
 
-  bookBtn: {
+  chatBtn: {
     backgroundColor: PRIMARY,
-    paddingHorizontal: 18,
-    paddingVertical: 9,
-    borderRadius: 22,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  bookBtnTxt: { fontSize: 13, fontFamily: 'Inter_700Bold', color: '#FFF' },
 });
