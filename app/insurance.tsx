@@ -9,6 +9,7 @@ import { router } from 'expo-router';
 import { useApp } from '@/lib/context';
 import { apiRequest, getApiUrl } from '@/lib/query-client';
 import { PRICES, formatPrice } from '@/lib/pricing';
+import { useInsuranceSettings } from '@/lib/use-insurance-settings';
 
 const PRIMARY   = '#E8704A';
 const PRIMARY_L = '#FFF1EC';
@@ -48,6 +49,7 @@ const BENEFITS = [
 export default function InsuranceScreen() {
   const insets = useSafeAreaInsets();
   const { profile } = useApp();
+  const { settings: insuranceSettings } = useInsuranceSettings();
   const [subActive, setSubActive] = useState(false);
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(true);
@@ -74,10 +76,11 @@ export default function InsuranceScreen() {
     if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setLoading(true);
     try {
+      const planPrice = insuranceSettings.protectionPlanPrice;
       const res = await apiRequest('POST', '/api/customer/subscription/create-order', {
         userId: profile.id,
         planId: 'premium',
-        amount: PRICES.toRazorpay(PRICES.PROTECTION_PLAN_MONTHLY),
+        amount: planPrice * 100,
       });
       const data = await res.json();
       if (!data.success) {
@@ -91,7 +94,7 @@ export default function InsuranceScreen() {
       url.searchParams.set('amount', String(amount));
       url.searchParams.set('keyId', keyId);
       url.searchParams.set('role', 'customer');
-      url.searchParams.set('displayAmount', '50');
+      url.searchParams.set('displayAmount', String(planPrice));
       url.searchParams.set('userId', profile.id);
       url.searchParams.set('userName', profile.name || '');
       url.searchParams.set('userPhone', profile.phone || '');
@@ -159,10 +162,10 @@ export default function InsuranceScreen() {
             </View>
           ) : (
             <View style={styles.priceRow}>
-              <Text style={styles.price}>{formatPrice(PRICES.PROTECTION_PLAN_MONTHLY)}</Text>
+              <Text style={styles.price}>₹{insuranceSettings.protectionPlanPrice}</Text>
               <Text style={styles.pricePer}>/month</Text>
               <View style={styles.discountBadge}>
-                <Text style={styles.discountText}>Save ₹{PRICES.PROTECTION_PLAN_DISCOUNT} on repairs</Text>
+                <Text style={styles.discountText}>Save ₹{insuranceSettings.repairDiscount} on repairs</Text>
               </View>
             </View>
           )}

@@ -8,10 +8,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { PRICES } from '@/lib/pricing';
 import * as Location from 'expo-location';
 import { useApp } from '@/lib/context';
 import { apiRequest } from '@/lib/query-client';
+import { useInsuranceSettings } from '@/lib/use-insurance-settings';
 
 const { width: SW } = Dimensions.get('window');
 
@@ -79,6 +79,7 @@ function techReviews(id: string) {
 export default function CustomerHomeScreen() {
   const insets = useSafeAreaInsets();
   const { profile } = useApp();
+  const { settings: insuranceSettings } = useInsuranceSettings();
   const [techs, setTechs]     = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [userLat, setUserLat] = useState<number | null>(null);
@@ -182,22 +183,24 @@ export default function CustomerHomeScreen() {
         />
       </View>
 
-      {/* ── Promo Banner (Dynamic Ads) ────────────────────────────────────── */}
-      <Pressable style={styles.banner} onPress={() => go('/insurance')}>
-        <View style={styles.bannerContent}>
-          <View style={styles.bannerBadge}>
-            <Text style={styles.bannerBadgeTxt}>Limited Offer</Text>
+      {/* ── Promo Banner ────────────────────────────────────────────────── */}
+      {insuranceSettings.status === 'active' && (
+        <Pressable style={styles.banner} onPress={() => go('/insurance')}>
+          <View style={styles.bannerContent}>
+            <View style={styles.bannerBadge}>
+              <Text style={styles.bannerBadgeTxt}>Limited Offer</Text>
+            </View>
+            <Text style={styles.bannerTitle}>{insuranceSettings.planName}</Text>
+            <Text style={styles.bannerDesc}>Just ₹{insuranceSettings.protectionPlanPrice}/month + ₹{insuranceSettings.repairDiscount} off on repairs</Text>
+            <View style={styles.bannerBtn}>
+              <Text style={styles.bannerBtnTxt}>Subscribe Now</Text>
+            </View>
           </View>
-          <Text style={styles.bannerTitle}>Mobile Protection Plan</Text>
-          <Text style={styles.bannerDesc}>Just ₹{PRICES.PROTECTION_PLAN_MONTHLY}/month + ₹{PRICES.PROTECTION_PLAN_DISCOUNT} off on repairs</Text>
-          <View style={styles.bannerBtn}>
-            <Text style={styles.bannerBtnTxt}>Subscribe Now</Text>
+          <View style={styles.bannerShield}>
+            <Ionicons name="shield-outline" size={72} color="rgba(255,255,255,0.35)" />
           </View>
-        </View>
-        <View style={styles.bannerShield}>
-          <Ionicons name="shield-outline" size={72} color="rgba(255,255,255,0.35)" />
-        </View>
-      </Pressable>
+        </Pressable>
+      )}
 
       {/* ── Quick Services ────────────────────────────────────────────────── */}
       <View style={styles.sectionRow}>

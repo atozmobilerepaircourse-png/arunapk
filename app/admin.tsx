@@ -14,7 +14,7 @@ import { openLink } from '@/lib/open-link';
 
 const C = Colors.light;
 
-type AdminTab = 'dashboard' | 'users' | 'posts' | 'jobs' | 'bookings' | 'subscriptions' | 'revenue' | 'links' | 'device' | 'notifications' | 'payouts' | 'email' | 'security';
+type AdminTab = 'dashboard' | 'users' | 'posts' | 'jobs' | 'bookings' | 'subscriptions' | 'revenue' | 'links' | 'device' | 'notifications' | 'payouts' | 'email' | 'security' | 'insurance';
 
 const ROLE_COLORS: Record<UserRole | 'admin', string> = {
   technician: '#34C759',
@@ -358,6 +358,15 @@ export default function AdminScreen() {
   const [supportSaving, setSupportSaving] = useState(false);
   const [unlockingUserId, setUnlockingUserId] = useState<string | null>(null);
 
+  // Insurance settings state
+  const [insurancePlanName, setInsurancePlanName] = useState('Mobile Protection Plan');
+  const [insurancePlanPrice, setInsurancePlanPrice] = useState('50');
+  const [insuranceDiscount, setInsuranceDiscount] = useState('500');
+  const [insuranceStatus, setInsuranceStatus] = useState<'active' | 'disabled'>('active');
+  const [insuranceLoading, setInsuranceLoading] = useState(false);
+  const [insuranceSaving, setInsuranceSaving] = useState(false);
+  const [insuranceSaved, setInsuranceSaved] = useState(false);
+
   const [repairBookings, setRepairBookings] = useState<any[]>([]);
   const [repairLoading, setRepairLoading] = useState(false);
   const [repairFilter, setRepairFilter] = useState<'all' | 'pending' | 'assigned' | 'completed' | 'cancelled'>('all');
@@ -406,6 +415,47 @@ export default function AdminScreen() {
   useEffect(() => {
     if (activeTab === 'bookings') fetchRepairBookings();
   }, [activeTab, fetchRepairBookings]);
+
+  const fetchInsuranceSettings = useCallback(async () => {
+    setInsuranceLoading(true);
+    try {
+      const res = await apiRequest('GET', '/api/settings/insurance');
+      const data = await res.json();
+      if (data.success && data.settings) {
+        setInsurancePlanName(data.settings.planName);
+        setInsurancePlanPrice(String(data.settings.protectionPlanPrice));
+        setInsuranceDiscount(String(data.settings.repairDiscount));
+        setInsuranceStatus(data.settings.status);
+      }
+    } catch { }
+    finally { setInsuranceLoading(false); }
+  }, []);
+
+  const saveInsuranceSettings = useCallback(async () => {
+    setInsuranceSaving(true);
+    try {
+      const res = await apiRequest('PUT', '/api/admin/settings/insurance', {
+        planName: insurancePlanName,
+        protectionPlanPrice: parseInt(insurancePlanPrice, 10),
+        repairDiscount: parseInt(insuranceDiscount, 10),
+        status: insuranceStatus,
+      });
+      const data = await res.json();
+      if (data.success) {
+        setInsuranceSaved(true);
+        setTimeout(() => setInsuranceSaved(false), 2500);
+        if (Platform.OS !== 'web') Alert.alert('Saved', 'Insurance settings updated successfully.');
+      }
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Failed to save settings');
+    } finally {
+      setInsuranceSaving(false);
+    }
+  }, [insurancePlanName, insurancePlanPrice, insuranceDiscount, insuranceStatus]);
+
+  useEffect(() => {
+    if (activeTab === 'insurance') fetchInsuranceSettings();
+  }, [activeTab, fetchInsuranceSettings]);
 
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
@@ -730,6 +780,7 @@ export default function AdminScreen() {
     { key: 'users', label: 'Users', icon: 'people' },
     { key: 'bookings', label: 'Bookings', icon: 'calendar' },
     { key: 'subscriptions', label: 'Subs', icon: 'card' },
+    { key: 'insurance', label: 'Insurance', icon: 'shield-checkmark' },
     { key: 'revenue', label: 'Revenue', icon: 'trending-up' },
     { key: 'posts', label: 'Posts', icon: 'newspaper' },
     { key: 'jobs', label: 'Jobs', icon: 'briefcase' },
@@ -739,6 +790,136 @@ export default function AdminScreen() {
     { key: 'email', label: 'Email', icon: 'mail' },
     { key: 'security', label: 'Security', icon: 'shield' },
   ];
+
+  const renderInsurance = () => {
+    const ORANGE = '#E8704A';
+    const CARD_BG = '#FFF';
+    const inputStyle = {
+      borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 10,
+      paddingHorizontal: 12, paddingVertical: 10, fontSize: 15,
+      color: '#1A1A1A', backgroundColor: CARD_BG, marginTop: 6,
+    };
+    const labelStyle = { fontSize: 13, fontWeight: '600' as const, color: '#555', marginTop: 12 };
+    const sectionStyle = {
+      backgroundColor: CARD_BG, borderRadius: 14, padding: 16, marginBottom: 16,
+      shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 6, elevation: 2,
+    };
+    return (
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 80 }} showsVerticalScrollIndicator={false}>
+        <Text style={{ fontSize: 20, fontWeight: '700', color: '#1A1A1A', marginBottom: 6 }}>Insurance Settings</Text>
+        <Text style={{ fontSize: 14, color: '#888', marginBottom: 16 }}>Changes here instantly affect prices across the app and in Razorpay checkout.</Text>
+
+        {insuranceLoading ? (
+          <ActivityIndicator size="large" color={ORANGE} style={{ marginTop: 40 }} />
+        ) : (
+          <>
+            {/* Plan Info */}
+            <View style={sectionStyle}>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: '#1A1A1A', marginBottom: 4 }}>Plan Details</Text>
+              <Text style={labelStyle}>Plan Name</Text>
+              <TextInput
+                style={inputStyle}
+                value={insurancePlanName}
+                onChangeText={setInsurancePlanName}
+                placeholder="Mobile Protection Plan"
+              />
+              <Text style={labelStyle}>Monthly Price (₹)</Text>
+              <TextInput
+                style={inputStyle}
+                value={insurancePlanPrice}
+                onChangeText={setInsurancePlanPrice}
+                keyboardType="numeric"
+                placeholder="50"
+              />
+              <Text style={{ fontSize: 12, color: '#999', marginTop: 4 }}>Razorpay will charge ₹{insurancePlanPrice || '0'} (this value × 100 paise)</Text>
+              <Text style={labelStyle}>Repair Discount (₹)</Text>
+              <TextInput
+                style={inputStyle}
+                value={insuranceDiscount}
+                onChangeText={setInsuranceDiscount}
+                keyboardType="numeric"
+                placeholder="500"
+              />
+            </View>
+
+            {/* Plan Status */}
+            <View style={sectionStyle}>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: '#1A1A1A', marginBottom: 12 }}>Plan Status</Text>
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                {(['active', 'disabled'] as const).map(s => (
+                  <Pressable
+                    key={s}
+                    onPress={() => setInsuranceStatus(s)}
+                    style={{
+                      flex: 1, paddingVertical: 12, borderRadius: 10, alignItems: 'center',
+                      backgroundColor: insuranceStatus === s ? (s === 'active' ? '#34C75920' : '#FF3B3020') : '#F5F5F5',
+                      borderWidth: 2,
+                      borderColor: insuranceStatus === s ? (s === 'active' ? '#34C759' : '#FF3B30') : 'transparent',
+                    }}
+                  >
+                    <Ionicons
+                      name={s === 'active' ? 'checkmark-circle' : 'close-circle'}
+                      size={20}
+                      color={s === 'active' ? '#34C759' : '#FF3B30'}
+                    />
+                    <Text style={{ marginTop: 4, fontWeight: '600', fontSize: 13, color: s === 'active' ? '#34C759' : '#FF3B30', textTransform: 'capitalize' }}>
+                      {s === 'active' ? 'Active' : 'Disabled'}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+              {insuranceStatus === 'disabled' && (
+                <View style={{ backgroundColor: '#FFF3CD', borderRadius: 8, padding: 10, marginTop: 10 }}>
+                  <Text style={{ fontSize: 13, color: '#856404' }}>
+                    ⚠️ Disabling the plan will hide the protection plan banner and page from customers.
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {/* Preview */}
+            <View style={[sectionStyle, { backgroundColor: ORANGE + '10', borderWidth: 1, borderColor: ORANGE + '40' }]}>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: ORANGE, marginBottom: 8 }}>Live Preview</Text>
+              <Text style={{ fontSize: 13, color: '#555' }}>Banner text:</Text>
+              <Text style={{ fontSize: 14, fontWeight: '600', color: '#1A1A1A', marginTop: 2 }}>
+                "{insurancePlanName} — Just ₹{insurancePlanPrice}/month + ₹{insuranceDiscount} off on repairs"
+              </Text>
+              <Text style={{ fontSize: 13, color: '#555', marginTop: 8 }}>Button text:</Text>
+              <Text style={{ fontSize: 14, fontWeight: '600', color: '#1A1A1A', marginTop: 2 }}>
+                "Activate Plan — ₹{insurancePlanPrice}/mo"
+              </Text>
+              <Text style={{ fontSize: 13, color: '#555', marginTop: 8 }}>Razorpay amount:</Text>
+              <Text style={{ fontSize: 14, fontWeight: '600', color: '#1A1A1A', marginTop: 2 }}>
+                {(parseInt(insurancePlanPrice || '0', 10) * 100).toLocaleString()} paise = ₹{insurancePlanPrice}
+              </Text>
+            </View>
+
+            {/* Save */}
+            <Pressable
+              onPress={saveInsuranceSettings}
+              disabled={insuranceSaving}
+              style={{
+                backgroundColor: insuranceSaved ? '#34C759' : ORANGE,
+                borderRadius: 12, paddingVertical: 14, alignItems: 'center',
+                flexDirection: 'row', justifyContent: 'center', gap: 8,
+              }}
+            >
+              {insuranceSaving ? (
+                <ActivityIndicator color="#FFF" size="small" />
+              ) : (
+                <>
+                  <Ionicons name={insuranceSaved ? 'checkmark' : 'save-outline'} size={18} color="#FFF" />
+                  <Text style={{ color: '#FFF', fontSize: 16, fontWeight: '700' }}>
+                    {insuranceSaved ? 'Saved!' : 'Save Changes'}
+                  </Text>
+                </>
+              )}
+            </Pressable>
+          </>
+        )}
+      </ScrollView>
+    );
+  };
 
   const handleDeletePost = (postId: string, userName: string) => {
     Alert.alert(
@@ -2423,6 +2604,7 @@ export default function AdminScreen() {
         {activeTab === 'dashboard' && renderDashboard()}
         {activeTab === 'users' && renderUsers()}
         {activeTab === 'subscriptions' && renderSubscriptions()}
+        {activeTab === 'insurance' && renderInsurance()}
         {activeTab === 'revenue' && renderRevenue()}
         {activeTab === 'posts' && renderPosts()}
         {activeTab === 'jobs' && renderJobs()}

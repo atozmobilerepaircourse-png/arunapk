@@ -4417,6 +4417,52 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
   });
 
 
+  // ─── Insurance Settings ───────────────────────────────────────────────────
+  app.get('/api/settings/insurance', async (_req, res) => {
+    try {
+      const keys = ['insurance_plan_name', 'insurance_plan_price', 'insurance_repair_discount', 'insurance_plan_status'];
+      const rows = await db.select().from(appSettings).where(
+        sql`key IN ('insurance_plan_name','insurance_plan_price','insurance_repair_discount','insurance_plan_status')`
+      );
+      const map: Record<string, string> = {};
+      rows.forEach(r => { map[r.key] = r.value; });
+      return res.json({
+        success: true,
+        settings: {
+          planName: map['insurance_plan_name'] || 'Mobile Protection Plan',
+          protectionPlanPrice: parseInt(map['insurance_plan_price'] || '50', 10),
+          repairDiscount: parseInt(map['insurance_repair_discount'] || '500', 10),
+          status: (map['insurance_plan_status'] || 'active') as 'active' | 'disabled',
+        }
+      });
+    } catch (err) {
+      console.error('[Insurance Settings] Get error:', err);
+      return res.status(500).json({ success: false, message: 'Failed to fetch insurance settings' });
+    }
+  });
+
+  app.put('/api/admin/settings/insurance', async (req, res) => {
+    try {
+      const { planName, protectionPlanPrice, repairDiscount, status } = req.body;
+      const upsert = async (key: string, value: string) => {
+        const [existing] = await db.select().from(appSettings).where(eq(appSettings.key, key));
+        if (existing) {
+          await db.update(appSettings).set({ value, updatedAt: Date.now() }).where(eq(appSettings.key, key));
+        } else {
+          await db.insert(appSettings).values({ key, value, updatedAt: Date.now() });
+        }
+      };
+      if (planName !== undefined) await upsert('insurance_plan_name', String(planName));
+      if (protectionPlanPrice !== undefined) await upsert('insurance_plan_price', String(protectionPlanPrice));
+      if (repairDiscount !== undefined) await upsert('insurance_repair_discount', String(repairDiscount));
+      if (status !== undefined) await upsert('insurance_plan_status', String(status));
+      return res.json({ success: true });
+    } catch (err) {
+      console.error('[Insurance Settings] Update error:', err);
+      return res.status(500).json({ success: false, message: 'Failed to update insurance settings' });
+    }
+  });
+
   app.get('/api/app-settings', async (_req, res) => {
     try {
       const settings = await db.select().from(appSettings);
