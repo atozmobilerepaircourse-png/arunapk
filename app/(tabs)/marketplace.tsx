@@ -1760,6 +1760,7 @@ export default function MarketplaceScreen() {
 
   const renderProductCard = (p: ProductData) => {
     const priceNum = parseFloat(p.price || '0');
+    const priceText = !isNaN(priceNum) && priceNum > 0 ? `₹${Math.round(priceNum)}` : 'FREE';
     let imgs: string[] = [];
     try {
       if (Array.isArray(p.images)) imgs = p.images;
@@ -1785,7 +1786,7 @@ export default function MarketplaceScreen() {
         </View>
         <View style={s.productInfo}>
           <Text style={s.productTitle} numberOfLines={2}>{p.title}</Text>
-          <Text style={s.productPrice}>{priceNum > 0 ? `₹${priceNum}` : 'FREE'}</Text>
+          <Text style={s.productPrice}>{priceText}</Text>
           {p.city && (
             <View style={s.metaRowCompact}>
               <Ionicons name="location" size={10} color={GRAY} />
@@ -2034,18 +2035,18 @@ const s = StyleSheet.create({
   headerTitle: { fontSize: 28, fontWeight: '800' as const, color: '#000', marginBottom: 12 },
   searchWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F2F2F2', borderRadius: 12, paddingHorizontal: 12, height: 44 },
   searchInput: { flex: 1, marginLeft: 8, fontSize: 15, color: '#000' },
-  tabContainer: { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 12, gap: 8 },
-  tabPill: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: '#F2F2F2' },
+  tabContainer: { flexDirection: 'row', paddingHorizontal: 12, paddingVertical: 8, gap: 6 },
+  tabPill: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 18, backgroundColor: '#F2F2F2' },
   tabPillActive: { backgroundColor: '#000' },
-  tabPillText: { fontSize: 13, fontWeight: '600' as const, color: '#666' },
+  tabPillText: { fontSize: 12, fontWeight: '600' as const, color: '#666' },
   tabPillTextActive: { color: '#FFF' },
-  chipScroll: { maxHeight: 50, marginBottom: 8 },
-  chipRow: { paddingHorizontal: 16, gap: 8, alignItems: 'center' },
-  chip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10, backgroundColor: '#F2F2F2', borderWidth: 1, borderColor: '#EEE' },
-  chipText: { fontSize: 13, fontWeight: '600' as const, color: '#666' },
+  chipScroll: { maxHeight: 40, marginBottom: 6 },
+  chipRow: { paddingHorizontal: 12, gap: 6, alignItems: 'center' },
+  chip: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 10, backgroundColor: '#F2F2F2', borderWidth: 1, borderColor: '#EEE' },
+  chipText: { fontSize: 12, fontWeight: '600' as const, color: '#666' },
   chipTextActive: { color: '#FFF' },
   grid: { padding: 16, gap: 16 },
-  grid2: { padding: 16, flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  grid2: { padding: 12, flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   courseCard: { backgroundColor: '#FFF', borderRadius: 20, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 10, elevation: 4 },
   courseImageWrap: { width: '100%', height: 180, position: 'relative' },
   courseImage: { width: '100%', height: '100%' },
@@ -2053,13 +2054,13 @@ const s = StyleSheet.create({
   priceBadgeText: { color: '#FFF', fontSize: 14, fontWeight: '800' as const },
   courseInfo: { padding: 16, gap: 8 },
   courseTitle: { fontSize: 18, fontWeight: '700' as const, color: '#000', lineHeight: 24 },
-  productCard: { width: (width - 44) / 2, backgroundColor: '#FFF', borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: '#F0F0F0' },
-  productImageWrap: { width: '100%', height: 140 },
+  productCard: { width: (width - 36) / 2, backgroundColor: '#FFF', borderRadius: 14, overflow: 'hidden', borderWidth: 1, borderColor: '#F0F0F0' },
+  productImageWrap: { width: '100%', height: 130 },
   productImage: { width: '100%', height: '100%' },
-  productInfo: { padding: 10, gap: 4 },
-  productTitle: { fontSize: 14, fontWeight: '600' as const, color: '#000', height: 36 },
-  productPrice: { fontSize: 16, fontWeight: '800' as const, color: BLUE },
-  card: { marginHorizontal: 16, marginBottom: 12, backgroundColor: '#FFF', borderRadius: 16, padding: 12, borderWidth: 1, borderColor: '#F0F0F0' },
+  productInfo: { padding: 8, gap: 3 },
+  productTitle: { fontSize: 13, fontWeight: '600' as const, color: '#000', height: 32 },
+  productPrice: { fontSize: 15, fontWeight: '800' as const, color: BLUE },
+  card: { marginHorizontal: 12, marginBottom: 8, backgroundColor: '#FFF', borderRadius: 14, padding: 10, borderWidth: 1, borderColor: '#F0F0F0' },
   cardRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   avatar: { width: 50, height: 50, borderRadius: 25 },
   avatarPlaceholder: { alignItems: 'center', justifyContent: 'center' },

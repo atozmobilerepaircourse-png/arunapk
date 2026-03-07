@@ -365,8 +365,8 @@ const styles = StyleSheet.create({
     backgroundColor: BG,
   },
   header: {
-    paddingHorizontal: 20,
-    paddingBottom: 8,
+    paddingHorizontal: 16,
+    paddingBottom: 4,
     backgroundColor: BG,
   },
   headerRow: {
@@ -376,7 +376,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: DARK,
-    fontSize: 26,
+    fontSize: 22,
     fontFamily: 'Inter_700Bold',
   },
   headerSubtitle: {
@@ -494,15 +494,15 @@ const styles = StyleSheet.create({
   },
   statsBar: {
     flexDirection: 'row',
-    paddingHorizontal: 16,
-    gap: 8,
-    marginBottom: 10,
+    paddingHorizontal: 12,
+    gap: 6,
+    marginBottom: 6,
   },
   statCard: {
     flex: 1,
     backgroundColor: CARD,
-    borderRadius: 12,
-    padding: 10,
+    borderRadius: 10,
+    padding: 8,
     borderWidth: 1,
     borderColor: BORDER,
     alignItems: 'center',
