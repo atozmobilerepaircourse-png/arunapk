@@ -1276,9 +1276,13 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
   app.post("/api/notifications/token", async (req, res) => {
     try {
       const { userId, token } = req.body;
-      if (!userId || !token) return res.status(400).json({ success: false, message: "Missing userId or token" });
-      await db.update(profiles).set({ pushToken: token }).where(eq(profiles.id, userId));
-      console.log(`[Push] Token saved for user ${userId}`);
+      console.log('[Push] Token registration request:', { userId, tokenPreview: token?.slice(0, 30) });
+      if (!userId || !token) {
+        console.warn('[Push] Missing userId or token');
+        return res.status(400).json({ success: false, message: "Missing userId or token" });
+      }
+      const result = await db.update(profiles).set({ pushToken: token }).where(eq(profiles.id, userId));
+      console.log(`[Push] Token saved for user ${userId}`, result);
       return res.json({ success: true });
     } catch (error) {
       console.error("[Push] Token save error:", error);

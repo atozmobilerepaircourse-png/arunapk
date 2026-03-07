@@ -145,8 +145,12 @@ export async function requestNotificationPermission() {
 
 export async function registerPushToken(userId: string): Promise<void> {
   const Notifs = getNotifications();
-  if (Platform.OS === 'web' || !Notifs) return;
+  if (Platform.OS === 'web' || !Notifs) {
+    console.log('[Push] Skipped (web or no notifications)', { platform: Platform.OS, hasNotifs: !!Notifs });
+    return;
+  }
   try {
+    console.log('[Push] Starting registration for user:', userId);
     const { status: existingStatus } = await Notifs.getPermissionsAsync();
     let finalStatus = existingStatus;
     if (existingStatus !== 'granted') {
@@ -154,7 +158,7 @@ export async function registerPushToken(userId: string): Promise<void> {
       finalStatus = status;
     }
     if (finalStatus !== 'granted') {
-      console.warn('[Push] Notification permission not granted');
+      console.warn('[Push] Notification permission not granted:', finalStatus);
       return;
     }
 
@@ -177,14 +181,19 @@ export async function registerPushToken(userId: string): Promise<void> {
       }
     }
 
-    if (!token) return;
-    console.log('[Push] Expo push token:', token);
+    if (!token) {
+      console.warn('[Push] No token generated');
+      return;
+    }
+    console.log('[Push] Got token:', token.slice(0, 30) + '...');
     const baseUrl = getApiUrl();
-    await fetch(`${baseUrl}/api/notifications/token`, {
+    const response = await fetch(`${baseUrl}/api/notifications/token`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId, token }),
     });
+    const result = await response.json();
+    console.log('[Push] Token registration response:', result);
     console.log('[Push] Token registered for user:', userId);
   } catch (e) {
     console.warn('[Push] Token registration error:', e);
