@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Pressable, TextInput,
   Alert, Platform, KeyboardAvoidingView, ActivityIndicator, Modal, Linking,
@@ -119,6 +119,58 @@ function CustomerProfileScreen() {
   const [changingRole, setChangingRole] = useState(false);
   const [availableForJobs, setAvailableForJobs] = useState(profile?.availableForJobs === 'true');
   const [updatingAvailability, setUpdatingAvailability] = useState(false);
+  const locationWatcherRef = useRef<Location.LocationSubscription | null>(null);
+  const locationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const stopLocationTracking = useCallback(() => {
+    if (locationWatcherRef.current) {
+      locationWatcherRef.current.remove();
+      locationWatcherRef.current = null;
+    }
+    if (locationIntervalRef.current) {
+      clearInterval(locationIntervalRef.current);
+      locationIntervalRef.current = null;
+    }
+  }, []);
+
+  const startLocationTracking = useCallback(async (profileId: string) => {
+    if (Platform.OS === 'web') return;
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') return;
+
+      const sendLocation = async (lat: number, lng: number) => {
+        try {
+          await apiRequest('POST', `/api/profiles/${profileId}/location`, {
+            latitude: lat.toString(),
+            longitude: lng.toString(),
+          });
+        } catch {}
+      };
+
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      await sendLocation(loc.coords.latitude, loc.coords.longitude);
+
+      locationWatcherRef.current = await Location.watchPositionAsync(
+        { accuracy: Location.Accuracy.Balanced, distanceInterval: 50, timeInterval: 20000 },
+        async (pos) => {
+          await sendLocation(pos.coords.latitude, pos.coords.longitude);
+        }
+      );
+    } catch (e) {
+      console.warn('[Profile] Location tracking error:', e);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (profile?.role !== 'technician') return;
+    if (availableForJobs && profile?.id) {
+      startLocationTracking(profile.id);
+    } else {
+      stopLocationTracking();
+    }
+    return () => stopLocationTracking();
+  }, [availableForJobs, profile?.id, profile?.role, startLocationTracking, stopLocationTracking]);
 
   const toggleAvailability = async (value: boolean) => {
     if (!profile?.id || updatingAvailability) return;
