@@ -342,6 +342,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
           setProfileState(serverProfile);
           await Storage.saveProfile(serverProfile);
         }
+
+        registerPushToken(savedProfile.id).catch(() => {});
       } else {
         setIsOnboarded(false);
         setProfileState(null);
