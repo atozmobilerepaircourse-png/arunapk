@@ -1649,7 +1649,10 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
 
       const postId = id || randomUUID();
       const now = Date.now();
-      const cleanImages = sanitizeImageUrls(images || []);
+      const cleanImages = sanitizeImageUrls(images || []).map(img => {
+        if (img.startsWith('http')) return img;
+        return `${process.env.REPLIT_DEV_DOMAIN ? 'https://' + process.env.REPLIT_DEV_DOMAIN : 'https://repair-backend-3siuld7gbq-el.a.run.app'}${img}`;
+      });
       const cleanVideoUrl = sanitizeImageUrl(videoUrl || "");
       await db.insert(posts).values({
         id: postId,
