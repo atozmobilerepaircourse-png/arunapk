@@ -124,3 +124,26 @@ react-native-maps cannot be imported at the top level for web builds. Use platfo
 4. Click "Build AAB (Play Store)" workflow → AAB for Google Play
 
 Builds run on Expo's cloud servers (10-25 min). Download from https://expo.dev dashboard.
+
+## Recent Updates (March 7, 2026)
+
+### User Profile Page (app/user-profile.tsx) — ENHANCED
+- **Chat button**: Now appears for ALL roles when viewing other profiles (not just teacher/supplier)
+- **Book Service button**: Appears when viewing a technician's profile (triggers repair booking flow)
+- **Verified badge**: Green ✓ badge shown for technicians
+- **Star rating + reviews**: Dynamic, stable ratings (seeded per technician ID) shown for technicians
+- **Services & Pricing grid**: 6 services displayed (Screen Replacement, Battery, Charging Port, Back Panel, Camera, Software) with starting prices
+
+### Settings Page (app/(tabs)/profile.tsx) — NAVIGATION UPDATED
+- Added **Jobs** → Routes to jobs tab
+- Added **Bookings** → Routes to orders tab
+- Renamed **Notifications** section with new nav items
+- Renamed support link to **Help & Support**
+
+### Customer Home Screen (app/(tabs)/customer-home.tsx) — DYNAMIC ADS + LOCATION
+- **Dynamic ad banner**: Fetches active ads from `/api/ads/active` and displays first ad, falls back to insurance promo if no ads
+- **Location saving**: Customer GPS location now automatically saved to profile via `POST /api/profiles/:id/location` when home screen loads
+- **Ads system**: Admin can create/toggle/delete ads in the admin panel, and they automatically display on customer home
+
+### Admin Ads (app/admin.tsx) — TOGGLE FIX
+- Fixed ad toggle to use direct `apiRequest()` call instead of fetch with dynamic import
