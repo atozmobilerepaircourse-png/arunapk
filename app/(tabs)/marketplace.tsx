@@ -11,11 +11,16 @@ import {
   ActivityIndicator,
   Dimensions,
   Animated,
+  FlatList,
+  Alert,
+  Modal,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
+import * as Haptics from 'expo-haptics';
 import { useApp } from '@/lib/context';
 import { apiRequest, getApiUrl } from '@/lib/query-client';
 import { openLink } from '@/lib/open-link';
@@ -104,6 +109,1314 @@ interface LiveSession {
   latestImage?: string;
   latestImageAt?: number;
 }
+
+const CM = {
+  bg: '#F5F5F5',
+  card: '#FFFFFF',
+  orange: '#FF6B2C',
+  orangeLight: '#FFF1EC',
+  dark: '#1A1A1A',
+  muted: '#888888',
+  border: '#EEEEEE',
+  green: '#34C759',
+  blue: '#007AFF',
+};
+
+const SELL_BRANDS = [
+  { name: 'Apple', domain: 'apple.com' },
+  { name: 'Samsung', domain: 'samsung.com' },
+  { name: 'Xiaomi', domain: 'mi.com' },
+  { name: 'Oppo', domain: 'oppo.com' },
+  { name: 'Vivo', domain: 'vivo.com' },
+  { name: 'Realme', domain: 'realme.com' },
+  { name: 'OnePlus', domain: 'oneplus.com' },
+  { name: 'Motorola', domain: 'motorola.com' },
+  { name: 'Nokia', domain: 'nokia.com' },
+  { name: 'Google', domain: 'google.com' },
+  { name: 'Sony', domain: 'sony.com' },
+  { name: 'LG', domain: 'lg.com' },
+  { name: 'Huawei', domain: 'huawei.com' },
+  { name: 'Honor', domain: 'hihonor.com' },
+  { name: 'iQOO', domain: 'iqoo.com' },
+  { name: 'Tecno', domain: 'tecno-mobile.com' },
+  { name: 'Infinix', domain: 'infinixmobility.com' },
+  { name: 'Itel', domain: 'itel-mobile.com' },
+  { name: 'Lava', domain: 'lavamobiles.com' },
+  { name: 'Micromax', domain: 'micromaxinfo.com' },
+  { name: 'Other', domain: '' },
+];
+
+const SELL_CATEGORIES_LIST = ['Mobiles', 'Electronics', 'Spare Parts', 'Tools', 'E-Waste', 'Other'];
+const SELL_CONDITIONS = ['New', 'Like New', 'Used', 'For Parts', 'Damaged'];
+const CATEGORY_FILTER_LIST = ['All', 'Mobiles', 'Electronics', 'Spare Parts', 'Tools', 'E-Waste', 'Other'];
+
+interface SellListing {
+  id: string;
+  title: string;
+  price: string;
+  condition: string;
+  description: string;
+  category: string;
+  brand: string;
+  model: string;
+  location: string;
+  contact: string;
+  images: string[];
+  sellerId: string;
+  sellerName: string;
+  sellerAvatar?: string;
+  createdAt: number;
+}
+
+function parseSellListing(post: any): SellListing | null {
+  const text: string = post.text || '';
+  if (!text.includes('SELL_TITLE:')) return null;
+  const get = (key: string) => {
+    const line = text.split('\n').find((l: string) => l.startsWith(key + ':'));
+    return line ? line.replace(key + ':', '').trim() : '';
+  };
+  const title = get('SELL_TITLE');
+  if (!title) return null;
+  let imgs: string[] = [];
+  try {
+    if (Array.isArray(post.images)) imgs = post.images;
+    else if (typeof post.images === 'string') imgs = JSON.parse(post.images || '[]');
+  } catch {}
+  return {
+    id: post.id,
+    title,
+    price: get('SELL_PRICE'),
+    condition: get('SELL_CONDITION'),
+    description: get('SELL_DESC'),
+    category: get('SELL_CATEGORY'),
+    brand: get('SELL_BRAND'),
+    model: get('SELL_MODEL'),
+    location: get('SELL_LOCATION') || post.sellerCity || '',
+    contact: get('SELL_CONTACT'),
+    images: imgs.map((img: string) => img.startsWith('/') ? `${getApiUrl()}${img}` : img),
+    sellerId: post.userId,
+    sellerName: post.userName,
+    sellerAvatar: post.userAvatar,
+    createdAt: post.createdAt,
+  };
+}
+
+function conditionColor(condition: string): string {
+  if (!condition) return CM.muted;
+  const c = condition.toLowerCase();
+  if (c === 'new') return CM.green;
+  if (c === 'like new') return '#007AFF';
+  if (c === 'used') return '#FF9500';
+  return '#FF3B30';
+}
+
+function CustomerMarketplace() {
+  const insets = useSafeAreaInsets();
+  const { profile } = useApp();
+  const webTopInset = Platform.OS === 'web' ? 67 : 0;
+  const topPad = (Platform.OS === 'web' ? webTopInset : insets.top) + 0;
+  const bottomPad = Platform.OS === 'web' ? 84 : insets.bottom;
+  const cardWidth = (width - 40) / 2;
+
+  const [activeTab, setActiveTab] = useState<'buy' | 'sell'>('buy');
+  const [listings, setListings] = useState<SellListing[]>([]);
+  const [loadingListings, setLoadingListings] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [search, setSearch] = useState('');
+  const [catFilter, setCatFilter] = useState('All');
+  const [detailItem, setDetailItem] = useState<SellListing | null>(null);
+
+  const [sellImages, setSellImages] = useState<string[]>([]);
+  const [sellCategory, setSellCategory] = useState('Mobiles');
+  const [sellBrand, setSellBrand] = useState('');
+  const [sellModel, setSellModel] = useState('');
+  const [sellPrice, setSellPrice] = useState('');
+  const [sellCondition, setSellCondition] = useState('Used');
+  const [sellDesc, setSellDesc] = useState('');
+  const [sellLocation, setSellLocation] = useState('');
+  const [sellContact, setSellContact] = useState(profile?.phone || '');
+  const [submitting, setSubmitting] = useState(false);
+  const [uploadingImages, setUploadingImages] = useState(false);
+  const [showBrandPicker, setShowBrandPicker] = useState(false);
+  const [showCatPicker, setShowCatPicker] = useState(false);
+  const [showCondPicker, setShowCondPicker] = useState(false);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
+
+  const fetchListings = useCallback(async () => {
+    try {
+      const res = await apiRequest('GET', '/api/posts');
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        const parsed = data
+          .map(parseSellListing)
+          .filter(Boolean) as SellListing[];
+        setListings(parsed.reverse());
+      }
+    } catch (e) {
+      console.warn('[CustomerMarketplace] fetch error:', e);
+    }
+  }, []);
+
+  useEffect(() => {
+    setLoadingListings(true);
+    fetchListings().finally(() => setLoadingListings(false));
+  }, [fetchListings]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchListings();
+    setRefreshing(false);
+  }, [fetchListings]);
+
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase().trim();
+    return listings.filter(l => {
+      if (catFilter !== 'All') {
+        const catLower = (l.category || '').toLowerCase();
+        const filterLower = catFilter.toLowerCase().replace(' ', '_');
+        if (!catLower.includes(filterLower.replace('_', ' ')) && catLower !== filterLower) return false;
+      }
+      if (q) {
+        const hay = [l.title, l.brand, l.model, l.category, l.location, l.sellerName].filter(Boolean).join(' ').toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [listings, search, catFilter]);
+
+  const pickImages = async () => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert('Permission needed', 'Please allow photo access to upload images.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsMultipleSelection: true,
+      quality: 0.8,
+      selectionLimit: 5,
+    });
+    if (result.canceled) return;
+    setUploadingImages(true);
+    try {
+      const uploaded: string[] = [];
+      for (const asset of result.assets) {
+        const fd = new FormData();
+        const uri = asset.uri;
+        const fileName = uri.split('/').pop() || 'image.jpg';
+        const ext = fileName.split('.').pop()?.toLowerCase() || 'jpg';
+        const mimeType = ext === 'png' ? 'image/png' : 'image/jpeg';
+        fd.append('image', { uri, name: fileName, type: mimeType } as any);
+        const res = await fetch(`${getApiUrl()}/api/upload`, { method: 'POST', body: fd });
+        const data = await res.json();
+        if (data.url) uploaded.push(data.url.startsWith('/') ? `${getApiUrl()}${data.url}` : data.url);
+      }
+      setSellImages(prev => [...prev, ...uploaded].slice(0, 5));
+    } catch (e) {
+      Alert.alert('Upload failed', 'Could not upload images. Please try again.');
+    } finally {
+      setUploadingImages(false);
+    }
+  };
+
+  const submitListing = async () => {
+    if (!sellModel.trim()) { Alert.alert('Missing info', 'Please enter a model name.'); return; }
+    if (!sellPrice.trim()) { Alert.alert('Missing info', 'Please enter a price.'); return; }
+    if (!profile) { Alert.alert('Login required', 'Please login to post a listing.'); return; }
+    setSubmitting(true);
+    try {
+      const text = [
+        `SELL_TITLE: ${sellBrand ? sellBrand + ' ' : ''}${sellModel.trim()}`,
+        `SELL_PRICE: ${sellPrice.trim()}`,
+        `SELL_CONDITION: ${sellCondition}`,
+        `SELL_CATEGORY: ${sellCategory}`,
+        `SELL_BRAND: ${sellBrand}`,
+        `SELL_MODEL: ${sellModel.trim()}`,
+        `SELL_DESC: ${sellDesc.trim()}`,
+        `SELL_LOCATION: ${sellLocation.trim()}`,
+        `SELL_CONTACT: ${sellContact.trim()}`,
+      ].join('\n');
+      const rawImgs = sellImages.map(img => {
+        const apiBase = getApiUrl();
+        if (img.startsWith(apiBase)) return img.replace(apiBase, '');
+        return img;
+      });
+      await apiRequest('POST', '/api/posts', {
+        userId: profile.id,
+        userName: profile.name,
+        userRole: profile.role,
+        userAvatar: profile.avatar || '',
+        text,
+        images: rawImgs,
+        category: 'sell',
+      });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setSubmitSuccess(true);
+      setSellImages([]);
+      setSellCategory('Mobiles');
+      setSellBrand('');
+      setSellModel('');
+      setSellPrice('');
+      setSellCondition('Used');
+      setSellDesc('');
+      setSellLocation('');
+      setTimeout(() => {
+        setSubmitSuccess(false);
+        setActiveTab('buy');
+        fetchListings();
+      }, 2000);
+    } catch (e) {
+      Alert.alert('Error', 'Failed to post listing. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const renderBuyCard = ({ item }: { item: SellListing }) => {
+    const priceNum = parseFloat(item.price || '0');
+    const brandObj = SELL_BRANDS.find(b => b.name.toLowerCase() === item.brand.toLowerCase());
+    const logoUrl = brandObj?.domain ? `https://logo.clearbit.com/${brandObj.domain}` : null;
+    return (
+      <Pressable style={[cmStyles.listingCard, { width: cardWidth }]} onPress={() => setDetailItem(item)}>
+        <View style={cmStyles.listingImageWrap}>
+          {item.images.length > 0 ? (
+            <Image source={{ uri: item.images[0] }} style={cmStyles.listingImage} contentFit="cover" />
+          ) : (
+            <View style={cmStyles.listingImagePlaceholder}>
+              <Ionicons name="phone-portrait-outline" size={36} color="#DDD" />
+            </View>
+          )}
+          {item.condition ? (
+            <View style={[cmStyles.condBadge, { backgroundColor: conditionColor(item.condition) }]}>
+              <Text style={cmStyles.condBadgeText}>{item.condition}</Text>
+            </View>
+          ) : null}
+          {item.images.length > 1 && (
+            <View style={cmStyles.imgCountBadge}>
+              <Ionicons name="images-outline" size={10} color="#FFF" />
+              <Text style={cmStyles.imgCountText}>{item.images.length}</Text>
+            </View>
+          )}
+        </View>
+        <View style={cmStyles.listingBody}>
+          {item.brand ? (
+            <View style={cmStyles.brandRow}>
+              {logoUrl ? (
+                <Image source={{ uri: logoUrl }} style={cmStyles.brandLogo} contentFit="contain" />
+              ) : (
+                <View style={cmStyles.brandInitial}>
+                  <Text style={cmStyles.brandInitialText}>{item.brand[0].toUpperCase()}</Text>
+                </View>
+              )}
+              <Text style={cmStyles.brandText}>{item.brand}</Text>
+            </View>
+          ) : null}
+          <Text style={cmStyles.listingTitle} numberOfLines={2}>{item.title}</Text>
+          <Text style={cmStyles.listingPrice}>
+            {priceNum > 0 ? `₹${priceNum.toLocaleString('en-IN')}` : 'Price on request'}
+          </Text>
+          {item.location ? (
+            <View style={cmStyles.locRow}>
+              <Ionicons name="location-sharp" size={11} color={CM.muted} />
+              <Text style={cmStyles.locText} numberOfLines={1}>{item.location}</Text>
+            </View>
+          ) : null}
+          <Pressable style={cmStyles.buyNowBtn} onPress={() => setDetailItem(item)}>
+            <Text style={cmStyles.buyNowText}>View Details</Text>
+          </Pressable>
+        </View>
+      </Pressable>
+    );
+  };
+
+  const renderDetail = () => {
+    if (!detailItem) return null;
+    const priceNum = parseFloat(detailItem.price || '0');
+    const brandObj = SELL_BRANDS.find(b => b.name.toLowerCase() === (detailItem.brand || '').toLowerCase());
+    const logoUrl = brandObj?.domain ? `https://logo.clearbit.com/${brandObj.domain}` : null;
+    return (
+      <Modal visible animationType="slide" onRequestClose={() => setDetailItem(null)}>
+        <View style={[cmStyles.detailContainer, { paddingTop: topPad + (Platform.OS === 'web' ? 0 : insets.top) }]}>
+          <View style={cmStyles.detailHeader}>
+            <Pressable onPress={() => setDetailItem(null)} hitSlop={8}>
+              <Ionicons name="arrow-back" size={24} color={CM.dark} />
+            </Pressable>
+            <Text style={cmStyles.detailHeaderTitle} numberOfLines={1}>{detailItem.title}</Text>
+            <View style={{ width: 24 }} />
+          </View>
+          <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+            {detailItem.images.length > 0 ? (
+              <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} style={cmStyles.carousel}>
+                {detailItem.images.map((uri, i) => (
+                  <Image key={i} source={{ uri }} style={cmStyles.carouselImg} contentFit="contain" />
+                ))}
+              </ScrollView>
+            ) : (
+              <View style={cmStyles.detailNoImg}>
+                <Ionicons name="phone-portrait-outline" size={64} color="#DDD" />
+              </View>
+            )}
+            <View style={cmStyles.detailBody}>
+              <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={cmStyles.detailPrice}>{priceNum > 0 ? `₹${priceNum.toLocaleString('en-IN')}` : 'Price on request'}</Text>
+                  <Text style={cmStyles.detailTitle}>{detailItem.title}</Text>
+                </View>
+                {detailItem.condition ? (
+                  <View style={[cmStyles.condBadgeLg, { backgroundColor: conditionColor(detailItem.condition) }]}>
+                    <Text style={cmStyles.condBadgeLgText}>{detailItem.condition}</Text>
+                  </View>
+                ) : null}
+              </View>
+              <View style={cmStyles.detailMeta}>
+                {detailItem.brand ? (
+                  <View style={cmStyles.detailMetaItem}>
+                    {logoUrl ? (
+                      <Image source={{ uri: logoUrl }} style={cmStyles.detailBrandLogo} contentFit="contain" />
+                    ) : null}
+                    <Text style={cmStyles.detailMetaLabel}>Brand</Text>
+                    <Text style={cmStyles.detailMetaVal}>{detailItem.brand}</Text>
+                  </View>
+                ) : null}
+                {detailItem.model ? (
+                  <View style={cmStyles.detailMetaItem}>
+                    <Ionicons name="phone-portrait-outline" size={18} color={CM.orange} />
+                    <Text style={cmStyles.detailMetaLabel}>Model</Text>
+                    <Text style={cmStyles.detailMetaVal}>{detailItem.model}</Text>
+                  </View>
+                ) : null}
+                {detailItem.category ? (
+                  <View style={cmStyles.detailMetaItem}>
+                    <Ionicons name="grid-outline" size={18} color={CM.orange} />
+                    <Text style={cmStyles.detailMetaLabel}>Category</Text>
+                    <Text style={cmStyles.detailMetaVal}>{detailItem.category}</Text>
+                  </View>
+                ) : null}
+                {detailItem.location ? (
+                  <View style={cmStyles.detailMetaItem}>
+                    <Ionicons name="location-outline" size={18} color={CM.orange} />
+                    <Text style={cmStyles.detailMetaLabel}>Location</Text>
+                    <Text style={cmStyles.detailMetaVal}>{detailItem.location}</Text>
+                  </View>
+                ) : null}
+              </View>
+              {detailItem.description ? (
+                <View style={cmStyles.descSection}>
+                  <Text style={cmStyles.descTitle}>Description</Text>
+                  <Text style={cmStyles.descText}>{detailItem.description}</Text>
+                </View>
+              ) : null}
+              <View style={cmStyles.sellerSection}>
+                <Text style={cmStyles.sellerSectionTitle}>Seller</Text>
+                <View style={cmStyles.sellerRow}>
+                  {detailItem.sellerAvatar ? (
+                    <Image source={{ uri: getApiUrl() + detailItem.sellerAvatar }} style={cmStyles.sellerAvatar} contentFit="cover" />
+                  ) : (
+                    <View style={cmStyles.sellerAvatarPlaceholder}>
+                      <Text style={cmStyles.sellerInitials}>{(detailItem.sellerName || 'S').split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)}</Text>
+                    </View>
+                  )}
+                  <View>
+                    <Text style={cmStyles.sellerName}>{detailItem.sellerName}</Text>
+                    {detailItem.location ? <Text style={cmStyles.sellerLoc}>{detailItem.location}</Text> : null}
+                  </View>
+                </View>
+              </View>
+            </View>
+          </ScrollView>
+          {detailItem.contact ? (
+            <View style={[cmStyles.detailFooter, { paddingBottom: bottomPad + 12 }]}>
+              <Pressable style={cmStyles.contactBtn} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); }}>
+                <Ionicons name="call" size={20} color="#FFF" />
+                <Text style={cmStyles.contactBtnText}>Call {detailItem.contact}</Text>
+              </Pressable>
+            </View>
+          ) : null}
+        </View>
+      </Modal>
+    );
+  };
+
+  const renderSellForm = () => (
+    <ScrollView
+      style={{ flex: 1 }}
+      contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: bottomPad + 80 }}
+      showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+    >
+      <Text style={cmStyles.formSectionTitle}>Photos</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingVertical: 4 }}>
+        {sellImages.map((uri, i) => (
+          <View key={i} style={cmStyles.uploadedThumb}>
+            <Image source={{ uri }} style={cmStyles.uploadedThumbImg} contentFit="cover" />
+            <Pressable style={cmStyles.removeThumb} onPress={() => setSellImages(prev => prev.filter((_, idx) => idx !== i))}>
+              <Ionicons name="close-circle" size={22} color="#FF3B30" />
+            </Pressable>
+          </View>
+        ))}
+        {sellImages.length < 5 && (
+          <Pressable style={cmStyles.addImageBtn} onPress={pickImages} disabled={uploadingImages}>
+            {uploadingImages ? (
+              <ActivityIndicator size="small" color={CM.orange} />
+            ) : (
+              <>
+                <Ionicons name="camera-outline" size={28} color={CM.orange} />
+                <Text style={cmStyles.addImageText}>Add Photo</Text>
+              </>
+            )}
+          </Pressable>
+        )}
+      </ScrollView>
+
+      <Text style={cmStyles.formSectionTitle}>Category</Text>
+      <Pressable style={cmStyles.pickerBtn} onPress={() => setShowCatPicker(true)}>
+        <Text style={cmStyles.pickerBtnText}>{sellCategory}</Text>
+        <Ionicons name="chevron-down" size={18} color={CM.muted} />
+      </Pressable>
+
+      <Text style={cmStyles.formSectionTitle}>Brand</Text>
+      <Pressable style={cmStyles.pickerBtn} onPress={() => setShowBrandPicker(true)}>
+        {sellBrand ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            {SELL_BRANDS.find(b => b.name === sellBrand)?.domain ? (
+              <Image source={{ uri: `https://logo.clearbit.com/${SELL_BRANDS.find(b => b.name === sellBrand)?.domain}` }} style={{ width: 20, height: 20 }} contentFit="contain" />
+            ) : null}
+            <Text style={cmStyles.pickerBtnText}>{sellBrand}</Text>
+          </View>
+        ) : (
+          <Text style={[cmStyles.pickerBtnText, { color: CM.muted }]}>Select Brand</Text>
+        )}
+        <Ionicons name="chevron-down" size={18} color={CM.muted} />
+      </Pressable>
+
+      <Text style={cmStyles.formSectionTitle}>Model Name *</Text>
+      <TextInput
+        style={cmStyles.input}
+        placeholder="e.g. iPhone 14 Pro"
+        placeholderTextColor={CM.muted}
+        value={sellModel}
+        onChangeText={setSellModel}
+      />
+
+      <Text style={cmStyles.formSectionTitle}>Price (₹) *</Text>
+      <TextInput
+        style={cmStyles.input}
+        placeholder="Enter asking price"
+        placeholderTextColor={CM.muted}
+        keyboardType="numeric"
+        value={sellPrice}
+        onChangeText={setSellPrice}
+      />
+
+      <Text style={cmStyles.formSectionTitle}>Condition</Text>
+      <Pressable style={cmStyles.pickerBtn} onPress={() => setShowCondPicker(true)}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: conditionColor(sellCondition) }} />
+          <Text style={cmStyles.pickerBtnText}>{sellCondition}</Text>
+        </View>
+        <Ionicons name="chevron-down" size={18} color={CM.muted} />
+      </Pressable>
+
+      <Text style={cmStyles.formSectionTitle}>Description</Text>
+      <TextInput
+        style={[cmStyles.input, cmStyles.textArea]}
+        placeholder="Describe the product, any defects, accessories included..."
+        placeholderTextColor={CM.muted}
+        multiline
+        numberOfLines={4}
+        value={sellDesc}
+        onChangeText={setSellDesc}
+      />
+
+      <Text style={cmStyles.formSectionTitle}>Location</Text>
+      <TextInput
+        style={cmStyles.input}
+        placeholder="City / Area"
+        placeholderTextColor={CM.muted}
+        value={sellLocation}
+        onChangeText={setSellLocation}
+      />
+
+      <Text style={cmStyles.formSectionTitle}>Contact Number</Text>
+      <TextInput
+        style={cmStyles.input}
+        placeholder="Your phone number"
+        placeholderTextColor={CM.muted}
+        keyboardType="phone-pad"
+        value={sellContact}
+        onChangeText={setSellContact}
+      />
+
+      {submitSuccess ? (
+        <View style={cmStyles.successBanner}>
+          <Ionicons name="checkmark-circle" size={24} color={CM.green} />
+          <Text style={cmStyles.successText}>Listing posted successfully!</Text>
+        </View>
+      ) : (
+        <Pressable style={[cmStyles.submitBtn, submitting && { opacity: 0.6 }]} onPress={submitListing} disabled={submitting}>
+          {submitting ? (
+            <ActivityIndicator size="small" color="#FFF" />
+          ) : (
+            <>
+              <Ionicons name="pricetag" size={20} color="#FFF" />
+              <Text style={cmStyles.submitBtnText}>Post Listing</Text>
+            </>
+          )}
+        </Pressable>
+      )}
+    </ScrollView>
+  );
+
+  return (
+    <View style={{ flex: 1, backgroundColor: CM.bg }}>
+      <View style={[cmStyles.cmHeader, { paddingTop: topPad + (Platform.OS === 'web' ? 0 : insets.top) }]}>
+        <Text style={cmStyles.cmHeaderTitle}>Marketplace</Text>
+        {activeTab === 'buy' && (
+          <View style={cmStyles.searchRow}>
+            <View style={cmStyles.searchBox}>
+              <Ionicons name="search" size={16} color={CM.muted} />
+              <TextInput
+                style={cmStyles.searchInput}
+                placeholder="Search phones, parts..."
+                placeholderTextColor={CM.muted}
+                value={search}
+                onChangeText={setSearch}
+              />
+            </View>
+          </View>
+        )}
+        <View style={cmStyles.mainTabRow}>
+          {(['buy', 'sell'] as const).map(t => (
+            <Pressable
+              key={t}
+              style={[cmStyles.mainTab, activeTab === t && cmStyles.mainTabActive]}
+              onPress={() => { setActiveTab(t); Haptics.selectionAsync(); }}
+            >
+              <Ionicons
+                name={t === 'buy' ? 'bag-handle' : 'pricetag'}
+                size={16}
+                color={activeTab === t ? '#FFF' : CM.muted}
+              />
+              <Text style={[cmStyles.mainTabText, activeTab === t && cmStyles.mainTabTextActive]}>
+                {t === 'buy' ? 'BUY' : 'SELL'}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      </View>
+
+      {activeTab === 'buy' && (
+        <>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={cmStyles.catFilterRow} style={{ flexGrow: 0 }}>
+            {CATEGORY_FILTER_LIST.map(c => (
+              <Pressable
+                key={c}
+                style={[cmStyles.catChip, catFilter === c && cmStyles.catChipActive]}
+                onPress={() => setCatFilter(c)}
+              >
+                <Text style={[cmStyles.catChipText, catFilter === c && cmStyles.catChipTextActive]}>{c}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+          {loadingListings ? (
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+              <ActivityIndicator size="large" color={CM.orange} />
+            </View>
+          ) : (
+            <FlatList
+              data={filtered}
+              keyExtractor={item => item.id}
+              renderItem={renderBuyCard}
+              numColumns={2}
+              columnWrapperStyle={{ gap: 12 }}
+              contentContainerStyle={{ paddingHorizontal: 14, paddingVertical: 12, paddingBottom: bottomPad + 80, gap: 12 }}
+              showsVerticalScrollIndicator={false}
+              scrollEnabled={filtered.length > 0}
+              refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={CM.orange} />}
+              ListEmptyComponent={
+                <View style={cmStyles.emptyState}>
+                  <View style={cmStyles.emptyIconWrap}>
+                    <Ionicons name="storefront-outline" size={52} color={CM.orange} />
+                  </View>
+                  <Text style={cmStyles.emptyTitle}>No listings yet</Text>
+                  <Text style={cmStyles.emptySubtitle}>Start buying or selling now.{'\n'}Be the first to post!</Text>
+                  <Pressable style={cmStyles.emptyAction} onPress={() => setActiveTab('sell')}>
+                    <Ionicons name="add-circle" size={18} color="#FFF" />
+                    <Text style={cmStyles.emptyActionText}>Post a Listing</Text>
+                  </Pressable>
+                </View>
+              }
+            />
+          )}
+        </>
+      )}
+
+      {activeTab === 'sell' && renderSellForm()}
+
+      {renderDetail()}
+
+      <Modal visible={showBrandPicker} transparent animationType="slide" onRequestClose={() => setShowBrandPicker(false)}>
+        <View style={cmStyles.pickerModal}>
+          <View style={cmStyles.pickerSheet}>
+            <View style={cmStyles.pickerSheetHandle} />
+            <Text style={cmStyles.pickerSheetTitle}>Select Brand</Text>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {SELL_BRANDS.map(b => (
+                <Pressable
+                  key={b.name}
+                  style={[cmStyles.pickerOption, sellBrand === b.name && cmStyles.pickerOptionActive]}
+                  onPress={() => { setSellBrand(b.name); setShowBrandPicker(false); }}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    {b.domain ? (
+                      <Image source={{ uri: `https://logo.clearbit.com/${b.domain}` }} style={{ width: 28, height: 28 }} contentFit="contain" />
+                    ) : (
+                      <View style={[cmStyles.brandInitial, { width: 28, height: 28 }]}>
+                        <Text style={cmStyles.brandInitialText}>{b.name[0]}</Text>
+                      </View>
+                    )}
+                    <Text style={[cmStyles.pickerOptionText, sellBrand === b.name && { color: CM.orange, fontWeight: '700' as const }]}>{b.name}</Text>
+                  </View>
+                  {sellBrand === b.name && <Ionicons name="checkmark-circle" size={20} color={CM.orange} />}
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={showCatPicker} transparent animationType="slide" onRequestClose={() => setShowCatPicker(false)}>
+        <View style={cmStyles.pickerModal}>
+          <View style={cmStyles.pickerSheet}>
+            <View style={cmStyles.pickerSheetHandle} />
+            <Text style={cmStyles.pickerSheetTitle}>Select Category</Text>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {SELL_CATEGORIES_LIST.map(c => (
+                <Pressable
+                  key={c}
+                  style={[cmStyles.pickerOption, sellCategory === c && cmStyles.pickerOptionActive]}
+                  onPress={() => { setSellCategory(c); setShowCatPicker(false); }}
+                >
+                  <Text style={[cmStyles.pickerOptionText, sellCategory === c && { color: CM.orange, fontWeight: '700' as const }]}>{c}</Text>
+                  {sellCategory === c && <Ionicons name="checkmark-circle" size={20} color={CM.orange} />}
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={showCondPicker} transparent animationType="slide" onRequestClose={() => setShowCondPicker(false)}>
+        <View style={cmStyles.pickerModal}>
+          <View style={cmStyles.pickerSheet}>
+            <View style={cmStyles.pickerSheetHandle} />
+            <Text style={cmStyles.pickerSheetTitle}>Select Condition</Text>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {SELL_CONDITIONS.map(c => (
+                <Pressable
+                  key={c}
+                  style={[cmStyles.pickerOption, sellCondition === c && cmStyles.pickerOptionActive]}
+                  onPress={() => { setSellCondition(c); setShowCondPicker(false); }}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: conditionColor(c) }} />
+                    <Text style={[cmStyles.pickerOptionText, sellCondition === c && { color: CM.orange, fontWeight: '700' as const }]}>{c}</Text>
+                  </View>
+                  {sellCondition === c && <Ionicons name="checkmark-circle" size={20} color={CM.orange} />}
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+}
+
+const cmStyles = StyleSheet.create({
+  cmHeader: {
+    backgroundColor: CM.card,
+    paddingHorizontal: 16,
+    paddingBottom: 0,
+    borderBottomWidth: 1,
+    borderBottomColor: CM.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  cmHeaderTitle: {
+    fontSize: 22,
+    fontWeight: '800' as const,
+    color: CM.dark,
+    marginBottom: 10,
+  },
+  searchRow: {
+    marginBottom: 10,
+  },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: CM.bg,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    gap: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: CM.dark,
+  },
+  mainTabRow: {
+    flexDirection: 'row',
+    gap: 0,
+    marginTop: 0,
+  },
+  mainTab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    borderBottomWidth: 3,
+    borderBottomColor: 'transparent',
+  },
+  mainTabActive: {
+    borderBottomColor: CM.orange,
+  },
+  mainTabText: {
+    fontSize: 14,
+    fontWeight: '700' as const,
+    color: CM.muted,
+  },
+  mainTabTextActive: {
+    color: CM.orange,
+  },
+  catFilterRow: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  catChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: CM.card,
+    borderWidth: 1,
+    borderColor: CM.border,
+  },
+  catChipActive: {
+    backgroundColor: CM.orange,
+    borderColor: CM.orange,
+  },
+  catChipText: {
+    fontSize: 13,
+    fontWeight: '500' as const,
+    color: CM.muted,
+  },
+  catChipTextActive: {
+    color: '#FFF',
+  },
+  listingCard: {
+    backgroundColor: CM.card,
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  listingImageWrap: {
+    width: '100%',
+    aspectRatio: 1,
+    backgroundColor: '#F0F0F0',
+    position: 'relative',
+  },
+  listingImage: {
+    width: '100%',
+    height: '100%',
+  },
+  listingImagePlaceholder: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F5F5F5',
+  },
+  condBadge: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  condBadgeText: {
+    fontSize: 10,
+    fontWeight: '700' as const,
+    color: '#FFF',
+  },
+  imgCountBadge: {
+    position: 'absolute',
+    bottom: 6,
+    right: 6,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  imgCountText: {
+    fontSize: 10,
+    color: '#FFF',
+    fontWeight: '600' as const,
+  },
+  listingBody: {
+    padding: 10,
+    gap: 4,
+  },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  brandLogo: {
+    width: 16,
+    height: 16,
+  },
+  brandText: {
+    fontSize: 11,
+    color: CM.muted,
+    fontWeight: '500' as const,
+  },
+  brandInitial: {
+    width: 16,
+    height: 16,
+    borderRadius: 4,
+    backgroundColor: CM.orangeLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  brandInitialText: {
+    fontSize: 9,
+    fontWeight: '700' as const,
+    color: CM.orange,
+  },
+  listingTitle: {
+    fontSize: 13,
+    fontWeight: '700' as const,
+    color: CM.dark,
+    lineHeight: 18,
+  },
+  listingPrice: {
+    fontSize: 15,
+    fontWeight: '800' as const,
+    color: CM.orange,
+  },
+  locRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  locText: {
+    fontSize: 11,
+    color: CM.muted,
+    flex: 1,
+  },
+  buyNowBtn: {
+    backgroundColor: CM.orangeLight,
+    borderRadius: 8,
+    paddingVertical: 6,
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  buyNowText: {
+    fontSize: 12,
+    fontWeight: '700' as const,
+    color: CM.orange,
+  },
+  emptyState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 60,
+    paddingHorizontal: 32,
+  },
+  emptyIconWrap: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: CM.orangeLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '800' as const,
+    color: CM.dark,
+    marginBottom: 8,
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    color: CM.muted,
+    textAlign: 'center',
+    lineHeight: 21,
+    marginBottom: 24,
+  },
+  emptyAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: CM.orange,
+    borderRadius: 14,
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+  },
+  emptyActionText: {
+    fontSize: 15,
+    fontWeight: '700' as const,
+    color: '#FFF',
+  },
+  formSectionTitle: {
+    fontSize: 13,
+    fontWeight: '700' as const,
+    color: CM.muted,
+    textTransform: 'uppercase' as const,
+    letterSpacing: 0.5,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  input: {
+    backgroundColor: CM.card,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    fontSize: 15,
+    color: CM.dark,
+    borderWidth: 1,
+    borderColor: CM.border,
+  },
+  textArea: {
+    minHeight: 100,
+    textAlignVertical: 'top' as const,
+    paddingTop: 12,
+  },
+  pickerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: CM.card,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    borderWidth: 1,
+    borderColor: CM.border,
+  },
+  pickerBtnText: {
+    fontSize: 15,
+    color: CM.dark,
+  },
+  addImageBtn: {
+    width: 90,
+    height: 90,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: CM.orange,
+    borderStyle: 'dashed' as const,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: CM.orangeLight,
+    gap: 4,
+  },
+  addImageText: {
+    fontSize: 11,
+    color: CM.orange,
+    fontWeight: '600' as const,
+  },
+  uploadedThumb: {
+    width: 90,
+    height: 90,
+    borderRadius: 12,
+    overflow: 'visible',
+    position: 'relative',
+  },
+  uploadedThumbImg: {
+    width: 90,
+    height: 90,
+    borderRadius: 12,
+  },
+  removeThumb: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+  },
+  submitBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: CM.orange,
+    borderRadius: 16,
+    paddingVertical: 16,
+    marginTop: 24,
+    shadowColor: CM.orange,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  submitBtnText: {
+    fontSize: 16,
+    fontWeight: '800' as const,
+    color: '#FFF',
+  },
+  successBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#EAFAF1',
+    borderRadius: 14,
+    padding: 16,
+    marginTop: 24,
+  },
+  successText: {
+    fontSize: 15,
+    fontWeight: '700' as const,
+    color: CM.green,
+  },
+  pickerModal: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.4)',
+  },
+  pickerSheet: {
+    backgroundColor: CM.card,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '70%',
+    paddingBottom: 40,
+  },
+  pickerSheetHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#DDD',
+    alignSelf: 'center',
+    marginTop: 10,
+    marginBottom: 4,
+  },
+  pickerSheetTitle: {
+    fontSize: 17,
+    fontWeight: '800' as const,
+    color: CM.dark,
+    textAlign: 'center',
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: CM.border,
+  },
+  pickerOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: CM.border,
+  },
+  pickerOptionActive: {
+    backgroundColor: CM.orangeLight,
+  },
+  pickerOptionText: {
+    fontSize: 15,
+    color: CM.dark,
+  },
+  detailContainer: {
+    flex: 1,
+    backgroundColor: CM.card,
+  },
+  detailHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: CM.border,
+  },
+  detailHeaderTitle: {
+    fontSize: 16,
+    fontWeight: '700' as const,
+    color: CM.dark,
+    flex: 1,
+    textAlign: 'center',
+    marginHorizontal: 8,
+  },
+  carousel: {
+    height: 280,
+    backgroundColor: '#F7F7F7',
+  },
+  carouselImg: {
+    width,
+    height: 280,
+    backgroundColor: '#F7F7F7',
+  },
+  detailNoImg: {
+    height: 200,
+    backgroundColor: '#F5F5F5',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  detailBody: {
+    padding: 16,
+    gap: 4,
+  },
+  detailPrice: {
+    fontSize: 26,
+    fontWeight: '800' as const,
+    color: CM.orange,
+  },
+  detailTitle: {
+    fontSize: 20,
+    fontWeight: '700' as const,
+    color: CM.dark,
+    marginTop: 4,
+    marginBottom: 12,
+  },
+  detailMeta: {
+    flexDirection: 'row',
+    flexWrap: 'wrap' as const,
+    gap: 10,
+    marginBottom: 16,
+  },
+  detailMetaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: CM.bg,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  detailMetaLabel: {
+    fontSize: 11,
+    color: CM.muted,
+    fontWeight: '500' as const,
+  },
+  detailMetaVal: {
+    fontSize: 13,
+    color: CM.dark,
+    fontWeight: '600' as const,
+  },
+  detailBrandLogo: {
+    width: 18,
+    height: 18,
+  },
+  condBadgeLg: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 10,
+    marginLeft: 8,
+    alignSelf: 'flex-start',
+  },
+  condBadgeLgText: {
+    fontSize: 13,
+    fontWeight: '700' as const,
+    color: '#FFF',
+  },
+  descSection: {
+    marginBottom: 16,
+  },
+  descTitle: {
+    fontSize: 15,
+    fontWeight: '700' as const,
+    color: CM.dark,
+    marginBottom: 8,
+  },
+  descText: {
+    fontSize: 14,
+    color: CM.muted,
+    lineHeight: 21,
+  },
+  sellerSection: {
+    backgroundColor: CM.bg,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+  },
+  sellerSectionTitle: {
+    fontSize: 13,
+    fontWeight: '700' as const,
+    color: CM.muted,
+    textTransform: 'uppercase' as const,
+    letterSpacing: 0.5,
+    marginBottom: 10,
+  },
+  sellerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  sellerAvatar: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+  },
+  sellerAvatarPlaceholder: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: CM.orangeLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sellerInitials: {
+    fontSize: 16,
+    fontWeight: '800' as const,
+    color: CM.orange,
+  },
+  sellerName: {
+    fontSize: 15,
+    fontWeight: '700' as const,
+    color: CM.dark,
+  },
+  sellerLoc: {
+    fontSize: 12,
+    color: CM.muted,
+    marginTop: 2,
+  },
+  detailFooter: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: CM.border,
+    backgroundColor: CM.card,
+  },
+  contactBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: CM.green,
+    borderRadius: 16,
+    paddingVertical: 16,
+    shadowColor: CM.green,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  contactBtnText: {
+    fontSize: 16,
+    fontWeight: '800' as const,
+    color: '#FFF',
+  },
+});
 
 export default function MarketplaceScreen() {
   const insets = useSafeAreaInsets();
@@ -335,7 +1648,7 @@ export default function MarketplaceScreen() {
   }, [products, search, sellFilter]);
 
   if (isCustomer) {
-    return <BuySellScreen isEmbedded />;
+    return <CustomerMarketplace />;
   }
 
   const renderCourseCard = (c: CourseData) => {
