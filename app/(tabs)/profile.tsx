@@ -313,15 +313,23 @@ function CustomerProfileScreen() {
         </View>
       </Pressable>
 
+      {/* ── TECHNICIAN TOOLS ─────────────────────────────────────────────── */}
+      {profile.role === 'technician' && (
+        <>
+          <Text style={{ fontSize: 11, fontWeight: '700', color: '#888', letterSpacing: 1, marginBottom: 8, marginLeft: 4 }}>TECHNICIAN TOOLS</Text>
+          <View style={{ backgroundColor: '#FFF', borderRadius: 16, marginBottom: 14, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 6, elevation: 2 }}>
+            <MenuItem icon="wrench.and.screwdriver" label="Repair Jobs" onPress={() => router.push('/(tabs)/technician-jobs' as any)} />
+            <View style={{ height: 1, backgroundColor: '#F5F5F5', marginHorizontal: 16 }} />
+            <MenuItem icon="cash-outline" label="My Earnings" onPress={() => router.push('/technician-earnings')} />
+            <View style={{ height: 1, backgroundColor: '#F5F5F5', marginHorizontal: 16 }} />
+            <MenuItem icon="time-outline" label="Service Requests" onPress={() => router.push('/(tabs)/orders' as any)} />
+          </View>
+        </>
+      )}
+
       {/* ── MY ACTIVITY ─────────────────────────────────────────────────── */}
       <Text style={{ fontSize: 11, fontWeight: '700', color: '#888', letterSpacing: 1, marginBottom: 8, marginLeft: 4 }}>MY ACTIVITY</Text>
       <View style={{ backgroundColor: '#FFF', borderRadius: 16, marginBottom: 14, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 6, elevation: 2 }}>
-        {profile.role === 'technician' && (
-          <>
-            <MenuItem icon="cash-outline" label="My Earnings" onPress={() => router.push('/technician-earnings')} />
-            <View style={{ height: 1, backgroundColor: '#F5F5F5', marginHorizontal: 16 }} />
-          </>
-        )}
         <MenuItem icon="clipboard-outline" label="My Orders" onPress={() => router.push('/(tabs)/orders' as any)} />
         <View style={{ height: 1, backgroundColor: '#F5F5F5', marginHorizontal: 16 }} />
         <MenuItem icon="time-outline" label="Service History" onPress={() => router.push('/(tabs)/orders' as any)} />

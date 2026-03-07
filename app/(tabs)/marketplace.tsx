@@ -1342,7 +1342,7 @@ const cmStyles = StyleSheet.create({
   },
   carouselImg: {
     width,
-    height: 280,
+    height: 250,
     backgroundColor: '#F7F7F7',
   },
   detailNoImg: {
