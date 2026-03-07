@@ -27,6 +27,8 @@ import { apiRequest, getApiUrl } from '@/lib/query-client';
 import { openLink } from '@/lib/open-link';
 import BuySellScreen from '@/app/buy-sell';
 
+const WebFileInput = Platform.OS === 'web' ? require('react').createElement('input', { type: 'file', accept: 'image/*', multiple: true, style: { display: 'none' } }) : null;
+
 const { width } = Dimensions.get('window');
 const ORANGE = '#FF6B2C';
 const BLUE = '#2C7AFF';
@@ -287,20 +289,59 @@ function CustomerMarketplace() {
     });
   }, [listings, search, catFilter]);
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const pickImages = async () => {
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) {
-      Alert.alert('Permission needed', 'Please allow photo access to upload images.');
-      return;
+    if (Platform.OS === 'web') {
+      fileInputRef.current?.click();
+    } else {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert('Permission needed', 'Please allow photo access to upload images.');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsMultipleSelection: true,
+        quality: 0.85,
+        selectionLimit: 5 - sellImages.length,
+      });
+      if (result.canceled) return;
+      await uploadImages(result.assets.map(a => a.uri));
     }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsMultipleSelection: true,
-      quality: 0.85,
-      selectionLimit: 5 - sellImages.length,
-    });
-    if (result.canceled) return;
-    await uploadImages(result.assets.map(a => a.uri));
+  };
+
+  const handleWebFileSelect = (e: any) => {
+    const files = e.target?.files;
+    if (!files) return;
+    const fileArray = Array.from(files) as File[];
+    uploadWebImages(fileArray.slice(0, 5 - sellImages.length));
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const uploadWebImages = async (files: File[]) => {
+    setUploadingImages(true);
+    try {
+      const uploaded: string[] = [];
+      for (const file of files) {
+        const fd = new FormData();
+        fd.append('image', file);
+        const uploadUrl = `${getApiUrl()}/api/upload`;
+        const res = await fetch(uploadUrl, { method: 'POST', body: fd });
+        if (!res.ok) throw new Error(`Upload failed: ${res.status}`);
+        const data = await res.json();
+        if (data.url) {
+          const fullUrl = data.url.startsWith('http') ? data.url : `${getApiUrl()}${data.url}`;
+          uploaded.push(fullUrl);
+        }
+      }
+      setSellImages(prev => [...prev, ...uploaded].slice(0, 5));
+    } catch (e) {
+      console.error('[Marketplace] Upload error:', e);
+      Alert.alert('Upload failed', String(e).slice(0, 80));
+    } finally {
+      setUploadingImages(false);
+    }
   };
 
   const takePhoto = async () => {
@@ -327,14 +368,11 @@ function CustomerMarketplace() {
         const fileName = uri.split('/').pop() || `image-${Date.now()}.jpg`;
         const ext = fileName.split('.').pop()?.toLowerCase() || 'jpg';
         const mimeType = ext === 'png' ? 'image/png' : 'image/jpeg';
-        
         const fd = new FormData();
         fd.append('image', { uri, name: fileName, type: mimeType } as any);
-        
         const uploadUrl = `${getApiUrl()}/api/upload`;
         const res = await expoFetch(uploadUrl, { method: 'POST', body: fd });
         if (!res.ok) throw new Error(`Upload failed: ${res.status}`);
-        
         const data = await res.json();
         if (data.url) {
           const fullUrl = data.url.startsWith('http') ? data.url : `${getApiUrl()}${data.url}`;
@@ -342,9 +380,7 @@ function CustomerMarketplace() {
         }
       }
       setSellImages(prev => [...prev, ...uploaded].slice(0, 5));
-      if (uploaded.length > 0) {
-        if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      }
+      if (uploaded.length > 0 && Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (e) {
       console.error('[Marketplace] Upload error:', e);
       Alert.alert('Upload failed', `Could not upload images. ${String(e).slice(0, 50)}`);
