@@ -252,6 +252,26 @@ async function sendFast2SMSOTP(phone: string, otp: string): Promise<boolean> {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Ensure admin account exists
+  (async () => {
+    try {
+      const adminPhone = "8179142535";
+      const existing = await db.select().from(profiles).where(eq(profiles.phone, adminPhone));
+      if (existing.length === 0) {
+        await db.insert(profiles).values({
+          id: "admin-" + randomUUID(),
+          phone: adminPhone,
+          name: "Admin",
+          role: "admin",
+          skills: "[]",
+        });
+        console.log("[Admin] Created admin account for 8179142535");
+      }
+    } catch (err) {
+      console.error("[Admin] Error ensuring admin exists:", err);
+    }
+  })();
+
   // ─── Healthcheck ───
   app.get("/healthz", (_req, res) => res.status(200).json({ status: "ok" }));
   app.get("/_healthz", (_req, res) => res.status(200).json({ status: "ok" }));
