@@ -965,14 +965,6 @@ export default function ProfileScreen() {
           </Pressable>
           <Pressable
             style={[styles.supportRow, { marginTop: 8 }]}
-            onPress={() => router.push('/(tabs)/orders' as any)}
-          >
-            <Ionicons name="receipt-outline" size={20} color="#34C759" />
-            <Text style={styles.detailText}>Bookings</Text>
-            <Ionicons name="chevron-forward" size={16} color={C.textTertiary} style={{ marginLeft: 'auto' }} />
-          </Pressable>
-          <Pressable
-            style={[styles.supportRow, { marginTop: 8 }]}
             onPress={() => router.push('/notification-preferences')}
           >
             <Ionicons name="notifications-outline" size={20} color="#FF9F0A" />
