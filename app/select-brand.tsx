@@ -140,8 +140,8 @@ function BrandLogo({ brand, size }: { brand: Brand; size: number }) {
   if (failed) {
     return (
       <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: brand.accentBg, alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={{ fontSize: size * 0.35, fontFamily: 'Inter_700Bold', color: brand.accentColor }}>
-          {brand.name[0]}
+        <Text style={{ fontSize: size * 0.4, fontFamily: 'Inter_700Bold', color: brand.accentColor, fontWeight: '800' }}>
+          {brand.name[0].toUpperCase()}
         </Text>
       </View>
     );
@@ -151,7 +151,9 @@ function BrandLogo({ brand, size }: { brand: Brand; size: number }) {
       source={{ uri: brand.logo }}
       style={{ width: size, height: size, borderRadius: 6 }}
       contentFit="contain"
+      cachePolicy="memory-disk"
       onError={() => setFailed(true)}
+      onLoad={() => {}}
     />
   );
 }
@@ -275,11 +277,7 @@ function BrandCard({ brand, onPress }: { brand: Brand; onPress: () => void }) {
     >
       {/* Logo box */}
       <View style={[styles.logoBox, { backgroundColor: brand.accentBg }]}>
-        <Image
-          source={{ uri: brand.logo }}
-          style={styles.logo}
-          contentFit="contain"
-        />
+        <BrandLogo brand={brand} size={CARD_W * 0.5} />
       </View>
 
       {/* Name */}
@@ -361,17 +359,13 @@ const styles = StyleSheet.create({
     ...SHADOW,
   },
   logoBox: {
-    width: CARD_W - 32,
-    height: CARD_W * 0.45,
-    borderRadius: 14,
+    width: CARD_W - 24,
+    height: CARD_W * 0.50,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
     overflow: 'hidden',
-  },
-  logo: {
-    width: '70%',
-    height: '70%',
   },
   brandName: {
     fontSize: 14, fontFamily: 'Inter_700Bold', color: DARK,
