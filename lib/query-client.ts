@@ -16,6 +16,12 @@ export function getApiUrl(): string {
 
 async function getSessionToken(): Promise<string | null> {
   try {
+    // On web, try localStorage first (more reliable than AsyncStorage)
+    if (Platform.OS === "web" && typeof window !== "undefined" && window.localStorage) {
+      const token = window.localStorage.getItem(SESSION_KEY);
+      if (token) return token;
+    }
+    // Fall back to AsyncStorage
     const token = await AsyncStorage.getItem(SESSION_KEY);
     if (token) return token;
     const legacyToken = await AsyncStorage.getItem("mobi_session_token");

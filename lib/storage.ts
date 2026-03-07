@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 import { UserProfile, Post, Job, Conversation, ChatMessage } from './types';
 
 const KEYS = {
@@ -257,14 +258,26 @@ export async function seedDemoData(currentProfile: UserProfile): Promise<void> {
 }
 
 export async function saveSessionToken(token: string): Promise<void> {
+  // On web, use localStorage for better persistence
+  if (Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
+    window.localStorage.setItem(KEYS.SESSION_TOKEN, token);
+  }
   await AsyncStorage.setItem(KEYS.SESSION_TOKEN, token);
 }
 
 export async function getSessionToken(): Promise<string | null> {
+  // On web, try localStorage first (more reliable)
+  if (Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
+    const token = window.localStorage.getItem(KEYS.SESSION_TOKEN);
+    if (token) return token;
+  }
   return await AsyncStorage.getItem(KEYS.SESSION_TOKEN);
 }
 
 export async function clearSessionToken(): Promise<void> {
+  if (Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
+    window.localStorage.removeItem(KEYS.SESSION_TOKEN);
+  }
   await AsyncStorage.removeItem(KEYS.SESSION_TOKEN);
 }
 

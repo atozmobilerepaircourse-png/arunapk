@@ -342,12 +342,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       if (!sessionToken) {
         console.warn("[Profile] No session token provided");
-        return res.status(401).json({ success: false, message: "Not logged in" });
+        return res.status(401).json({ success: false, message: "Session expired. Please log out and log in again." });
       }
       const sessionRows = await db.select().from(sessions).where(eq(sessions.sessionToken, sessionToken));
       if (!sessionRows || sessionRows.length === 0) {
-        console.warn("[Profile] Session not found for token:", sessionToken?.slice(0, 10));
-        return res.status(401).json({ success: false, message: "Invalid session" });
+        console.warn("[Profile] Session not found for token:", sessionToken?.slice(0, 10), "— user must re-login");
+        return res.status(401).json({ success: false, message: "Session expired. Please log out and log in again." });
       }
       const profileRows = await db.select().from(profiles).where(eq(profiles.phone, sessionRows[0].phone));
       if (!profileRows || !profileRows[0]) {
