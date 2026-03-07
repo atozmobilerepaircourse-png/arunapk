@@ -14,7 +14,7 @@ import { openLink } from '@/lib/open-link';
 
 const C = Colors.light;
 
-type AdminTab = 'dashboard' | 'users' | 'posts' | 'jobs' | 'bookings' | 'subscriptions' | 'revenue' | 'ads' | 'links' | 'device' | 'notifications' | 'payouts' | 'email' | 'security';
+type AdminTab = 'dashboard' | 'users' | 'posts' | 'jobs' | 'bookings' | 'subscriptions' | 'revenue' | 'links' | 'device' | 'notifications' | 'payouts' | 'email' | 'security';
 
 const ROLE_COLORS: Record<UserRole | 'admin', string> = {
   technician: '#34C759',
@@ -307,11 +307,6 @@ export default function AdminScreen() {
   const [activeTab, setActiveTab] = useState<AdminTab>('dashboard');
   const [subscriptions, setSubscriptions] = useState<SubscriptionSetting[]>([]);
   const [subLoading, setSubLoading] = useState(false);
-  const [adsList, setAdsList] = useState<any[]>([]);
-  const [loadingAds, setLoadingAds] = useState(false);
-  const [adTitle, setAdTitle] = useState('');
-  const [adLinkUrl, setAdLinkUrl] = useState('');
-  const [adImage, setAdImage] = useState<string | null>(null);
   const [liveUrl, setLiveUrl] = useState('');
   const [schematicsUrl, setSchematicsUrl] = useState('');
   const [webToolsUrl, setWebToolsUrl] = useState('');
@@ -443,22 +438,6 @@ export default function AdminScreen() {
     }
   }, [activeTab, fetchSubscriptions]);
 
-  const fetchAds = useCallback(async () => {
-    setLoadingAds(true);
-    try {
-      const res = await apiRequest('GET', '/api/ads');
-      const data = await res.json();
-      if (Array.isArray(data)) setAdsList(data);
-    } catch (err) {
-      console.warn('Failed to fetch ads:', err);
-    } finally {
-      setLoadingAds(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (activeTab === 'ads') fetchAds();
-  }, [activeTab]);
 
   const fetchLinks = useCallback(async () => {
     setLinksLoading(true);
@@ -588,74 +567,6 @@ export default function AdminScreen() {
     if (activeTab === 'email') fetchEmailStats();
   }, [activeTab, fetchEmailStats]);
 
-  const pickAdImage = async () => {
-    const { launchImageLibraryAsync, MediaTypeOptions } = await import('expo-image-picker');
-    const result = await launchImageLibraryAsync({ mediaTypes: MediaTypeOptions.Images, quality: 0.8 });
-    if (!result.canceled && result.assets[0]) {
-      setAdImage(result.assets[0].uri);
-    }
-  };
-
-  const createAd = async () => {
-    if (!adTitle.trim() && !adImage) {
-      Alert.alert('Error', 'Please add a title or image for the ad');
-      return;
-    }
-    try {
-      const formData = new FormData();
-      formData.append('title', adTitle.trim());
-      formData.append('linkUrl', adLinkUrl.trim());
-      if (adImage) {
-        const ext = adImage.split('.').pop() || 'jpg';
-        formData.append('image', { uri: adImage, name: `ad.${ext}`, type: `image/${ext}` } as any);
-      }
-      const baseUrl = getApiUrl();
-      const response = await fetch(`${baseUrl}/api/ads`, { method: 'POST', body: formData });
-      const data = await response.json();
-      if (data.success || response.status === 201) {
-        setAdTitle('');
-        setAdLinkUrl('');
-        setAdImage(null);
-        await fetchAds();
-        Alert.alert('Success', 'Ad created successfully');
-      } else {
-        Alert.alert('Error', data.message || 'Failed to create ad');
-      }
-    } catch (err) {
-      console.error('Create ad error:', err);
-      Alert.alert('Error', 'Failed to create ad');
-    }
-  };
-
-  const toggleAd = async (id: string, currentActive: number) => {
-    try {
-      await apiRequest('PATCH', `/api/ads/${id}`, { isActive: currentActive === 1 ? 0 : 1 });
-      fetchAds();
-    } catch (err) {
-      console.warn('Failed to toggle ad:', err);
-    }
-  };
-
-  const deleteAd = (id: string) => {
-    Alert.alert('Delete Ad', 'Are you sure?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: async () => {
-        try {
-          const baseUrl = getApiUrl();
-          const response = await fetch(`${baseUrl}/api/ads/${id}`, { method: 'DELETE' });
-          if (response.status === 200 || response.status === 204) {
-            await fetchAds();
-            Alert.alert('Success', 'Ad deleted successfully');
-          } else {
-            Alert.alert('Error', 'Failed to delete ad');
-          }
-        } catch (err) {
-          console.error('Delete ad error:', err);
-          Alert.alert('Error', 'Failed to delete ad');
-        }
-      }},
-    ]);
-  };
 
   const toggleSubscription = async (role: string, enabled: boolean) => {
     try {
@@ -822,7 +733,6 @@ export default function AdminScreen() {
     { key: 'revenue', label: 'Revenue', icon: 'trending-up' },
     { key: 'posts', label: 'Posts', icon: 'newspaper' },
     { key: 'jobs', label: 'Jobs', icon: 'briefcase' },
-    { key: 'ads', label: 'Ads', icon: 'megaphone' },
     { key: 'links', label: 'Links', icon: 'link' },
     { key: 'device', label: 'Device', icon: 'phone-portrait' },
     { key: 'notifications', label: 'Notify', icon: 'notifications' },
@@ -1336,72 +1246,6 @@ export default function AdminScreen() {
     />
   );
 
-  const renderAds = () => (
-    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
-      <View style={[styles.subCard, { marginBottom: 16 }]}>
-        <Text style={[styles.subRoleName, { marginBottom: 12 }]}>Create New Ad</Text>
-        <TextInput
-          style={[styles.subAmountInput, { marginBottom: 10, fontSize: 14 }]}
-          placeholder="Ad Title"
-          placeholderTextColor={C.textTertiary}
-          value={adTitle}
-          onChangeText={setAdTitle}
-        />
-        <TextInput
-          style={[styles.subAmountInput, { marginBottom: 10, fontSize: 14 }]}
-          placeholder="Link URL (optional)"
-          placeholderTextColor={C.textTertiary}
-          value={adLinkUrl}
-          onChangeText={setAdLinkUrl}
-          autoCapitalize="none"
-        />
-        <Pressable
-          style={[styles.tabItem, { marginBottom: 10, justifyContent: 'center' }]}
-          onPress={pickAdImage}
-        >
-          <Ionicons name="image-outline" size={18} color={C.textSecondary} />
-          <Text style={styles.tabText}>{adImage ? 'Change Image' : 'Pick Image'}</Text>
-        </Pressable>
-        {adImage && (
-          <Image source={{ uri: adImage }} style={{ width: '100%', height: 150, borderRadius: 10, marginBottom: 10 }} contentFit="cover" />
-        )}
-        <Pressable
-          style={[styles.tabItemActive, { paddingVertical: 12, borderRadius: 10, alignItems: 'center' }]}
-          onPress={createAd}
-        >
-          <Text style={[styles.tabTextActive, { fontSize: 15 }]}>Create Ad</Text>
-        </Pressable>
-      </View>
-      {loadingAds ? (
-        <View style={styles.emptyState}><Text style={styles.emptyText}>Loading ads...</Text></View>
-      ) : adsList.length === 0 ? (
-        <View style={styles.emptyState}><Text style={styles.emptyText}>No ads created yet</Text></View>
-      ) : (
-        adsList.map(ad => (
-          <View key={ad.id} style={[styles.subCard, { marginBottom: 10 }]}>
-            {ad.image_url ? (
-              <Image source={{ uri: ad.image_url.startsWith('/') ? `${require('@/lib/query-client').getApiUrl()}${ad.image_url}` : ad.image_url }} style={{ width: '100%', height: 120, borderRadius: 10, marginBottom: 10 }} contentFit="cover" />
-            ) : null}
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.subRoleName}>{ad.title || 'Untitled Ad'}</Text>
-                {ad.link_url ? <Text style={[styles.emptyText, { fontSize: 11, marginTop: 2 }]} numberOfLines={1}>{ad.link_url}</Text> : null}
-              </View>
-              <Switch
-                value={ad.is_active === 1}
-                onValueChange={() => toggleAd(ad.id, ad.is_active)}
-                trackColor={{ false: C.surfaceElevated, true: '#34C75960' }}
-                thumbColor={ad.is_active === 1 ? '#34C759' : C.textTertiary}
-              />
-              <Pressable hitSlop={12} onPress={() => deleteAd(ad.id)} style={{ marginLeft: 12 }}>
-                <Ionicons name="trash-outline" size={20} color="#FF3B30" />
-              </Pressable>
-            </View>
-          </View>
-        ))
-      )}
-    </ScrollView>
-  );
 
   const saveLink = async (key: string, value: string) => {
     try {
@@ -2582,7 +2426,6 @@ export default function AdminScreen() {
         {activeTab === 'revenue' && renderRevenue()}
         {activeTab === 'posts' && renderPosts()}
         {activeTab === 'jobs' && renderJobs()}
-        {activeTab === 'ads' && renderAds()}
         {activeTab === 'links' && renderLinks()}
         {activeTab === 'device' && renderDevice()}
         {activeTab === 'notifications' && renderNotifications()}

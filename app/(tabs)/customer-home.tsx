@@ -83,7 +83,6 @@ export default function CustomerHomeScreen() {
   const [userLat, setUserLat] = useState<number | null>(null);
   const [userLng, setUserLng] = useState<number | null>(null);
   const [search, setSearch]   = useState('');
-  const [adsList, setAdsList] = useState<any[]>([]);
   const locationFetched = useRef(false);
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
@@ -112,13 +111,6 @@ export default function CustomerHomeScreen() {
     } finally {
       setLoading(false);
     }
-  }, []);
-
-  useEffect(() => {
-    apiRequest('GET', '/api/ads/active')
-      .then(r => r.json())
-      .then(data => { if (Array.isArray(data)) setAdsList(data.filter((a: any) => a.isActive)); })
-      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -190,43 +182,21 @@ export default function CustomerHomeScreen() {
       </View>
 
       {/* ── Promo Banner (Dynamic Ads) ────────────────────────────────────── */}
-      {adsList.length > 0 ? (
-        <Pressable
-          style={styles.banner}
-          onPress={() => {
-            const ad = adsList[0];
-            if (ad.linkUrl) go(ad.linkUrl as any);
-          }}
-        >
-          {adsList[0].imageUrl ? (
-            <Image source={{ uri: adsList[0].imageUrl }} style={styles.adBannerImage} contentFit="cover" />
-          ) : (
-            <View style={styles.bannerContent}>
-              <View style={styles.bannerBadge}>
-                <Text style={styles.bannerBadgeTxt}>Ad</Text>
-              </View>
-              <Text style={styles.bannerTitle}>{adsList[0].title || 'Special Offer'}</Text>
-              <Text style={styles.bannerDesc}>Tap to learn more</Text>
-            </View>
-          )}
-        </Pressable>
-      ) : (
-        <Pressable style={styles.banner} onPress={() => go('/insurance')}>
-          <View style={styles.bannerContent}>
-            <View style={styles.bannerBadge}>
-              <Text style={styles.bannerBadgeTxt}>Limited Offer</Text>
-            </View>
-            <Text style={styles.bannerTitle}>Mobile Protection Plan</Text>
-            <Text style={styles.bannerDesc}>Just ₹99/month + ₹500 off on repairs</Text>
-            <View style={styles.bannerBtn}>
-              <Text style={styles.bannerBtnTxt}>Subscribe Now</Text>
-            </View>
+      <Pressable style={styles.banner} onPress={() => go('/insurance')}>
+        <View style={styles.bannerContent}>
+          <View style={styles.bannerBadge}>
+            <Text style={styles.bannerBadgeTxt}>Limited Offer</Text>
           </View>
-          <View style={styles.bannerShield}>
-            <Ionicons name="shield-outline" size={72} color="rgba(255,255,255,0.35)" />
+          <Text style={styles.bannerTitle}>Mobile Protection Plan</Text>
+          <Text style={styles.bannerDesc}>Just ₹99/month + ₹500 off on repairs</Text>
+          <View style={styles.bannerBtn}>
+            <Text style={styles.bannerBtnTxt}>Subscribe Now</Text>
           </View>
-        </Pressable>
-      )}
+        </View>
+        <View style={styles.bannerShield}>
+          <Ionicons name="shield-outline" size={72} color="rgba(255,255,255,0.35)" />
+        </View>
+      </Pressable>
 
       {/* ── Quick Services ────────────────────────────────────────────────── */}
       <View style={styles.sectionRow}>
