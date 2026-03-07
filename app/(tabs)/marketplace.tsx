@@ -445,11 +445,12 @@ function CustomerMarketplace() {
     const priceNum = parseFloat(item.price || '0');
     const brandObj = SELL_BRANDS.find(b => b.name.toLowerCase() === item.brand.toLowerCase());
     const logoUrl = brandObj?.domain ? `https://logo.clearbit.com/${brandObj.domain}` : null;
+    const imageUri = item.images.length > 0 ? (item.images[0].startsWith('http') ? item.images[0] : `${getApiUrl()}${item.images[0]}`) : null;
     return (
       <Pressable style={[cmStyles.listingCard, { width: cardWidth }]} onPress={() => setDetailItem(item)}>
         <View style={cmStyles.listingImageWrap}>
-          {item.images.length > 0 ? (
-            <Image source={{ uri: item.images[0] }} style={cmStyles.listingImage} contentFit="cover" />
+          {imageUri ? (
+            <Image source={{ uri: imageUri }} style={cmStyles.listingImage} contentFit="cover" />
           ) : (
             <View style={cmStyles.listingImagePlaceholder}>
               <Ionicons name="phone-portrait-outline" size={36} color="#DDD" />
@@ -516,9 +517,10 @@ function CustomerMarketplace() {
           <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
             {detailItem.images.length > 0 ? (
               <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} style={cmStyles.carousel}>
-                {detailItem.images.map((uri, i) => (
-                  <Image key={i} source={{ uri }} style={cmStyles.carouselImg} contentFit="contain" />
-                ))}
+                {detailItem.images.map((uri, i) => {
+                  const fullUri = uri.startsWith('http') ? uri : `${getApiUrl()}${uri}`;
+                  return <Image key={i} source={{ uri: fullUri }} style={cmStyles.carouselImg} contentFit="contain" />;
+                })}
               </ScrollView>
             ) : (
               <View style={cmStyles.detailNoImg}>
