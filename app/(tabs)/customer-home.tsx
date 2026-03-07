@@ -250,13 +250,9 @@ function TechCard({ tech }: { tech: any }) {
 
   const handleChat = async () => {
     if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    if (tech.id && tech.id !== profile?.id) {
-      try {
-        const convoId = await startConversation(tech.id, tech.name, 'technician');
-        if (convoId) router.push({ pathname: '/chat/[id]', params: { id: convoId } });
-      } catch (e) {
-        console.error('Failed to start conversation:', e);
-      }
+    if (tech.id) {
+      // Open technician's profile where user can see details and chat option
+      router.push({ pathname: '/user-profile', params: { id: tech.id } });
     }
   };
 
