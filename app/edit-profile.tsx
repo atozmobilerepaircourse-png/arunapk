@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
+import { fetch as expoFetch } from 'expo/fetch';
 import { router } from 'expo-router';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { firebaseStorage } from '@/lib/firebase';
@@ -42,7 +43,7 @@ export default function EditProfileScreen() {
     setUploadingImage(true);
     try {
       const uri = result.assets[0].uri;
-      const response = await fetch(uri);
+      const response = await expoFetch(uri);
       const blob = await response.blob();
       const fileName = `profile-${profile?.id}-${Date.now()}.jpg`;
       const storageRef = ref(firebaseStorage, `profile-photos/${fileName}`);
