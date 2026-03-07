@@ -341,17 +341,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ success: false, message: "Invalid role" });
       }
       if (!sessionToken) {
+        console.warn("[Profile] No session token provided");
         return res.status(401).json({ success: false, message: "Not logged in" });
       }
       const sessionRows = await db.select().from(sessions).where(eq(sessions.sessionToken, sessionToken));
-      if (!sessionRows[0]) {
+      if (!sessionRows || sessionRows.length === 0) {
+        console.warn("[Profile] Session not found for token:", sessionToken?.slice(0, 10));
         return res.status(401).json({ success: false, message: "Invalid session" });
       }
       const profileRows = await db.select().from(profiles).where(eq(profiles.phone, sessionRows[0].phone));
-      if (!profileRows[0]) {
+      if (!profileRows || !profileRows[0]) {
+        console.warn("[Profile] Profile not found for phone:", sessionRows[0].phone);
         return res.status(404).json({ success: false, message: "Profile not found" });
       }
       await db.update(profiles).set({ role: newRole as any }).where(eq(profiles.id, profileRows[0].id));
+      console.log("[Profile] Role changed to", newRole, "for user", profileRows[0].id);
       res.json({ success: true, message: "Role updated successfully" });
     } catch (error) {
       console.error("[Profile] Change role error:", error);
