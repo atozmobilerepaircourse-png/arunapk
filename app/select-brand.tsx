@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
-  View, Text, StyleSheet, Pressable, Platform, FlatList, TextInput, Dimensions, ScrollView,
+  View, Text, StyleSheet, Pressable, Platform,
+  TextInput, Dimensions, ScrollView,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,143 +10,379 @@ import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 
 const { width: SW } = Dimensions.get('window');
-const CARD_W = (SW - 48) / 3;
+const NUM_COLS = SW >= 600 ? 3 : 2;
+const GAP      = 12;
+const H_PAD    = 16;
+const CARD_W   = (SW - H_PAD * 2 - GAP * (NUM_COLS - 1)) / NUM_COLS;
 
-const BG   = '#F2F4F7';
-const CARD = '#FFFFFF';
-const DARK = '#0F172A';
-const GRAY = '#64748B';
-const PRIMARY = '#FF6B2C';
+const BG      = '#F5F5F5';
+const CARD    = '#FFFFFF';
+const DARK    = '#1A1A1A';
+const MUTED   = '#888888';
+const BORDER  = '#EEEEEE';
+const PRIMARY = '#E8704A';
+const PRIMARY_L = '#FFF1EC';
 
-const POPULAR_BRANDS = [
-  { name: 'Apple',    emoji: '🍎', color: '#1C1C1E', bg: '#F5F5F7' },
-  { name: 'Samsung',  emoji: '📱', color: '#1428A0', bg: '#EAF0FF' },
-  { name: 'Xiaomi',   emoji: '📲', color: '#FF6900', bg: '#FFF0E8' },
-  { name: 'Vivo',     emoji: '📱', color: '#415FFF', bg: '#EAEDFF' },
-  { name: 'Oppo',     emoji: '📱', color: '#1F8EF1', bg: '#E8F4FF' },
-  { name: 'Realme',   emoji: '📱', color: '#E8A100', bg: '#FFF8E8' },
-  { name: 'OnePlus',  emoji: '📱', color: '#F5010C', bg: '#FFEBEB' },
+const SHADOW = {
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.07,
+  shadowRadius: 8,
+  elevation: 2,
+};
+
+// ── Brand data ──────────────────────────────────────────────────────────────
+type Brand = { name: string; logo: string; accentColor: string; accentBg: string; popular?: true };
+
+const BRANDS: Brand[] = [
+  {
+    name: 'Apple',       popular: true,
+    logo: 'https://logo.clearbit.com/apple.com',
+    accentColor: '#1C1C1E', accentBg: '#F5F5F7',
+  },
+  {
+    name: 'Samsung',     popular: true,
+    logo: 'https://logo.clearbit.com/samsung.com',
+    accentColor: '#1428A0', accentBg: '#EAF0FF',
+  },
+  {
+    name: 'Xiaomi',      popular: true,
+    logo: 'https://logo.clearbit.com/xiaomi.com',
+    accentColor: '#FF6900', accentBg: '#FFF0E8',
+  },
+  {
+    name: 'Vivo',        popular: true,
+    logo: 'https://logo.clearbit.com/vivo.com',
+    accentColor: '#415FFF', accentBg: '#EAEDFF',
+  },
+  {
+    name: 'Oppo',        popular: true,
+    logo: 'https://logo.clearbit.com/oppo.com',
+    accentColor: '#1F8EF1', accentBg: '#E8F4FF',
+  },
+  {
+    name: 'Realme',      popular: true,
+    logo: 'https://logo.clearbit.com/realme.com',
+    accentColor: '#E8A100', accentBg: '#FFF8E8',
+  },
+  {
+    name: 'OnePlus',     popular: true,
+    logo: 'https://logo.clearbit.com/oneplus.com',
+    accentColor: '#F5010C', accentBg: '#FFEBEB',
+  },
+  {
+    name: 'Motorola',
+    logo: 'https://logo.clearbit.com/motorola.com',
+    accentColor: '#005A9C', accentBg: '#E8F2FB',
+  },
+  {
+    name: 'Google Pixel',
+    logo: 'https://logo.clearbit.com/google.com',
+    accentColor: '#4285F4', accentBg: '#EEF4FF',
+  },
+  {
+    name: 'Nokia',
+    logo: 'https://logo.clearbit.com/nokia.com',
+    accentColor: '#124191', accentBg: '#E8EEFB',
+  },
+  {
+    name: 'Honor',
+    logo: 'https://logo.clearbit.com/honor.com',
+    accentColor: '#CF0A2C', accentBg: '#FFEBEF',
+  },
+  {
+    name: 'Huawei',
+    logo: 'https://logo.clearbit.com/huawei.com',
+    accentColor: '#CF0A2C', accentBg: '#FFEBEF',
+  },
+  {
+    name: 'Infinix',
+    logo: 'https://logo.clearbit.com/infinixmobility.com',
+    accentColor: '#E8704A', accentBg: '#FFF1EC',
+  },
+  {
+    name: 'Tecno',
+    logo: 'https://logo.clearbit.com/tecno-mobile.com',
+    accentColor: '#00AEEF', accentBg: '#E8F8FF',
+  },
+  {
+    name: 'Nothing',
+    logo: 'https://logo.clearbit.com/nothing.tech',
+    accentColor: '#1A1A1A', accentBg: '#F5F5F5',
+  },
+  {
+    name: 'Asus',
+    logo: 'https://logo.clearbit.com/asus.com',
+    accentColor: '#00AEEF', accentBg: '#E8F8FF',
+  },
+  {
+    name: 'Sony',
+    logo: 'https://logo.clearbit.com/sony.com',
+    accentColor: '#1A1A1A', accentBg: '#F5F5F5',
+  },
+  {
+    name: 'Lava',
+    logo: 'https://logo.clearbit.com/lavamobiles.com',
+    accentColor: '#FF4500', accentBg: '#FFF0EC',
+  },
+  {
+    name: 'Micromax',
+    logo: 'https://logo.clearbit.com/micromaxinfo.com',
+    accentColor: '#D40000', accentBg: '#FFEBEB',
+  },
 ];
 
-const ALL_BRANDS = [
-  { name: 'Apple',    logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/fa/Apple_logo_black.svg/120px-Apple_logo_black.svg.png',   bg: '#FFFFFF' },
-  { name: 'Samsung',  logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/24/Samsung_Logo.svg/320px-Samsung_Logo.svg.png',             bg: '#FFFFFF' },
-  { name: 'Xiaomi',   logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/ae/Xiaomi_logo_%282021-%29.svg/320px-Xiaomi_logo_%282021-%29.svg.png', bg: '#FFFFFF' },
-  { name: 'Vivo',     logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/86/Vivo_logo_2019.svg/320px-Vivo_logo_2019.svg.png',         bg: '#FFFFFF' },
-  { name: 'Oppo',     logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a7/Oppo_logo.svg/320px-Oppo_logo.svg.png',                   bg: '#FFFFFF' },
-  { name: 'Realme',   logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/55/Realme_logo.svg/320px-Realme_logo.svg.png',               bg: '#FFFFFF' },
-  { name: 'OnePlus',  logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/87/OnePlus_Logo.svg/320px-OnePlus_Logo.svg.png',             bg: '#FFFFFF' },
-  { name: 'Motorola', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e2/Motorola_2021_logo.svg/320px-Motorola_2021_logo.svg.png', bg: '#FFFFFF' },
-  { name: 'Google',   logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/Google_2015_logo.svg/320px-Google_2015_logo.svg.png',    bg: '#FFFFFF' },
-];
+const POPULAR = BRANDS.filter(b => b.popular);
 
+// ── Fallback initials box ────────────────────────────────────────────────────
+function BrandLogo({ brand, size }: { brand: Brand; size: number }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) {
+    return (
+      <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: brand.accentBg, alignItems: 'center', justifyContent: 'center' }}>
+        <Text style={{ fontSize: size * 0.35, fontFamily: 'Inter_700Bold', color: brand.accentColor }}>
+          {brand.name[0]}
+        </Text>
+      </View>
+    );
+  }
+  return (
+    <Image
+      source={{ uri: brand.logo }}
+      style={{ width: size, height: size, borderRadius: 6 }}
+      contentFit="contain"
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
+// ── Screen ───────────────────────────────────────────────────────────────────
 export default function SelectBrandScreen() {
-  const insets = useSafeAreaInsets();
+  const insets    = useSafeAreaInsets();
   const [search, setSearch] = useState('');
+
   const topInset  = Platform.OS === 'web' ? 67 : insets.top;
-  const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom + 16;
+  const botPad    = Platform.OS === 'web' ? 34 : insets.bottom + 16;
 
-  const filtered = search.trim()
-    ? ALL_BRANDS.filter(b => b.name.toLowerCase().includes(search.toLowerCase()))
-    : ALL_BRANDS;
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return q ? BRANDS.filter(b => b.name.toLowerCase().includes(q)) : BRANDS;
+  }, [search]);
 
-  const goToBrand = (brand: string) => {
+  const goToBrand = (name: string) => {
     if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push({ pathname: '/select-model', params: { brand } } as any);
+    router.push({ pathname: '/select-model', params: { brand: name } } as any);
   };
 
   return (
     <View style={[styles.root, { paddingTop: topInset }]}>
-      {/* ── Nav ── */}
+
+      {/* ── Nav ──────────────────────────────────────────────────────────── */}
       <View style={styles.nav}>
         <Pressable style={styles.backBtn} onPress={() => router.back()}>
-          <Ionicons name="chevron-back" size={22} color={DARK} />
+          <Ionicons name="arrow-back" size={20} color={DARK} />
         </Pressable>
-        <View>
+        <View style={{ flex: 1 }}>
           <Text style={styles.navTitle}>Select Brand</Text>
-          <Text style={styles.navSub}>Choose your phone brand</Text>
+          <Text style={styles.navSub}>Choose your phone brand to continue</Text>
         </View>
       </View>
 
-      {/* ── Search ── */}
+      {/* ── Search ───────────────────────────────────────────────────────── */}
       <View style={styles.searchWrap}>
-        <Ionicons name="search" size={18} color={GRAY} style={{ marginLeft: 2 }} />
+        <Ionicons name="search-outline" size={18} color={MUTED} />
         <TextInput
           style={styles.searchInput}
           placeholder="Search brand..."
-          placeholderTextColor={GRAY}
+          placeholderTextColor={MUTED}
           value={search}
           onChangeText={setSearch}
           returnKeyType="search"
+          clearButtonMode="while-editing"
         />
-        {search.length > 0 && (
+        {search.length > 0 && Platform.OS !== 'ios' && (
           <Pressable onPress={() => setSearch('')} hitSlop={8}>
-            <Ionicons name="close-circle" size={18} color={GRAY} />
+            <Ionicons name="close-circle" size={18} color={MUTED} />
           </Pressable>
         )}
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: bottomPad + 24 }}>
-        {/* ── Popular ── */}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{ paddingBottom: botPad + 24 }}
+      >
+        {/* ── Popular Brands ───────────────────────────────────────────────── */}
         {!search && (
           <>
-            <Text style={styles.sectionLabel}>Popular Brands</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.popularRow}>
-              {POPULAR_BRANDS.map(b => (
-                <Pressable key={b.name} style={({ pressed }) => [styles.popularChip, { opacity: pressed ? 0.8 : 1 }]} onPress={() => goToBrand(b.name)}>
-                  <View style={[styles.popularEmoji, { backgroundColor: b.bg }]}>
-                    <Text style={{ fontSize: 22 }}>{b.emoji}</Text>
+            <View style={styles.sectionRow}>
+              <Text style={styles.sectionLabel}>Popular Brands</Text>
+            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.popularRow}
+            >
+              {POPULAR.map(b => (
+                <Pressable
+                  key={b.name}
+                  style={({ pressed }) => [styles.popularItem, { opacity: pressed ? 0.8 : 1 }]}
+                  onPress={() => goToBrand(b.name)}
+                >
+                  <View style={[styles.popularLogoWrap, { backgroundColor: b.accentBg, borderColor: b.accentColor + '22' }]}>
+                    <BrandLogo brand={b} size={40} />
                   </View>
-                  <Text style={styles.popularChipName}>{b.name}</Text>
+                  <Text style={styles.popularName} numberOfLines={1}>{b.name}</Text>
                 </Pressable>
               ))}
             </ScrollView>
-            <Text style={styles.sectionLabel}>All Brands</Text>
+
+            <View style={styles.sectionRow}>
+              <Text style={styles.sectionLabel}>All Brands</Text>
+              <Text style={styles.sectionCount}>{BRANDS.length} brands</Text>
+            </View>
           </>
         )}
 
-        {/* ── Brand Grid ── */}
+        {/* ── Brand Grid ───────────────────────────────────────────────────── */}
         <View style={styles.grid}>
           {filtered.map(b => (
-            <Pressable
-              key={b.name}
-              style={({ pressed }) => [styles.brandCard, { opacity: pressed ? 0.88 : 1 }]}
-              onPress={() => goToBrand(b.name)}
-            >
-              <View style={[styles.logoBox, { backgroundColor: b.bg }]}>
-                {b.logo ? (
-                  <Image source={{ uri: b.logo }} style={styles.logo} contentFit="contain" />
-                ) : (
-                  <Text style={{ fontSize: 22, fontFamily: 'Inter_700Bold', color: DARK }}>{b.name[0]}</Text>
-                )}
-              </View>
-              <Text style={styles.brandName} numberOfLines={1}>{b.name}</Text>
-              <Text style={styles.brandPrice}>Starts ₹199</Text>
-            </Pressable>
+            <BrandCard key={b.name} brand={b} onPress={() => goToBrand(b.name)} />
           ))}
         </View>
+
+        {filtered.length === 0 && (
+          <View style={styles.emptyWrap}>
+            <Ionicons name="search-outline" size={36} color={MUTED} />
+            <Text style={styles.emptyTitle}>No brand found</Text>
+            <Text style={styles.emptyText}>Try a different search term</Text>
+          </View>
+        )}
       </ScrollView>
     </View>
   );
 }
 
+// ── Brand card ───────────────────────────────────────────────────────────────
+function BrandCard({ brand, onPress }: { brand: Brand; onPress: () => void }) {
+  const [pressed, setPressed] = useState(false);
+  return (
+    <Pressable
+      style={[styles.brandCard, pressed && { borderColor: PRIMARY, borderWidth: 1.5 }]}
+      onPress={onPress}
+      onPressIn={() => setPressed(true)}
+      onPressOut={() => setPressed(false)}
+    >
+      {/* Logo box */}
+      <View style={[styles.logoBox, { backgroundColor: brand.accentBg }]}>
+        <Image
+          source={{ uri: brand.logo }}
+          style={styles.logo}
+          contentFit="contain"
+        />
+      </View>
+
+      {/* Name */}
+      <Text style={styles.brandName} numberOfLines={1}>{brand.name}</Text>
+
+      {/* Price */}
+      <View style={styles.priceRow}>
+        <Ionicons name="pricetag-outline" size={10} color={PRIMARY} />
+        <Text style={styles.brandPrice}>Starting from ₹199</Text>
+      </View>
+    </Pressable>
+  );
+}
+
+// ── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: BG },
-  nav: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingBottom: 16 },
-  backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: CARD, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 4, elevation: 2 },
+
+  nav: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingHorizontal: 16, paddingBottom: 14,
+  },
+  backBtn: {
+    width: 42, height: 42, borderRadius: 21,
+    backgroundColor: CARD, alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: BORDER, ...SHADOW,
+  },
   navTitle: { fontSize: 20, fontFamily: 'Inter_700Bold', color: DARK },
-  navSub: { fontSize: 13, fontFamily: 'Inter_400Regular', color: GRAY, marginTop: 1 },
-  searchWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: CARD, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12, gap: 10, marginHorizontal: 16, marginBottom: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2 },
-  searchInput: { flex: 1, fontSize: 14, fontFamily: 'Inter_400Regular', color: DARK, padding: 0 },
-  sectionLabel: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: GRAY, paddingHorizontal: 16, marginBottom: 12, textTransform: 'uppercase' as const, letterSpacing: 0.5 },
-  popularRow: { paddingHorizontal: 16, gap: 14, paddingBottom: 20 },
-  popularChip: { alignItems: 'center', width: 68 },
-  popularEmoji: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
-  popularChipName: { fontSize: 11, fontFamily: 'Inter_500Medium', color: DARK, textAlign: 'center' },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 12, gap: 10 },
-  brandCard: { width: CARD_W, backgroundColor: CARD, borderRadius: 20, padding: 12, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 3, borderWidth: 1, borderColor: '#F1F5F9' },
-  logoBox: { width: '100%', height: 60, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
-  logo: { width: '70%', height: '70%' },
-  brandName: { fontSize: 13, fontFamily: 'Inter_700Bold', color: DARK, marginBottom: 2, textAlign: 'center' },
-  brandPrice: { fontSize: 11, fontFamily: 'Inter_600SemiBold', color: PRIMARY },
+  navSub:   { fontSize: 12, fontFamily: 'Inter_400Regular', color: MUTED, marginTop: 2 },
+
+  searchWrap: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: CARD, borderRadius: 14,
+    paddingHorizontal: 14, height: 50,
+    gap: 10, marginHorizontal: H_PAD, marginBottom: 20,
+    borderWidth: 1, borderColor: BORDER, ...SHADOW,
+  },
+  searchInput: {
+    flex: 1, fontSize: 14, fontFamily: 'Inter_400Regular', color: DARK, padding: 0,
+  },
+
+  sectionRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: H_PAD, marginBottom: 12,
+  },
+  sectionLabel: {
+    fontSize: 13, fontFamily: 'Inter_700Bold', color: DARK,
+    textTransform: 'uppercase', letterSpacing: 0.6,
+  },
+  sectionCount: { fontSize: 12, color: MUTED, fontFamily: 'Inter_400Regular' },
+
+  popularRow: { paddingHorizontal: H_PAD, gap: 16, paddingBottom: 24 },
+  popularItem: { alignItems: 'center', width: 66 },
+  popularLogoWrap: {
+    width: 60, height: 60, borderRadius: 30,
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: 7, borderWidth: 1,
+    ...SHADOW,
+  },
+  popularName: {
+    fontSize: 11, fontFamily: 'Inter_500Medium', color: DARK,
+    textAlign: 'center',
+  },
+
+  grid: {
+    flexDirection: 'row', flexWrap: 'wrap',
+    paddingHorizontal: H_PAD, gap: GAP,
+  },
+
+  brandCard: {
+    width: CARD_W,
+    backgroundColor: CARD,
+    borderRadius: 18,
+    paddingVertical: 18,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: BORDER,
+    ...SHADOW,
+  },
+  logoBox: {
+    width: CARD_W - 32,
+    height: CARD_W * 0.45,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+    overflow: 'hidden',
+  },
+  logo: {
+    width: '70%',
+    height: '70%',
+  },
+  brandName: {
+    fontSize: 14, fontFamily: 'Inter_700Bold', color: DARK,
+    marginBottom: 6, textAlign: 'center',
+  },
+  priceRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  brandPrice: {
+    fontSize: 11, fontFamily: 'Inter_600SemiBold', color: PRIMARY,
+  },
+
+  emptyWrap: { alignItems: 'center', paddingTop: 60, gap: 10 },
+  emptyTitle: { fontSize: 18, fontFamily: 'Inter_700Bold', color: DARK },
+  emptyText:  { fontSize: 14, color: MUTED, fontFamily: 'Inter_400Regular' },
 });
