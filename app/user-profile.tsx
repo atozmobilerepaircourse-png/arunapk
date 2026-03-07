@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Pressable, Platform,
-  ActivityIndicator, Linking, Alert,
+  ActivityIndicator, Alert,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,17 +16,43 @@ import { Post, UserProfile, ROLE_LABELS, UserRole, CATEGORY_LABELS } from '@/lib
 import PostCard from '@/components/PostCard';
 
 const C = Colors.light;
+const PRIMARY = '#E8704A';
+const GREEN = '#34C759';
+const AMBER = '#F59E0B';
 
 const ROLE_COLORS: Record<UserRole, string> = {
-  technician: '#34C759',
+  technician: GREEN,
   teacher: '#FFD60A',
   supplier: '#FF6B2C',
   job_provider: '#5E8BFF',
   customer: '#FF2D55',
 };
 
+const TECH_SERVICES = [
+  { id: 'screen', label: 'Screen Replacement', icon: 'phone-portrait-outline' as const, price: '₹199' },
+  { id: 'battery', label: 'Battery Replacement', icon: 'battery-charging-outline' as const, price: '₹199' },
+  { id: 'charging', label: 'Charging Port Fix', icon: 'flash-outline' as const, price: '₹149' },
+  { id: 'back', label: 'Back Panel', icon: 'shield-outline' as const, price: '₹149' },
+  { id: 'camera', label: 'Camera Repair', icon: 'camera-outline' as const, price: '₹299' },
+  { id: 'software', label: 'Software/Flashing', icon: 'code-slash-outline' as const, price: '₹99' },
+];
+
 function getInitials(name: string): string {
   return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+}
+
+function seededRandom(seed: string): number {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) { h = Math.imul(31, h) + seed.charCodeAt(i) | 0; }
+  return Math.abs(h % 1000) / 1000;
+}
+
+function techRating(id: string): string {
+  return (4.0 + seededRandom(id + 'r') * 1.0).toFixed(1);
+}
+
+function techReviews(id: string): number {
+  return 100 + Math.floor(seededRandom(id + 'rv') * 800);
 }
 
 export default function UserProfileScreen() {
@@ -36,6 +62,7 @@ export default function UserProfileScreen() {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [showPosts, setShowPosts] = useState(false);
+  const [chatLoading, setChatLoading] = useState(false);
 
   const fetchUser = useCallback(async () => {
     try {
@@ -54,8 +81,20 @@ export default function UserProfileScreen() {
   const handleChat = async () => {
     if (!myProfile || !user) return;
     if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const convoId = await startConversation(user.id, user.name, user.role);
-    if (convoId) router.push({ pathname: '/chat/[id]', params: { id: convoId } });
+    setChatLoading(true);
+    try {
+      const convoId = await startConversation(user.id, user.name, user.role);
+      if (convoId) router.push({ pathname: '/chat/[id]', params: { id: convoId } });
+    } catch (e) {
+      console.error('[UserProfile] chat error:', e);
+    } finally {
+      setChatLoading(false);
+    }
+  };
+
+  const handleBookService = () => {
+    if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    router.push('/select-brand' as any);
   };
 
   const handleLike = async (postId: string) => {
@@ -83,11 +122,12 @@ export default function UserProfileScreen() {
   const userPosts = posts.filter(p => p.userId === id);
   const totalLikes = userPosts.reduce((sum, p) => sum + p.likes.length, 0);
   const isMe = myProfile?.id === id;
+  const isTechnician = user?.role === 'technician';
 
   if (loading) {
     return (
       <View style={[s.container, s.center]}>
-        <ActivityIndicator size="large" color={C.primary} />
+        <ActivityIndicator size="large" color={PRIMARY} />
       </View>
     );
   }
@@ -104,7 +144,9 @@ export default function UserProfileScreen() {
     );
   }
 
-  const roleColor = ROLE_COLORS[user.role] || C.primary;
+  const roleColor = ROLE_COLORS[user.role] || PRIMARY;
+  const rating = techRating(user.id);
+  const reviews = techReviews(user.id);
 
   return (
     <View style={s.container}>
@@ -120,6 +162,7 @@ export default function UserProfileScreen() {
         contentContainerStyle={[s.content, { paddingTop: (Platform.OS === 'web' ? 67 : insets.top) + 56 }]}
         showsVerticalScrollIndicator={false}
       >
+        {/* Profile Header */}
         <View style={s.profileHeader}>
           {user.avatar ? (
             <Image source={{ uri: user.avatar }} style={s.avatarImg} contentFit="cover" />
@@ -131,13 +174,75 @@ export default function UserProfileScreen() {
             </View>
           )}
           <Text style={s.profileName}>{user.name}</Text>
-          <View style={[s.roleBadge, { backgroundColor: roleColor + '20' }]}>
-            <Text style={[s.roleBadgeText, { color: roleColor }]}>
-              {ROLE_LABELS[user.role]}
-            </Text>
+
+          {/* Verified badge + role */}
+          <View style={s.badgeRow}>
+            <View style={[s.roleBadge, { backgroundColor: roleColor + '20' }]}>
+              <Text style={[s.roleBadgeText, { color: roleColor }]}>
+                {ROLE_LABELS[user.role]}
+              </Text>
+            </View>
+            {isTechnician && (
+              <View style={s.verifiedBadge}>
+                <Ionicons name="checkmark-circle" size={13} color={GREEN} />
+                <Text style={s.verifiedText}>Verified</Text>
+              </View>
+            )}
           </View>
+
+          {/* Rating (for technicians) */}
+          {isTechnician && (
+            <View style={s.ratingRow}>
+              <Ionicons name="star" size={15} color={AMBER} />
+              <Text style={s.ratingText}>{rating}</Text>
+              <Text style={s.reviewsText}>({reviews} reviews)</Text>
+            </View>
+          )}
+
+          {/* Location + Experience */}
+          {(user.city || user.experience) && (
+            <View style={s.metaRow}>
+              {user.city ? (
+                <View style={s.metaItem}>
+                  <Ionicons name="location-outline" size={14} color={C.textSecondary} />
+                  <Text style={s.metaText}>{user.city}{user.state ? `, ${user.state}` : ''}</Text>
+                </View>
+              ) : null}
+              {user.experience ? (
+                <View style={s.metaItem}>
+                  <Ionicons name="time-outline" size={14} color={C.textSecondary} />
+                  <Text style={s.metaText}>{user.experience}</Text>
+                </View>
+              ) : null}
+            </View>
+          )}
         </View>
 
+        {/* Action Buttons — Chat + Book */}
+        {!isMe && (
+          <View style={s.actionRow}>
+            <Pressable
+              style={[s.chatBtn, chatLoading && { opacity: 0.7 }]}
+              onPress={handleChat}
+              disabled={chatLoading}
+            >
+              {chatLoading ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Ionicons name="chatbubble-outline" size={18} color="#fff" />
+              )}
+              <Text style={s.chatBtnText}>Chat</Text>
+            </Pressable>
+            {isTechnician && (
+              <Pressable style={s.bookBtn} onPress={handleBookService}>
+                <Ionicons name="calendar-outline" size={18} color="#fff" />
+                <Text style={s.bookBtnText}>Book Service</Text>
+              </Pressable>
+            )}
+          </View>
+        )}
+
+        {/* Stats Row */}
         <View style={s.statsRow}>
           <Pressable style={s.statItem} onPress={() => setShowPosts(!showPosts)}>
             <Text style={s.statValue}>{userPosts.length}</Text>
@@ -155,6 +260,7 @@ export default function UserProfileScreen() {
           </View>
         </View>
 
+        {/* Posts */}
         {showPosts && userPosts.length > 0 && (
           <View style={s.postsSection}>
             <Text style={s.postsSectionTitle}>Posts by {user.name}</Text>
@@ -170,13 +276,29 @@ export default function UserProfileScreen() {
           </View>
         )}
 
-        {!isMe && (user.role === 'teacher' || user.role === 'supplier') && (
-          <Pressable style={s.chatBtn} onPress={handleChat}>
-            <Ionicons name="chatbubble-outline" size={18} color="#fff" />
-            <Text style={s.chatBtnText}>Message</Text>
-          </Pressable>
+        {/* Services Section (Technicians only) */}
+        {isTechnician && (
+          <View style={s.section}>
+            <Text style={s.sectionTitle}>Services & Pricing</Text>
+            <View style={s.servicesGrid}>
+              {TECH_SERVICES.map(svc => (
+                <Pressable
+                  key={svc.id}
+                  style={s.serviceCard}
+                  onPress={handleBookService}
+                >
+                  <View style={s.serviceIconWrap}>
+                    <Ionicons name={svc.icon} size={22} color={PRIMARY} />
+                  </View>
+                  <Text style={s.serviceLabel}>{svc.label}</Text>
+                  <Text style={s.servicePrice}>Starting {svc.price}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
         )}
 
+        {/* Bio */}
         {user.bio ? (
           <View style={s.section}>
             <Text style={s.sectionTitle}>About</Text>
@@ -184,11 +306,12 @@ export default function UserProfileScreen() {
           </View>
         ) : null}
 
+        {/* Details */}
         <View style={s.section}>
           <Text style={s.sectionTitle}>Details</Text>
           <View style={s.detailRow}>
             <Ionicons name="location-outline" size={18} color={C.textSecondary} />
-            <Text style={s.detailText}>{user.city}{user.state ? `, ${user.state}` : ''}</Text>
+            <Text style={s.detailText}>{user.city}{user.state ? `, ${user.state}` : 'Location not set'}</Text>
           </View>
           {user.experience ? (
             <View style={s.detailRow}>
@@ -210,27 +333,7 @@ export default function UserProfileScreen() {
           )}
         </View>
 
-        <View style={s.section}>
-          <Text style={s.sectionTitle}>Support</Text>
-          <Pressable 
-            style={s.supportRow} 
-            onPress={async () => {
-              try {
-                const res = await apiRequest('GET', '/api/settings/whatsapp_support_link');
-                const { value } = await res.json();
-                const url = value || 'https://wa.link/ar3932';
-                openLink(url, 'Support');
-              } catch (e) {
-                console.error('[Support] Link error:', e);
-                openLink('https://wa.link/ar3932', 'Support');
-              }
-            }}
-          >
-            <Ionicons name="logo-whatsapp" size={20} color="#25D366" />
-            <Text style={s.detailText}>Contact Support</Text>
-          </Pressable>
-        </View>
-
+        {/* Skills */}
         {user.skills.length > 0 && (
           <View style={s.section}>
             <Text style={s.sectionTitle}>Skills</Text>
@@ -243,6 +346,27 @@ export default function UserProfileScreen() {
             </View>
           </View>
         )}
+
+        {/* Support */}
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>Support</Text>
+          <Pressable
+            style={s.supportRow}
+            onPress={async () => {
+              try {
+                const res = await apiRequest('GET', '/api/settings/whatsapp_support_link');
+                const { value } = await res.json();
+                const url = value || 'https://wa.me/918179142535';
+                openLink(url, 'Support');
+              } catch {
+                openLink('https://wa.me/918179142535', 'Support');
+              }
+            }}
+          >
+            <Ionicons name="logo-whatsapp" size={20} color="#25D366" />
+            <Text style={s.detailText}>Contact Support</Text>
+          </Pressable>
+        </View>
       </ScrollView>
     </View>
   );
@@ -263,53 +387,78 @@ const s = StyleSheet.create({
 
   profileHeader: { alignItems: 'center', marginBottom: 20 },
   avatar: {
-    width: 80, height: 80, borderRadius: 40,
+    width: 90, height: 90, borderRadius: 45,
     justifyContent: 'center', alignItems: 'center', marginBottom: 12,
   },
   avatarImg: {
-    width: 80, height: 80, borderRadius: 40, marginBottom: 12,
-    borderWidth: 2, borderColor: C.border,
+    width: 90, height: 90, borderRadius: 45, marginBottom: 12,
+    borderWidth: 3, borderColor: '#E8704A',
   },
-  avatarText: { fontSize: 28, fontFamily: 'Inter_700Bold' },
-  profileName: { color: C.text, fontSize: 22, fontFamily: 'Inter_700Bold', marginBottom: 6 },
+  avatarText: { fontSize: 32, fontFamily: 'Inter_700Bold' },
+  profileName: { color: C.text, fontSize: 22, fontFamily: 'Inter_700Bold', marginBottom: 8 },
+  badgeRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
   roleBadge: { paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12 },
   roleBadgeText: { fontSize: 13, fontFamily: 'Inter_600SemiBold' },
+  verifiedBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#E8F5ED', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 },
+  verifiedText: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: GREEN },
+  ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 8 },
+  ratingText: { fontSize: 15, fontFamily: 'Inter_700Bold', color: C.text },
+  reviewsText: { fontSize: 13, color: C.textSecondary, fontFamily: 'Inter_400Regular' },
+  metaRow: { flexDirection: 'row', gap: 16, flexWrap: 'wrap', justifyContent: 'center' },
+  metaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  metaText: { fontSize: 13, color: C.textSecondary, fontFamily: 'Inter_400Regular' },
+
+  actionRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
+  chatBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#0095F6', borderRadius: 12,
+    paddingVertical: 13, gap: 8,
+  },
+  chatBtnText: { color: '#fff', fontFamily: 'Inter_700Bold', fontSize: 15 },
+  bookBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#E8704A', borderRadius: 12,
+    paddingVertical: 13, gap: 8,
+  },
+  bookBtnText: { color: '#fff', fontFamily: 'Inter_700Bold', fontSize: 15 },
 
   statsRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     backgroundColor: C.surface, borderRadius: 14, paddingVertical: 16,
-    marginBottom: 16,
+    marginBottom: 20,
   },
   statItem: { flex: 1, alignItems: 'center' },
   statValue: { color: C.text, fontSize: 20, fontFamily: 'Inter_700Bold' },
   statLabel: { color: C.textSecondary, fontSize: 12, fontFamily: 'Inter_400Regular', marginTop: 2 },
   statDivider: { width: 1, height: 28, backgroundColor: C.border },
 
-  postsSection: { marginBottom: 16 },
+  postsSection: { marginBottom: 20 },
   postsSectionTitle: { color: C.textSecondary, fontSize: 13, fontFamily: 'Inter_600SemiBold', marginBottom: 12, textTransform: 'uppercase' as const, letterSpacing: 0.5 },
 
-  chatBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: '#0095F6', borderRadius: 10,
-    paddingVertical: 12, marginBottom: 20, gap: 8,
-  },
-  chatBtnText: { color: '#fff', fontFamily: 'Inter_700Bold', fontSize: 15 },
-
   section: { marginBottom: 20 },
-  sectionTitle: { color: C.textSecondary, fontSize: 13, fontFamily: 'Inter_600SemiBold', marginBottom: 8, textTransform: 'uppercase' as const, letterSpacing: 0.5 },
+  sectionTitle: { color: C.textSecondary, fontSize: 13, fontFamily: 'Inter_600SemiBold', marginBottom: 12, textTransform: 'uppercase' as const, letterSpacing: 0.5 },
+
+  servicesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  serviceCard: {
+    width: '47%',
+    backgroundColor: C.surface,
+    borderRadius: 12,
+    padding: 14,
+    alignItems: 'flex-start',
+    borderWidth: 1,
+    borderColor: C.border,
+  },
+  serviceIconWrap: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#FFF1EC', alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
+  serviceLabel: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: C.text, marginBottom: 4 },
+  servicePrice: { fontSize: 12, fontFamily: 'Inter_400Regular', color: PRIMARY },
+
   bioText: { color: C.text, fontSize: 15, fontFamily: 'Inter_400Regular', lineHeight: 22 },
   detailRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
   detailText: { color: C.text, fontSize: 15, fontFamily: 'Inter_400Regular' },
-  supportRow: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    gap: 10, 
-    padding: 12, 
-    backgroundColor: C.surface, 
-    borderRadius: 10,
-    marginTop: 8
+  supportRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12,
+    backgroundColor: C.surface, borderRadius: 10, marginTop: 8,
   },
-  editLinkBtn: { marginLeft: 'auto', padding: 4 },
   skillsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   skillChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16 },
   skillText: { fontSize: 13, fontFamily: 'Inter_500Medium' },

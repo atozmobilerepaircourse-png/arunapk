@@ -898,20 +898,36 @@ export default function ProfileScreen() {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Settings</Text>
-          <Pressable 
-            style={styles.supportRow} 
+          <Pressable
+            style={styles.supportRow}
+            onPress={() => router.push('/(tabs)/jobs' as any)}
+          >
+            <Ionicons name="briefcase-outline" size={20} color="#5E8BFF" />
+            <Text style={styles.detailText}>Jobs</Text>
+            <Ionicons name="chevron-forward" size={16} color={C.textTertiary} style={{ marginLeft: 'auto' }} />
+          </Pressable>
+          <Pressable
+            style={[styles.supportRow, { marginTop: 8 }]}
+            onPress={() => router.push('/(tabs)/orders' as any)}
+          >
+            <Ionicons name="receipt-outline" size={20} color="#34C759" />
+            <Text style={styles.detailText}>Bookings</Text>
+            <Ionicons name="chevron-forward" size={16} color={C.textTertiary} style={{ marginLeft: 'auto' }} />
+          </Pressable>
+          <Pressable
+            style={[styles.supportRow, { marginTop: 8 }]}
             onPress={() => router.push('/notification-preferences')}
           >
             <Ionicons name="notifications-outline" size={20} color="#FF9F0A" />
-            <Text style={styles.detailText}>Notification Preferences</Text>
+            <Text style={styles.detailText}>Notifications</Text>
             <Ionicons name="chevron-forward" size={16} color={C.textTertiary} style={{ marginLeft: 'auto' }} />
           </Pressable>
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Support</Text>
-          <Pressable 
-            style={styles.supportRow} 
+          <Pressable
+            style={styles.supportRow}
             onPress={async () => {
               const defaultUrl = 'https://wa.me/918179142535';
               try {
@@ -926,7 +942,8 @@ export default function ProfileScreen() {
             }}
           >
             <Ionicons name="logo-whatsapp" size={20} color="#25D366" />
-            <Text style={styles.detailText}>Contact Support</Text>
+            <Text style={styles.detailText}>Help & Support</Text>
+            <Ionicons name="chevron-forward" size={16} color={C.textTertiary} style={{ marginLeft: 'auto' }} />
           </Pressable>
         </View>
 

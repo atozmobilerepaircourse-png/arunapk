@@ -629,10 +629,7 @@ export default function AdminScreen() {
 
   const toggleAd = async (id: string, currentActive: number) => {
     try {
-      const formData = new FormData();
-      formData.append('isActive', String(currentActive === 1 ? 0 : 1));
-      const { getApiUrl } = await import('@/lib/query-client');
-      await fetch(`${getApiUrl()}/api/ads/${id}`, { method: 'PATCH', body: formData });
+      await apiRequest('PATCH', `/api/ads/${id}`, { isActive: currentActive === 1 ? 0 : 1 });
       fetchAds();
     } catch (err) {
       console.warn('Failed to toggle ad:', err);

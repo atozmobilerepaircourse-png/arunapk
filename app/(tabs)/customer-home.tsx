@@ -83,6 +83,7 @@ export default function CustomerHomeScreen() {
   const [userLat, setUserLat] = useState<number | null>(null);
   const [userLng, setUserLng] = useState<number | null>(null);
   const [search, setSearch]   = useState('');
+  const [adsList, setAdsList] = useState<any[]>([]);
   const locationFetched = useRef(false);
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
@@ -114,6 +115,13 @@ export default function CustomerHomeScreen() {
   }, []);
 
   useEffect(() => {
+    apiRequest('GET', '/api/ads/active')
+      .then(r => r.json())
+      .then(data => { if (Array.isArray(data)) setAdsList(data.filter((a: any) => a.isActive)); })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
     if (locationFetched.current) return;
     locationFetched.current = true;
     (async () => {
@@ -121,9 +129,14 @@ export default function CustomerHomeScreen() {
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status === 'granted') {
           const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-          setUserLat(loc.coords.latitude);
-          setUserLng(loc.coords.longitude);
-          fetchTechs(loc.coords.latitude, loc.coords.longitude);
+          const lat = loc.coords.latitude;
+          const lng = loc.coords.longitude;
+          setUserLat(lat);
+          setUserLng(lng);
+          fetchTechs(lat, lng);
+          if (profile?.id) {
+            apiRequest('POST', `/api/profiles/${profile.id}/location`, { latitude: String(lat), longitude: String(lng) }).catch(() => {});
+          }
         } else {
           fetchTechs();
         }
@@ -131,7 +144,7 @@ export default function CustomerHomeScreen() {
         fetchTechs();
       }
     })();
-  }, [fetchTechs]);
+  }, [fetchTechs, profile?.id]);
 
   return (
     <ScrollView
@@ -176,22 +189,44 @@ export default function CustomerHomeScreen() {
         />
       </View>
 
-      {/* ── Promo Banner ──────────────────────────────────────────────────── */}
-      <Pressable style={styles.banner} onPress={() => go('/insurance')}>
-        <View style={styles.bannerContent}>
-          <View style={styles.bannerBadge}>
-            <Text style={styles.bannerBadgeTxt}>Limited Offer</Text>
+      {/* ── Promo Banner (Dynamic Ads) ────────────────────────────────────── */}
+      {adsList.length > 0 ? (
+        <Pressable
+          style={styles.banner}
+          onPress={() => {
+            const ad = adsList[0];
+            if (ad.linkUrl) go(ad.linkUrl as any);
+          }}
+        >
+          {adsList[0].imageUrl ? (
+            <Image source={{ uri: adsList[0].imageUrl }} style={styles.adBannerImage} contentFit="cover" />
+          ) : (
+            <View style={styles.bannerContent}>
+              <View style={styles.bannerBadge}>
+                <Text style={styles.bannerBadgeTxt}>Ad</Text>
+              </View>
+              <Text style={styles.bannerTitle}>{adsList[0].title || 'Special Offer'}</Text>
+              <Text style={styles.bannerDesc}>Tap to learn more</Text>
+            </View>
+          )}
+        </Pressable>
+      ) : (
+        <Pressable style={styles.banner} onPress={() => go('/insurance')}>
+          <View style={styles.bannerContent}>
+            <View style={styles.bannerBadge}>
+              <Text style={styles.bannerBadgeTxt}>Limited Offer</Text>
+            </View>
+            <Text style={styles.bannerTitle}>Mobile Protection Plan</Text>
+            <Text style={styles.bannerDesc}>Just ₹99/month + ₹500 off on repairs</Text>
+            <View style={styles.bannerBtn}>
+              <Text style={styles.bannerBtnTxt}>Subscribe Now</Text>
+            </View>
           </View>
-          <Text style={styles.bannerTitle}>Mobile Protection Plan</Text>
-          <Text style={styles.bannerDesc}>Just ₹99/month + ₹500 off on repairs</Text>
-          <View style={styles.bannerBtn}>
-            <Text style={styles.bannerBtnTxt}>Subscribe Now</Text>
+          <View style={styles.bannerShield}>
+            <Ionicons name="shield-outline" size={72} color="rgba(255,255,255,0.35)" />
           </View>
-        </View>
-        <View style={styles.bannerShield}>
-          <Ionicons name="shield-outline" size={72} color="rgba(255,255,255,0.35)" />
-        </View>
-      </Pressable>
+        </Pressable>
+      )}
 
       {/* ── Quick Services ────────────────────────────────────────────────── */}
       <View style={styles.sectionRow}>
@@ -348,6 +383,7 @@ const styles = StyleSheet.create({
   bannerBtn:      { alignSelf: 'flex-start', backgroundColor: '#FFF', paddingHorizontal: 16, paddingVertical: 9, borderRadius: 22 },
   bannerBtnTxt:   { fontSize: 13, fontFamily: 'Inter_700Bold', color: PRIMARY },
   bannerShield:   { paddingRight: 14, alignItems: 'center', justifyContent: 'center' },
+  adBannerImage:  { width: '100%', height: 152 },
 
   sectionRow:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
   sectionTitle:   { fontSize: 17, fontFamily: 'Inter_700Bold', color: FORE },
