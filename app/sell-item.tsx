@@ -10,6 +10,8 @@ import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import { fetch as expoFetch } from 'expo/fetch';
 import { router } from 'expo-router';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { firebaseStorage } from '@/lib/firebase';
 import { useApp } from '@/lib/context';
 import { getApiUrl } from '@/lib/query-client';
 
@@ -53,9 +55,41 @@ export default function SellItemScreen() {
   const [sellCategory, setSellCategory] = useState('other');
   const [images, setImages] = useState<string[]>([]);
   const [isPosting, setIsPosting] = useState(false);
+  const [uploadingIdx, setUploadingIdx] = useState<number | null>(null);
 
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
   const webBottomInset = Platform.OS === 'web' ? 34 : 0;
+
+  const validateAndUploadImage = async (uri: string, index: number) => {
+    try {
+      setUploadingIdx(index);
+      const response = await expoFetch(uri);
+      const blob = await response.blob();
+      const sizeInMB = blob.size / (1024 * 1024);
+      
+      if (sizeInMB > 5) {
+        Alert.alert('File too large', 'Image must be under 5MB');
+        return null;
+      }
+      
+      const mimeType = response.headers.get('content-type') || 'image/jpeg';
+      if (!['image/jpeg', 'image/png'].includes(mimeType)) {
+        Alert.alert('Invalid format', 'Only JPG and PNG are supported');
+        return null;
+      }
+      
+      const fileName = `sell-${profile?.id}-${Date.now()}-${index}.jpg`;
+      const storageRef = ref(firebaseStorage, `marketplace-listings/${fileName}`);
+      await uploadBytes(storageRef, blob);
+      const downloadUrl = await getDownloadURL(storageRef);
+      return downloadUrl;
+    } catch (e: any) {
+      Alert.alert('Upload failed', (e.message || String(e)).slice(0, 100));
+      return null;
+    } finally {
+      setUploadingIdx(null);
+    }
+  };
 
   const pickImages = async () => {
     try {
@@ -114,6 +148,22 @@ export default function SellItemScreen() {
     if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
     try {
+      let uploadedUrls: string[] = [];
+      
+      if (images.length > 0) {
+        uploadedUrls = await Promise.all(
+          images.map((uri, idx) => 
+            uri.startsWith('http') ? Promise.resolve(uri) : validateAndUploadImage(uri, idx)
+          )
+        );
+        uploadedUrls = uploadedUrls.filter(Boolean) as string[];
+        
+        if (uploadedUrls.length === 0) {
+          Alert.alert('Error', 'Failed to upload images');
+          return;
+        }
+      }
+
       const text = formatSellText(title.trim(), price.trim(), condition, description.trim(), sellCategory);
       await addPost({
         userId: profile.id,
@@ -121,7 +171,7 @@ export default function SellItemScreen() {
         userRole: profile.role,
         userAvatar: profile.avatar || '',
         text,
-        images,
+        images: uploadedUrls,
         category: 'sell',
       } as any);
 
@@ -155,15 +205,21 @@ export default function SellItemScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.sectionLabel}>Item Photos ({images.length}/5)</Text>
+        <Text style={styles.sectionLabel}>Item Photos ({images.length}/5) - JPG/PNG, max 5MB</Text>
         <View style={styles.photosSection}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photosRow}>
             {images.map((uri, i) => (
-              <View key={i} style={styles.photoThumb}>
+              <View key={i} style={[styles.photoThumb, uploadingIdx === i && styles.photoThumbUploading]}>
                 <Image source={{ uri }} style={styles.photoThumbImage} contentFit="cover" />
-                <Pressable style={styles.photoRemoveBtn} onPress={() => removeImage(i)}>
-                  <Ionicons name="close-circle" size={22} color={LT.accent} />
-                </Pressable>
+                {uploadingIdx === i ? (
+                  <View style={styles.uploadingOverlay}>
+                    <ActivityIndicator size="small" color={LT.primary} />
+                  </View>
+                ) : (
+                  <Pressable style={styles.photoRemoveBtn} onPress={() => removeImage(i)} disabled={isPosting}>
+                    <Ionicons name="close-circle" size={22} color={LT.accent} />
+                  </Pressable>
+                )}
               </View>
             ))}
             {images.length < 5 && (
@@ -338,6 +394,19 @@ const styles = StyleSheet.create({
     position: 'relative',
     borderWidth: 1,
     borderColor: LT.border,
+  },
+  photoThumbUploading: {
+    opacity: 0.6,
+  },
+  uploadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.4)',
   },
   photoThumbImage: {
     width: '100%',
