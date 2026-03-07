@@ -159,11 +159,6 @@ function CustomerProfileScreen() {
     try {
       setChangingRole(true);
       setShowRolePicker(false);
-      // Ensure we have a valid session before attempting to change role
-      const token = await AsyncStorage.getItem('mobi_session_token_v2');
-      if (!token) {
-        throw new Error('Session expired. Please log in again.');
-      }
       const res = await apiRequest('POST', '/api/profile/change-role', { newRole });
       const data = await res.json();
       if (data.success) {
