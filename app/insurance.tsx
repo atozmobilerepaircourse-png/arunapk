@@ -206,9 +206,9 @@ export default function InsuranceScreen() {
         <Text style={styles.sectionTitle}>How It Works</Text>
         <View style={styles.stepsCard}>
           {[
-            { num: '1', label: 'Activate Plan', sub: `Pay ${formatPrice(PRICES.PROTECTION_PLAN_MONTHLY)} to activate your protection` },
+            { num: '1', label: 'Activate Plan', sub: `Pay ₹${insuranceSettings.protectionPlanPrice} to activate your protection` },
             { num: '2', label: 'Get Protected',  sub: 'Instant coverage for your device' },
-            { num: '3', label: 'Book Repair',    sub: 'Get ₹500 off on any repair service' },
+            { num: '3', label: 'Book Repair',    sub: `Get ₹${insuranceSettings.repairDiscount} off on any repair service` },
           ].map((s, i) => (
             <View key={i}>
               {i > 0 && <View style={{ height: 1, backgroundColor: '#F0F0F0', marginVertical: 12 }} />}
@@ -238,7 +238,7 @@ export default function InsuranceScreen() {
           ) : (
             <>
               <Ionicons name={subActive ? 'add-circle-outline' : 'shield-checkmark-outline'} size={20} color="#FFF" />
-              <Text style={styles.ctaBtnText}>{subActive ? `Extend Plan — ${formatPrice(PRICES.PROTECTION_PLAN_MONTHLY)}/mo` : `Activate Plan — ${formatPrice(PRICES.PROTECTION_PLAN_MONTHLY)}/mo`}</Text>
+              <Text style={styles.ctaBtnText}>{subActive ? `Extend Plan — ₹${insuranceSettings.protectionPlanPrice}/mo` : `Activate Plan — ₹${insuranceSettings.protectionPlanPrice}/mo`}</Text>
             </>
           )}
         </Pressable>
