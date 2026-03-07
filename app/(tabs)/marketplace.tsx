@@ -80,7 +80,7 @@ interface ProductData {
   description?: string;
   price: string;
   category?: string;
-  images?: string;
+  images?: string | string[];
   city?: string;
   inStock?: number;
   views?: number;
@@ -1763,9 +1763,11 @@ export default function MarketplaceScreen() {
     let imgs: string[] = [];
     try {
       if (Array.isArray(p.images)) imgs = p.images;
-      else if (typeof p.images === 'string') imgs = JSON.parse(p.images || '[]');
-    } catch {}
-    const firstImg = imgs.length > 0 ? getImageUri(imgs[0]) : null;
+      else if (typeof p.images === 'string' && p.images) imgs = JSON.parse(p.images);
+    } catch (e) {
+      console.warn('[Marketplace] Image parse error:', e);
+    }
+    const firstImg = imgs && imgs.length > 0 ? getImageUri(imgs[0]) : null;
     return (
       <Pressable
         key={p.id}
