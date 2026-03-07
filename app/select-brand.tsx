@@ -37,97 +37,97 @@ type Brand = { name: string; logo: string; accentColor: string; accentBg: string
 const BRANDS: Brand[] = [
   {
     name: 'Apple',       popular: true,
-    logo: 'https://logo.clearbit.com/apple.com',
+    logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/fa/Apple_logo_black.svg/512px-Apple_logo_black.svg.png',
     accentColor: '#1C1C1E', accentBg: '#F5F5F7',
   },
   {
     name: 'Samsung',     popular: true,
-    logo: 'https://logo.clearbit.com/samsung.com',
+    logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/24/Samsung_Logo.svg/512px-Samsung_Logo.svg.png',
     accentColor: '#1428A0', accentBg: '#EAF0FF',
   },
   {
     name: 'Xiaomi',      popular: true,
-    logo: 'https://logo.clearbit.com/xiaomi.com',
+    logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/30/Xiaomi_logo.svg/512px-Xiaomi_logo.svg.png',
     accentColor: '#FF6900', accentBg: '#FFF0E8',
   },
   {
     name: 'Vivo',        popular: true,
-    logo: 'https://logo.clearbit.com/vivo.com',
+    logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/74/Vivo_logo.svg/512px-Vivo_logo.svg.png',
     accentColor: '#415FFF', accentBg: '#EAEDFF',
   },
   {
     name: 'Oppo',        popular: true,
-    logo: 'https://logo.clearbit.com/oppo.com',
+    logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e5/Oppo_logo.svg/512px-Oppo_logo.svg.png',
     accentColor: '#1F8EF1', accentBg: '#E8F4FF',
   },
   {
     name: 'Realme',      popular: true,
-    logo: 'https://logo.clearbit.com/realme.com',
+    logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/95/Realme_text_logo.svg/512px-Realme_text_logo.svg.png',
     accentColor: '#E8A100', accentBg: '#FFF8E8',
   },
   {
     name: 'OnePlus',     popular: true,
-    logo: 'https://logo.clearbit.com/oneplus.com',
+    logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9e/OnePlus_2016_logo.svg/512px-OnePlus_2016_logo.svg.png',
     accentColor: '#F5010C', accentBg: '#FFEBEB',
   },
   {
     name: 'Motorola',
-    logo: 'https://logo.clearbit.com/motorola.com',
+    logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f1/Motorola_Batwing_Logo.svg/512px-Motorola_Batwing_Logo.svg.png',
     accentColor: '#005A9C', accentBg: '#E8F2FB',
   },
   {
     name: 'Google Pixel',
-    logo: 'https://logo.clearbit.com/google.com',
+    logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/512px-Google_%22G%22_logo.svg.png',
     accentColor: '#4285F4', accentBg: '#EEF4FF',
   },
   {
     name: 'Nokia',
-    logo: 'https://logo.clearbit.com/nokia.com',
+    logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0c/Nokia_logo.svg/512px-Nokia_logo.svg.png',
     accentColor: '#124191', accentBg: '#E8EEFB',
   },
   {
     name: 'Honor',
-    logo: 'https://logo.clearbit.com/honor.com',
+    logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d1/Honor_smartphone_brand_logo.svg/512px-Honor_smartphone_brand_logo.svg.png',
     accentColor: '#CF0A2C', accentBg: '#FFEBEF',
   },
   {
     name: 'Huawei',
-    logo: 'https://logo.clearbit.com/huawei.com',
+    logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0e/Huawei_Standard_logo.svg/512px-Huawei_Standard_logo.svg.png',
     accentColor: '#CF0A2C', accentBg: '#FFEBEF',
   },
   {
     name: 'Infinix',
-    logo: 'https://logo.clearbit.com/infinixmobility.com',
+    logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0e/Infinix_Mobility_Logo.svg/512px-Infinix_Mobility_Logo.svg.png',
     accentColor: '#E8704A', accentBg: '#FFF1EC',
   },
   {
     name: 'Tecno',
-    logo: 'https://logo.clearbit.com/tecno-mobile.com',
+    logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1e/Tecno_Logo.svg/512px-Tecno_Logo.svg.png',
     accentColor: '#00AEEF', accentBg: '#E8F8FF',
   },
   {
     name: 'Nothing',
-    logo: 'https://logo.clearbit.com/nothing.tech',
+    logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/98/Nothing_%28company%29_logo.svg/512px-Nothing_%28company%29_logo.svg.png',
     accentColor: '#1A1A1A', accentBg: '#F5F5F5',
   },
   {
     name: 'Asus',
-    logo: 'https://logo.clearbit.com/asus.com',
+    logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/97/Asus_logo.svg/512px-Asus_logo.svg.png',
     accentColor: '#00AEEF', accentBg: '#E8F8FF',
   },
   {
     name: 'Sony',
-    logo: 'https://logo.clearbit.com/sony.com',
+    logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/ca/Sony_logo.svg/512px-Sony_logo.svg.png',
     accentColor: '#1A1A1A', accentBg: '#F5F5F5',
   },
   {
     name: 'Lava',
-    logo: 'https://logo.clearbit.com/lavamobiles.com',
+    logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2c/Lava_International_Logo.svg/512px-Lava_International_Logo.svg.png',
     accentColor: '#FF4500', accentBg: '#FFF0EC',
   },
   {
     name: 'Micromax',
-    logo: 'https://logo.clearbit.com/micromaxinfo.com',
+    logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/ba/Micromax_logo.svg/512px-Micromax_logo.svg.png',
     accentColor: '#D40000', accentBg: '#FFEBEB',
   },
 ];
@@ -137,23 +137,17 @@ const POPULAR = BRANDS.filter(b => b.popular);
 // ── Fallback initials box ────────────────────────────────────────────────────
 function BrandLogo({ brand, size }: { brand: Brand; size: number }) {
   const [failed, setFailed] = useState(false);
-  if (failed) {
-    return (
-      <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: brand.accentBg, alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={{ fontSize: size * 0.4, fontFamily: 'Inter_700Bold', color: brand.accentColor, fontWeight: '800' }}>
-          {brand.name[0].toUpperCase()}
-        </Text>
-      </View>
-    );
-  }
+  
   return (
     <Image
       source={{ uri: brand.logo }}
       style={{ width: size, height: size, borderRadius: 6 }}
       contentFit="contain"
       cachePolicy="memory-disk"
-      onError={() => setFailed(true)}
-      onLoad={() => {}}
+      onError={() => {
+        console.log('[BrandLogo] Failed to load:', brand.name, brand.logo);
+        setFailed(true);
+      }}
     />
   );
 }
