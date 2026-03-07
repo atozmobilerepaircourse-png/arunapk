@@ -3157,6 +3157,26 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
     }
   });
 
+  app.patch("/api/profiles/:id", async (req, res) => {
+    try {
+      const { name, email, address, profileImage } = req.body;
+      const updates: any = {};
+      if (name !== undefined) updates.name = name;
+      if (email !== undefined) updates.email = email;
+      if (address !== undefined) updates.shopAddress = address;
+      if (profileImage !== undefined) updates.avatar = profileImage;
+      if (Object.keys(updates).length === 0) {
+        return res.json({ success: true, profile: await db.query.profiles.findFirst({ where: eq(profiles.id, req.params.id) }) });
+      }
+      await db.update(profiles).set(updates as any).where(eq(profiles.id, req.params.id));
+      const updated = await db.query.profiles.findFirst({ where: eq(profiles.id, req.params.id) });
+      return res.json({ success: true, profile: updated });
+    } catch (error) {
+      console.error("[Profiles] Update error:", error);
+      return res.status(500).json({ success: false, message: "Failed to update profile" });
+    }
+  });
+
   const razorpayKeyId = process.env.RAZORPAY_KEY_ID || '';
   const razorpayKeySecret = process.env.RAZORPAY_KEY_SECRET || '';
   const razorpayAvailable = !!(razorpayKeyId && razorpayKeySecret);
