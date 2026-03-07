@@ -29,8 +29,8 @@ function NativeTabLayout() {
           <Label>Repair</Label>
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="marketplace">
-          <Icon sf={{ default: "bag", selected: "bag.fill" }} />
-          <Label>Shop</Label>
+          <Icon sf={{ default: "tag", selected: "tag.fill" }} />
+          <Label>Sell</Label>
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="profile">
           <Icon sf={{ default: "person", selected: "person.fill" }} />
@@ -240,10 +240,14 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="marketplace"
         options={{
-          title: "Shop",
+          title: isCustomer ? "Sell" : "Shop",
           href: isCustomer ? '/marketplace' : (!isTeacherOrSupplier ? '/marketplace' : null),
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? "bag" : "bag-outline"} size={22} color={color} />
+            <Ionicons
+              name={isCustomer ? (focused ? "pricetag" : "pricetag-outline") : (focused ? "bag" : "bag-outline")}
+              size={22}
+              color={color}
+            />
           ),
         }}
       />

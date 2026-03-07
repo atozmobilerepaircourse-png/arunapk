@@ -108,6 +108,179 @@ function getInitials(name: string): string {
   return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
 }
 
+// ── Customer-specific profile screen (matches Mobix design) ───────────────
+function CustomerProfileScreen() {
+  const insets = useSafeAreaInsets();
+  const { profile, logout } = useApp();
+  const [subStatus, setSubStatus] = useState<{ active: boolean; subscriptionEnd?: number } | null>(null);
+
+  const topPad = Platform.OS === 'web' ? 67 : insets.top;
+  const botPad = Platform.OS === 'web' ? 34 : insets.bottom + 16;
+
+  const ORANGE = '#E8704A';
+
+  useEffect(() => {
+    if (!profile?.id) return;
+    apiRequest('GET', `/api/subscription/status/${profile.id}`)
+      .then(r => r.json())
+      .then(data => { if (data.success) setSubStatus(data); })
+      .catch(() => {});
+  }, [profile?.id]);
+
+  if (!profile) return null;
+
+  const ini = profile.name.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2);
+  const validTill = subStatus?.subscriptionEnd
+    ? new Date(subStatus.subscriptionEnd).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })
+    : 'Mar 2025';
+
+  function MenuItem({ icon, label, badge, onPress }: { icon: string; label: string; badge?: string; onPress?: () => void }) {
+    return (
+      <Pressable
+        onPress={onPress}
+        style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 16 }}
+      >
+        <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#F5F5F5', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+          <Ionicons name={icon as any} size={18} color="#555" />
+        </View>
+        <Text style={{ flex: 1, fontSize: 15, color: '#1A1A1A' }}>{label}</Text>
+        {badge ? (
+          <View style={{ backgroundColor: ORANGE, borderRadius: 12, paddingHorizontal: 7, paddingVertical: 2, marginRight: 8 }}>
+            <Text style={{ color: '#FFF', fontSize: 11, fontWeight: '700' }}>{badge}</Text>
+          </View>
+        ) : null}
+        <Ionicons name="chevron-forward" size={16} color="#BDBDBD" />
+      </Pressable>
+    );
+  }
+
+  return (
+    <ScrollView
+      style={{ flex: 1, backgroundColor: '#F5F5F5' }}
+      contentContainerStyle={{ paddingTop: topPad + 12, paddingBottom: botPad + 100, paddingHorizontal: 16 }}
+      showsVerticalScrollIndicator={false}
+    >
+      {/* ── Title ───────────────────────────────────────────────────────── */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+        <Text style={{ fontSize: 22, fontWeight: '700', color: '#1A1A1A' }}>Profile</Text>
+        <Pressable onPress={() => router.push('/notification-preferences' as any)}>
+          <Ionicons name="settings-outline" size={22} color="#555" />
+        </Pressable>
+      </View>
+
+      {/* ── User Card ───────────────────────────────────────────────────── */}
+      <View style={{ backgroundColor: '#FFF', borderRadius: 16, padding: 18, marginBottom: 14, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 6, elevation: 2 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+          <View style={{ width: 54, height: 54, borderRadius: 27, borderWidth: 2, borderColor: ORANGE, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFF1EC', marginRight: 14 }}>
+            <Text style={{ fontSize: 18, fontWeight: '700', color: ORANGE }}>{ini}</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+              <Text style={{ fontSize: 17, fontWeight: '700', color: '#1A1A1A' }}>{profile.name}</Text>
+              <View style={{ borderWidth: 1, borderColor: ORANGE, borderRadius: 10, paddingHorizontal: 7, paddingVertical: 2 }}>
+                <Text style={{ fontSize: 10, fontWeight: '700', color: ORANGE }}>Premium</Text>
+              </View>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+              <Ionicons name="call-outline" size={13} color="#888" />
+              <Text style={{ fontSize: 13, color: '#555' }}>+91 {profile.phone?.replace(/\D/g, '').slice(-10)}</Text>
+            </View>
+            {profile.email ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Ionicons name="mail-outline" size={13} color="#888" />
+                <Text style={{ fontSize: 13, color: '#555' }}>{profile.email}</Text>
+              </View>
+            ) : null}
+          </View>
+          <Pressable onPress={() => router.push('/edit-profile' as any)}>
+            <Ionicons name="pencil-outline" size={18} color="#888" />
+          </Pressable>
+        </View>
+      </View>
+
+      {/* ── Stats ───────────────────────────────────────────────────────── */}
+      <View style={{ backgroundColor: '#FFF', borderRadius: 16, flexDirection: 'row', marginBottom: 14, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 6, elevation: 2 }}>
+        {[
+          { val: '0', label: 'Total Orders' },
+          { val: '₹0', label: 'Saved', valColor: ORANGE },
+          { val: '0', label: 'Reward Points' },
+        ].map((s, i) => (
+          <React.Fragment key={s.label}>
+            {i > 0 && <View style={{ width: 1, backgroundColor: '#F0F0F0', marginVertical: 16 }} />}
+            <View style={{ flex: 1, alignItems: 'center', paddingVertical: 18 }}>
+              <Text style={{ fontSize: 20, fontWeight: '700', color: s.valColor ?? '#1A1A1A', marginBottom: 4 }}>{s.val}</Text>
+              <Text style={{ fontSize: 12, color: '#888' }}>{s.label}</Text>
+            </View>
+          </React.Fragment>
+        ))}
+      </View>
+
+      {/* ── Active Protection ───────────────────────────────────────────── */}
+      <Pressable
+        style={{ backgroundColor: ORANGE, borderRadius: 16, padding: 18, flexDirection: 'row', alignItems: 'center', marginBottom: 22, shadowColor: ORANGE, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 }}
+        onPress={() => router.push('/insurance' as any)}
+      >
+        <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center', marginRight: 14 }}>
+          <Ionicons name="shield-checkmark-outline" size={22} color="#FFF" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.8)', marginBottom: 2 }}>Active Protection</Text>
+          <Text style={{ fontSize: 15, fontWeight: '700', color: '#FFF', marginBottom: 2 }}>Mobile Protection Plan</Text>
+          <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)' }}>Valid till {validTill}</Text>
+        </View>
+        <View style={{ backgroundColor: '#FFF', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20 }}>
+          <Text style={{ fontSize: 13, fontWeight: '700', color: ORANGE }}>View</Text>
+        </View>
+      </Pressable>
+
+      {/* ── MY ACTIVITY ─────────────────────────────────────────────────── */}
+      <Text style={{ fontSize: 11, fontWeight: '700', color: '#888', letterSpacing: 1, marginBottom: 8, marginLeft: 4 }}>MY ACTIVITY</Text>
+      <View style={{ backgroundColor: '#FFF', borderRadius: 16, marginBottom: 14, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 6, elevation: 2 }}>
+        <MenuItem icon="clipboard-outline" label="My Orders" onPress={() => router.push('/(tabs)/orders' as any)} />
+        <View style={{ height: 1, backgroundColor: '#F5F5F5', marginHorizontal: 16 }} />
+        <MenuItem icon="time-outline" label="Service History" onPress={() => router.push('/(tabs)/orders' as any)} />
+      </View>
+
+      {/* ── ACCOUNT ─────────────────────────────────────────────────────── */}
+      <Text style={{ fontSize: 11, fontWeight: '700', color: '#888', letterSpacing: 1, marginBottom: 8, marginLeft: 4 }}>ACCOUNT</Text>
+      <View style={{ backgroundColor: '#FFF', borderRadius: 16, marginBottom: 14, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 6, elevation: 2 }}>
+        <MenuItem icon="person-outline" label="Edit Profile" onPress={() => router.push('/edit-profile' as any)} />
+        <View style={{ height: 1, backgroundColor: '#F5F5F5', marginHorizontal: 16 }} />
+        <MenuItem icon="location-outline" label="Saved Addresses" />
+        <View style={{ height: 1, backgroundColor: '#F5F5F5', marginHorizontal: 16 }} />
+        <MenuItem icon="card-outline" label="Payment Methods" />
+        <View style={{ height: 1, backgroundColor: '#F5F5F5', marginHorizontal: 16 }} />
+        <MenuItem icon="notifications-outline" label="Notifications" onPress={() => router.push('/notification-preferences' as any)} />
+      </View>
+
+      {/* ── PROTECTION ──────────────────────────────────────────────────── */}
+      <Text style={{ fontSize: 11, fontWeight: '700', color: '#888', letterSpacing: 1, marginBottom: 8, marginLeft: 4 }}>PROTECTION</Text>
+      <View style={{ backgroundColor: '#FFF', borderRadius: 16, marginBottom: 14, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 6, elevation: 2 }}>
+        <MenuItem icon="shield-outline" label="Insurance Plans" onPress={() => router.push('/insurance' as any)} />
+        <View style={{ height: 1, backgroundColor: '#F5F5F5', marginHorizontal: 16 }} />
+        <MenuItem icon="scan-outline" label="Run Diagnostics" onPress={() => router.push('/diagnose' as any)} />
+      </View>
+
+      {/* ── Logout ──────────────────────────────────────────────────────── */}
+      <Pressable
+        style={{ backgroundColor: '#FFF', borderRadius: 16, padding: 16, alignItems: 'center', marginBottom: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 6, elevation: 2 }}
+        onPress={() => {
+          if (Platform.OS === 'web') {
+            if (window.confirm('Are you sure you want to log out?')) logout();
+          } else {
+            Alert.alert('Log Out', 'Are you sure you want to log out?', [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Log Out', style: 'destructive', onPress: logout },
+            ]);
+          }
+        }}
+      >
+        <Text style={{ fontSize: 15, fontWeight: '600', color: '#FF3B30' }}>Log Out</Text>
+      </Pressable>
+    </ScrollView>
+  );
+}
+
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const { profile, setProfile, posts, logout, refreshData } = useApp();
@@ -375,6 +548,8 @@ export default function ProfileScreen() {
 
   const roleColor = ROLE_COLORS[profile.role];
   const isCustomer = profile.role === 'customer';
+
+  if (isCustomer) return <CustomerProfileScreen />;
 
   return (
     <KeyboardAvoidingView
