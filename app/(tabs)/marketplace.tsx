@@ -360,10 +360,10 @@ function CustomerMarketplace() {
       setSellCondition('Used');
       setSellDesc('');
       setSellLocation('');
-      setTimeout(() => {
+      setTimeout(async () => {
         setSubmitSuccess(false);
         setActiveTab('buy');
-        fetchListings();
+        await fetchListings();
       }, 2000);
     } catch (e) {
       Alert.alert('Error', 'Failed to post listing. Please try again.');
