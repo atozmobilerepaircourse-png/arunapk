@@ -290,7 +290,7 @@ function ClassicTabLayout() {
         name="technician-jobs"
         options={{
           title: "Jobs",
-          href: profile?.role === 'technician' ? '/technician-jobs' : null,
+          href: null,
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? "construct" : "construct-outline"} size={22} color={color} />
           ),
