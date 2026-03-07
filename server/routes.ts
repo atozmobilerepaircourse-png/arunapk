@@ -35,6 +35,27 @@ setInterval(() => {
   }
 }, 60000);
 
+setInterval(async () => {
+  try {
+    const firestore = getFirestore();
+    const eightHoursAgo = Date.now() - (8 * 60 * 60 * 1000);
+    const oldSessions = await firestore.collection("teacher_live_sessions")
+      .where("isLive", "==", false)
+      .where("startedAt", "<", eightHoursAgo)
+      .get();
+    
+    for (const doc of oldSessions.docs) {
+      await doc.ref.delete();
+    }
+    
+    if (oldSessions.size > 0) {
+      console.log(`[Live Session Cleanup] Deleted ${oldSessions.size} old live sessions`);
+    }
+  } catch (error) {
+    console.error("[Live Session Cleanup] Error:", error);
+  }
+}, 60 * 60 * 1000);
+
 const uploadsDir = path.resolve(process.cwd(), "uploads");
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
