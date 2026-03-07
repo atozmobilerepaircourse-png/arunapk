@@ -111,8 +111,10 @@ function getInitials(name: string): string {
 // ── Customer-specific profile screen (matches Mobix design) ───────────────
 function CustomerProfileScreen() {
   const insets = useSafeAreaInsets();
-  const { profile, logout } = useApp();
+  const { profile, logout, setProfile } = useApp();
   const [subStatus, setSubStatus] = useState<{ active: boolean; subscriptionEnd?: number } | null>(null);
+  const [showRolePicker, setShowRolePicker] = useState(false);
+  const [changingRole, setChangingRole] = useState(false);
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
   const botPad = Platform.OS === 'web' ? 34 : insets.bottom + 16;
@@ -126,6 +128,34 @@ function CustomerProfileScreen() {
       .then(data => { if (data.success) setSubStatus(data); })
       .catch(() => {});
   }, [profile?.id]);
+
+  const handleChangeRole = async (newRole: string) => {
+    if (!profile?.id || changingRole) return;
+    try {
+      setChangingRole(true);
+      setShowRolePicker(false);
+      const res = await apiRequest('POST', '/api/profile/change-role', { newRole });
+      const data = await res.json();
+      if (data.success) {
+        await setProfile({ ...profile, role: newRole as UserRole });
+        if (Platform.OS === 'web') {
+          window.alert(`Role changed to ${ROLE_LABELS[newRole as UserRole] || newRole}`);
+        } else {
+          Alert.alert('Role Updated', `Switched to ${ROLE_LABELS[newRole as UserRole] || newRole}`);
+        }
+      } else {
+        throw new Error(data.message || 'Failed to change role');
+      }
+    } catch (e: any) {
+      if (Platform.OS === 'web') {
+        window.alert(e.message || 'Failed to change role');
+      } else {
+        Alert.alert('Error', e.message || 'Failed to change role');
+      }
+    } finally {
+      setChangingRole(false);
+    }
+  };
 
   if (!profile) return null;
 
@@ -154,9 +184,12 @@ function CustomerProfileScreen() {
     );
   }
 
+  const ALL_ROLES: UserRole[] = ['technician', 'teacher', 'supplier', 'job_provider', 'customer'];
+
   return (
+    <View style={{ flex: 1, backgroundColor: '#F5F5F5' }}>
     <ScrollView
-      style={{ flex: 1, backgroundColor: '#F5F5F5' }}
+      style={{ flex: 1 }}
       contentContainerStyle={{ paddingTop: topPad + 12, paddingBottom: botPad + 100, paddingHorizontal: 16 }}
       showsVerticalScrollIndicator={false}
     >
@@ -251,6 +284,21 @@ function CustomerProfileScreen() {
         <MenuItem icon="card-outline" label="Payment Methods" />
         <View style={{ height: 1, backgroundColor: '#F5F5F5', marginHorizontal: 16 }} />
         <MenuItem icon="notifications-outline" label="Notifications" onPress={() => router.push('/notification-preferences' as any)} />
+        <View style={{ height: 1, backgroundColor: '#F5F5F5', marginHorizontal: 16 }} />
+        <Pressable
+          onPress={() => setShowRolePicker(true)}
+          disabled={changingRole}
+          style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 16 }}
+        >
+          <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#F3ECFF', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+            <Ionicons name="swap-horizontal-outline" size={18} color="#AF52DE" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 15, color: '#1A1A1A' }}>{changingRole ? 'Switching...' : 'Switch Role'}</Text>
+            <Text style={{ fontSize: 12, color: '#888', marginTop: 1 }}>Current: Customer</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={16} color="#BDBDBD" />
+        </Pressable>
       </View>
 
       {/* ── PROTECTION ──────────────────────────────────────────────────── */}
@@ -278,6 +326,33 @@ function CustomerProfileScreen() {
         <Text style={{ fontSize: 15, fontWeight: '600', color: '#FF3B30' }}>Log Out</Text>
       </Pressable>
     </ScrollView>
+
+    <Modal visible={showRolePicker} transparent animationType="slide" onRequestClose={() => setShowRolePicker(false)}>
+      <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }} onPress={() => setShowRolePicker(false)}>
+        <View style={{ backgroundColor: '#FFF', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingBottom: botPad + 20 }}>
+          <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: '#DDD', alignSelf: 'center', marginTop: 10, marginBottom: 4 }} />
+          <Text style={{ fontSize: 17, fontWeight: '800', color: '#1A1A1A', textAlign: 'center', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' }}>Switch Role</Text>
+          {ALL_ROLES.map(r => (
+            <Pressable
+              key={r}
+              onPress={() => handleChangeRole(r)}
+              style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: '#F5F5F5', backgroundColor: profile?.role === r ? '#FFF1EC' : '#FFF' }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                <Ionicons
+                  name={r === 'technician' ? 'construct-outline' : r === 'teacher' ? 'school-outline' : r === 'supplier' ? 'cube-outline' : r === 'job_provider' ? 'briefcase-outline' : 'person-outline'}
+                  size={20}
+                  color={profile?.role === r ? ORANGE : '#555'}
+                />
+                <Text style={{ fontSize: 15, color: '#1A1A1A', fontWeight: profile?.role === r ? '700' : '400' }}>{ROLE_LABELS[r] || r}</Text>
+              </View>
+              {profile?.role === r && <Ionicons name="checkmark-circle" size={20} color={ORANGE} />}
+            </Pressable>
+          ))}
+        </View>
+      </Pressable>
+    </Modal>
+    </View>
   );
 }
 
