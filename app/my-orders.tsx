@@ -10,16 +10,20 @@ import { router } from 'expo-router';
 import Colors from '@/constants/colors';
 import { useApp } from '@/lib/context';
 import { apiRequest, getApiUrl } from '@/lib/query-client';
-import { Order, OrderStatus, ORDER_STATUS_LABELS, ORDER_STATUS_COLORS } from '@/lib/types';
+import {
+  Order, OrderStatus, ORDER_STATUS_LABELS, ORDER_STATUS_COLORS,
+  RepairBooking, REPAIR_STATUS_LABELS, REPAIR_STATUS_COLORS
+} from '@/lib/types';
 
 const C = Colors.light;
 
-type FilterType = 'all' | 'active' | 'completed';
+type FilterType = 'all' | 'active' | 'completed' | 'repairs';
 
 export default function MyOrdersScreen() {
   const insets = useSafeAreaInsets();
   const { profile } = useApp();
   const [orders, setOrders] = useState<Order[]>([]);
+  const [repairs, setRepairs] = useState<RepairBooking[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<FilterType>('all');
 
@@ -28,9 +32,14 @@ export default function MyOrdersScreen() {
   const fetchOrders = useCallback(async () => {
     if (!profile) return;
     try {
-      const res = await apiRequest('GET', `/api/orders?buyerId=${profile.id}`);
-      const data = await res.json();
-      setOrders(data);
+      const [ordersRes, repairsRes] = await Promise.all([
+        apiRequest('GET', `/api/orders?buyerId=${profile.id}`),
+        apiRequest('GET', `/api/repair-bookings?customerId=${profile.id}`)
+      ]);
+      const ordersData = await ordersRes.json();
+      const repairsData = await repairsRes.json();
+      setOrders(ordersData);
+      setRepairs(repairsData);
     } catch (e) {}
   }, [profile?.id]);
 
@@ -99,6 +108,38 @@ export default function MyOrdersScreen() {
       rejected: 'ban-outline',
     };
     return icons[status];
+  };
+
+  const renderRepair = ({ item }: { item: RepairBooking }) => {
+    const statusColor = REPAIR_STATUS_COLORS[item.status];
+    
+    return (
+      <Pressable 
+        style={styles.orderCard} 
+        onPress={() => router.push({ pathname: '/repair-tracking', params: { bookingId: item.id } })}
+      >
+        <View style={styles.orderTop}>
+          <View style={styles.orderImageWrap}>
+            <View style={[styles.orderImage, styles.orderImagePlaceholder]}>
+              <Ionicons name="construct" size={24} color={C.primary} />
+            </View>
+          </View>
+          <View style={styles.orderDetails}>
+            <Text style={styles.orderTitle} numberOfLines={2}>{item.deviceBrand} {item.deviceModel}</Text>
+            <Text style={styles.orderSeller}>{item.repairType}</Text>
+            <View style={styles.orderPriceRow}>
+              <Text style={styles.orderPrice}>Rs. {item.price}</Text>
+            </View>
+          </View>
+          <View style={styles.orderStatusCol}>
+            <View style={[styles.statusBadge, { backgroundColor: statusColor + '22' }]}>
+              <Text style={[styles.statusText, { color: statusColor }]}>{REPAIR_STATUS_LABELS[item.status]}</Text>
+            </View>
+            <Text style={styles.orderTime}>{getTimeAgo(item.createdAt)}</Text>
+          </View>
+        </View>
+      </Pressable>
+    );
   };
 
   const renderOrder = ({ item }: { item: Order }) => {
@@ -177,25 +218,27 @@ export default function MyOrdersScreen() {
         </View>
 
         <View style={styles.filtersRow}>
-          {(['all', 'active', 'completed'] as FilterType[]).map(f => (
+          {(['all', 'active', 'completed', 'repairs'] as FilterType[]).map(f => (
             <Pressable
               key={f}
               style={[styles.filterChip, filter === f && styles.filterChipActive]}
               onPress={() => setFilter(f)}
             >
               <Text style={[styles.filterText, filter === f && styles.filterTextActive]}>
-                {f === 'all' ? 'All' : f === 'active' ? 'Active' : 'Past'}
+                {f === 'all' ? 'All' : f === 'active' ? 'Active' : f === 'completed' ? 'Past' : 'Repairs'}
               </Text>
             </Pressable>
           ))}
-          <Text style={styles.countText}>{filtered.length} orders</Text>
+          <Text style={styles.countText}>
+            {filter === 'repairs' ? repairs.length : filtered.length} {filter === 'repairs' ? 'repairs' : 'orders'}
+          </Text>
         </View>
       </View>
 
       <FlatList
-        data={filtered}
+        data={filter === 'repairs' ? repairs : filtered}
         keyExtractor={item => item.id}
-        renderItem={renderOrder}
+        renderItem={filter === 'repairs' ? renderRepair : (renderOrder as any)}
         contentContainerStyle={[styles.listContent, { paddingBottom: Platform.OS === 'web' ? 34 : insets.bottom + 20 }]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} colors={[C.primary]} />}
         showsVerticalScrollIndicator={false}

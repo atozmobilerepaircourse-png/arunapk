@@ -27,6 +27,8 @@ export interface UserProfile {
   subscriptionOrderId?: string;
   deviceId?: string;
   deviceChangeCount?: number;
+  availableForJobs?: string;
+  verified?: number;
   createdAt: number;
 }
 
@@ -140,6 +142,51 @@ export interface Product {
 }
 
 export type OrderStatus = 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'completed' | 'cancelled' | 'rejected';
+
+export type RepairStatus = 'pending' | 'assigned' | 'on_the_way' | 'repair_started' | 'completed' | 'cancelled' | 'timed_out';
+
+export interface RepairBooking {
+  id: string;
+  customerId: string;
+  customerName: string;
+  customerPhone?: string;
+  deviceBrand: string;
+  deviceModel: string;
+  repairType: string;
+  price: string;
+  address?: string;
+  latitude?: string;
+  longitude?: string;
+  bookingDate: string;
+  bookingTime: string;
+  status: RepairStatus;
+  technicianId?: string;
+  technicianName?: string;
+  technicianPhone?: string;
+  notes?: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export const REPAIR_STATUS_LABELS: Record<RepairStatus, string> = {
+  pending: 'Finding Technician',
+  assigned: 'Technician Assigned',
+  on_the_way: 'Technician On The Way',
+  repair_started: 'Repair in Progress',
+  completed: 'Repair Completed',
+  cancelled: 'Cancelled',
+  timed_out: 'Timed Out',
+};
+
+export const REPAIR_STATUS_COLORS: Record<RepairStatus, string> = {
+  pending: '#FF9F0A',
+  assigned: '#5E5CE6',
+  on_the_way: '#0A84FF',
+  repair_started: '#32D74B',
+  completed: '#34C759',
+  cancelled: '#FF453A',
+  timed_out: '#8E8E93',
+};
 
 export interface Order {
   id: string;

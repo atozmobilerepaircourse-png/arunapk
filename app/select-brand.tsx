@@ -34,102 +34,30 @@ const SHADOW = {
 // ── Brand data ──────────────────────────────────────────────────────────────
 type Brand = { name: string; logo: string; accentColor: string; accentBg: string; popular?: true };
 
+const GF = (domain: string) => `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
+
 const BRANDS: Brand[] = [
-  {
-    name: 'Apple',       popular: true,
-    logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/fa/Apple_logo_black.svg/512px-Apple_logo_black.svg.png',
-    accentColor: '#1C1C1E', accentBg: '#F5F5F7',
-  },
-  {
-    name: 'Samsung',     popular: true,
-    logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/24/Samsung_Logo.svg/512px-Samsung_Logo.svg.png',
-    accentColor: '#1428A0', accentBg: '#EAF0FF',
-  },
-  {
-    name: 'Xiaomi',      popular: true,
-    logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/30/Xiaomi_logo.svg/512px-Xiaomi_logo.svg.png',
-    accentColor: '#FF6900', accentBg: '#FFF0E8',
-  },
-  {
-    name: 'Vivo',        popular: true,
-    logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/74/Vivo_logo.svg/512px-Vivo_logo.svg.png',
-    accentColor: '#415FFF', accentBg: '#EAEDFF',
-  },
-  {
-    name: 'Oppo',        popular: true,
-    logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e5/Oppo_logo.svg/512px-Oppo_logo.svg.png',
-    accentColor: '#1F8EF1', accentBg: '#E8F4FF',
-  },
-  {
-    name: 'Realme',      popular: true,
-    logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/95/Realme_text_logo.svg/512px-Realme_text_logo.svg.png',
-    accentColor: '#E8A100', accentBg: '#FFF8E8',
-  },
-  {
-    name: 'OnePlus',     popular: true,
-    logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9e/OnePlus_2016_logo.svg/512px-OnePlus_2016_logo.svg.png',
-    accentColor: '#F5010C', accentBg: '#FFEBEB',
-  },
-  {
-    name: 'Motorola',
-    logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f1/Motorola_Batwing_Logo.svg/512px-Motorola_Batwing_Logo.svg.png',
-    accentColor: '#005A9C', accentBg: '#E8F2FB',
-  },
-  {
-    name: 'Google Pixel',
-    logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/512px-Google_%22G%22_logo.svg.png',
-    accentColor: '#4285F4', accentBg: '#EEF4FF',
-  },
-  {
-    name: 'Nokia',
-    logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0c/Nokia_logo.svg/512px-Nokia_logo.svg.png',
-    accentColor: '#124191', accentBg: '#E8EEFB',
-  },
-  {
-    name: 'Honor',
-    logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d1/Honor_smartphone_brand_logo.svg/512px-Honor_smartphone_brand_logo.svg.png',
-    accentColor: '#CF0A2C', accentBg: '#FFEBEF',
-  },
-  {
-    name: 'Huawei',
-    logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0e/Huawei_Standard_logo.svg/512px-Huawei_Standard_logo.svg.png',
-    accentColor: '#CF0A2C', accentBg: '#FFEBEF',
-  },
-  {
-    name: 'Infinix',
-    logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0e/Infinix_Mobility_Logo.svg/512px-Infinix_Mobility_Logo.svg.png',
-    accentColor: '#E8704A', accentBg: '#FFF1EC',
-  },
-  {
-    name: 'Tecno',
-    logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1e/Tecno_Logo.svg/512px-Tecno_Logo.svg.png',
-    accentColor: '#00AEEF', accentBg: '#E8F8FF',
-  },
-  {
-    name: 'Nothing',
-    logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/98/Nothing_%28company%29_logo.svg/512px-Nothing_%28company%29_logo.svg.png',
-    accentColor: '#1A1A1A', accentBg: '#F5F5F5',
-  },
-  {
-    name: 'Asus',
-    logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/97/Asus_logo.svg/512px-Asus_logo.svg.png',
-    accentColor: '#00AEEF', accentBg: '#E8F8FF',
-  },
-  {
-    name: 'Sony',
-    logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/ca/Sony_logo.svg/512px-Sony_logo.svg.png',
-    accentColor: '#1A1A1A', accentBg: '#F5F5F5',
-  },
-  {
-    name: 'Lava',
-    logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2c/Lava_International_Logo.svg/512px-Lava_International_Logo.svg.png',
-    accentColor: '#FF4500', accentBg: '#FFF0EC',
-  },
-  {
-    name: 'Micromax',
-    logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/ba/Micromax_logo.svg/512px-Micromax_logo.svg.png',
-    accentColor: '#D40000', accentBg: '#FFEBEB',
-  },
+  { name: 'Apple',        popular: true, logo: GF('apple.com'),           accentColor: '#1C1C1E', accentBg: '#F5F5F7' },
+  { name: 'Samsung',      popular: true, logo: GF('samsung.com'),         accentColor: '#1428A0', accentBg: '#EAF0FF' },
+  { name: 'Xiaomi',       popular: true, logo: GF('xiaomi.com'),          accentColor: '#FF6900', accentBg: '#FFF0E8' },
+  { name: 'Vivo',         popular: true, logo: GF('vivo.com'),            accentColor: '#415FFF', accentBg: '#EAEDFF' },
+  { name: 'Oppo',         popular: true, logo: GF('oppo.com'),            accentColor: '#1F8EF1', accentBg: '#E8F4FF' },
+  { name: 'Realme',       popular: true, logo: GF('realme.com'),          accentColor: '#E8A100', accentBg: '#FFF8E8' },
+  { name: 'OnePlus',      popular: true, logo: GF('oneplus.com'),         accentColor: '#F5010C', accentBg: '#FFEBEB' },
+  { name: 'Motorola',               logo: GF('motorola.com'),         accentColor: '#005A9C', accentBg: '#E8F2FB' },
+  { name: 'Google Pixel',           logo: GF('store.google.com'),     accentColor: '#4285F4', accentBg: '#EEF4FF' },
+  { name: 'Nokia',                  logo: GF('nokia.com'),            accentColor: '#124191', accentBg: '#E8EEFB' },
+  { name: 'Honor',                  logo: GF('honor.com'),            accentColor: '#CF0A2C', accentBg: '#FFEBEF' },
+  { name: 'Huawei',                 logo: GF('huawei.com'),           accentColor: '#CF0A2C', accentBg: '#FFEBEF' },
+  { name: 'Infinix',                logo: GF('infinixmobility.com'),  accentColor: '#E8704A', accentBg: '#FFF1EC' },
+  { name: 'Tecno',                  logo: GF('tecno-mobile.com'),     accentColor: '#00AEEF', accentBg: '#E8F8FF' },
+  { name: 'Nothing',                logo: GF('nothing.tech'),         accentColor: '#1A1A1A', accentBg: '#F5F5F5' },
+  { name: 'Asus',                   logo: GF('asus.com'),             accentColor: '#00AEEF', accentBg: '#E8F8FF' },
+  { name: 'Sony',                   logo: GF('sony.com'),             accentColor: '#1A1A1A', accentBg: '#F5F5F5' },
+  { name: 'Lava',                   logo: GF('lavamobiles.com'),      accentColor: '#FF4500', accentBg: '#FFF0EC' },
+  { name: 'Micromax',               logo: GF('micromaxinfo.com'),     accentColor: '#D40000', accentBg: '#FFEBEB' },
+  { name: 'Redmi',        popular: true, logo: GF('mi.com'),              accentColor: '#FF6900', accentBg: '#FFF0E8' },
+  { name: 'iQOO',                   logo: GF('iqoo.com'),             accentColor: '#415FFF', accentBg: '#EAEDFF' },
 ];
 
 const POPULAR = BRANDS.filter(b => b.popular);

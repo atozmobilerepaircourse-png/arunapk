@@ -69,9 +69,40 @@ function NativeTabLayout() {
           <Icon sf={{ default: "person", selected: "person.fill" }} />
           <Label>Profile</Label>
         </NativeTabs.Trigger>
+        <NativeTabs.Trigger name="technician-jobs">
+          <Icon sf={{ default: "wrench.and.screwdriver", selected: "wrench.and.screwdriver.fill" }} />
+          <Label>Jobs</Label>
+        </NativeTabs.Trigger>
         <NativeTabs.Trigger name="customer-home" hidden />
         <NativeTabs.Trigger name="jobs" hidden />
         <NativeTabs.Trigger name="marketplace" hidden />
+      </NativeTabs>
+    );
+  }
+
+  if (profile?.role === 'technician') {
+    return (
+      <NativeTabs>
+        <NativeTabs.Trigger name="index">
+          <Icon sf={{ default: "house", selected: "house.fill" }} />
+          <Label>Feed</Label>
+        </NativeTabs.Trigger>
+        <NativeTabs.Trigger name="directory">
+          <Icon sf={{ default: "person.2", selected: "person.2.fill" }} />
+          <Label>Directory</Label>
+        </NativeTabs.Trigger>
+        <NativeTabs.Trigger name="technician-jobs">
+          <Icon sf={{ default: "wrench.and.screwdriver", selected: "wrench.and.screwdriver.fill" }} />
+          <Label>Jobs</Label>
+        </NativeTabs.Trigger>
+        <NativeTabs.Trigger name="profile">
+          <Icon sf={{ default: "person", selected: "person.fill" }} />
+          <Label>Profile</Label>
+        </NativeTabs.Trigger>
+        <NativeTabs.Trigger name="customer-home" hidden />
+        <NativeTabs.Trigger name="create" hidden />
+        <NativeTabs.Trigger name="marketplace" hidden />
+        <NativeTabs.Trigger name="my-shop" hidden />
       </NativeTabs>
     );
   }
@@ -258,6 +289,16 @@ function ClassicTabLayout() {
           href: null,
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? "briefcase" : "briefcase-outline"} size={22} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="technician-jobs"
+        options={{
+          title: "Jobs",
+          href: profile?.role === 'technician' ? '/technician-jobs' : null,
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? "construct" : "construct-outline"} size={22} color={color} />
           ),
         }}
       />

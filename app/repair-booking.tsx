@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, Pressable, Platform, ScrollView,
   TextInput, Alert, ActivityIndicator,
@@ -6,6 +6,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import * as Location from 'expo-location';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useApp } from '@/lib/context';
 import { apiRequest } from '@/lib/query-client';
@@ -50,9 +51,35 @@ export default function RepairBookingScreen() {
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
   const [booked, setBooked] = useState(false);
+  const [bookingId, setBookingId] = useState('');
+  const [userLocation, setUserLocation] = useState<{ lat: string; lng: string } | null>(null);
+  const [locationStatus, setLocationStatus] = useState<'requesting' | 'captured' | 'failed' | 'idle'>('idle');
 
   const topInset  = Platform.OS === 'web' ? 67 : insets.top;
   const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom + 20;
+
+  useEffect(() => {
+    (async () => {
+      try {
+        setLocationStatus('requesting');
+        let { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          setLocationStatus('failed');
+          return;
+        }
+
+        let location = await Location.getCurrentPositionAsync({});
+        setUserLocation({
+          lat: String(location.coords.latitude),
+          lng: String(location.coords.longitude),
+        });
+        setLocationStatus('captured');
+      } catch (error) {
+        console.warn('Error getting location:', error);
+        setLocationStatus('failed');
+      }
+    })();
+  }, []);
 
   const handleBook = async () => {
     if (!selectedTime) {
@@ -69,23 +96,31 @@ export default function RepairBookingScreen() {
     setLoading(true);
     try {
       const serviceLabel = services.map((s: any) => s.label).join(', ');
-      await apiRequest('POST', '/api/orders', {
-        buyerId: profile?.id || 'guest',
-        buyerName: profile?.name || 'Customer',
-        buyerPhone: profile?.phone || '',
-        productId: `repair_${Date.now()}`,
-        productTitle: `${params.brand || ''} ${params.model || ''} — ${serviceLabel}`,
-        productPrice: String(total),
-        sellerId: 'repair_team',
-        shippingAddress: address,
-        buyerNotes: `Date: ${selectedDate} | Time: ${selectedTime}${notes ? ' | ' + notes : ''}`,
+      const res = await apiRequest('POST', '/api/repair-bookings', {
+        customerId: profile?.id || 'guest',
+        customerName: profile?.name || 'Customer',
+        customerPhone: profile?.phone || '',
+        deviceBrand: params.brand || '',
+        deviceModel: params.model || '',
+        repairType: serviceLabel,
+        price: String(total),
+        address: address,
+        latitude: userLocation?.lat || '',
+        longitude: userLocation?.lng || '',
+        bookingDate: selectedDate,
+        bookingTime: selectedTime,
+        notes: notes,
         status: 'pending',
       });
+      
+      const data = await res.json();
+      setBookingId(data.id || '');
       setBooked(true);
       if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch {
-      if (Platform.OS === 'web') window.alert('Failed to place booking. Please try again.');
-      else Alert.alert('Error', 'Failed to place booking. Please try again.');
+    } catch (e: any) {
+      console.error('Booking error:', e);
+      if (Platform.OS === 'web') window.alert('Failed to place booking: ' + e.message);
+      else Alert.alert('Error', 'Failed to place booking. ' + e.message);
     } finally {
       setLoading(false);
     }
@@ -104,7 +139,17 @@ export default function RepairBookingScreen() {
             {dates.find(d => d.value === selectedDate)?.label} at {selectedTime}
           </Text>
         </Text>
+        
+        <View style={styles.findingBox}>
+          <ActivityIndicator size="small" color={PRIMARY} />
+          <Text style={styles.findingText}>Finding technician near you...</Text>
+        </View>
+
         <View style={styles.successDetails}>
+          <View style={styles.successRow}>
+            <Ionicons name="finger-print" size={16} color={GRAY} />
+            <Text style={styles.successDetailText}>ID: {bookingId}</Text>
+          </View>
           <View style={styles.successRow}>
             <Ionicons name="phone-portrait" size={16} color={GRAY} />
             <Text style={styles.successDetailText}>{params.brand} {params.model}</Text>
@@ -122,7 +167,7 @@ export default function RepairBookingScreen() {
             <Text style={styles.successDetailText}>₹{total} (Pay after service)</Text>
           </View>
         </View>
-        <Pressable style={styles.trackBtn} onPress={() => router.replace('/(tabs)/orders' as any)}>
+        <Pressable style={styles.trackBtn} onPress={() => router.replace(`/repair-tracking?bookingId=${bookingId}` as any)}>
           <Text style={styles.trackBtnText}>Track Repair</Text>
         </Pressable>
         <Pressable style={styles.homeBtn} onPress={() => router.replace('/(tabs)/customer-home' as any)}>
@@ -143,6 +188,20 @@ export default function RepairBookingScreen() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.content, { paddingBottom: bottomPad + 100 }]}>
+        {/* Location Status */}
+        <View style={styles.locationBanner}>
+          <Ionicons 
+            name={locationStatus === 'captured' ? "location" : "location-outline"} 
+            size={16} 
+            color={locationStatus === 'captured' ? "#34C759" : GRAY} 
+          />
+          <Text style={[styles.locationBannerText, locationStatus === 'captured' && { color: '#34C759' }]}>
+            {locationStatus === 'requesting' ? 'Capturing location...' : 
+             locationStatus === 'captured' ? 'Location captured' : 
+             'Using address only'}
+          </Text>
+        </View>
+
         {/* Device + Services summary */}
         <View style={styles.summaryCard}>
           <View style={styles.summaryHeader}>
@@ -264,6 +323,8 @@ const styles = StyleSheet.create({
   backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: CARD, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 4, elevation: 2 },
   navTitle: { fontSize: 17, fontFamily: 'Inter_700Bold', color: DARK },
   content: { paddingHorizontal: 16, paddingTop: 4 },
+  locationBanner: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 16, backgroundColor: CARD, alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: '#F0F0F0' },
+  locationBannerText: { fontSize: 12, fontFamily: 'Inter_500Medium', color: GRAY },
   summaryCard: { backgroundColor: CARD, borderRadius: 16, padding: 16, marginBottom: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 8, elevation: 2 },
   summaryHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
   summaryDevice: { fontSize: 16, fontFamily: 'Inter_700Bold', color: DARK },
@@ -298,6 +359,8 @@ const styles = StyleSheet.create({
   successIcon: { marginBottom: 16 },
   successTitle: { fontSize: 24, fontFamily: 'Inter_700Bold', color: DARK, marginBottom: 8 },
   successSub: { fontSize: 15, fontFamily: 'Inter_400Regular', color: GRAY, textAlign: 'center', marginBottom: 20, lineHeight: 22 },
+  findingBox: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#FFF5F0', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12, marginBottom: 20, width: '100%', justifyContent: 'center' },
+  findingText: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: PRIMARY },
   successDetails: { width: '100%', gap: 10, backgroundColor: BG, borderRadius: 14, padding: 16, marginBottom: 20 },
   successRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   successDetailText: { fontSize: 13, fontFamily: 'Inter_400Regular', color: DARK, flex: 1 },

@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Pressable, TextInput,
   Alert, Platform, KeyboardAvoidingView, ActivityIndicator, Modal, Linking,
+  Switch,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -115,6 +116,29 @@ function CustomerProfileScreen() {
   const [subStatus, setSubStatus] = useState<{ active: boolean; subscriptionEnd?: number } | null>(null);
   const [showRolePicker, setShowRolePicker] = useState(false);
   const [changingRole, setChangingRole] = useState(false);
+  const [availableForJobs, setAvailableForJobs] = useState(profile?.availableForJobs === 'true');
+  const [updatingAvailability, setUpdatingAvailability] = useState(false);
+
+  const toggleAvailability = async (value: boolean) => {
+    if (!profile?.id || updatingAvailability) return;
+    try {
+      setUpdatingAvailability(true);
+      const res = await apiRequest('PATCH', `/api/profiles/${profile.id}/availability`, { 
+        availableForJobs: value ? 'true' : 'false' 
+      });
+      const data = await res.json();
+      if (data.success) {
+        setAvailableForJobs(value);
+        if (setProfile) {
+          await setProfile({ ...profile, availableForJobs: value ? 'true' : 'false' });
+        }
+      }
+    } catch (e) {
+      console.error('[Profile] Toggle availability error:', e);
+    } finally {
+      setUpdatingAvailability(false);
+    }
+  };
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
   const botPad = Platform.OS === 'web' ? 34 : insets.bottom + 16;
@@ -203,13 +227,31 @@ function CustomerProfileScreen() {
 
       {/* ── User Card ───────────────────────────────────────────────────── */}
       <View style={{ backgroundColor: '#FFF', borderRadius: 16, padding: 18, marginBottom: 14, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 6, elevation: 2 }}>
+        {profile.role === 'technician' && (
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: '#F5F5F5' }}>
+            <View>
+              <Text style={{ fontSize: 15, fontWeight: '700', color: '#1A1A1A' }}>Available for Jobs</Text>
+              <Text style={{ fontSize: 12, color: '#888' }}>{availableForJobs ? 'You are visible to customers' : 'Go online to receive bookings'}</Text>
+            </View>
+            <Switch
+              value={availableForJobs}
+              onValueChange={toggleAvailability}
+              trackColor={{ false: '#D1D1D6', true: '#34C759' }}
+              thumbColor={Platform.OS === 'ios' ? undefined : '#FFF'}
+            />
+          </View>
+        )}
         <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
           <View style={{ width: 54, height: 54, borderRadius: 27, borderWidth: 2, borderColor: ORANGE, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFF1EC', marginRight: 14 }}>
             <Text style={{ fontSize: 18, fontWeight: '700', color: ORANGE }}>{ini}</Text>
           </View>
           <View style={{ flex: 1 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: profile.role === 'technician' ? (availableForJobs ? '#34C759' : '#FF9F0A') : '#34C759' }} />
               <Text style={{ fontSize: 17, fontWeight: '700', color: '#1A1A1A' }}>{profile.name}</Text>
+              {profile.role === 'technician' && profile.verified === 1 && (
+                <Ionicons name="checkmark-circle" size={16} color="#34C759" />
+              )}
               <View style={{ borderWidth: 1, borderColor: ORANGE, borderRadius: 10, paddingHorizontal: 7, paddingVertical: 2 }}>
                 <Text style={{ fontSize: 10, fontWeight: '700', color: ORANGE }}>Premium</Text>
               </View>
@@ -269,6 +311,12 @@ function CustomerProfileScreen() {
       {/* ── MY ACTIVITY ─────────────────────────────────────────────────── */}
       <Text style={{ fontSize: 11, fontWeight: '700', color: '#888', letterSpacing: 1, marginBottom: 8, marginLeft: 4 }}>MY ACTIVITY</Text>
       <View style={{ backgroundColor: '#FFF', borderRadius: 16, marginBottom: 14, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 6, elevation: 2 }}>
+        {profile.role === 'technician' && (
+          <>
+            <MenuItem icon="cash-outline" label="My Earnings" onPress={() => router.push('/technician-earnings')} />
+            <View style={{ height: 1, backgroundColor: '#F5F5F5', marginHorizontal: 16 }} />
+          </>
+        )}
         <MenuItem icon="clipboard-outline" label="My Orders" onPress={() => router.push('/(tabs)/orders' as any)} />
         <View style={{ height: 1, backgroundColor: '#F5F5F5', marginHorizontal: 16 }} />
         <MenuItem icon="time-outline" label="Service History" onPress={() => router.push('/(tabs)/orders' as any)} />

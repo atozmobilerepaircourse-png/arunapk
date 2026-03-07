@@ -4,7 +4,7 @@ import { getFirestore, getAdminAuth } from "./firebase-admin";
 import { db } from "./db";
 import OpenAI from "openai";
 import { notifyAllUsers, notifyNewPost, notifyUser } from "./push-notifications";
-import { profiles, conversations, messages, posts, jobs, reels, products, orders, subscriptionSettings, courses, courseChapters, courseVideos, courseEnrollments, dubbedVideos, ads, liveChatMessages, liveClasses, courseNotices, sessions, payments, teacherPayouts, appSettings, videoProgress, livePolls, livePollVotes, emailCampaigns, otpTokens, adminNotifications } from "@shared/schema";
+import { profiles, conversations, messages, posts, jobs, reels, products, orders, subscriptionSettings, courses, courseChapters, courseVideos, courseEnrollments, dubbedVideos, ads, liveChatMessages, liveClasses, courseNotices, sessions, payments, teacherPayouts, appSettings, videoProgress, livePolls, livePollVotes, emailCampaigns, otpTokens, adminNotifications, repairBookings } from "@shared/schema";
 import { sendWelcomeEmail } from "./lib/sendEmail";
 import { eq, or, and, desc, gt, lt, sql, ne, isNotNull } from "drizzle-orm";
 import { randomUUID } from "crypto";
@@ -2974,6 +2974,162 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
       return res.status(500).json({ success: false, message: "Failed to delete order" });
     }
   });
+
+  // ========== Repair Bookings ==========
+  function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLng/2)**2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  }
+
+  app.post("/api/repair-bookings", async (req, res) => {
+    try {
+      const { customerId, customerName, customerPhone, deviceBrand, deviceModel, repairType, price, address, latitude, longitude, bookingDate, bookingTime, notes } = req.body;
+      if (!customerId || !customerName || !deviceBrand || !deviceModel || !repairType || !bookingDate || !bookingTime) {
+        return res.status(400).json({ success: false, message: "Missing required fields" });
+      }
+      const id = randomUUID();
+      const now = Date.now();
+      // Find nearest technician
+      let technicianId = '';
+      let technicianName = '';
+      let technicianPhone = '';
+      if (latitude && longitude) {
+        const lat = parseFloat(latitude);
+        const lng = parseFloat(longitude);
+        const techs = await db.select().from(profiles).where(and(eq(profiles.role, 'technician'), eq(profiles.verified as any, 1)));
+        let best: { id: string; name: string; phone: string; dist: number } | null = null;
+        for (const t of techs) {
+          if (t.availableForJobs === 'false') continue;
+          if (!t.latitude || !t.longitude) continue;
+          const dist = haversineKm(lat, lng, parseFloat(t.latitude), parseFloat(t.longitude));
+          if (dist <= 10 && (!best || dist < best.dist)) {
+            best = { id: t.id, name: t.name, phone: t.phone, dist };
+          }
+        }
+        if (best) { technicianId = best.id; technicianName = best.name; technicianPhone = best.phone; }
+      }
+      const status = technicianId ? 'assigned' : 'pending';
+      await db.insert(repairBookings).values({ id, customerId, customerName, customerPhone: customerPhone || '', deviceBrand, deviceModel, repairType, price: price || '0', address: address || '', latitude: latitude || '', longitude: longitude || '', bookingDate, bookingTime, status, technicianId, technicianName, technicianPhone, notes: notes || '', createdAt: now, updatedAt: now });
+      return res.json({ success: true, id, status, technicianId, technicianName, technicianPhone });
+    } catch (error) {
+      console.error("[RepairBookings] Create error:", error);
+      return res.status(500).json({ success: false, message: "Failed to create repair booking" });
+    }
+  });
+
+  app.get("/api/repair-bookings", async (req, res) => {
+    try {
+      const { customerId, technicianId, status } = req.query;
+      let query = db.select().from(repairBookings);
+      const conditions: any[] = [];
+      if (customerId) conditions.push(eq(repairBookings.customerId, customerId as string));
+      if (technicianId) conditions.push(eq(repairBookings.technicianId, technicianId as string));
+      if (status) conditions.push(eq(repairBookings.status, status as string));
+      const results = conditions.length > 0
+        ? await db.select().from(repairBookings).where(and(...conditions)).orderBy(desc(repairBookings.createdAt))
+        : await db.select().from(repairBookings).orderBy(desc(repairBookings.createdAt));
+      return res.json(results);
+    } catch (error) {
+      console.error("[RepairBookings] List error:", error);
+      return res.status(500).json({ success: false, message: "Failed to get repair bookings" });
+    }
+  });
+
+  app.get("/api/repair-bookings/:id", async (req, res) => {
+    try {
+      const [booking] = await db.select().from(repairBookings).where(eq(repairBookings.id, req.params.id));
+      if (!booking) return res.status(404).json({ success: false, message: "Booking not found" });
+      return res.json(booking);
+    } catch (error) {
+      console.error("[RepairBookings] Get error:", error);
+      return res.status(500).json({ success: false, message: "Failed to get booking" });
+    }
+  });
+
+  app.get("/api/repair-bookings/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const [booking] = await db.select().from(repairBookings).where(eq(repairBookings.id, id)).limit(1);
+      if (!booking) {
+        return res.status(404).json({ error: "Booking not found" });
+      }
+      res.json(booking);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.patch("/api/repair-bookings/:id/status", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { status, technicianId, technicianName, technicianPhone, notes } = req.body;
+      const updates: any = { status, updatedAt: Date.now() };
+      if (technicianId !== undefined) updates.technicianId = technicianId;
+      if (technicianName !== undefined) updates.technicianName = technicianName;
+      if (technicianPhone !== undefined) updates.technicianPhone = technicianPhone;
+      if (notes !== undefined) updates.notes = notes;
+      await db.update(repairBookings).set(updates).where(eq(repairBookings.id, id));
+      return res.json({ success: true });
+    } catch (error) {
+      console.error("[RepairBookings] Update error:", error);
+      return res.status(500).json({ success: false, message: "Failed to update booking" });
+    }
+  });
+
+  app.delete("/api/repair-bookings/:id", async (req, res) => {
+    try {
+      await db.delete(repairBookings).where(eq(repairBookings.id, req.params.id));
+      return res.json({ success: true });
+    } catch (error) {
+      console.error("[RepairBookings] Delete error:", error);
+      return res.status(500).json({ success: false, message: "Failed to delete booking" });
+    }
+  });
+
+  app.get("/api/technicians/nearby", async (req, res) => {
+    try {
+      const { lat, lng, radius } = req.query;
+      if (!lat || !lng) return res.status(400).json({ success: false, message: "lat and lng required" });
+      const userLat = parseFloat(lat as string);
+      const userLng = parseFloat(lng as string);
+      const maxRadius = parseFloat(radius as string) || 10;
+      const techs = await db.select().from(profiles).where(eq(profiles.role, 'technician'));
+      const results = techs
+        .filter(t => t.latitude && t.longitude)
+        .map(t => ({ ...t, skills: JSON.parse(t.skills || '[]'), distance: haversineKm(userLat, userLng, parseFloat(t.latitude!), parseFloat(t.longitude!)) }))
+        .filter(t => t.distance <= maxRadius)
+        .sort((a, b) => a.distance - b.distance);
+      return res.json(results);
+    } catch (error) {
+      console.error("[Technicians] Nearby error:", error);
+      return res.status(500).json({ success: false, message: "Failed to get nearby technicians" });
+    }
+  });
+
+  app.patch("/api/profiles/:id/availability", async (req, res) => {
+    try {
+      const { availableForJobs } = req.body;
+      await db.update(profiles).set({ availableForJobs: availableForJobs ? 'true' : 'false' } as any).where(eq(profiles.id, req.params.id));
+      return res.json({ success: true });
+    } catch (error) {
+      console.error("[Profiles] Availability error:", error);
+      return res.status(500).json({ success: false, message: "Failed to update availability" });
+    }
+  });
+
+  app.patch("/api/profiles/:id/verify", async (req, res) => {
+    try {
+      await db.update(profiles).set({ verified: 1 } as any).where(eq(profiles.id, req.params.id));
+      return res.json({ success: true });
+    } catch (error) {
+      console.error("[Profiles] Verify error:", error);
+      return res.status(500).json({ success: false, message: "Failed to verify profile" });
+    }
+  });
+
   const razorpayKeyId = process.env.RAZORPAY_KEY_ID || '';
   const razorpayKeySecret = process.env.RAZORPAY_KEY_SECRET || '';
   const razorpayAvailable = !!(razorpayKeyId && razorpayKeySecret);

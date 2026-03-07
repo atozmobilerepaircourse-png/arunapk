@@ -14,14 +14,15 @@ import { openLink } from '@/lib/open-link';
 
 const C = Colors.light;
 
-type AdminTab = 'dashboard' | 'users' | 'posts' | 'jobs' | 'subscriptions' | 'revenue' | 'ads' | 'links' | 'device' | 'notifications' | 'payouts' | 'email' | 'security';
+type AdminTab = 'dashboard' | 'users' | 'posts' | 'jobs' | 'bookings' | 'subscriptions' | 'revenue' | 'ads' | 'links' | 'device' | 'notifications' | 'payouts' | 'email' | 'security';
 
-const ROLE_COLORS: Record<UserRole, string> = {
+const ROLE_COLORS: Record<UserRole | 'admin', string> = {
   technician: '#34C759',
   teacher: '#FFD60A',
   supplier: '#FF6B2C',
   job_provider: '#5E8BFF',
   customer: '#FF2D55',
+  admin: '#8E8E93',
 };
 
 const NOTIF_ROLE_OPTIONS = [
@@ -53,7 +54,7 @@ function maskNumber(num: string): string {
   return num.slice(0, 4) + ' XXXX ' + num.slice(-4);
 }
 
-function UserDetailCard({ user, onBlock, onDelete }: { user: any; onBlock: (id: string, name: string, blocked: boolean) => void; onDelete: (id: string, name: string) => void }) {
+function UserDetailCard({ user, onBlock, onVerify, onDelete }: { user: any; onBlock: (id: string, name: string, blocked: boolean) => void; onVerify: (id: string, name: string, verified: boolean) => void; onDelete: (id: string, name: string) => void }) {
   const [expanded, setExpanded] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showRolePicker, setShowRolePicker] = useState(false);
@@ -63,6 +64,7 @@ function UserDetailCard({ user, onBlock, onDelete }: { user: any; onBlock: (id: 
   const roleColor = ROLE_COLORS[user.role as UserRole] || C.textSecondary;
   const profile = user.fullProfile;
   const isBlocked = profile?.blocked === 1;
+  const isVerified = profile?.verified === 1;
 
   const changeRole = async (newRole: UserRole) => {
     setShowRolePicker(false);
@@ -85,7 +87,7 @@ function UserDetailCard({ user, onBlock, onDelete }: { user: any; onBlock: (id: 
     }
   };
 
-  const ROLES_LIST: UserRole[] = ['technician', 'teacher', 'supplier', 'customer', 'job_provider', 'admin'];
+  const ROLES_LIST: UserRole[] = ['technician', 'teacher', 'supplier', 'customer', 'job_provider'];
 
   return (
     <View style={[styles.userCard, isBlocked && { borderColor: '#FF3B30', borderWidth: 1 }]}>
@@ -101,6 +103,9 @@ function UserDetailCard({ user, onBlock, onDelete }: { user: any; onBlock: (id: 
         <View style={styles.userInfo}>
           <View style={styles.userNameRow}>
             <Text style={[styles.userName, isBlocked && { color: '#FF3B30' }]} numberOfLines={1}>{user.name}</Text>
+            {isVerified && (
+              <Ionicons name="checkmark-circle" size={16} color="#34C759" style={{ marginLeft: 4 }} />
+            )}
             {isBlocked && (
               <View style={[styles.registeredBadge, { backgroundColor: '#FF3B3015' }]}>
                 <Text style={[styles.registeredText, { color: '#FF3B30' }]}>Blocked</Text>
@@ -270,6 +275,17 @@ function UserDetailCard({ user, onBlock, onDelete }: { user: any; onBlock: (id: 
                   {isBlocked ? 'Unblock' : 'Block'}
                 </Text>
               </Pressable>
+              {user.role === 'technician' && (
+                <Pressable
+                  style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: isVerified ? '#FF3B3015' : '#34C75915', paddingVertical: 10, borderRadius: 10 }}
+                  onPress={() => onVerify(user.id, user.name, !isVerified)}
+                >
+                  <Ionicons name={isVerified ? 'close-circle-outline' : 'checkmark-circle-outline'} size={16} color={isVerified ? '#FF3B30' : '#34C759'} />
+                  <Text style={{ color: isVerified ? '#FF3B30' : '#34C759', fontSize: 13, fontFamily: 'Inter_600SemiBold' }}>
+                    {isVerified ? 'Unverify' : 'Verify'}
+                  </Text>
+                </Pressable>
+              )}
               <Pressable
                 style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#FF3B3015', paddingVertical: 10, borderRadius: 10 }}
                 onPress={() => setConfirmDelete(true)}
@@ -346,6 +362,55 @@ export default function AdminScreen() {
   const [whatsappLink, setWhatsappLink] = useState('https://wa.me/918179142535');
   const [supportSaving, setSupportSaving] = useState(false);
   const [unlockingUserId, setUnlockingUserId] = useState<string | null>(null);
+
+  const [repairBookings, setRepairBookings] = useState<any[]>([]);
+  const [repairLoading, setRepairLoading] = useState(false);
+  const [repairFilter, setRepairFilter] = useState<'all' | 'pending' | 'assigned' | 'completed' | 'cancelled'>('all');
+  const [assigningBooking, setAssigningBooking] = useState<any>(null);
+  const [technicianSearch, setTechnicianSearch] = useState('');
+
+  const fetchRepairBookings = useCallback(async () => {
+    setRepairLoading(true);
+    try {
+      const res = await apiRequest('GET', '/api/repair-bookings');
+      const data = await res.json();
+      if (Array.isArray(data)) setRepairBookings(data);
+    } catch (err) {
+      console.warn('Failed to fetch repair bookings:', err);
+    } finally {
+      setRepairLoading(false);
+    }
+  }, []);
+
+  const updateBookingStatus = async (id: string, status: string) => {
+    try {
+      await apiRequest('PATCH', `/api/repair-bookings/${id}/status`, { status });
+      fetchRepairBookings();
+    } catch (err) {
+      Alert.alert('Error', 'Failed to update booking status');
+    }
+  };
+
+  const assignTechnician = async (bookingId: string, technician: any) => {
+    try {
+      await apiRequest('PATCH', `/api/repair-bookings/${bookingId}/status`, {
+        status: 'assigned',
+        technicianId: technician.id,
+        technicianName: technician.name,
+        technicianPhone: technician.phone || '',
+      });
+      setAssigningBooking(null);
+      setTechnicianSearch('');
+      fetchRepairBookings();
+      Alert.alert('Success', `Assigned ${technician.name} to booking`);
+    } catch (err) {
+      Alert.alert('Error', 'Failed to assign technician');
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'bookings') fetchRepairBookings();
+  }, [activeTab, fetchRepairBookings]);
 
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
@@ -742,6 +807,7 @@ export default function AdminScreen() {
   const tabs: { key: AdminTab; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
     { key: 'dashboard', label: 'Dashboard', icon: 'grid' },
     { key: 'users', label: 'Users', icon: 'people' },
+    { key: 'bookings', label: 'Bookings', icon: 'calendar' },
     { key: 'subscriptions', label: 'Subs', icon: 'card' },
     { key: 'revenue', label: 'Revenue', icon: 'trending-up' },
     { key: 'payouts', label: 'Payouts', icon: 'cash' },
@@ -779,6 +845,19 @@ export default function AdminScreen() {
     } catch (e: any) {
       console.error('Block user error:', e);
       Alert.alert('Error', 'Failed to update user. Please try again.');
+    }
+  };
+
+  const executeVerifyUser = async (userId: string, userName: string, verify: boolean) => {
+    try {
+      const res = await apiRequest('PATCH', `/api/profiles/${userId}/verify`, { verified: verify ? 1 : 0 });
+      const data = await res.json();
+      if (data.success) {
+        await refreshData();
+        Alert.alert('Success', `${userName} has been ${verify ? 'verified' : 'unverified'}.`);
+      }
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Failed to verify user.');
     }
   };
 

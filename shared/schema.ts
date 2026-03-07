@@ -48,7 +48,32 @@ export const profiles = pgTable("profiles", {
     marketing: true,
     system: true
   })),
+  availableForJobs: text("available_for_jobs").default("true"),
+  verified: integer("verified").default(0),
   createdAt: bigint("created_at", { mode: "number" }).notNull().default(sql`EXTRACT(EPOCH FROM NOW()) * 1000`),
+});
+
+export const repairBookings = pgTable("repair_bookings", {
+  id: varchar("id").primaryKey(),
+  customerId: text("customer_id").notNull(),
+  customerName: text("customer_name").notNull(),
+  customerPhone: text("customer_phone").default(""),
+  deviceBrand: text("device_brand").notNull(),
+  deviceModel: text("device_model").notNull(),
+  repairType: text("repair_type").notNull(),
+  price: text("price").notNull().default("0"),
+  address: text("address").default(""),
+  latitude: text("latitude").default(""),
+  longitude: text("longitude").default(""),
+  bookingDate: text("booking_date").notNull(),
+  bookingTime: text("booking_time").notNull(),
+  status: text("status").notNull().default("pending"),
+  technicianId: text("technician_id").default(""),
+  technicianName: text("technician_name").default(""),
+  technicianPhone: text("technician_phone").default(""),
+  notes: text("notes").default(""),
+  createdAt: bigint("created_at", { mode: "number" }).notNull().default(sql`EXTRACT(EPOCH FROM NOW()) * 1000`),
+  updatedAt: bigint("updated_at", { mode: "number" }).notNull().default(sql`EXTRACT(EPOCH FROM NOW()) * 1000`),
 });
 
 export const posts = pgTable("posts", {
@@ -420,6 +445,7 @@ export type DbMessage = typeof messages.$inferSelect;
 export type DbReel = typeof reels.$inferSelect;
 export type DbProduct = typeof products.$inferSelect;
 export type DbOrder = typeof orders.$inferSelect;
+export type DbRepairBooking = typeof repairBookings.$inferSelect;
 export type DbCourse = typeof courses.$inferSelect;
 export type DbCourseChapter = typeof courseChapters.$inferSelect;
 export type DbCourseVideo = typeof courseVideos.$inferSelect;

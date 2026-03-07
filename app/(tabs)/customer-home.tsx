@@ -147,8 +147,8 @@ export default function CustomerHomeScreen() {
       {/* ── Quick Services ──────────────────────────────────────────────── */}
       <View style={styles.sectionRow}>
         <Text style={styles.sectionTitle}>Quick Services</Text>
-        <Pressable onPress={() => go('/select-brand')}>
-          <Text style={styles.seeAll}>See All</Text>
+        <Pressable onPress={() => go('/technician-map')}>
+          <Text style={styles.seeAll}>Find Technician</Text>
         </Pressable>
       </View>
       <View style={styles.servicesGrid}>
