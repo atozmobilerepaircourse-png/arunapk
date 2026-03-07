@@ -343,7 +343,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
           await Storage.saveProfile(serverProfile);
         }
 
-        registerPushToken(savedProfile.id).catch(() => {});
+        // Register push token in background (non-blocking with timeout)
+        Promise.race([
+          registerPushToken(savedProfile.id),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000))
+        ]).catch(() => {});
       } else {
         setIsOnboarded(false);
         setProfileState(null);
