@@ -21,6 +21,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
+import { fetch as expoFetch } from 'expo/fetch';
 import { useApp } from '@/lib/context';
 import { apiRequest, getApiUrl } from '@/lib/query-client';
 import { openLink } from '@/lib/open-link';
@@ -295,27 +296,58 @@ function CustomerMarketplace() {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsMultipleSelection: true,
-      quality: 0.8,
-      selectionLimit: 5,
+      quality: 0.85,
+      selectionLimit: 5 - sellImages.length,
     });
     if (result.canceled) return;
+    await uploadImages(result.assets.map(a => a.uri));
+  };
+
+  const takePhoto = async () => {
+    if (Platform.OS === 'web') return;
+    const perm = await ImagePicker.requestCameraPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert('Permission needed', 'Camera permission is required to take photos.');
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      quality: 0.85,
+      aspect: [1, 1],
+      allowsEditing: false,
+    });
+    if (result.canceled) return;
+    await uploadImages(result.assets.map(a => a.uri));
+  };
+
+  const uploadImages = async (uris: string[]) => {
     setUploadingImages(true);
     try {
       const uploaded: string[] = [];
-      for (const asset of result.assets) {
-        const fd = new FormData();
-        const uri = asset.uri;
-        const fileName = uri.split('/').pop() || 'image.jpg';
+      for (const uri of uris) {
+        const fileName = uri.split('/').pop() || `image-${Date.now()}.jpg`;
         const ext = fileName.split('.').pop()?.toLowerCase() || 'jpg';
         const mimeType = ext === 'png' ? 'image/png' : 'image/jpeg';
+        
+        const fd = new FormData();
         fd.append('image', { uri, name: fileName, type: mimeType } as any);
-        const res = await fetch(`${getApiUrl()}/api/upload`, { method: 'POST', body: fd });
+        
+        const uploadUrl = `${getApiUrl()}/api/upload`;
+        const res = await expoFetch(uploadUrl, { method: 'POST', body: fd });
+        if (!res.ok) throw new Error(`Upload failed: ${res.status}`);
+        
         const data = await res.json();
-        if (data.url) uploaded.push(data.url.startsWith('/') ? `${getApiUrl()}${data.url}` : data.url);
+        if (data.url) {
+          const fullUrl = data.url.startsWith('http') ? data.url : `${getApiUrl()}${data.url}`;
+          uploaded.push(fullUrl);
+        }
       }
       setSellImages(prev => [...prev, ...uploaded].slice(0, 5));
+      if (uploaded.length > 0) {
+        if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
     } catch (e) {
-      Alert.alert('Upload failed', 'Could not upload images. Please try again.');
+      console.error('[Marketplace] Upload error:', e);
+      Alert.alert('Upload failed', `Could not upload images. ${String(e).slice(0, 50)}`);
     } finally {
       setUploadingImages(false);
     }
@@ -546,7 +578,7 @@ function CustomerMarketplace() {
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
     >
-      <Text style={cmStyles.formSectionTitle}>Photos</Text>
+      <Text style={cmStyles.formSectionTitle}>Photos ({sellImages.length}/5)</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingVertical: 4 }}>
         {sellImages.map((uri, i) => (
           <View key={i} style={cmStyles.uploadedThumb}>
@@ -557,16 +589,28 @@ function CustomerMarketplace() {
           </View>
         ))}
         {sellImages.length < 5 && (
-          <Pressable style={cmStyles.addImageBtn} onPress={pickImages} disabled={uploadingImages}>
-            {uploadingImages ? (
-              <ActivityIndicator size="small" color={CM.orange} />
-            ) : (
-              <>
-                <Ionicons name="camera-outline" size={28} color={CM.orange} />
-                <Text style={cmStyles.addImageText}>Add Photo</Text>
-              </>
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <Pressable style={cmStyles.addImageBtn} onPress={pickImages} disabled={uploadingImages}>
+              {uploadingImages ? (
+                <ActivityIndicator size="small" color={CM.orange} />
+              ) : (
+                <>
+                  <Ionicons name="image-outline" size={24} color={CM.orange} />
+                  <Text style={[cmStyles.addImageText, { fontSize: 11 }]}>Gallery</Text>
+                </>
+              )}
+            </Pressable>
+            {Platform.OS !== 'web' && (
+              <Pressable style={cmStyles.addImageBtn} onPress={takePhoto} disabled={uploadingImages}>
+                {!uploadingImages && (
+                  <>
+                    <Ionicons name="camera-outline" size={24} color={CM.orange} />
+                    <Text style={[cmStyles.addImageText, { fontSize: 11 }]}>Camera</Text>
+                  </>
+                )}
+              </Pressable>
             )}
-          </Pressable>
+          </View>
         )}
       </ScrollView>
 
