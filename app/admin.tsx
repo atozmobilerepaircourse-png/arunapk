@@ -609,14 +609,20 @@ export default function AdminScreen() {
         const ext = adImage.split('.').pop() || 'jpg';
         formData.append('image', { uri: adImage, name: `ad.${ext}`, type: `image/${ext}` } as any);
       }
-      const { getApiUrl } = await import('@/lib/query-client');
-      await fetch(`${getApiUrl()}/api/ads`, { method: 'POST', body: formData });
-      setAdTitle('');
-      setAdLinkUrl('');
-      setAdImage(null);
-      fetchAds();
-      Alert.alert('Success', 'Ad created successfully');
+      const baseUrl = getApiUrl();
+      const response = await fetch(`${baseUrl}/api/ads`, { method: 'POST', body: formData });
+      const data = await response.json();
+      if (data.success || response.status === 201) {
+        setAdTitle('');
+        setAdLinkUrl('');
+        setAdImage(null);
+        await fetchAds();
+        Alert.alert('Success', 'Ad created successfully');
+      } else {
+        Alert.alert('Error', data.message || 'Failed to create ad');
+      }
     } catch (err) {
+      console.error('Create ad error:', err);
       Alert.alert('Error', 'Failed to create ad');
     }
   };
@@ -638,9 +644,16 @@ export default function AdminScreen() {
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: async () => {
         try {
-          await apiRequest('DELETE', `/api/ads/${id}`);
-          fetchAds();
+          const baseUrl = getApiUrl();
+          const response = await fetch(`${baseUrl}/api/ads/${id}`, { method: 'DELETE' });
+          if (response.status === 200 || response.status === 204) {
+            await fetchAds();
+            Alert.alert('Success', 'Ad deleted successfully');
+          } else {
+            Alert.alert('Error', 'Failed to delete ad');
+          }
         } catch (err) {
+          console.error('Delete ad error:', err);
           Alert.alert('Error', 'Failed to delete ad');
         }
       }},
@@ -810,7 +823,6 @@ export default function AdminScreen() {
     { key: 'bookings', label: 'Bookings', icon: 'calendar' },
     { key: 'subscriptions', label: 'Subs', icon: 'card' },
     { key: 'revenue', label: 'Revenue', icon: 'trending-up' },
-    { key: 'payouts', label: 'Payouts', icon: 'cash' },
     { key: 'posts', label: 'Posts', icon: 'newspaper' },
     { key: 'jobs', label: 'Jobs', icon: 'briefcase' },
     { key: 'ads', label: 'Ads', icon: 'megaphone' },
@@ -2577,7 +2589,6 @@ export default function AdminScreen() {
         {activeTab === 'links' && renderLinks()}
         {activeTab === 'device' && renderDevice()}
         {activeTab === 'notifications' && renderNotifications()}
-        {activeTab === 'payouts' && renderPayouts()}
         {activeTab === 'email' && renderEmail()}
         {activeTab === 'security' && renderSecurity()}
       </View>
