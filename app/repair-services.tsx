@@ -201,6 +201,7 @@ export default function RepairServicesScreen() {
                 </View>
               </View>
               <View style={styles.serviceRight}>
+                <Text style={styles.servicePriceFrom}>Starting from</Text>
                 <Text style={styles.servicePrice}>₹{svc.basePrice}</Text>
                 <View style={[styles.checkCircle, isSelected && styles.checkCircleActive]}>
                   {isSelected && <Ionicons name="checkmark" size={14} color="#FFF" />}
@@ -216,7 +217,7 @@ export default function RepairServicesScreen() {
         <View style={[styles.bottomBar, { paddingBottom: bottomPad }]}>
           <View>
             <Text style={styles.bottomLabel}>{selected.length} service{selected.length > 1 ? 's' : ''} selected</Text>
-            <Text style={styles.bottomPrice}>₹{totalPrice} <Text style={styles.bottomPriceSub}>starting from</Text></Text>
+            <Text style={styles.bottomPrice}><Text style={styles.bottomPriceSub}>Starting from </Text>₹{totalPrice}</Text>
           </View>
           <Pressable style={({ pressed }) => [styles.nextBtn, { opacity: pressed ? 0.9 : 1 }]} onPress={handleNext}>
             <Text style={styles.nextBtnText}>Continue</Text>
@@ -255,8 +256,9 @@ const styles = StyleSheet.create({
   metaItem: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   metaText: { fontSize: 11, fontFamily: 'Inter_400Regular', color: GRAY },
   metaDot: { width: 3, height: 3, borderRadius: 1.5, backgroundColor: GRAY },
-  serviceRight: { alignItems: 'flex-end', gap: 8 },
-  servicePrice: { fontSize: 16, fontFamily: 'Inter_700Bold', color: DARK },
+  serviceRight: { alignItems: 'flex-end', gap: 4 },
+  servicePriceFrom: { fontSize: 10, fontFamily: 'Inter_400Regular', color: GRAY },
+  servicePrice: { fontSize: 15, fontFamily: 'Inter_700Bold', color: DARK, marginBottom: 4 },
   checkCircle: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: '#D1D1D6', alignItems: 'center', justifyContent: 'center' },
   checkCircleActive: { backgroundColor: PRIMARY, borderColor: PRIMARY },
   bottomBar: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: CARD, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 16, borderTopWidth: 1, borderTopColor: '#F0F0F0', shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 8 },
