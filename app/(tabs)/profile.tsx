@@ -243,9 +243,13 @@ function CustomerProfileScreen() {
           </View>
         )}
         <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-          <View style={{ width: 54, height: 54, borderRadius: 27, borderWidth: 2, borderColor: ORANGE, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFF1EC', marginRight: 14 }}>
-            <Text style={{ fontSize: 18, fontWeight: '700', color: ORANGE }}>{ini}</Text>
-          </View>
+          {profile.profileImage ? (
+            <Image source={{ uri: profile.profileImage }} style={{ width: 54, height: 54, borderRadius: 27, borderWidth: 2, borderColor: ORANGE, marginRight: 14 }} contentFit="cover" />
+          ) : (
+            <View style={{ width: 54, height: 54, borderRadius: 27, borderWidth: 2, borderColor: ORANGE, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFF1EC', marginRight: 14 }}>
+              <Text style={{ fontSize: 18, fontWeight: '700', color: ORANGE }}>{ini}</Text>
+            </View>
+          )}
           <View style={{ flex: 1 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
               <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: profile.role === 'technician' ? (availableForJobs ? '#34C759' : '#FF9F0A') : '#34C759' }} />
@@ -329,8 +333,6 @@ function CustomerProfileScreen() {
         <MenuItem icon="person-outline" label="Edit Profile" onPress={() => router.push('/edit-profile' as any)} />
         <View style={{ height: 1, backgroundColor: '#F5F5F5', marginHorizontal: 16 }} />
         <MenuItem icon="location-outline" label="Saved Addresses" />
-        <View style={{ height: 1, backgroundColor: '#F5F5F5', marginHorizontal: 16 }} />
-        <MenuItem icon="card-outline" label="Payment Methods" />
         <View style={{ height: 1, backgroundColor: '#F5F5F5', marginHorizontal: 16 }} />
         <MenuItem icon="notifications-outline" label="Notifications" onPress={() => router.push('/notification-preferences' as any)} />
         <View style={{ height: 1, backgroundColor: '#F5F5F5', marginHorizontal: 16 }} />
