@@ -6,14 +6,20 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import Colors from '@/constants/colors';
 import { useApp } from '@/lib/context';
 import { UserRole, ROLE_LABELS } from '@/lib/types';
 import DirectoryCard from '@/components/DirectoryCard';
 import DirectoryMap from '@/components/DirectoryMap';
 import { apiRequest } from '@/lib/query-client';
 
-const C = Colors.light;
+// Mobix design tokens
+const PRIMARY  = '#E8704A';
+const PRIMARY_L = '#FFF1EC';
+const BG       = '#F5F5F5';
+const CARD     = '#FFFFFF';
+const DARK     = '#1A1A1A';
+const MUTED    = '#888888';
+const BORDER   = '#EEEEEE';
 
 const ROLE_FILTERS: { key: UserRole | 'all'; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
   { key: 'all', label: 'All', icon: 'grid' },
@@ -26,9 +32,9 @@ const ROLE_FILTERS: { key: UserRole | 'all'; label: string; icon: keyof typeof I
 
 const ROLE_COLORS: Record<string, string> = {
   technician: '#34C759',
-  teacher: '#FFD60A',
-  supplier: '#FF6B2C',
-  job_provider: '#5856D6',
+  teacher: '#F59E0B',
+  supplier: '#E8704A',
+  job_provider: '#5E8BFF',
   customer: '#FF2D55',
 };
 
@@ -161,17 +167,17 @@ export default function DirectoryScreen() {
           </Pressable>
 
           <View style={styles.mapSearchBox}>
-            <Ionicons name="search" size={16} color={C.textTertiary} />
+            <Ionicons name="search" size={16} color={MUTED} />
             <TextInput
               style={styles.mapSearchInput}
               placeholder="Search..."
-              placeholderTextColor={C.textTertiary}
+              placeholderTextColor={MUTED}
               value={search}
               onChangeText={setSearch}
             />
             {search.length > 0 && (
               <Pressable onPress={() => setSearch('')}>
-                <Ionicons name="close-circle" size={16} color={C.textTertiary} />
+                <Ionicons name="close-circle" size={16} color={MUTED} />
               </Pressable>
             )}
           </View>
@@ -192,7 +198,7 @@ export default function DirectoryScreen() {
                 <Ionicons
                   name={item.icon}
                   size={12}
-                  color={roleFilter === item.key ? '#FFF' : C.textSecondary}
+                  color={roleFilter === item.key ? '#FFF' : MUTED}
                 />
                 <Text style={[styles.mapFilterText, roleFilter === item.key && styles.mapFilterTextActive]}>
                   {item.label}
@@ -218,15 +224,15 @@ export default function DirectoryScreen() {
       <View style={[styles.header, { paddingTop: (Platform.OS === 'web' ? webTopInset : insets.top) + 12 }]}>
         <View style={styles.headerRow}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.headerTitle}>Directory</Text>
-            <Text style={styles.headerSubtitle}>Find professionals across India</Text>
+            <Text style={styles.headerTitle}>{isCustomer ? 'Find Technicians' : 'Directory'}</Text>
+            <Text style={styles.headerSubtitle}>{isCustomer ? 'Certified repair experts near you' : 'Find professionals across India'}</Text>
           </View>
           <View style={styles.headerActions}>
             <Pressable
               style={styles.headerIconBtn}
               onPress={() => router.push('/chats')}
             >
-              <Ionicons name="chatbubble-ellipses" size={20} color={C.text} />
+              <Ionicons name="chatbubble-ellipses" size={20} color={DARK} />
             </Pressable>
             <Pressable
               style={[styles.headerIconBtn, styles.headerIconBtnMap]}
@@ -268,17 +274,17 @@ export default function DirectoryScreen() {
 
       <View style={styles.searchContainer}>
         <View style={styles.searchBox}>
-          <Ionicons name="search" size={18} color={C.textTertiary} />
+          <Ionicons name="search" size={18} color={MUTED} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search by name, city, or skill..."
-            placeholderTextColor={C.textTertiary}
+            placeholderTextColor={MUTED}
             value={search}
             onChangeText={setSearch}
           />
           {search.length > 0 && (
             <Pressable onPress={() => setSearch('')}>
-              <Ionicons name="close-circle" size={18} color={C.textTertiary} />
+              <Ionicons name="close-circle" size={18} color={MUTED} />
             </Pressable>
           )}
         </View>
@@ -299,7 +305,7 @@ export default function DirectoryScreen() {
               <Ionicons
                 name={item.icon}
                 size={14}
-                color={roleFilter === item.key ? '#FFF' : C.textSecondary}
+                color={roleFilter === item.key ? '#FFF' : MUTED}
               />
               <Text style={[styles.filterText, roleFilter === item.key && styles.filterTextActive]}>
                 {item.label}
@@ -336,13 +342,13 @@ export default function DirectoryScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={C.primary}
-            colors={[C.primary]}
+            tintColor={PRIMARY}
+            colors={[PRIMARY]}
           />
         }
         ListEmptyComponent={
           <View style={styles.emptyState}>
-            <Ionicons name="people-outline" size={48} color={C.textTertiary} />
+            <Ionicons name="people-outline" size={48} color={MUTED} />
             <Text style={styles.emptyTitle}>No professionals yet</Text>
             <Text style={styles.emptyText}>Pull down to refresh or invite others to join</Text>
           </View>
@@ -356,11 +362,12 @@ export default function DirectoryScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: C.background,
+    backgroundColor: BG,
   },
   header: {
     paddingHorizontal: 20,
     paddingBottom: 8,
+    backgroundColor: BG,
   },
   headerRow: {
     flexDirection: 'row',
@@ -368,30 +375,30 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   headerTitle: {
-    color: C.text,
-    fontSize: 28,
+    color: DARK,
+    fontSize: 26,
     fontFamily: 'Inter_700Bold',
   },
   headerSubtitle: {
-    color: C.textTertiary,
-    fontSize: 14,
+    color: MUTED,
+    fontSize: 13,
     fontFamily: 'Inter_400Regular',
-    marginTop: 4,
+    marginTop: 3,
   },
   viewToggle: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: C.surface,
+    backgroundColor: CARD,
     borderWidth: 1,
-    borderColor: C.border,
+    borderColor: BORDER,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 4,
   },
   viewToggleMap: {
-    backgroundColor: '#007AFF',
-    borderColor: '#007AFF',
+    backgroundColor: PRIMARY,
+    borderColor: PRIMARY,
   },
   headerActions: {
     flexDirection: 'row',
@@ -402,15 +409,20 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: C.surface,
+    backgroundColor: CARD,
     borderWidth: 1,
-    borderColor: C.border,
+    borderColor: BORDER,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 1,
   },
   headerIconBtnMap: {
-    backgroundColor: '#007AFF',
-    borderColor: '#007AFF',
+    backgroundColor: PRIMARY,
+    borderColor: PRIMARY,
   },
   mapHeader: {
     position: 'absolute',
@@ -488,11 +500,11 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    backgroundColor: C.surface,
+    backgroundColor: CARD,
     borderRadius: 12,
     padding: 10,
     borderWidth: 1,
-    borderColor: C.border,
+    borderColor: BORDER,
     alignItems: 'center',
   },
   statHeader: {
@@ -518,12 +530,12 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   statRegistered: {
-    color: C.text,
+    color: DARK,
     fontSize: 20,
     fontFamily: 'Inter_700Bold',
   },
   statSep: {
-    color: C.textTertiary,
+    color: MUTED,
     fontSize: 14,
     fontFamily: 'Inter_400Regular',
   },
@@ -546,7 +558,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   statFooterText: {
-    color: C.textTertiary,
+    color: MUTED,
     fontSize: 9,
     fontFamily: 'Inter_400Regular',
   },
@@ -557,17 +569,17 @@ const styles = StyleSheet.create({
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: C.surface,
+    backgroundColor: CARD,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderWidth: 1,
-    borderColor: C.border,
+    borderColor: BORDER,
     gap: 10,
   },
   searchInput: {
     flex: 1,
-    color: C.text,
+    color: DARK,
     fontSize: 14,
     fontFamily: 'Inter_400Regular',
     padding: 0,
@@ -595,7 +607,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_700Bold',
   },
   mapPreviewSub: {
-    color: C.textTertiary,
+    color: MUTED,
     fontSize: 12,
     fontFamily: 'Inter_400Regular',
     marginTop: 1,
@@ -623,17 +635,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: C.surface,
+    backgroundColor: CARD,
     borderWidth: 1,
-    borderColor: C.border,
+    borderColor: BORDER,
     gap: 6,
   },
   filterChipActive: {
-    backgroundColor: C.primary,
-    borderColor: C.primary,
+    backgroundColor: PRIMARY,
+    borderColor: PRIMARY,
   },
   filterText: {
-    color: C.textSecondary,
+    color: MUTED,
     fontSize: 13,
     fontFamily: 'Inter_500Medium',
   },
@@ -650,12 +662,12 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   emptyTitle: {
-    color: C.text,
+    color: DARK,
     fontSize: 18,
     fontFamily: 'Inter_600SemiBold',
   },
   emptyText: {
-    color: C.textTertiary,
+    color: MUTED,
     fontSize: 14,
     fontFamily: 'Inter_400Regular',
   },

@@ -1,8 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, Pressable, Platform, ScrollView, ActivityIndicator, Alert, Dimensions,
+  View, Text, StyleSheet, Pressable, Platform, ScrollView, ActivityIndicator, Alert,
 } from 'react-native';
-import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -10,27 +9,39 @@ import { router } from 'expo-router';
 import { useApp } from '@/lib/context';
 import { apiRequest, getApiUrl } from '@/lib/query-client';
 
-const { width: SW } = Dimensions.get('window');
+const PRIMARY   = '#E8704A';
+const PRIMARY_L = '#FFF1EC';
+const BG        = '#F5F5F5';
+const CARD      = '#FFFFFF';
+const DARK      = '#1A1A1A';
+const MUTED     = '#888888';
+const GREEN     = '#34C759';
+const GREEN_L   = '#E8F5ED';
+const BLUE      = '#4A90D9';
+const BLUE_L    = '#E8F2FB';
+const AMBER     = '#F59E0B';
+const AMBER_L   = '#FFFBEB';
 
-// ── Mobix Design System (Matching HTML specs) ──────────────────────────────
-const PRIMARY_DARK = '#0F230F'; // background-dark
-const ACCENT_GREEN = '#06F906'; // primary
-const LIGHT_BG     = '#F5F8F5'; // background-light
-const WHITE        = '#FFFFFF';
-const SLATE_500    = '#64748B';
-const SLATE_900    = '#0F172A';
-// ─────────────────────────────────────────────────────────────────────────────
+const SHADOW = {
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.07,
+  shadowRadius: 8,
+  elevation: 2,
+};
 
 const COVERAGE_ITEMS = [
-  { id: 'screen', label: 'Screen Damage', sub: '(1 Free)' },
-  { id: 'liquid', label: 'Accidental Liquid Damage' },
-  { id: 'hardware', label: 'Hardware Malfunctions' },
-  { id: 'pickup', label: 'Free Pickup & Drop' },
+  { id: 'screen',    icon: 'phone-portrait-outline',  label: 'Screen Damage',             sub: '(1 Free)',   color: BLUE,  bg: BLUE_L  },
+  { id: 'liquid',    icon: 'water-outline',            label: 'Accidental Liquid Damage',  sub: '',           color: PRIMARY, bg: PRIMARY_L },
+  { id: 'hardware',  icon: 'hardware-chip-outline',    label: 'Hardware Malfunctions',     sub: '',           color: AMBER, bg: AMBER_L },
+  { id: 'pickup',    icon: 'car-outline',              label: 'Free Pickup & Drop',        sub: '',           color: GREEN, bg: GREEN_L },
 ];
 
 const BENEFITS = [
-  { icon: 'people', label: 'Certified Techs', color: '#3B82F6', bg: '#EFF6FF' },
-  { icon: 'hardware-chip', label: 'Genuine Parts', color: '#F59E0B', bg: '#FFFBEB' },
+  { icon: 'shield-checkmark-outline', label: 'Full Coverage',    sub: 'Screen, liquid & hardware', color: PRIMARY, bg: PRIMARY_L },
+  { icon: 'people-outline',           label: 'Certified Techs',  sub: 'Verified experts only',     color: BLUE,    bg: BLUE_L   },
+  { icon: 'hardware-chip-outline',    label: 'Genuine Parts',    sub: 'OEM quality guaranteed',    color: AMBER,   bg: AMBER_L  },
+  { icon: 'car-outline',              label: 'Free Pickup',      sub: 'We come to you',            color: GREEN,   bg: GREEN_L  },
 ];
 
 export default function InsuranceScreen() {
@@ -39,6 +50,7 @@ export default function InsuranceScreen() {
   const [subActive, setSubActive] = useState(false);
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(true);
+  const [subEnd, setSubEnd] = useState<number | null>(null);
 
   const topInset  = Platform.OS === 'web' ? 67 : insets.top;
   const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom + 20;
@@ -49,6 +61,7 @@ export default function InsuranceScreen() {
       const res = await apiRequest('GET', `/api/subscription/status/${profile.id}`);
       const data = await res.json();
       setSubActive(data.active === true);
+      if (data.subscriptionEnd) setSubEnd(data.subscriptionEnd);
     } catch { setSubActive(false); }
     finally { setChecking(false); }
   }, [profile?.id]);
@@ -63,7 +76,7 @@ export default function InsuranceScreen() {
       const res = await apiRequest('POST', '/api/customer/subscription/create-order', {
         userId: profile.id,
         planId: 'premium',
-        amount: 50 * 100, // Matching the ₹50 from new design
+        amount: 50 * 100,
       });
       const data = await res.json();
       if (!data.success) {
@@ -97,154 +110,220 @@ export default function InsuranceScreen() {
 
   if (checking) {
     return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator color={ACCENT_GREEN} size="large" />
+      <View style={{ flex: 1, backgroundColor: BG, alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator color={PRIMARY} size="large" />
       </View>
     );
   }
 
+  const validTill = subEnd
+    ? new Date(subEnd).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
+    : null;
+
   return (
-    <View style={[styles.container, { backgroundColor: subActive ? '#152E15' : LIGHT_BG }]}>
-      {/* ── Top Bar ────────────────────────────────────────────── */}
-      <View style={[styles.navBar, { paddingTop: topInset, backgroundColor: subActive ? '#152E15' : WHITE }]}>
+    <View style={{ flex: 1, backgroundColor: BG }}>
+      {/* Nav bar */}
+      <View style={[styles.navBar, { paddingTop: topInset + 8 }]}>
         <Pressable style={styles.backBtn} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color={subActive ? WHITE : SLATE_900} />
+          <Ionicons name="arrow-back" size={22} color={DARK} />
         </Pressable>
-        <Text style={[styles.navTitle, { color: subActive ? WHITE : SLATE_900 }]}>Protection Plan</Text>
-        <View style={{ width: 48 }} />
+        <Text style={styles.navTitle}>Protection Plan</Text>
+        <View style={{ width: 44 }} />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: bottomPad + 120 }}>
-        {/* ── Header Card ───────────────────────────────────────── */}
-        <View style={styles.headerSection}>
-          <View style={[styles.mainCard, { backgroundColor: subActive ? '#1D401D' : WHITE }]}>
-            {/* Active Badge */}
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: bottomPad + 120, paddingHorizontal: 16 }}>
+
+        {/* Hero Card */}
+        <View style={[styles.heroCard, subActive && { borderColor: PRIMARY, borderWidth: 1.5 }]}>
+          <View style={styles.heroTop}>
+            <View style={styles.heroIconWrap}>
+              <Ionicons name="shield-checkmark" size={36} color={subActive ? '#FFF' : DARK} />
+            </View>
+            <View style={{ flex: 1, marginLeft: 14 }}>
+              <Text style={styles.heroTitle}>Mobile Protection Plan</Text>
+              <Text style={styles.heroSub}>Mobix Premium Device Coverage</Text>
+            </View>
             {subActive && (
               <View style={styles.activeBadge}>
                 <View style={styles.pulseDot} />
                 <Text style={styles.activeText}>Active</Text>
               </View>
             )}
+          </View>
 
-            {/* Visual Hero */}
-            <View style={styles.heroWrap}>
-              <Image 
-                source={{ uri: "https://images.unsplash.com/photo-1616348436168-de43ad0db179?auto=format&fit=crop&q=80&w=800" }} 
-                style={styles.heroImg}
-                contentFit="cover"
-              />
-              <View style={styles.heroOverlay} />
-              <View style={styles.shieldWrap}>
-                <Ionicons name="shield-checkmark" size={32} color={ACCENT_GREEN} />
+          {subActive && validTill ? (
+            <View style={styles.validRow}>
+              <Ionicons name="calendar-outline" size={14} color={MUTED} />
+              <Text style={styles.validText}>Valid till {validTill}</Text>
+            </View>
+          ) : (
+            <View style={styles.priceRow}>
+              <Text style={styles.price}>₹50</Text>
+              <Text style={styles.pricePer}>/month</Text>
+              <View style={styles.discountBadge}>
+                <Text style={styles.discountText}>Save ₹500 on repairs</Text>
               </View>
             </View>
-
-            <View style={styles.cardContent}>
-              <Text style={[styles.planTitle, { color: subActive ? WHITE : SLATE_900 }]}>All-Round Protection</Text>
-              <Text style={[styles.planSub, { color: subActive ? '#8ECC8E' : SLATE_500 }]}>
-                Mobix Premium Device Coverage
-              </Text>
-            </View>
-          </View>
+          )}
         </View>
 
-        {/* ── Coverage Items ────────────────────────────────────── */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: subActive ? WHITE : SLATE_900 }]}>Coverage Items</Text>
-          <View style={styles.itemList}>
-            {COVERAGE_ITEMS.map(item => (
-              <View key={item.id} style={styles.itemRow}>
-                <View style={styles.checkWrap}>
-                  <Ionicons name="checkmark" size={14} color={ACCENT_GREEN} />
+        {/* Coverage */}
+        <Text style={styles.sectionTitle}>What's Covered</Text>
+        <View style={styles.coverageGrid}>
+          {COVERAGE_ITEMS.map(item => (
+            <View key={item.id} style={[styles.coverageItem, { backgroundColor: item.bg }]}>
+              <View style={[styles.coverageIcon, { backgroundColor: item.color + '20' }]}>
+                <Ionicons name={item.icon as any} size={20} color={item.color} />
+              </View>
+              <Text style={[styles.coverageLabel, { color: item.color }]} numberOfLines={2}>{item.label}</Text>
+              {item.sub ? <Text style={styles.coverageSub}>{item.sub}</Text> : null}
+            </View>
+          ))}
+        </View>
+
+        {/* Benefits */}
+        <Text style={styles.sectionTitle}>Why Choose Us</Text>
+        <View style={styles.benefitsList}>
+          {BENEFITS.map((b, i) => (
+            <View key={i} style={styles.benefitRow}>
+              <View style={[styles.benefitIcon, { backgroundColor: b.bg }]}>
+                <Ionicons name={b.icon as any} size={18} color={b.color} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.benefitLabel}>{b.label}</Text>
+                <Text style={styles.benefitSub}>{b.sub}</Text>
+              </View>
+              <Ionicons name="checkmark-circle" size={18} color={GREEN} />
+            </View>
+          ))}
+        </View>
+
+        {/* How it works */}
+        <Text style={styles.sectionTitle}>How It Works</Text>
+        <View style={styles.stepsCard}>
+          {[
+            { num: '1', label: 'Activate Plan', sub: 'Pay ₹50 to activate your protection' },
+            { num: '2', label: 'Get Protected',  sub: 'Instant coverage for your device' },
+            { num: '3', label: 'Book Repair',    sub: 'Get ₹500 off on any repair service' },
+          ].map((s, i) => (
+            <View key={i}>
+              {i > 0 && <View style={{ height: 1, backgroundColor: '#F0F0F0', marginVertical: 12 }} />}
+              <View style={styles.stepRow}>
+                <View style={styles.stepNum}>
+                  <Text style={styles.stepNumText}>{s.num}</Text>
                 </View>
-                <Text style={[styles.itemLabel, { color: subActive ? WHITE : SLATE_900 }]}>
-                  {item.label} {item.sub && <Text style={styles.itemSubLabel}>{item.sub}</Text>}
-                </Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.stepLabel}>{s.label}</Text>
+                  <Text style={styles.stepSub}>{s.sub}</Text>
+                </View>
               </View>
-            ))}
-          </View>
-        </View>
-
-        {/* ── Plan Benefits ─────────────────────────────────────── */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: subActive ? WHITE : SLATE_900 }]}>Plan Benefits</Text>
-          <View style={styles.benefitGrid}>
-            <View style={[styles.benefitCard, { backgroundColor: subActive ? '#1D401D' : '#F8FAFC' }]}>
-              <View style={[styles.benefitIcon, { backgroundColor: subActive ? 'rgba(59,130,246,0.1)' : '#EFF6FF' }]}>
-                <Ionicons name="people" size={20} color="#3B82F6" />
-              </View>
-              <Text style={[styles.benefitLabel, { color: subActive ? WHITE : SLATE_900 }]}>Certified Techs</Text>
             </View>
-            <View style={[styles.benefitCard, { backgroundColor: subActive ? '#1D401D' : '#F8FAFC' }]}>
-              <View style={[styles.benefitIcon, { backgroundColor: subActive ? 'rgba(245,158,11,0.1)' : '#FFFBEB' }]}>
-                <Ionicons name="hardware-chip" size={20} color="#F59E0B" />
-              </View>
-              <Text style={[styles.benefitLabel, { color: subActive ? WHITE : SLATE_900 }]}>Genuine Parts</Text>
-            </View>
-          </View>
+          ))}
         </View>
       </ScrollView>
 
-      {/* ── Sticky Bottom Bar ──────────────────────────────────── */}
-      <View style={[styles.bottomBar, { paddingBottom: bottomPad, backgroundColor: subActive ? 'rgba(21,46,21,0.9)' : 'rgba(255,255,255,0.9)' }]}>
+      {/* Sticky CTA */}
+      <View style={[styles.bottomBar, { paddingBottom: bottomPad + 8 }]}>
         <Pressable
-          style={({ pressed }) => [styles.mainBtn, { opacity: pressed ? 0.9 : 1 }]}
+          style={({ pressed }) => [styles.ctaBtn, { opacity: pressed ? 0.9 : 1 }]}
           onPress={handleSubscribe}
           disabled={loading}
         >
           {loading ? (
-            <ActivityIndicator color={PRIMARY_DARK} size="small" />
+            <ActivityIndicator color="#FFF" size="small" />
           ) : (
             <>
-              <Ionicons name={subActive ? "add-circle" : "shield-checkmark"} size={22} color={PRIMARY_DARK} />
-              <Text style={styles.mainBtnText}>{subActive ? 'Extend Plan' : 'Activate Plan'}</Text>
+              <Ionicons name={subActive ? 'add-circle-outline' : 'shield-checkmark-outline'} size={20} color="#FFF" />
+              <Text style={styles.ctaBtnText}>{subActive ? 'Extend Plan — ₹50/mo' : 'Activate Plan — ₹50/mo'}</Text>
             </>
           )}
         </Pressable>
-        <Pressable onPress={() => {}}>
-          <Text style={styles.termsLink}>View Terms & Conditions</Text>
-        </Pressable>
+        <Text style={styles.termsText}>Cancel anytime · No hidden charges</Text>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  navBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 12 },
-  backBtn: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
-  navTitle: { fontSize: 18, fontFamily: 'Inter_700Bold', flex: 1, textAlign: 'center' },
+  navBar: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 16, paddingBottom: 12, backgroundColor: BG,
+  },
+  backBtn: {
+    width: 44, height: 44, borderRadius: 22,
+    backgroundColor: CARD, ...SHADOW,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  navTitle: { fontSize: 17, fontFamily: 'Inter_700Bold', color: DARK },
 
-  headerSection: { padding: 16 },
-  mainCard: { borderRadius: 24, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 4 },
-  activeBadge: { position: 'absolute', top: 16, right: 16, zIndex: 10, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(6,249,6,0.2)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(6,249,6,0.3)' },
-  pulseDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: ACCENT_GREEN },
-  activeText: { fontSize: 12, fontFamily: 'Inter_700Bold', color: ACCENT_GREEN },
+  heroCard: {
+    backgroundColor: CARD, borderRadius: 20, padding: 20, marginBottom: 24, ...SHADOW,
+  },
+  heroTop: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
+  heroIconWrap: {
+    width: 64, height: 64, borderRadius: 32, backgroundColor: PRIMARY,
+    alignItems: 'center', justifyContent: 'center',
+    shadowColor: PRIMARY, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35, shadowRadius: 8, elevation: 4,
+  },
+  heroTitle: { fontSize: 18, fontFamily: 'Inter_700Bold', color: DARK, marginBottom: 4 },
+  heroSub:   { fontSize: 13, color: MUTED },
+  activeBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: GREEN_L, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5,
+  },
+  pulseDot: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: GREEN },
+  activeText: { fontSize: 12, fontFamily: 'Inter_700Bold', color: GREEN },
+  validRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  validText: { fontSize: 13, color: MUTED },
+  priceRow: { flexDirection: 'row', alignItems: 'baseline', gap: 6 },
+  price: { fontSize: 28, fontFamily: 'Inter_700Bold', color: PRIMARY },
+  pricePer: { fontSize: 14, color: MUTED, marginRight: 8 },
+  discountBadge: { backgroundColor: PRIMARY_L, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4 },
+  discountText: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: PRIMARY },
 
-  heroWrap: { width: '100%', height: 200, position: 'relative' },
-  heroImg: { width: '100%', height: '100%' },
-  heroOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.4)' },
-  shieldWrap: { position: 'absolute', bottom: 20, alignSelf: 'center', width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(6,249,6,0.2)', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: ACCENT_GREEN },
+  sectionTitle: { fontSize: 16, fontFamily: 'Inter_700Bold', color: DARK, marginBottom: 12 },
 
-  cardContent: { padding: 20, alignItems: 'center' },
-  planTitle: { fontSize: 22, fontFamily: 'Inter_700Bold', marginBottom: 4 },
-  planSub: { fontSize: 14, fontFamily: 'Inter_500Medium' },
+  coverageGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 24 },
+  coverageItem: {
+    width: '47%', borderRadius: 14, padding: 14, gap: 8,
+  },
+  coverageIcon: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
+  coverageLabel: { fontSize: 13, fontFamily: 'Inter_600SemiBold', lineHeight: 18 },
+  coverageSub: { fontSize: 11, color: MUTED },
 
-  section: { paddingHorizontal: 20, paddingTop: 24 },
-  sectionTitle: { fontSize: 18, fontFamily: 'Inter_700Bold', marginBottom: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.05)', paddingBottom: 8 },
-  itemList: { gap: 12 },
-  itemRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 4 },
-  checkWrap: { width: 24, height: 24, borderRadius: 12, backgroundColor: 'rgba(6,249,6,0.2)', alignItems: 'center', justifyContent: 'center' },
-  itemLabel: { fontSize: 16, fontFamily: 'Inter_500Medium' },
-  itemSubLabel: { color: SLATE_500, fontSize: 14 },
+  benefitsList: { backgroundColor: CARD, borderRadius: 16, marginBottom: 24, overflow: 'hidden', ...SHADOW },
+  benefitRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingHorizontal: 16, paddingVertical: 14,
+    borderBottomWidth: 1, borderBottomColor: '#F5F5F5',
+  },
+  benefitIcon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  benefitLabel: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: DARK, marginBottom: 2 },
+  benefitSub:   { fontSize: 12, color: MUTED },
 
-  benefitGrid: { flexDirection: 'row', gap: 16 },
-  benefitCard: { flex: 1, padding: 20, borderRadius: 24, alignItems: 'center', gap: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
-  benefitIcon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
-  benefitLabel: { fontSize: 14, fontFamily: 'Inter_700Bold' },
+  stepsCard: { backgroundColor: CARD, borderRadius: 16, padding: 16, marginBottom: 24, ...SHADOW },
+  stepRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  stepNum: {
+    width: 28, height: 28, borderRadius: 14, backgroundColor: PRIMARY_L,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  stepNumText: { fontSize: 14, fontFamily: 'Inter_700Bold', color: PRIMARY },
+  stepLabel:   { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: DARK, marginBottom: 2 },
+  stepSub:     { fontSize: 12, color: MUTED },
 
-  bottomBar: { position: 'absolute', bottom: 0, left: 0, right: 0, paddingHorizontal: 16, paddingTop: 16, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)', alignItems: 'center' },
-  mainBtn: { width: '100%', backgroundColor: ACCENT_GREEN, borderRadius: 30, paddingVertical: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, shadowColor: ACCENT_GREEN, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 8 },
-  mainBtnText: { color: PRIMARY_DARK, fontSize: 18, fontFamily: 'Inter_700Bold' },
-  termsLink: { fontSize: 12, color: SLATE_500, marginTop: 12, textDecorationLine: 'underline' },
+  bottomBar: {
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    backgroundColor: CARD, paddingHorizontal: 16, paddingTop: 14,
+    borderTopWidth: 1, borderTopColor: '#F0F0F0',
+    shadowColor: '#000', shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 4,
+    alignItems: 'center',
+  },
+  ctaBtn: {
+    width: '100%', backgroundColor: PRIMARY, borderRadius: 16,
+    paddingVertical: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    shadowColor: PRIMARY, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4,
+    marginBottom: 8,
+  },
+  ctaBtnText: { fontSize: 16, fontFamily: 'Inter_700Bold', color: '#FFF' },
+  termsText: { fontSize: 12, color: MUTED },
 });

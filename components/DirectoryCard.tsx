@@ -4,17 +4,20 @@ import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
-import Colors from '@/constants/colors';
 import { ROLE_LABELS, UserRole } from '@/lib/types';
 
-const C = Colors.dark;
+const BG     = '#FFFFFF';
+const BORDER = '#EEEEEE';
+const DARK   = '#1A1A1A';
+const MUTED  = '#888888';
+const AMBER  = '#F59E0B';
 
-const ROLE_ICONS: Record<UserRole, { name: keyof typeof Ionicons.glyphMap; color: string }> = {
-  technician: { name: 'construct', color: '#34C759' },
-  teacher: { name: 'school', color: '#FFD60A' },
-  supplier: { name: 'cube', color: '#FF6B2C' },
-  job_provider: { name: 'briefcase', color: '#5E8BFF' },
-  customer: { name: 'person', color: '#FF2D55' },
+const ROLE_ICONS: Record<UserRole, { name: keyof typeof Ionicons.glyphMap; color: string; bg: string }> = {
+  technician:   { name: 'construct',  color: '#34C759', bg: '#E8F5ED' },
+  teacher:      { name: 'school',     color: '#F59E0B', bg: '#FFFBEB' },
+  supplier:     { name: 'cube',       color: '#E8704A', bg: '#FFF1EC' },
+  job_provider: { name: 'briefcase',  color: '#5E8BFF', bg: '#EEF3FF' },
+  customer:     { name: 'person',     color: '#FF2D55', bg: '#FFEBEF' },
 };
 
 function getInitials(name: string): string {
@@ -34,79 +37,94 @@ interface DirectoryCardProps {
 }
 
 export default function DirectoryCard({ name, role, city, skills, experience, avatar, isOnline, onPress, onMessage }: DirectoryCardProps) {
-  const icon = ROLE_ICONS[role];
+  const icon = ROLE_ICONS[role] ?? ROLE_ICONS.customer;
   const cardScale = useSharedValue(1);
   const cardAnimStyle = useAnimatedStyle(() => ({
     transform: [{ scale: cardScale.value }],
   }));
 
   return (
-    <Animated.View style={[cardAnimStyle]}>
-    <Pressable
-      style={({ pressed }) => [styles.card, pressed && { opacity: 0.85 }]}
-      onPress={onPress}
-      onPressIn={() => { cardScale.value = withSpring(0.97); }}
-      onPressOut={() => { cardScale.value = withSpring(1); }}
-    >
-      <View style={styles.avatarWrap}>
-        {avatar ? (
-          <Image source={{ uri: avatar }} style={styles.avatarImg} contentFit="cover" />
-        ) : (
-          <View style={[styles.avatar, { backgroundColor: icon.color + '20' }]}>
-            <Text style={[styles.avatarText, { color: icon.color }]}>{getInitials(name)}</Text>
-          </View>
-        )}
-        {isOnline !== undefined && (
-          <View style={[styles.onlineDot, { backgroundColor: isOnline ? '#34C759' : '#FF3B30' }]} />
-        )}
-      </View>
-      <View style={styles.info}>
-        <Text style={styles.name} numberOfLines={1}>{name}</Text>
-        <View style={styles.metaRow}>
-          <Ionicons name={icon.name} size={13} color={icon.color} />
-          <Text style={[styles.role, { color: icon.color }]}>{ROLE_LABELS[role]}</Text>
-          {city.length > 0 && (
-            <>
-              <View style={styles.dot} />
-              <Ionicons name="location-outline" size={12} color={C.textTertiary} />
-              <Text style={styles.city}>{city}</Text>
-            </>
+    <Animated.View style={cardAnimStyle}>
+      <Pressable
+        style={({ pressed }) => [styles.card, pressed && { opacity: 0.92 }]}
+        onPress={onPress}
+        onPressIn={() => { cardScale.value = withSpring(0.97, { damping: 15 }); }}
+        onPressOut={() => { cardScale.value = withSpring(1, { damping: 15 }); }}
+      >
+        {/* Avatar */}
+        <View style={styles.avatarWrap}>
+          {avatar ? (
+            <Image source={{ uri: avatar }} style={styles.avatarImg} contentFit="cover" />
+          ) : (
+            <View style={[styles.avatar, { backgroundColor: icon.bg }]}>
+              <Text style={[styles.avatarText, { color: icon.color }]}>{getInitials(name)}</Text>
+            </View>
+          )}
+          {isOnline !== undefined && (
+            <View style={[styles.onlineDot, { backgroundColor: isOnline ? '#34C759' : '#CCC' }]} />
           )}
         </View>
-        {skills.length > 0 && (
-          <View style={styles.skillsRow}>
-            {skills.slice(0, 3).map((s, i) => (
-              <View key={i} style={styles.skillTag}>
-                <Text style={styles.skillText}>{s}</Text>
+
+        {/* Info */}
+        <View style={styles.info}>
+          <View style={styles.nameRow}>
+            <Text style={styles.name} numberOfLines={1}>{name}</Text>
+            {role === 'technician' && (
+              <View style={styles.verifiedBadge}>
+                <Text style={styles.verifiedText}>Verified</Text>
               </View>
-            ))}
-            {skills.length > 3 && (
-              <Text style={styles.moreSkills}>+{skills.length - 3}</Text>
             )}
           </View>
+          <View style={styles.metaRow}>
+            <View style={[styles.roleChip, { backgroundColor: icon.bg }]}>
+              <Ionicons name={icon.name} size={11} color={icon.color} />
+              <Text style={[styles.roleText, { color: icon.color }]}>{ROLE_LABELS[role]}</Text>
+            </View>
+            {city.length > 0 && (
+              <View style={styles.cityRow}>
+                <Ionicons name="location-outline" size={11} color={MUTED} />
+                <Text style={styles.cityText} numberOfLines={1}>{city}</Text>
+              </View>
+            )}
+          </View>
+          {skills.length > 0 && (
+            <View style={styles.skillsRow}>
+              {skills.slice(0, 2).map((s, i) => (
+                <View key={i} style={styles.skillTag}>
+                  <Text style={styles.skillText} numberOfLines={1}>{s}</Text>
+                </View>
+              ))}
+              {skills.length > 2 && (
+                <Text style={styles.moreSkills}>+{skills.length - 2}</Text>
+              )}
+            </View>
+          )}
+        </View>
+
+        {/* Action */}
+        {onMessage ? (
+          <Pressable
+            onPress={(e) => {
+              e.stopPropagation?.();
+              if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              onMessage();
+            }}
+            hitSlop={8}
+            style={[styles.msgBtn, { backgroundColor: icon.bg }]}
+          >
+            <Ionicons name="chatbubble-outline" size={16} color={icon.color} />
+          </Pressable>
+        ) : (
+          <Ionicons name="chevron-forward" size={16} color="#BDBDBD" />
         )}
-      </View>
-      {onMessage && (
-        <Pressable
-          onPress={(e) => {
-            e.stopPropagation?.();
-            if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            onMessage();
-          }}
-          hitSlop={8}
-          style={[styles.msgBtn, { backgroundColor: icon.color + '15' }]}
-        >
-          <Ionicons name="chatbubble-outline" size={18} color={icon.color} />
-        </Pressable>
-      )}
-    </Pressable>
+      </Pressable>
     </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: C.surface,
+    backgroundColor: BG,
     borderRadius: 14,
     padding: 14,
     marginHorizontal: 16,
@@ -114,99 +132,35 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: C.border,
+    borderColor: BORDER,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  avatarWrap: {
-    position: 'relative',
-  },
-  avatarImg: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    borderWidth: 1.5,
-    borderColor: C.border,
-  },
+  avatarWrap: { position: 'relative', marginRight: 12 },
+  avatarImg: { width: 50, height: 50, borderRadius: 25, borderWidth: 1.5, borderColor: BORDER },
+  avatar: { width: 50, height: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center' },
+  avatarText: { fontSize: 17, fontFamily: 'Inter_700Bold' },
   onlineDot: {
-    position: 'absolute',
-    bottom: 1,
-    right: 1,
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    borderWidth: 2,
-    borderColor: C.surface,
+    position: 'absolute', bottom: 1, right: 1,
+    width: 12, height: 12, borderRadius: 6,
+    borderWidth: 2, borderColor: BG,
   },
-  avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: {
-    fontSize: 17,
-    fontFamily: 'Inter_600SemiBold',
-  },
-  info: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  name: {
-    color: C.text,
-    fontSize: 15,
-    fontFamily: 'Inter_600SemiBold',
-  },
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4,
-    gap: 4,
-  },
-  role: {
-    fontSize: 12,
-    fontFamily: 'Inter_500Medium',
-  },
-  dot: {
-    width: 3,
-    height: 3,
-    borderRadius: 1.5,
-    backgroundColor: C.textTertiary,
-    marginHorizontal: 4,
-  },
-  city: {
-    color: C.textTertiary,
-    fontSize: 12,
-    fontFamily: 'Inter_400Regular',
-  },
-  skillsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginTop: 6,
-    gap: 4,
-  },
-  skillTag: {
-    backgroundColor: C.surfaceElevated,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  skillText: {
-    color: C.textSecondary,
-    fontSize: 11,
-    fontFamily: 'Inter_400Regular',
-  },
-  moreSkills: {
-    color: C.textTertiary,
-    fontSize: 11,
-    fontFamily: 'Inter_400Regular',
-    alignSelf: 'center',
-  },
-  msgBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 8,
-  },
+  info: { flex: 1, minWidth: 0 },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },
+  name: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: DARK, flexShrink: 1 },
+  verifiedBadge: { backgroundColor: '#E8F5ED', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
+  verifiedText: { fontSize: 10, fontFamily: 'Inter_700Bold', color: '#2E7D52' },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' },
+  roleChip: { flexDirection: 'row', alignItems: 'center', gap: 3, borderRadius: 8, paddingHorizontal: 7, paddingVertical: 3 },
+  roleText: { fontSize: 11, fontFamily: 'Inter_500Medium' },
+  cityRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  cityText: { fontSize: 11, color: MUTED, fontFamily: 'Inter_400Regular', maxWidth: 100 },
+  skillsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
+  skillTag: { backgroundColor: '#F5F5F5', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+  skillText: { color: MUTED, fontSize: 11, fontFamily: 'Inter_400Regular' },
+  moreSkills: { color: MUTED, fontSize: 11, fontFamily: 'Inter_400Regular', alignSelf: 'center' },
+  msgBtn: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', marginLeft: 8 },
 });
