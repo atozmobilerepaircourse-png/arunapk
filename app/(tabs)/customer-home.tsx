@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, Pressable, TextInput,
   ScrollView, Dimensions, Platform, ActivityIndicator,
@@ -8,33 +8,32 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import * as Location from 'expo-location';
 import { useApp } from '@/lib/context';
 import { apiRequest } from '@/lib/query-client';
 
 const { width: SW } = Dimensions.get('window');
 
-// ── Mobix color tokens (orange primary matching the design) ────────────────
 const BG       = '#F5F5F5';
 const CARD     = '#FFFFFF';
-const BORDER   = '#E8E8E8';
+const BORDER   = '#EBEBEB';
 const FORE     = '#1A1A1A';
 const MUTED    = '#888888';
-const PRIMARY  = '#E8704A';   // Mobix orange
+const PRIMARY  = '#E8704A';
 const PRIMARY_L = '#FFF1EC';
 const BLUE     = '#4A90D9';
 const BLUE_L   = '#E8F2FB';
-const GREEN    = '#4CAF78';
+const GREEN    = '#27AE60';
 const GREEN_L  = '#E8F5ED';
 const PURPLE   = '#9B6DD4';
 const PURPLE_L = '#F3ECFC';
 const AMBER    = '#F59E0B';
 
-// ── Quick Services ─────────────────────────────────────────────────────────
 const SERVICES = [
-  { id: 'screen',  icon: 'desktop-outline',          label: 'Screen',       color: BLUE,   bg: BLUE_L    },
+  { id: 'screen',  icon: 'phone-portrait-outline',   label: 'Screen',       color: BLUE,   bg: BLUE_L    },
   { id: 'battery', icon: 'battery-charging-outline', label: 'Battery',      color: GREEN,  bg: GREEN_L   },
-  { id: 'back',    icon: 'phone-portrait-outline',   label: 'Back Panel',   color: PURPLE, bg: PURPLE_L  },
-  { id: 'full',    icon: 'construct-outline',        label: 'Full Service', color: PRIMARY, bg: PRIMARY_L },
+  { id: 'back',    icon: 'shield-outline',            label: 'Back Panel',   color: PURPLE, bg: PURPLE_L  },
+  { id: 'full',    icon: 'construct-outline',         label: 'Full Service', color: PRIMARY, bg: PRIMARY_L },
 ];
 
 function getGreeting() {
@@ -54,12 +53,37 @@ function go(route: string) {
   router.push(route as any);
 }
 
+function etaFromDist(km: number): string {
+  const mins = Math.max(5, Math.round(km * 8 + 4));
+  return `${mins} mins`;
+}
+
+function seededRandom(seed: string) {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (Math.imul(31, h) + seed.charCodeAt(i)) | 0;
+  const x = Math.sin(Math.abs(h)) * 10000;
+  return x - Math.floor(x);
+}
+
+function techRating(id: string) {
+  const r = seededRandom(id + 'rating');
+  return (4.3 + r * 0.7).toFixed(1);
+}
+
+function techReviews(id: string) {
+  const r = seededRandom(id + 'reviews');
+  return String(Math.floor(200 + r * 800));
+}
+
 export default function CustomerHomeScreen() {
   const insets = useSafeAreaInsets();
   const { profile } = useApp();
   const [techs, setTechs]     = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userLat, setUserLat] = useState<number | null>(null);
+  const [userLng, setUserLng] = useState<number | null>(null);
   const [search, setSearch]   = useState('');
+  const locationFetched = useRef(false);
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
   const botPad = Platform.OS === 'web' ? 34 : insets.bottom + 16;
@@ -67,14 +91,21 @@ export default function CustomerHomeScreen() {
   const firstName = profile?.name?.split(' ')[0] ?? 'User';
   const city = profile?.city
     ? `${profile.city}${profile.state ? `, ${profile.state}` : ''}`
-    : 'Koramangala, Bangalore';
+    : 'Detecting location...';
 
-  const fetchTechs = useCallback(async () => {
+  const fetchTechs = useCallback(async (lat?: number, lng?: number) => {
     try {
       setLoading(true);
-      const res  = await apiRequest('GET', '/api/profiles?role=technician&limit=10');
+      let url: string;
+      if (lat != null && lng != null) {
+        url = `/api/technicians/nearby?lat=${lat}&lng=${lng}&radius=50`;
+      } else {
+        url = '/api/technicians/nearby?lat=17.3850&lng=78.4867&radius=50';
+      }
+      const res  = await apiRequest('GET', url);
       const data = await res.json();
-      setTechs((data.profiles ?? data ?? []).slice(0, 6));
+      const list = Array.isArray(data) ? data : (data.technicians ?? []);
+      setTechs(list.slice(0, 6));
     } catch {
       setTechs([]);
     } finally {
@@ -82,7 +113,25 @@ export default function CustomerHomeScreen() {
     }
   }, []);
 
-  useEffect(() => { fetchTechs(); }, [fetchTechs]);
+  useEffect(() => {
+    if (locationFetched.current) return;
+    locationFetched.current = true;
+    (async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === 'granted') {
+          const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+          setUserLat(loc.coords.latitude);
+          setUserLng(loc.coords.longitude);
+          fetchTechs(loc.coords.latitude, loc.coords.longitude);
+        } else {
+          fetchTechs();
+        }
+      } catch {
+        fetchTechs();
+      }
+    })();
+  }, [fetchTechs]);
 
   return (
     <ScrollView
@@ -95,7 +144,7 @@ export default function CustomerHomeScreen() {
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
     >
-      {/* ── Header ──────────────────────────────────────────────────────── */}
+      {/* ── Header ────────────────────────────────────────────────────────── */}
       <View style={styles.header}>
         <View>
           <Text style={styles.greetText}>{getGreeting()}</Text>
@@ -107,14 +156,14 @@ export default function CustomerHomeScreen() {
         </Pressable>
       </View>
 
-      {/* ── Location ────────────────────────────────────────────────────── */}
+      {/* ── Location ──────────────────────────────────────────────────────── */}
       <Pressable style={styles.locationRow}>
         <Ionicons name="location-outline" size={15} color={PRIMARY} />
         <Text style={styles.locationText} numberOfLines={1}>{city}</Text>
         <Ionicons name="chevron-forward" size={14} color={MUTED} />
       </Pressable>
 
-      {/* ── Search ──────────────────────────────────────────────────────── */}
+      {/* ── Search ────────────────────────────────────────────────────────── */}
       <View style={styles.searchBox}>
         <Ionicons name="search-outline" size={18} color={MUTED} />
         <TextInput
@@ -127,7 +176,7 @@ export default function CustomerHomeScreen() {
         />
       </View>
 
-      {/* ── Promo Banner ────────────────────────────────────────────────── */}
+      {/* ── Promo Banner ──────────────────────────────────────────────────── */}
       <Pressable style={styles.banner} onPress={() => go('/insurance')}>
         <View style={styles.bannerContent}>
           <View style={styles.bannerBadge}>
@@ -144,7 +193,7 @@ export default function CustomerHomeScreen() {
         </View>
       </Pressable>
 
-      {/* ── Quick Services ──────────────────────────────────────────────── */}
+      {/* ── Quick Services ────────────────────────────────────────────────── */}
       <View style={styles.sectionRow}>
         <Text style={styles.sectionTitle}>Quick Services</Text>
         <Pressable onPress={() => go('/technician-map')}>
@@ -162,20 +211,21 @@ export default function CustomerHomeScreen() {
         ))}
       </View>
 
-      {/* ── Nearby Technicians ──────────────────────────────────────────── */}
+      {/* ── Nearby Technicians ────────────────────────────────────────────── */}
       <View style={styles.sectionRow}>
         <Text style={styles.sectionTitle}>Nearby Technicians</Text>
-        <Pressable onPress={() => go('/(tabs)/directory')}>
+        <Pressable onPress={() => go('/technician-map')}>
           <Text style={styles.seeAll}>View All</Text>
         </Pressable>
       </View>
 
       {loading ? (
-        <ActivityIndicator color={PRIMARY} style={{ marginVertical: 24 }} />
+        <ActivityIndicator color={PRIMARY} style={{ marginVertical: 28 }} />
       ) : techs.length === 0 ? (
         <View style={styles.emptyBox}>
-          <Ionicons name="people-outline" size={32} color={MUTED} />
+          <Ionicons name="people-outline" size={36} color={MUTED} />
           <Text style={styles.emptyTxt}>No technicians found nearby</Text>
+          <Text style={styles.emptySubTxt}>Try expanding your search area</Text>
         </View>
       ) : (
         <View style={styles.techList}>
@@ -188,140 +238,187 @@ export default function CustomerHomeScreen() {
   );
 }
 
-// ── Tech Card ──────────────────────────────────────────────────────────────
+// ── Tech Card ───────────────────────────────────────────────────────────────
 function TechCard({ tech }: { tech: any }) {
-  const rating  = tech.rating ?? (4.5 + Math.random() * 0.5).toFixed(1);
-  const reviews = tech.reviewCount ?? Math.floor(200 + Math.random() * 700);
-  const dist    = tech.distance ?? `${(0.5 + Math.random() * 2).toFixed(1)} km`;
-  const resp    = tech.responseTime ?? `${10 + Math.floor(Math.random() * 20)} mins`;
-  const isVerified = tech.verified !== false;
+  const distNum  = typeof tech.distance === 'number' ? tech.distance : null;
+  const distStr  = distNum != null ? `${distNum.toFixed(1)} km` : null;
+  const eta      = distNum != null ? etaFromDist(distNum) : `${15 + Math.floor(seededRandom(tech.id + 'eta') * 20)} mins`;
+  const rating   = techRating(tech.id ?? '0');
+  const reviews  = techReviews(tech.id ?? '0');
+  const isVerified = tech.blocked !== 1;
+
+  const handleBook = () => {
+    if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    router.push('/select-brand' as any);
+  };
 
   return (
-    <Pressable
-      style={styles.techCard}
-      onPress={() => router.push({ pathname: '/user-profile', params: { id: tech.id } } as any)}
-    >
+    <View style={styles.techCard}>
       {/* Avatar */}
-      <View style={styles.techAvatarWrap}>
+      <View style={styles.avatarWrap}>
         {tech.avatar ? (
-          <Image source={{ uri: tech.avatar }} style={styles.techAvatar} contentFit="cover" />
+          <Image
+            source={{ uri: tech.avatar }}
+            style={styles.avatar}
+            contentFit="cover"
+          />
         ) : (
-          <View style={[styles.techAvatar, styles.techAvatarFb]}>
-            <Text style={styles.techInitials}>{initials(tech.name)}</Text>
+          <View style={[styles.avatar, styles.avatarFallback]}>
+            <Text style={styles.avatarInitials}>{initials(tech.name)}</Text>
           </View>
         )}
+        {tech.availableForJobs !== 'false' && <View style={styles.onlineDot} />}
       </View>
 
       {/* Info */}
       <View style={styles.techInfo}>
+        {/* Name + Verified */}
         <View style={styles.techNameRow}>
           <Text style={styles.techName} numberOfLines={1}>{tech.name ?? 'Technician'}</Text>
           {isVerified && (
             <View style={styles.verifiedBadge}>
+              <Ionicons name="checkmark-circle" size={11} color="#27AE60" />
               <Text style={styles.verifiedTxt}>Verified</Text>
             </View>
           )}
         </View>
-        <Text style={styles.techSpecialty} numberOfLines={1}>
-          {tech.skills?.[0] ?? tech.specialty ?? 'Mobile Repair Expert'}
-        </Text>
+
+        {/* Title */}
+        <Text style={styles.techTitle}>Mobile Repair Expert</Text>
+
+        {/* Rating + Distance */}
         <View style={styles.techMeta}>
           <Ionicons name="star" size={12} color={AMBER} />
-          <Text style={styles.techRating}>{Number(rating).toFixed(1)}</Text>
-          <Text style={styles.techReviews}>({reviews})</Text>
-          <Ionicons name="location-outline" size={12} color={MUTED} style={{ marginLeft: 6 }} />
-          <Text style={styles.techMetaTxt}>{dist}</Text>
+          <Text style={styles.ratingTxt}>{rating}</Text>
+          <Text style={styles.reviewsTxt}>({reviews})</Text>
+          {distStr && (
+            <>
+              <View style={styles.metaDivider} />
+              <Ionicons name="location-outline" size={12} color={MUTED} />
+              <Text style={styles.distTxt}>{distStr}</Text>
+            </>
+          )}
         </View>
       </View>
 
-      {/* Right */}
+      {/* Right side */}
       <View style={styles.techRight}>
-        <View style={styles.techTimeRow}>
+        <View style={styles.etaRow}>
           <Ionicons name="time-outline" size={12} color={GREEN} />
-          <Text style={styles.techTimeTxt}>{resp}</Text>
+          <Text style={styles.etaTxt}>{eta}</Text>
         </View>
-        <Pressable
-          style={styles.bookBtn}
-          onPress={() => router.push({ pathname: '/user-profile', params: { id: tech.id } } as any)}
-        >
+        <Pressable style={styles.bookBtn} onPress={handleBook}>
           <Text style={styles.bookBtnTxt}>Book</Text>
         </Pressable>
       </View>
-    </Pressable>
+    </View>
   );
 }
 
-// ── Styles ─────────────────────────────────────────────────────────────────
-const SHADOW = {
-  shadowColor: '#000',
-  shadowOffset: { width: 0, height: 1 },
-  shadowOpacity: 0.06,
-  shadowRadius: 6,
-  elevation: 2,
-};
+// ── Styles ──────────────────────────────────────────────────────────────────
+const SHADOW = Platform.select({
+  ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 8 },
+  android: { elevation: 3 },
+  default: { boxShadow: '0 2px 8px rgba(0,0,0,0.07)' },
+});
 
 const styles = StyleSheet.create({
-  // Header
-  header:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
-  greetText:    { fontSize: 13, color: MUTED },
-  nameText:     { fontSize: 22, fontWeight: '700', color: FORE, marginTop: 1 },
-  bellBtn:      { width: 42, height: 42, borderRadius: 21, backgroundColor: CARD, borderWidth: 1, borderColor: BORDER, alignItems: 'center', justifyContent: 'center', ...SHADOW },
-  bellDot:      { position: 'absolute', top: 9, right: 9, width: 9, height: 9, borderRadius: 5, backgroundColor: PRIMARY, borderWidth: 2, borderColor: CARD },
+  header:         { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
+  greetText:      { fontSize: 13, fontFamily: 'Inter_400Regular', color: MUTED },
+  nameText:       { fontSize: 22, fontFamily: 'Inter_700Bold', color: FORE, marginTop: 1 },
+  bellBtn:        { width: 42, height: 42, borderRadius: 21, backgroundColor: CARD, borderWidth: 1, borderColor: BORDER, alignItems: 'center', justifyContent: 'center', ...SHADOW },
+  bellDot:        { position: 'absolute', top: 9, right: 9, width: 9, height: 9, borderRadius: 5, backgroundColor: PRIMARY, borderWidth: 2, borderColor: CARD },
 
-  // Location
-  locationRow:  { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 14 },
-  locationText: { fontSize: 13, color: MUTED, flex: 1 },
+  locationRow:    { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 14 },
+  locationText:   { fontSize: 13, fontFamily: 'Inter_400Regular', color: MUTED, flex: 1 },
 
-  // Search
-  searchBox:    { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: CARD, borderWidth: 1, borderColor: BORDER, borderRadius: 12, paddingHorizontal: 14, height: 48, marginBottom: 18, ...SHADOW },
-  searchInput:  { flex: 1, fontSize: 14, color: FORE },
+  searchBox:      { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: CARD, borderWidth: 1, borderColor: BORDER, borderRadius: 14, paddingHorizontal: 14, height: 50, marginBottom: 18, ...SHADOW },
+  searchInput:    { flex: 1, fontSize: 14, fontFamily: 'Inter_400Regular', color: FORE },
 
-  // Banner
-  banner:        { borderRadius: 16, marginBottom: 24, overflow: 'hidden', backgroundColor: PRIMARY, flexDirection: 'row', alignItems: 'center', minHeight: 152, ...SHADOW },
-  bannerContent: { flex: 1, padding: 18, zIndex: 1 },
-  bannerBadge:   { alignSelf: 'flex-start', backgroundColor: 'rgba(255,255,255,0.25)', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4, marginBottom: 10 },
-  bannerBadgeTxt:{ fontSize: 11, fontWeight: '700', color: '#FFF' },
-  bannerTitle:   { fontSize: 18, fontWeight: '700', color: '#FFF', marginBottom: 6 },
-  bannerDesc:    { fontSize: 13, color: 'rgba(255,255,255,0.88)', marginBottom: 14 },
-  bannerBtn:     { alignSelf: 'flex-start', backgroundColor: '#FFF', paddingHorizontal: 16, paddingVertical: 9, borderRadius: 22 },
-  bannerBtnTxt:  { fontSize: 13, fontWeight: '700', color: PRIMARY },
-  bannerShield:  { paddingRight: 14, alignItems: 'center', justifyContent: 'center' },
+  banner:         { borderRadius: 18, marginBottom: 24, overflow: 'hidden', backgroundColor: PRIMARY, flexDirection: 'row', alignItems: 'center', minHeight: 152, ...SHADOW },
+  bannerContent:  { flex: 1, padding: 18, zIndex: 1 },
+  bannerBadge:    { alignSelf: 'flex-start', backgroundColor: 'rgba(255,255,255,0.25)', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4, marginBottom: 10 },
+  bannerBadgeTxt: { fontSize: 11, fontFamily: 'Inter_700Bold', color: '#FFF' },
+  bannerTitle:    { fontSize: 18, fontFamily: 'Inter_700Bold', color: '#FFF', marginBottom: 6 },
+  bannerDesc:     { fontSize: 13, fontFamily: 'Inter_400Regular', color: 'rgba(255,255,255,0.88)', marginBottom: 14 },
+  bannerBtn:      { alignSelf: 'flex-start', backgroundColor: '#FFF', paddingHorizontal: 16, paddingVertical: 9, borderRadius: 22 },
+  bannerBtnTxt:   { fontSize: 13, fontFamily: 'Inter_700Bold', color: PRIMARY },
+  bannerShield:   { paddingRight: 14, alignItems: 'center', justifyContent: 'center' },
 
-  // Section
-  sectionRow:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: FORE },
-  seeAll:       { fontSize: 13, fontWeight: '600', color: PRIMARY },
+  sectionRow:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
+  sectionTitle:   { fontSize: 17, fontFamily: 'Inter_700Bold', color: FORE },
+  seeAll:         { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: PRIMARY },
 
-  // Services
-  servicesGrid: { flexDirection: 'row', gap: 10, marginBottom: 22 },
-  serviceCard:  { flex: 1, backgroundColor: CARD, borderWidth: 1, borderColor: BORDER, borderRadius: 14, paddingVertical: 14, alignItems: 'center', gap: 8, ...SHADOW },
-  serviceIcon:  { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  serviceLabel: { fontSize: 11, fontWeight: '600', color: FORE, textAlign: 'center' },
+  servicesGrid:   { flexDirection: 'row', gap: 10, marginBottom: 26 },
+  serviceCard:    { flex: 1, backgroundColor: CARD, borderWidth: 1, borderColor: BORDER, borderRadius: 14, paddingVertical: 14, alignItems: 'center', gap: 8, ...SHADOW },
+  serviceIcon:    { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  serviceLabel:   { fontSize: 11, fontFamily: 'Inter_600SemiBold', color: FORE, textAlign: 'center' },
 
-  // Techs
-  techList:     { gap: 10, marginBottom: 16 },
-  emptyBox:     { alignItems: 'center', paddingVertical: 32, gap: 10 },
-  emptyTxt:     { color: MUTED, fontSize: 14 },
+  techList:       { gap: 12, marginBottom: 16 },
+  emptyBox:       { alignItems: 'center', paddingVertical: 36, gap: 8 },
+  emptyTxt:       { fontFamily: 'Inter_600SemiBold', fontSize: 15, color: FORE },
+  emptySubTxt:    { fontFamily: 'Inter_400Regular', fontSize: 13, color: MUTED },
 
-  // Tech card
-  techCard:        { backgroundColor: CARD, borderWidth: 1, borderColor: BORDER, borderRadius: 14, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12, ...SHADOW },
-  techAvatarWrap:  {},
-  techAvatar:      { width: 52, height: 52, borderRadius: 26, borderWidth: 2, borderColor: BORDER },
-  techAvatarFb:    { backgroundColor: '#FFF1EC', alignItems: 'center', justifyContent: 'center' },
-  techInitials:    { fontSize: 16, fontWeight: '700', color: PRIMARY },
-  techInfo:        { flex: 1, minWidth: 0 },
-  techNameRow:     { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 },
-  techName:        { fontSize: 14, fontWeight: '700', color: FORE, flexShrink: 1 },
-  verifiedBadge:   { backgroundColor: '#E8F5ED', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
-  verifiedTxt:     { fontSize: 10, fontWeight: '700', color: '#2E7D52' },
-  techSpecialty:   { fontSize: 12, color: MUTED, marginBottom: 4 },
-  techMeta:        { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  techRating:      { fontSize: 12, fontWeight: '700', color: FORE },
-  techReviews:     { fontSize: 11, color: MUTED },
-  techMetaTxt:     { fontSize: 11, color: MUTED },
-  techRight:       { alignItems: 'flex-end', gap: 8 },
-  techTimeRow:     { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  techTimeTxt:     { fontSize: 12, fontWeight: '600', color: GREEN },
-  bookBtn:         { backgroundColor: PRIMARY, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20 },
-  bookBtnTxt:      { fontSize: 13, fontWeight: '700', color: '#FFF' },
+  techCard: {
+    backgroundColor: CARD,
+    borderWidth: 1,
+    borderColor: BORDER,
+    borderRadius: 16,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    ...SHADOW,
+  },
+
+  avatarWrap: { position: 'relative' },
+  avatar: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    borderWidth: 2,
+    borderColor: '#EEE',
+  },
+  avatarFallback: {
+    backgroundColor: PRIMARY_L,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderColor: '#FFD5C2',
+  },
+  avatarInitials: { fontSize: 18, fontFamily: 'Inter_700Bold', color: PRIMARY },
+  onlineDot: {
+    position: 'absolute', bottom: 2, right: 2,
+    width: 12, height: 12, borderRadius: 6,
+    backgroundColor: GREEN, borderWidth: 2, borderColor: CARD,
+  },
+
+  techInfo:     { flex: 1, minWidth: 0 },
+  techNameRow:  { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 2, flexWrap: 'wrap' },
+  techName:     { fontSize: 15, fontFamily: 'Inter_700Bold', color: FORE, flexShrink: 1 },
+
+  verifiedBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 3,
+    backgroundColor: '#E8F5ED', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8,
+  },
+  verifiedTxt:  { fontSize: 10, fontFamily: 'Inter_700Bold', color: '#27AE60' },
+
+  techTitle:    { fontSize: 12, fontFamily: 'Inter_400Regular', color: MUTED, marginBottom: 5 },
+
+  techMeta:     { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  ratingTxt:    { fontSize: 12, fontFamily: 'Inter_700Bold', color: FORE },
+  reviewsTxt:   { fontSize: 11, fontFamily: 'Inter_400Regular', color: MUTED },
+  metaDivider:  { width: 3, height: 3, borderRadius: 2, backgroundColor: BORDER, marginHorizontal: 3 },
+  distTxt:      { fontSize: 11, fontFamily: 'Inter_400Regular', color: MUTED },
+
+  techRight:    { alignItems: 'flex-end', gap: 10 },
+  etaRow:       { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  etaTxt:       { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: GREEN },
+
+  bookBtn: {
+    backgroundColor: PRIMARY,
+    paddingHorizontal: 18,
+    paddingVertical: 9,
+    borderRadius: 22,
+  },
+  bookBtnTxt: { fontSize: 13, fontFamily: 'Inter_700Bold', color: '#FFF' },
 });
