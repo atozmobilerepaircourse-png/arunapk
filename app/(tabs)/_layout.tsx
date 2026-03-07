@@ -88,6 +88,10 @@ function NativeTabLayout() {
           <Icon sf={{ default: "person.2", selected: "person.2.fill" }} />
           <Label>Directory</Label>
         </NativeTabs.Trigger>
+        <NativeTabs.Trigger name="marketplace">
+          <Icon sf={{ default: "bag", selected: "bag.fill" }} />
+          <Label>Shop</Label>
+        </NativeTabs.Trigger>
         <NativeTabs.Trigger name="profile">
           <Icon sf={{ default: "person", selected: "person.fill" }} />
           <Label>Profile</Label>
@@ -95,7 +99,6 @@ function NativeTabLayout() {
         <NativeTabs.Trigger name="customer-home" hidden />
         <NativeTabs.Trigger name="create" hidden />
         <NativeTabs.Trigger name="technician-jobs" hidden />
-        <NativeTabs.Trigger name="marketplace" hidden />
         <NativeTabs.Trigger name="my-shop" hidden />
       </NativeTabs>
     );
@@ -266,7 +269,7 @@ function ClassicTabLayout() {
         name="marketplace"
         options={{
           title: isCustomer ? "Sell" : "Shop",
-          href: isCustomer ? '/marketplace' : (!isTeacherOrSupplier ? '/marketplace' : null),
+          href: isCustomer || profile?.role === 'technician' ? '/marketplace' : (!isTeacherOrSupplier ? '/marketplace' : null),
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={isCustomer ? (focused ? "pricetag" : "pricetag-outline") : (focused ? "bag" : "bag-outline")}
