@@ -1402,9 +1402,18 @@ export default function AdminScreen() {
         label = 'Mobi Live';
         refreshData();
       }
-      else if (key === 'schematics_url') label = 'Schematics';
-      else if (key === 'web_tools_url') label = 'Web Tools';
-      else if (key === 'whatsapp_support_link') label = 'WhatsApp Support';
+      else if (key === 'schematics_url') {
+        label = 'Schematics';
+        refreshData();
+      }
+      else if (key === 'web_tools_url') {
+        label = 'Web Tools';
+        refreshData();
+      }
+      else if (key === 'whatsapp_support_link') {
+        label = 'WhatsApp Support';
+        refreshData();
+      }
       Alert.alert('Saved', `${label} link updated successfully`);
     } catch (err) {
       Alert.alert('Error', 'Failed to save link');

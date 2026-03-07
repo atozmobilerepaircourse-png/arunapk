@@ -4,6 +4,7 @@ import {
   Pressable, Platform, ActivityIndicator, Linking, Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import Animated, { FadeInDown, useSharedValue, useAnimatedStyle, withRepeat, withSequence, withTiming, withDelay, Easing } from 'react-native-reanimated';
@@ -114,13 +115,23 @@ export default function FeedScreen() {
   const [schematicsUrl, setSchematicsUrl] = useState('');
   const [webToolsUrl, setWebToolsUrl] = useState('');
 
-  useEffect(() => {
+  const loadSettings = useCallback(() => {
     apiRequest('GET', '/api/app-settings').then(r => r.json()).then(data => {
       if (data.live_url) setLiveUrl(data.live_url);
       if (data.schematics_url) setSchematicsUrl(data.schematics_url);
       if (data.web_tools_url) setWebToolsUrl(data.web_tools_url);
     }).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    loadSettings();
+  }, [loadSettings]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadSettings();
+    }, [loadSettings])
+  );
 
   const filtered = filter === 'all' ? posts : posts.filter(p => p.category === filter);
 
