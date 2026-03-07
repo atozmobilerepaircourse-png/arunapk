@@ -27,7 +27,6 @@ import { apiRequest, getApiUrl } from '@/lib/query-client';
 import { openLink } from '@/lib/open-link';
 import BuySellScreen from '@/app/buy-sell';
 
-const WebFileInput = Platform.OS === 'web' ? require('react').createElement('input', { type: 'file', accept: 'image/*', multiple: true, style: { display: 'none' } }) : null;
 
 const { width } = Dimensions.get('window');
 const ORANGE = '#FF6B2C';
@@ -96,7 +95,7 @@ function getInitials(name: string): string {
   return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
 }
 
-type TabKey = 'courses' | 'spare' | 'suppliers' | 'buysell' | 'ads' | 'live';
+type TabKey = 'courses' | 'spare' | 'suppliers' | 'buysell' | 'live';
 
 interface LiveSession {
   id: string;
@@ -751,6 +750,16 @@ function CustomerMarketplace() {
 
   return (
     <View style={{ flex: 1, backgroundColor: CM.bg }}>
+      {Platform.OS === 'web' && (
+        <input
+          ref={fileInputRef as any}
+          type="file"
+          accept="image/*"
+          multiple
+          style={{ display: 'none', position: 'absolute' } as any}
+          onChange={handleWebFileSelect}
+        />
+      )}
       <View style={[cmStyles.cmHeader, { paddingTop: topPad + (Platform.OS === 'web' ? 0 : insets.top) }]}>
         <Text style={cmStyles.cmHeaderTitle}>Marketplace</Text>
         {activeTab === 'buy' && (
@@ -1517,7 +1526,6 @@ export default function MarketplaceScreen() {
   const [profiles, setProfiles] = useState<ProfileData[]>([]);
   const [courses, setCourses] = useState<CourseData[]>([]);
   const [products, setProducts] = useState<ProductData[]>([]);
-  const [adsList, setAdsList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [liveSessions, setLiveSessions] = useState<LiveSession[]>([]);
@@ -1610,11 +1618,10 @@ export default function MarketplaceScreen() {
 
   const fetchAll = useCallback(async () => {
     try {
-      const [profRes, courseRes, prodRes, adsRes] = await Promise.all([
+      const [profRes, courseRes, prodRes] = await Promise.all([
         apiRequest('GET', '/api/profiles'),
         apiRequest('GET', '/api/courses'),
         apiRequest('GET', '/api/products'),
-        apiRequest('GET', '/api/ads/active').catch(() => null),
       ]);
       const [profData, courseData, prodData] = await Promise.all([
         profRes.json(),
@@ -1624,10 +1631,6 @@ export default function MarketplaceScreen() {
       if (Array.isArray(profData)) setProfiles(profData);
       if (Array.isArray(courseData)) setCourses(courseData);
       if (Array.isArray(prodData)) setProducts(prodData);
-      if (adsRes) {
-        const adsData = await adsRes.json();
-        if (Array.isArray(adsData)) setAdsList(adsData);
-      }
     } catch (e) {
       console.warn('[Shop] fetch error:', e);
     }
@@ -1872,7 +1875,6 @@ export default function MarketplaceScreen() {
             { key: 'spare', label: 'Spare Parts', icon: 'cube' },
             { key: 'suppliers', label: 'Suppliers', icon: 'construct' },
             { key: 'buysell', label: 'Buy & Sell', icon: 'pricetags' },
-            { key: 'ads', label: 'Ads', icon: 'megaphone' },
           ].map(tab => {
             const isActive = activeTab === tab.key;
             const isLive = tab.key === 'live';
@@ -2028,19 +2030,6 @@ export default function MarketplaceScreen() {
             </View>
           )}
 
-          {activeTab === 'ads' && (
-            <View style={{ padding: 16 }}>
-              {adsList.map(ad => (
-                <Pressable key={ad.id} style={s.adCard} onPress={() => ad.link_url && openLink(ad.link_url)}>
-                  <Image source={{ uri: getImageUri(ad.image_url) }} style={s.adImage} contentFit="cover" />
-                  <View style={s.adOverlay}><Text style={s.adTitle}>{ad.title}</Text></View>
-                </Pressable>
-              ))}
-              {adsList.length === 0 && !loading && (
-                <View style={s.emptyWrap}><Ionicons name="megaphone-outline" size={48} color="#DDD" /><Text style={s.emptyText}>No active ads</Text></View>
-              )}
-            </View>
-          )}
 
           {loading && <ActivityIndicator size="large" color={ORANGE} style={{ marginTop: 20 }} />}
         </ScrollView>

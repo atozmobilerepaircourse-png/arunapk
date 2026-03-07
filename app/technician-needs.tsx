@@ -74,20 +74,16 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 export default function TechnicianNeedsScreen() {
   const insets = useSafeAreaInsets();
   const [search, setSearch] = useState('');
-  const [selectedTab, setSelectedTab] = useState<'all' | 'courses' | 'products' | 'ads'>('all');
+  const [selectedTab, setSelectedTab] = useState<'all' | 'courses' | 'products'>('all');
   const [courses, setCourses] = useState<Course[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loadingCourses, setLoadingCourses] = useState(true);
   const [loadingProducts, setLoadingProducts] = useState(true);
-  const [adsList, setAdsList] = useState<any[]>([]);
-  const [loadingAds, setLoadingAds] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const fetchData = () => {
     setLoadingCourses(true);
     setLoadingProducts(true);
-    setLoadingAds(true);
-
     apiRequest('GET', '/api/courses?published=true')
       .then((res) => res.json())
       .then((data) => {
@@ -104,13 +100,6 @@ export default function TechnicianNeedsScreen() {
       .catch((err) => { console.warn('[TechNeeds] products fetch error:', err); })
       .finally(() => setLoadingProducts(false));
 
-    apiRequest('GET', '/api/ads/active')
-      .then((res) => res.json())
-      .then((data) => {
-        if (Array.isArray(data)) setAdsList(data);
-      })
-      .catch((err) => { console.warn('[TechNeeds] ads fetch error:', err); })
-      .finally(() => setLoadingAds(false));
   };
 
   useEffect(() => {
@@ -133,12 +122,6 @@ export default function TechnicianNeedsScreen() {
           if (Array.isArray(data)) setProducts(data);
         })
         .catch((err) => { console.warn('[TechNeeds] products refresh error:', err); }),
-      apiRequest('GET', '/api/ads/active')
-        .then((res) => res.json())
-        .then((data) => {
-          if (Array.isArray(data)) setAdsList(data);
-        })
-        .catch((err) => { console.warn('[TechNeeds] ads refresh error:', err); }),
     ]).finally(() => setRefreshing(false));
   };
 
@@ -202,7 +185,6 @@ export default function TechnicianNeedsScreen() {
           { key: 'all' as const, label: 'All', icon: 'grid-outline' as const },
           { key: 'courses' as const, label: 'Courses', icon: 'school-outline' as const },
           { key: 'products' as const, label: 'Spare Parts', icon: 'construct-outline' as const },
-          { key: 'ads' as const, label: 'Ads', icon: 'megaphone-outline' as const },
         ]).map(tab => (
           <TouchableOpacity
             key={tab.key}
@@ -220,49 +202,6 @@ export default function TechnicianNeedsScreen() {
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={DK.primary} />
         </View>
-      ) : selectedTab === 'ads' ? (
-        <FlatList
-          data={adsList}
-          keyExtractor={(item) => item.id}
-          numColumns={1}
-          contentContainerStyle={[styles.gridContent, { paddingBottom: insets.bottom + 20 }]}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={DK.primary} />
-          }
-          ListEmptyComponent={
-            <View style={styles.emptySection}>
-              <Ionicons name="megaphone-outline" size={48} color={DK.textTertiary} />
-              <Text style={styles.emptyText}>No ads available</Text>
-            </View>
-          }
-          renderItem={({ item: ad }) => (
-            <TouchableOpacity
-              style={adStyles.adCard}
-              activeOpacity={0.85}
-              onPress={() => {
-                if (ad.link_url) openLink(ad.link_url);
-              }}
-            >
-              {ad.image_url ? (
-                <Image
-                  source={{ uri: ad.image_url.startsWith('/') ? `${getApiUrl()}${ad.image_url}` : ad.image_url }}
-                  style={adStyles.adImage}
-                  contentFit="cover"
-                />
-              ) : (
-                <View style={adStyles.adImagePlaceholder}>
-                  <Ionicons name="megaphone" size={32} color="#FFF" />
-                </View>
-              )}
-              {ad.title ? (
-                <View style={adStyles.adOverlay}>
-                  <Text style={adStyles.adTitle} numberOfLines={2}>{ad.title}</Text>
-                </View>
-              ) : null}
-            </TouchableOpacity>
-          )}
-        />
       ) : (
         <FlatList
           data={allItems}
@@ -557,42 +496,3 @@ const styles = StyleSheet.create({
   },
 });
 
-const adStyles = StyleSheet.create({
-  adCard: {
-    width: '100%',
-    borderRadius: 14,
-    overflow: 'hidden',
-    marginBottom: 12,
-    backgroundColor: '#F7F7F7',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 4,
-  },
-  adImage: {
-    width: '100%',
-    height: 180,
-  },
-  adImagePlaceholder: {
-    width: '100%',
-    height: 180,
-    backgroundColor: DK.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  adOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-  },
-  adTitle: {
-    color: '#FFF',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-});
