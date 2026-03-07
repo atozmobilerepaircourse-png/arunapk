@@ -214,7 +214,7 @@ function CustomerProfileScreen() {
     );
   }
 
-  const ALL_ROLES: UserRole[] = ['technician', 'teacher', 'supplier', 'job_provider', 'customer'];
+  const ALL_ROLES: UserRole[] = ['technician', 'teacher', 'supplier', 'job_provider', 'customer', 'admin'];
 
   return (
     <View style={{ flex: 1, backgroundColor: '#F5F5F5' }}>
