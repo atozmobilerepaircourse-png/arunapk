@@ -245,15 +245,17 @@ function CustomerMarketplace() {
   const fetchListings = useCallback(async () => {
     try {
       const res = await apiRequest('GET', '/api/posts');
+      if (!res.ok) throw new Error(`API error: ${res.status}`);
       const data = await res.json();
       if (Array.isArray(data)) {
         const parsed = data
           .map(parseSellListing)
           .filter(Boolean) as SellListing[];
         setListings(parsed.reverse());
+        console.log('[CustomerMarketplace] Fetched', parsed.length, 'listings');
       }
     } catch (e) {
-      console.warn('[CustomerMarketplace] fetch error:', e);
+      console.error('[CustomerMarketplace] fetch error:', e);
     }
   }, []);
 
