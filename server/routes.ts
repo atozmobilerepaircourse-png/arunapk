@@ -3476,14 +3476,15 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
       if (!userId) return res.status(400).json({ success: false, message: "userId required" });
       const [user] = await db.select().from(profiles).where(eq(profiles.id, userId));
       if (!user) return res.status(404).json({ success: false, message: "User not found" });
-      const amountInPaise = 3000; // ₹30
+      const PROTECTION_PLAN_PRICE = 50;
+      const amountInPaise = PROTECTION_PLAN_PRICE * 100; // ₹50
       const options = {
         amount: amountInPaise, currency: "INR",
         receipt: `cust_sub_${Date.now()}`,
         notes: { userId, role: 'customer', type: 'customer_subscription' },
       };
       const order = await razorpayInstance.orders.create(options);
-      return res.json({ success: true, orderId: order.id, amount: amountInPaise, currency: "INR", keyId: razorpayKeyId, displayAmount: '30' });
+      return res.json({ success: true, orderId: order.id, amount: amountInPaise, currency: "INR", keyId: razorpayKeyId, displayAmount: String(PROTECTION_PLAN_PRICE) });
     } catch (error) {
       console.error("[Customer Sub] Create order error:", error);
       return res.status(500).json({ success: false, message: "Failed to create order" });

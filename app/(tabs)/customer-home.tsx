@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import { PRICES } from '@/lib/pricing';
 import * as Location from 'expo-location';
 import { useApp } from '@/lib/context';
 import { apiRequest } from '@/lib/query-client';
@@ -188,7 +189,7 @@ export default function CustomerHomeScreen() {
             <Text style={styles.bannerBadgeTxt}>Limited Offer</Text>
           </View>
           <Text style={styles.bannerTitle}>Mobile Protection Plan</Text>
-          <Text style={styles.bannerDesc}>Just ₹99/month + ₹500 off on repairs</Text>
+          <Text style={styles.bannerDesc}>Just ₹{PRICES.PROTECTION_PLAN_MONTHLY}/month + ₹{PRICES.PROTECTION_PLAN_DISCOUNT} off on repairs</Text>
           <View style={styles.bannerBtn}>
             <Text style={styles.bannerBtnTxt}>Subscribe Now</Text>
           </View>

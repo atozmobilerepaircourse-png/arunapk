@@ -8,6 +8,7 @@ import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { useApp } from '@/lib/context';
 import { apiRequest, getApiUrl } from '@/lib/query-client';
+import { PRICES, formatPrice } from '@/lib/pricing';
 
 const PRIMARY   = '#E8704A';
 const PRIMARY_L = '#FFF1EC';
@@ -76,7 +77,7 @@ export default function InsuranceScreen() {
       const res = await apiRequest('POST', '/api/customer/subscription/create-order', {
         userId: profile.id,
         planId: 'premium',
-        amount: 50 * 100,
+        amount: PRICES.toRazorpay(PRICES.PROTECTION_PLAN_MONTHLY),
       });
       const data = await res.json();
       if (!data.success) {
@@ -158,10 +159,10 @@ export default function InsuranceScreen() {
             </View>
           ) : (
             <View style={styles.priceRow}>
-              <Text style={styles.price}>₹50</Text>
+              <Text style={styles.price}>{formatPrice(PRICES.PROTECTION_PLAN_MONTHLY)}</Text>
               <Text style={styles.pricePer}>/month</Text>
               <View style={styles.discountBadge}>
-                <Text style={styles.discountText}>Save ₹500 on repairs</Text>
+                <Text style={styles.discountText}>Save ₹{PRICES.PROTECTION_PLAN_DISCOUNT} on repairs</Text>
               </View>
             </View>
           )}
@@ -202,7 +203,7 @@ export default function InsuranceScreen() {
         <Text style={styles.sectionTitle}>How It Works</Text>
         <View style={styles.stepsCard}>
           {[
-            { num: '1', label: 'Activate Plan', sub: 'Pay ₹50 to activate your protection' },
+            { num: '1', label: 'Activate Plan', sub: `Pay ${formatPrice(PRICES.PROTECTION_PLAN_MONTHLY)} to activate your protection` },
             { num: '2', label: 'Get Protected',  sub: 'Instant coverage for your device' },
             { num: '3', label: 'Book Repair',    sub: 'Get ₹500 off on any repair service' },
           ].map((s, i) => (
@@ -234,7 +235,7 @@ export default function InsuranceScreen() {
           ) : (
             <>
               <Ionicons name={subActive ? 'add-circle-outline' : 'shield-checkmark-outline'} size={20} color="#FFF" />
-              <Text style={styles.ctaBtnText}>{subActive ? 'Extend Plan — ₹50/mo' : 'Activate Plan — ₹50/mo'}</Text>
+              <Text style={styles.ctaBtnText}>{subActive ? `Extend Plan — ${formatPrice(PRICES.PROTECTION_PLAN_MONTHLY)}/mo` : `Activate Plan — ${formatPrice(PRICES.PROTECTION_PLAN_MONTHLY)}/mo`}</Text>
             </>
           )}
         </Pressable>
