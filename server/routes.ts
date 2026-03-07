@@ -335,27 +335,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/profile/change-role", async (req, res) => {
     try {
       const sessionToken = req.headers['x-session-token'] as string;
-      const { newRole } = req.body;
+      const { newRole, userPhone } = req.body;
       const allowedRoles = ["teacher", "technician", "customer", "supplier", "job_provider", "admin"];
       if (!allowedRoles.includes(newRole)) {
         return res.status(400).json({ success: false, message: "Invalid role" });
       }
-      if (!sessionToken) {
-        console.warn("[Profile] No session token provided");
+      
+      let phone: string | null = null;
+      
+      // Try session token first
+      if (sessionToken) {
+        const sessionRows = await db.select().from(sessions).where(eq(sessions.sessionToken, sessionToken));
+        if (sessionRows && sessionRows.length > 0) {
+          phone = sessionRows[0].phone;
+        }
+      }
+      
+      // Fallback: use phone from request body if session lookup failed
+      if (!phone && userPhone) {
+        const cleanPhone = (userPhone || '').replace(/\D/g, '');
+        if (cleanPhone.length >= 10) {
+          phone = cleanPhone;
+        }
+      }
+      
+      if (!phone) {
+        console.warn("[Profile] Cannot determine user phone — session token invalid and no phone provided");
         return res.status(401).json({ success: false, message: "Session expired. Please log out and log in again." });
       }
-      const sessionRows = await db.select().from(sessions).where(eq(sessions.sessionToken, sessionToken));
-      if (!sessionRows || sessionRows.length === 0) {
-        console.warn("[Profile] Session not found for token:", sessionToken?.slice(0, 10), "— user must re-login");
-        return res.status(401).json({ success: false, message: "Session expired. Please log out and log in again." });
-      }
-      const profileRows = await db.select().from(profiles).where(eq(profiles.phone, sessionRows[0].phone));
+      
+      const profileRows = await db.select().from(profiles).where(eq(profiles.phone, phone));
       if (!profileRows || !profileRows[0]) {
-        console.warn("[Profile] Profile not found for phone:", sessionRows[0].phone);
+        console.warn("[Profile] Profile not found for phone:", phone);
         return res.status(404).json({ success: false, message: "Profile not found" });
       }
+      
       await db.update(profiles).set({ role: newRole as any }).where(eq(profiles.id, profileRows[0].id));
-      console.log("[Profile] Role changed to", newRole, "for user", profileRows[0].id);
+      console.log("[Profile] Role changed to", newRole, "for user", profileRows[0].id, "phone:", phone);
       res.json({ success: true, message: "Role updated successfully" });
     } catch (error) {
       console.error("[Profile] Change role error:", error);

@@ -159,7 +159,7 @@ function CustomerProfileScreen() {
     try {
       setChangingRole(true);
       setShowRolePicker(false);
-      const res = await apiRequest('POST', '/api/profile/change-role', { newRole });
+      const res = await apiRequest('POST', '/api/profile/change-role', { newRole, userPhone: profile.phone });
       const data = await res.json();
       if (data.success) {
         await setProfile({ ...profile, role: newRole as UserRole });
