@@ -166,52 +166,34 @@ export default function OnboardingScreen() {
     const fullPhone = '+91' + cleanDigits;
     try {
       if (Platform.OS === 'web') {
-        try {
-          const { RecaptchaVerifier, signInWithPhoneNumber } = await import('firebase/auth');
-          if (!webRecaptchaRef.current) {
-            webRecaptchaRef.current = new RecaptchaVerifier(firebaseAuth, 'recaptcha-container', { size: 'invisible' });
-          }
-          const confirmation = await signInWithPhoneNumber(firebaseAuth, fullPhone, webRecaptchaRef.current);
-          webConfirmationRef.current = confirmation;
-          setUseFirebaseOTP(true);
-          setOtpSent(true);
-          setOtpResendTimer(30);
-          console.log('[Firebase OTP] Sent via Firebase on web');
-          return;
-        } catch (fbErr: any) {
-          console.warn('[Firebase OTP] Web error, falling back to Fast2SMS:', fbErr?.message);
-          webRecaptchaRef.current = null;
-          setUseFirebaseOTP(false);
+        const { RecaptchaVerifier, signInWithPhoneNumber } = await import('firebase/auth');
+        if (!webRecaptchaRef.current) {
+          webRecaptchaRef.current = new RecaptchaVerifier(firebaseAuth, 'recaptcha-container', { size: 'invisible' });
         }
-      } else {
-        try {
-          if (!recaptchaVerifierRef.current) {
-            throw new Error('Recaptcha not ready');
-          }
-          const phoneProvider = new PhoneAuthProvider(firebaseAuth);
-          const vId = await phoneProvider.verifyPhoneNumber(fullPhone, recaptchaVerifierRef.current);
-          setFirebaseVerificationId(vId);
-          setUseFirebaseOTP(true);
-          setOtpSent(true);
-          setOtpResendTimer(30);
-          console.log('[Firebase OTP] Sent via Firebase on native');
-          return;
-        } catch (fbErr: any) {
-          console.warn('[Firebase OTP] Native error, falling back to Fast2SMS:', fbErr?.message);
-          setUseFirebaseOTP(false);
-        }
-      }
-      const res = await apiRequest('POST', '/api/otp/send', { phone: cleanDigits });
-      const data = await res.json();
-      if (data.success) {
+        const confirmation = await signInWithPhoneNumber(firebaseAuth, fullPhone, webRecaptchaRef.current);
+        webConfirmationRef.current = confirmation;
+        setUseFirebaseOTP(true);
         setOtpSent(true);
         setOtpResendTimer(30);
-        if (data.fallbackOtp) setOtpCode(String(data.fallbackOtp));
+        console.log('[Firebase OTP] Sent via Firebase on web');
       } else {
-        Alert.alert('Error', data.message || 'Failed to send OTP');
+        if (!recaptchaVerifierRef.current) {
+          throw new Error('Recaptcha not initialized');
+        }
+        const phoneProvider = new PhoneAuthProvider(firebaseAuth);
+        const vId = await phoneProvider.verifyPhoneNumber(fullPhone, recaptchaVerifierRef.current);
+        setFirebaseVerificationId(vId);
+        setUseFirebaseOTP(true);
+        setOtpSent(true);
+        setOtpResendTimer(30);
+        console.log('[Firebase OTP] Sent via Firebase on native');
       }
-    } catch (e) {
-      Alert.alert('Error', 'Could not send OTP. Please check your connection.');
+    } catch (fbErr: any) {
+      console.error('[Firebase OTP] Error:', fbErr?.message);
+      const msg = fbErr?.code === 'auth/too-many-requests' 
+        ? 'Too many requests. Please wait a few minutes before trying again.'
+        : fbErr?.message || 'Could not send OTP via Firebase. Make sure Phone Authentication is enabled in Firebase Console.';
+      Alert.alert('Firebase OTP Error', msg);
     } finally {
       setOtpSending(false);
     }
@@ -910,7 +892,7 @@ export default function OnboardingScreen() {
               </View>
               <Text style={styles.stepTitle}>Verify Your Number</Text>
               <Text style={styles.stepSubtitle}>
-                {useFirebaseOTP ? 'Firebase sent a 6-digit OTP via SMS to' : 'We sent a 6-digit OTP via SMS to'} +91 {phone.replace(/\D/g, '').replace(/^91/, '')}
+                Firebase sent a 6-digit OTP via SMS to +91 {phone.replace(/\D/g, '').replace(/^91/, '')}
               </Text>
             </View>
             <Text style={styles.fieldLabel}>Enter OTP</Text>
