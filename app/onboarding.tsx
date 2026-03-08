@@ -449,34 +449,8 @@ export default function OnboardingScreen() {
       if (data.success) {
         const token = data.sessionToken || '';
         setSessionToken(token);
-        if (data.exists && data.profile) {
-          const serverProfile: UserProfile = {
-            id: data.profile.id,
-            name: data.profile.name,
-            phone: data.profile.phone,
-            role: data.profile.role,
-            skills: data.profile.skills || [],
-            city: data.profile.city || '',
-            state: data.profile.state || '',
-            experience: data.profile.experience || '',
-            shopName: data.profile.shopName || undefined,
-            bio: data.profile.bio || '',
-            avatar: data.profile.avatar || undefined,
-            sellType: data.profile.sellType || undefined,
-            teachType: data.profile.teachType || undefined,
-            shopAddress: data.profile.shopAddress || undefined,
-            gstNumber: data.profile.gstNumber || undefined,
-            aadhaarNumber: data.profile.aadhaarNumber || undefined,
-            panNumber: data.profile.panNumber || undefined,
-            createdAt: data.profile.createdAt || Date.now(),
-          };
-          if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          await loginWithProfile(serverProfile, token);
-          router.replace(serverProfile.role === 'customer' ? '/(tabs)/customer-home' : '/(tabs)');
-        } else {
-          if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          setStep(s => s + 1);
-        }
+        if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        setStep(s => s + 1);
       } else {
         Alert.alert('Error', data.message || 'Login failed');
       }

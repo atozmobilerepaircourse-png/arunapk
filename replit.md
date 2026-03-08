@@ -50,10 +50,14 @@ node build-steps.js && node push-oci.js
 - **GCP Project**: `atoz-mobile-repair-488915` (Cloud Run, Cloud Build, Artifact Registry)
 - **Firebase Project**: `mobile-repair-app-276b6` (Hosting only)
 
-## OTP Authentication
-- OTPs are stored in the `otp_tokens` PostgreSQL table (persists across Cloud Run restarts/scale-to-zero)
-- Twilio sends via WhatsApp first, falls back to SMS
-- Table is auto-created on server startup via migration in `server/index.ts`
+## OTP Authentication (Updated March 8, 2026)
+- **Primary method**: Firebase Phone Authentication (requires Phone Sign-in enabled in Firebase Console)
+- **Fallback**: Backend `/api/otp/send` endpoint for testing (returns fallbackOtp when SMS fails)
+- **Frontend flow**: `sendOtp()` tries Firebase first, returns early on success
+- **Verification**: Firebase ID token verified server-side at `/api/auth/firebase-phone` endpoint
+- **No auto-login**: After OTP verification, users proceed through full onboarding (email → details → etc.)
+- **OTP tokens table**: PostgreSQL `otp_tokens` stores backend OTPs for fallback/testing (5 min expiry)
+- **Note**: Requires `FIREBASE_SERVICE_ACCOUNT` OR `GCP_SA_KEY` env var for Firebase Admin SDK
 
 ## Database — CRITICAL: Two Separate Databases
 **The local dev environment and production Cloud Run use DIFFERENT Neon databases:**
@@ -125,7 +129,29 @@ react-native-maps cannot be imported at the top level for web builds. Use platfo
 
 Builds run on Expo's cloud servers (10-25 min). Download from https://expo.dev dashboard.
 
-## Recent Updates (March 7, 2026)
+## Recent Updates (March 8, 2026 — Firebase OTP + Auth Flow)
+
+### Firebase Phone Authentication (March 8)
+- **Replaced Fast2SMS with Firebase Phone Auth** as primary OTP method
+- **Frontend changes** (`app/onboarding.tsx`):
+  - `sendOtp()`: Tries Firebase first (web RecaptchaVerifier + signInWithPhoneNumber, native PhoneAuthProvider)
+  - `verifyOtp()`: Verifies Firebase credential, gets ID token, calls `/api/auth/firebase-phone`
+  - Added `FirebaseRecaptchaVerifierModal` for native, invisible recaptcha container for web
+  - Removed **auto-login** after OTP verification — users now proceed to email screen
+- **Backend changes** (`server/routes.ts`):
+  - Added `/api/auth/firebase-phone` endpoint that verifies Firebase ID tokens using Admin SDK
+  - Fixed Firebase Admin SDK initialization to use `GCP_SA_KEY` as fallback (works on Cloud Run)
+- **Google login fixed**: Removed auto-login from `handleGooglePhoneSubmit()` to match OTP flow
+- **Both auth flows** (OTP + Google) now require full onboarding: phone/google → email → details → selfie → skills/docs → location → login
+- **Deployed to web**: https://mobile-repair-app-276b6.web.app ✅
+
+### Prerequisites for Firebase OTP
+1. Go to [Firebase Console](https://console.firebase.google.com/project/mobile-repair-app-276b6/authentication/providers)
+2. **Authentication** → **Sign-in method**
+3. Enable **Phone** → Save
+4. Verify authorized domain: `mobile-repair-app-276b6.web.app`
+
+## Previous Updates (March 7, 2026)
 
 ### User Profile Page (app/user-profile.tsx) — ENHANCED
 - **Chat button**: Now appears for ALL roles when viewing other profiles (not just teacher/supplier)
