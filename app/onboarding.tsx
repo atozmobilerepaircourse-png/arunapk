@@ -199,23 +199,9 @@ export default function OnboardingScreen() {
     }
   };
 
-  const handleOtpVerified = async (sessionData: { success: boolean; sessionToken?: string; requiresDevicePayment?: boolean; deviceChangePrice?: number; message?: string }, cleanPhone: string, deviceId: string) => {
+  const handleOtpVerified = async (sessionData: { success: boolean; sessionToken?: string; message?: string }, cleanPhone: string, deviceId: string) => {
     if (!sessionData.success) {
       Alert.alert('Verification Failed', sessionData.message || 'Invalid OTP. Please try again.');
-      return;
-    }
-    if (sessionData.requiresDevicePayment) {
-      setPendingDeviceId(deviceId);
-      setDevicePaymentPrice(sessionData.deviceChangePrice || 100);
-      Alert.alert(
-        'Device Change Required',
-        `You have used your 2 free device changes. To login from this new device, a one-time payment of ₹${sessionData.deviceChangePrice || 100} is required.`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Pay Now', onPress: () => startDevicePayment(cleanPhone, deviceId, sessionData.deviceChangePrice || 100) },
-        ]
-      );
-      setOtpVerifying(false);
       return;
     }
     const token = sessionData.sessionToken || '';

@@ -718,32 +718,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (existingProfile && deviceId && existingProfile.role === "technician") {
         const currentDeviceId = existingProfile.deviceId || "";
-        const deviceChangeCount = existingProfile.deviceChangeCount || 0;
-
         if (currentDeviceId && currentDeviceId !== deviceId) {
-          const deviceLockSettings = await db.select().from(appSettings).where(eq(appSettings.key, "device_lock_enabled"));
-          const deviceLockEnabled = deviceLockSettings.length > 0 && deviceLockSettings[0].value === "true";
-          
-          const priceSettings = await db.select().from(appSettings).where(eq(appSettings.key, "device_lock_price"));
-          const deviceChangePrice = priceSettings.length > 0 ? parseInt(priceSettings[0].value) || 100 : 100;
-
-          if (deviceChangeCount >= 2 && deviceLockEnabled) {
-            return res.json({
-              success: true,
-              message: "Device change requires payment",
-              requiresDevicePayment: true,
-              deviceChangeCount,
-              deviceChangePrice,
-              sessionToken: "",
-            });
-          }
-          
-          await db.update(profiles).set({
-            deviceId: deviceId,
-            deviceChangeCount: deviceChangeCount + 1,
-          }).where(eq(profiles.id, existingProfile.id));
+          await db.update(profiles).set({ deviceId }).where(eq(profiles.id, existingProfile.id));
         } else if (!currentDeviceId) {
-          await db.update(profiles).set({ deviceId: deviceId }).where(eq(profiles.id, existingProfile.id));
+          await db.update(profiles).set({ deviceId }).where(eq(profiles.id, existingProfile.id));
         }
       }
 
@@ -793,16 +771,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (existingProfile && deviceId && existingProfile.role === "technician") {
         const currentDeviceId = existingProfile.deviceId || "";
-        const deviceChangeCount = existingProfile.deviceChangeCount || 0;
         if (currentDeviceId && currentDeviceId !== deviceId) {
-          const deviceLockSettings = await db.select().from(appSettings).where(eq(appSettings.key, "device_lock_enabled"));
-          const deviceLockEnabled = deviceLockSettings.length > 0 && deviceLockSettings[0].value === "true";
-          const priceSettings = await db.select().from(appSettings).where(eq(appSettings.key, "device_lock_price"));
-          const deviceChangePrice = priceSettings.length > 0 ? parseInt(priceSettings[0].value) || 100 : 100;
-          if (deviceChangeCount >= 2 && deviceLockEnabled) {
-            return res.json({ success: true, requiresDevicePayment: true, deviceChangeCount, deviceChangePrice, sessionToken: "" });
-          }
-          await db.update(profiles).set({ deviceId, deviceChangeCount: deviceChangeCount + 1 }).where(eq(profiles.id, existingProfile.id));
+          await db.update(profiles).set({ deviceId }).where(eq(profiles.id, existingProfile.id));
         } else if (!currentDeviceId) {
           await db.update(profiles).set({ deviceId }).where(eq(profiles.id, existingProfile.id));
         }
