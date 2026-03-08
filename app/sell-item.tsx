@@ -10,8 +10,6 @@ import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import { fetch as expoFetch } from 'expo/fetch';
 import { router } from 'expo-router';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { firebaseStorage } from '@/lib/firebase';
 import { useApp } from '@/lib/context';
 import { getApiUrl } from '@/lib/query-client';
 
@@ -63,26 +61,28 @@ export default function SellItemScreen() {
   const validateAndUploadImage = async (uri: string, index: number) => {
     try {
       setUploadingIdx(index);
-      const response = await expoFetch(uri);
-      const blob = await response.blob();
-      const sizeInMB = blob.size / (1024 * 1024);
-      
-      if (sizeInMB > 5) {
-        Alert.alert('File too large', 'Image must be under 5MB');
-        return null;
+      const uploadUrl = new URL('/api/upload', getApiUrl()).toString();
+      const formData = new FormData();
+      if (Platform.OS === 'web') {
+        const response = await window.fetch(uri);
+        const blob = await response.blob();
+        const sizeInMB = blob.size / (1024 * 1024);
+        if (sizeInMB > 5) {
+          Alert.alert('File too large', 'Image must be under 5MB');
+          return null;
+        }
+        formData.append('image', blob, 'sell.jpg');
+        const res = await window.fetch(uploadUrl, { method: 'POST', body: formData });
+        const data = await res.json();
+        if (!data.success || !data.url) throw new Error(data.message || 'Upload failed');
+        return data.url;
+      } else {
+        formData.append('image', { uri, name: `sell-${index}.jpg`, type: 'image/jpeg' } as any);
+        const res = await expoFetch(uploadUrl, { method: 'POST', body: formData });
+        const data = await res.json();
+        if (!data.success || !data.url) throw new Error(data.message || 'Upload failed');
+        return data.url;
       }
-      
-      const mimeType = response.headers.get('content-type') || 'image/jpeg';
-      if (!['image/jpeg', 'image/png'].includes(mimeType)) {
-        Alert.alert('Invalid format', 'Only JPG and PNG are supported');
-        return null;
-      }
-      
-      const fileName = `sell-${profile?.id}-${Date.now()}-${index}.jpg`;
-      const storageRef = ref(firebaseStorage, `marketplace-listings/${fileName}`);
-      await uploadBytes(storageRef, blob);
-      const downloadUrl = await getDownloadURL(storageRef);
-      return downloadUrl;
     } catch (e: any) {
       Alert.alert('Upload failed', (e.message || String(e)).slice(0, 100));
       return null;

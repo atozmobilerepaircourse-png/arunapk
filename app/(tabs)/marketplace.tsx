@@ -22,8 +22,6 @@ import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
 import { fetch as expoFetch } from 'expo/fetch';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { firebaseStorage } from '@/lib/firebase';
 import { useApp } from '@/lib/context';
 import { apiRequest, getApiUrl } from '@/lib/query-client';
 import { openLink } from '@/lib/open-link';
@@ -324,17 +322,19 @@ function CustomerMarketplace() {
     setUploadingImages(true);
     try {
       const uploaded: string[] = [];
+      const uploadUrl = new URL('/api/upload', getApiUrl()).toString();
       for (const file of files) {
-        const fileName = `listing-${Date.now()}-${Math.random().toString(36).substr(2, 9)}.jpg`;
-        const storageRef = ref(firebaseStorage, `marketplace-listings/${fileName}`);
-        await uploadBytes(storageRef, file);
-        const downloadUrl = await getDownloadURL(storageRef);
-        uploaded.push(downloadUrl);
+        const formData = new FormData();
+        formData.append('image', file, file.name || 'listing.jpg');
+        const res = await window.fetch(uploadUrl, { method: 'POST', body: formData });
+        const data = await res.json();
+        if (!data.success || !data.url) throw new Error(data.message || 'Upload failed');
+        uploaded.push(data.url);
       }
       setSellImages(prev => [...prev, ...uploaded].slice(0, 5));
       if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (e) {
-      console.error('[Marketplace] Upload error:', e);
+      console.error('[Marketplace] Web upload error:', e);
       Alert.alert('Upload failed', String(e).slice(0, 80));
     } finally {
       setUploadingImages(false);
@@ -361,19 +361,19 @@ function CustomerMarketplace() {
     setUploadingImages(true);
     try {
       const uploaded: string[] = [];
+      const uploadUrl = new URL('/api/upload', getApiUrl()).toString();
       for (const uri of uris) {
-        const fileName = `listing-${Date.now()}-${Math.random().toString(36).substr(2, 9)}.jpg`;
-        const response = await expoFetch(uri);
-        const blob = await response.blob();
-        const storageRef = ref(firebaseStorage, `marketplace-listings/${fileName}`);
-        await uploadBytes(storageRef, blob);
-        const downloadUrl = await getDownloadURL(storageRef);
-        uploaded.push(downloadUrl);
+        const formData = new FormData();
+        formData.append('image', { uri, name: 'listing.jpg', type: 'image/jpeg' } as any);
+        const res = await expoFetch(uploadUrl, { method: 'POST', body: formData });
+        const data = await res.json();
+        if (!data.success || !data.url) throw new Error(data.message || 'Upload failed');
+        uploaded.push(data.url);
       }
       setSellImages(prev => [...prev, ...uploaded].slice(0, 5));
       if (uploaded.length > 0 && Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (e) {
-      console.error('[Marketplace] Upload error:', e);
+      console.error('[Marketplace] Native upload error:', e);
       Alert.alert('Upload failed', `Could not upload images. ${String(e).slice(0, 50)}`);
     } finally {
       setUploadingImages(false);

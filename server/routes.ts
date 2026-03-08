@@ -5726,6 +5726,43 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
     }
   });
 
+  app.post("/api/teacher/live-session/upload-thumbnail", upload.single("image"), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ success: false, message: "No file uploaded" });
+      }
+      const { sessionId } = req.body;
+      if (!sessionId) {
+        return res.status(400).json({ success: false, message: "Session ID required" });
+      }
+
+      const filename = `images/${randomUUID()}${path.extname(req.file.originalname || '.jpg')}`;
+      const url = await uploadToStorage(req.file.buffer, filename);
+
+      const baseUrl = `${req.protocol}://${req.get("host")}`;
+      const absoluteUrl = url.startsWith("/") ? baseUrl + url : url;
+
+      console.log(`[Live Thumbnail] Uploaded for session ${sessionId}: ${absoluteUrl}`);
+
+      const firestore = getFirestore();
+      if (firestore) {
+        try {
+          await firestore.collection("teacher_live_sessions").doc(sessionId).update({
+            thumbnailUrl: absoluteUrl,
+          });
+          console.log("[Live Thumbnail] Updated Firestore session thumbnailUrl for:", sessionId);
+        } catch (sessErr) {
+          console.warn("[Live Thumbnail] Could not update session thumbnailUrl:", sessErr);
+        }
+      }
+
+      res.json({ success: true, url: absoluteUrl });
+    } catch (error) {
+      console.error("[Live Thumbnail] Error:", error);
+      res.status(500).json({ success: false, message: "Thumbnail upload failed" });
+    }
+  });
+
   app.get("/api/admin/push-stats", async (req, res) => {
     try {
       const { phone } = req.query;
