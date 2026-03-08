@@ -761,6 +761,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/auth/firebase-phone", async (req, res) => {
+    try {
+      const { idToken, deviceId } = req.body;
+      if (!idToken) {
+        return res.status(400).json({ success: false, message: "Firebase ID token is required" });
+      }
+
+      let decodedToken: any;
+      try {
+        decodedToken = await getAdminAuth().verifyIdToken(idToken);
+      } catch (verifyErr: any) {
+        console.error("[Firebase Phone] Token verification failed:", verifyErr?.message);
+        return res.status(401).json({ success: false, message: "Invalid Firebase token. Please try again." });
+      }
+
+      const firebasePhone = decodedToken.phone_number;
+      if (!firebasePhone) {
+        return res.status(400).json({ success: false, message: "No phone number found in Firebase token." });
+      }
+
+      const cleanPhone = firebasePhone.replace(/\D/g, "").replace(/^91/, "");
+      console.log(`[Firebase Phone] Verified phone: ${cleanPhone}`);
+
+      const allProfilesList = await db.select().from(profiles);
+      const existingProfile = allProfilesList.find(p => p.phone.replace(/\D/g, "") === cleanPhone);
+
+      if (existingProfile && existingProfile.blocked === 1) {
+        return res.json({ success: false, message: "Your account has been blocked. Please contact admin for support." });
+      }
+
+      if (existingProfile && deviceId && existingProfile.role === "technician") {
+        const currentDeviceId = existingProfile.deviceId || "";
+        const deviceChangeCount = existingProfile.deviceChangeCount || 0;
+        if (currentDeviceId && currentDeviceId !== deviceId) {
+          const deviceLockSettings = await db.select().from(appSettings).where(eq(appSettings.key, "device_lock_enabled"));
+          const deviceLockEnabled = deviceLockSettings.length > 0 && deviceLockSettings[0].value === "true";
+          const priceSettings = await db.select().from(appSettings).where(eq(appSettings.key, "device_lock_price"));
+          const deviceChangePrice = priceSettings.length > 0 ? parseInt(priceSettings[0].value) || 100 : 100;
+          if (deviceChangeCount >= 2 && deviceLockEnabled) {
+            return res.json({ success: true, requiresDevicePayment: true, deviceChangeCount, deviceChangePrice, sessionToken: "" });
+          }
+          await db.update(profiles).set({ deviceId, deviceChangeCount: deviceChangeCount + 1 }).where(eq(profiles.id, existingProfile.id));
+        } else if (!currentDeviceId) {
+          await db.update(profiles).set({ deviceId }).where(eq(profiles.id, existingProfile.id));
+        }
+      }
+
+      const sessionToken = randomUUID();
+      await db.delete(sessions).where(eq(sessions.phone, cleanPhone));
+      await db.insert(sessions).values({ phone: cleanPhone, sessionToken });
+
+      return res.json({ success: true, message: "Phone verified via Firebase", sessionToken });
+    } catch (error: any) {
+      console.error("[Firebase Phone] Error:", error?.message || error);
+      return res.status(500).json({ success: false, message: "Firebase verification failed. Please try again." });
+    }
+  });
+
   app.post("/api/session/validate", async (req, res) => {
     try {
       const { sessionToken, phone } = req.body;

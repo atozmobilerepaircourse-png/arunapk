@@ -3,6 +3,9 @@ import {
   View, Text, StyleSheet, TextInput, Pressable, ScrollView,
   Platform, Alert, ActivityIndicator, Modal, FlatList,
 } from 'react-native';
+import { FirebaseRecaptchaVerifierModal } from 'expo-firebase-recaptcha';
+import { PhoneAuthProvider, signInWithCredential } from 'firebase/auth';
+import { firebaseAuth, firebaseConfig } from '@/lib/firebase';
 import { Image } from 'expo-image';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -140,6 +143,11 @@ export default function OnboardingScreen() {
   }, [params.email]);
 
   const pendingGoogleTokenRef = useRef<string | null>(null);
+  const recaptchaVerifierRef = useRef<FirebaseRecaptchaVerifierModal>(null);
+  const [firebaseVerificationId, setFirebaseVerificationId] = useState('');
+  const webRecaptchaRef = useRef<any>(null);
+  const webConfirmationRef = useRef<any>(null);
+  const [useFirebaseOTP, setUseFirebaseOTP] = useState(false);
 
   useEffect(() => {
     if (otpResendTimer <= 0) return;
@@ -154,15 +162,51 @@ export default function OnboardingScreen() {
 
   const sendOtp = async (phoneNumber: string) => {
     setOtpSending(true);
+    const cleanDigits = phoneNumber.replace(/\D/g, '').replace(/^91/, '');
+    const fullPhone = '+91' + cleanDigits;
     try {
-      const res = await apiRequest('POST', '/api/otp/send', { phone: phoneNumber });
+      if (Platform.OS === 'web') {
+        try {
+          const { RecaptchaVerifier, signInWithPhoneNumber } = await import('firebase/auth');
+          if (!webRecaptchaRef.current) {
+            webRecaptchaRef.current = new RecaptchaVerifier(firebaseAuth, 'recaptcha-container', { size: 'invisible' });
+          }
+          const confirmation = await signInWithPhoneNumber(firebaseAuth, fullPhone, webRecaptchaRef.current);
+          webConfirmationRef.current = confirmation;
+          setUseFirebaseOTP(true);
+          setOtpSent(true);
+          setOtpResendTimer(30);
+          console.log('[Firebase OTP] Sent via Firebase on web');
+          return;
+        } catch (fbErr: any) {
+          console.warn('[Firebase OTP] Web error, falling back to Fast2SMS:', fbErr?.message);
+          webRecaptchaRef.current = null;
+          setUseFirebaseOTP(false);
+        }
+      } else {
+        try {
+          if (!recaptchaVerifierRef.current) {
+            throw new Error('Recaptcha not ready');
+          }
+          const phoneProvider = new PhoneAuthProvider(firebaseAuth);
+          const vId = await phoneProvider.verifyPhoneNumber(fullPhone, recaptchaVerifierRef.current);
+          setFirebaseVerificationId(vId);
+          setUseFirebaseOTP(true);
+          setOtpSent(true);
+          setOtpResendTimer(30);
+          console.log('[Firebase OTP] Sent via Firebase on native');
+          return;
+        } catch (fbErr: any) {
+          console.warn('[Firebase OTP] Native error, falling back to Fast2SMS:', fbErr?.message);
+          setUseFirebaseOTP(false);
+        }
+      }
+      const res = await apiRequest('POST', '/api/otp/send', { phone: cleanDigits });
       const data = await res.json();
       if (data.success) {
         setOtpSent(true);
         setOtpResendTimer(30);
-        if (data.fallbackOtp) {
-          setOtpCode(String(data.fallbackOtp));
-        }
+        if (data.fallbackOtp) setOtpCode(String(data.fallbackOtp));
       } else {
         Alert.alert('Error', data.message || 'Failed to send OTP');
       }
@@ -173,8 +217,52 @@ export default function OnboardingScreen() {
     }
   };
 
+  const handleOtpVerified = async (sessionData: { success: boolean; sessionToken?: string; requiresDevicePayment?: boolean; deviceChangePrice?: number; message?: string }, cleanPhone: string, deviceId: string) => {
+    if (!sessionData.success) {
+      Alert.alert('Verification Failed', sessionData.message || 'Invalid OTP. Please try again.');
+      return;
+    }
+    if (sessionData.requiresDevicePayment) {
+      setPendingDeviceId(deviceId);
+      setDevicePaymentPrice(sessionData.deviceChangePrice || 100);
+      Alert.alert(
+        'Device Change Required',
+        `You have used your 2 free device changes. To login from this new device, a one-time payment of ₹${sessionData.deviceChangePrice || 100} is required.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Pay Now', onPress: () => startDevicePayment(cleanPhone, deviceId, sessionData.deviceChangePrice || 100) },
+        ]
+      );
+      setOtpVerifying(false);
+      return;
+    }
+    const token = sessionData.sessionToken || '';
+    setSessionToken(token);
+    if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    try {
+      const profileRes = await apiRequest('GET', `/api/profiles/phone/${cleanPhone}`);
+      if (profileRes.ok) {
+        const profile = await profileRes.json();
+        if (profile && profile.id) {
+          if (!profile.email) {
+            setIsNewUser(true);
+            setStep(getScreenSequence().indexOf('email'));
+          } else {
+            await loginWithProfile(profile, token);
+            router.replace(profile.role === 'customer' ? '/(tabs)/customer-home' : '/(tabs)');
+          }
+          return;
+        }
+      }
+    } catch (profileErr) {
+      console.log('[OTP] New user or profile fetch error');
+    }
+    setIsNewUser(true);
+    setStep(s => s + 1);
+  };
+
   const verifyOtp = async () => {
-    const cleanPhone = phone.replace(/\D/g, '');
+    const cleanPhone = phone.replace(/\D/g, '').replace(/^91/, '');
     if (otpCode.length < 6) {
       Alert.alert('Invalid OTP', 'Please enter the 6-digit OTP.');
       return;
@@ -182,52 +270,39 @@ export default function OnboardingScreen() {
     setOtpVerifying(true);
     try {
       const deviceId = await getDeviceId();
-      const res = await apiRequest('POST', '/api/otp/verify', { phone: cleanPhone, otp: otpCode, deviceId });
-      const data = await res.json();
-      if (data.success) {
-        if (data.requiresDevicePayment) {
-          setPendingDeviceId(deviceId);
-          setDevicePaymentPrice(data.deviceChangePrice || 100);
-          Alert.alert(
-            'Device Change Required',
-            `You have used your 2 free device changes. To login from this new device, a one-time payment of ₹${data.deviceChangePrice || 100} is required.`,
-            [
-              { text: 'Cancel', style: 'cancel' },
-              { text: 'Pay Now', onPress: () => startDevicePayment(cleanPhone, deviceId, data.deviceChangePrice || 100) },
-            ]
-          );
+
+      if (useFirebaseOTP) {
+        try {
+          let idToken = '';
+          if (Platform.OS === 'web') {
+            if (!webConfirmationRef.current) throw new Error('No Firebase confirmation result');
+            const result = await webConfirmationRef.current.confirm(otpCode);
+            idToken = await result.user.getIdToken();
+          } else {
+            const credential = PhoneAuthProvider.credential(firebaseVerificationId, otpCode);
+            const userCredential = await signInWithCredential(firebaseAuth, credential);
+            idToken = await userCredential.user.getIdToken();
+          }
+          const res = await apiRequest('POST', '/api/auth/firebase-phone', { idToken, deviceId });
+          const data = await res.json();
+          await handleOtpVerified(data, cleanPhone, deviceId);
+          return;
+        } catch (fbErr: any) {
+          console.error('[Firebase OTP] Verify error:', fbErr?.message);
+          const msg =
+            fbErr?.code === 'auth/invalid-verification-code' ? 'Wrong OTP. Please check and try again.' :
+            fbErr?.code === 'auth/code-expired' ? 'OTP expired. Please request a new one.' :
+            fbErr?.message?.includes('TOO_SHORT') ? 'Please enter all 6 digits.' :
+            'Could not verify OTP. Please try again.';
+          Alert.alert('Verification Failed', msg);
           setOtpVerifying(false);
           return;
         }
-        const token = data.sessionToken || '';
-        setSessionToken(token);
-        if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        
-        // Fetch profile to check if user exists
-        try {
-          const profileRes = await apiRequest('GET', `/api/profiles/phone/${cleanPhone}`);
-          if (profileRes.ok) {
-            const profile = await profileRes.json();
-            if (profile && profile.id) {
-              if (!profile.email) {
-                setIsNewUser(true);
-                setStep(getScreenSequence().indexOf('email'));
-              } else {
-                await loginWithProfile(profile, token);
-                router.replace(profile.role === 'customer' ? '/(tabs)/customer-home' : '/(tabs)');
-              }
-              return;
-            }
-          }
-        } catch (profileErr) {
-          console.log("New user detected or error fetching profile");
-        }
-
-        setIsNewUser(true);
-        setStep(s => s + 1);
-      } else {
-        Alert.alert('Verification Failed', data.message || 'Invalid OTP. Please try again.');
       }
+
+      const res = await apiRequest('POST', '/api/otp/verify', { phone: cleanPhone, otp: otpCode, deviceId });
+      const data = await res.json();
+      await handleOtpVerified(data, cleanPhone, deviceId);
     } catch (e) {
       Alert.alert('Error', 'Could not verify OTP. Please try again.');
     } finally {
@@ -835,7 +910,7 @@ export default function OnboardingScreen() {
               </View>
               <Text style={styles.stepTitle}>Verify Your Number</Text>
               <Text style={styles.stepSubtitle}>
-                We sent a 6-digit OTP via SMS to +91 {phone.replace(/\D/g, '')}
+                {useFirebaseOTP ? 'Firebase sent a 6-digit OTP via SMS to' : 'We sent a 6-digit OTP via SMS to'} +91 {phone.replace(/\D/g, '').replace(/^91/, '')}
               </Text>
             </View>
             <Text style={styles.fieldLabel}>Enter OTP</Text>
@@ -1333,6 +1408,16 @@ export default function OnboardingScreen() {
   return (
     <View style={[styles.container, isPhoneScreen && { backgroundColor: '#0A0A14' }]}>
       <StatusBar style={isPhoneScreen ? 'light' : 'dark'} />
+      {Platform.OS !== 'web' && (
+        <FirebaseRecaptchaVerifierModal
+          ref={recaptchaVerifierRef}
+          firebaseConfig={firebaseConfig}
+          attemptInvisibleVerification={true}
+        />
+      )}
+      {Platform.OS === 'web' && (
+        <View nativeID="recaptcha-container" style={{ position: 'absolute', bottom: 0 }} />
+      )}
       <ScrollView
         contentContainerStyle={
           isPhoneScreen
@@ -1368,6 +1453,10 @@ export default function OnboardingScreen() {
                 setOtpCode('');
                 setOtpSent(false);
                 setOtpResendTimer(0);
+                setUseFirebaseOTP(false);
+                setFirebaseVerificationId('');
+                webConfirmationRef.current = null;
+                webRecaptchaRef.current = null;
               }
               setStep(s => s - 1);
             }}>
