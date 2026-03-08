@@ -221,24 +221,6 @@ export default function OnboardingScreen() {
     const token = sessionData.sessionToken || '';
     setSessionToken(token);
     if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    try {
-      const profileRes = await apiRequest('GET', `/api/profiles/phone/${cleanPhone}`);
-      if (profileRes.ok) {
-        const profile = await profileRes.json();
-        if (profile && profile.id) {
-          if (!profile.email) {
-            setIsNewUser(true);
-            setStep(getScreenSequence().indexOf('email'));
-          } else {
-            await loginWithProfile(profile, token);
-            router.replace(profile.role === 'customer' ? '/(tabs)/customer-home' : '/(tabs)');
-          }
-          return;
-        }
-      }
-    } catch (profileErr) {
-      console.log('[OTP] New user or profile fetch error');
-    }
     setIsNewUser(true);
     setStep(s => s + 1);
   };
