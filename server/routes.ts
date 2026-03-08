@@ -826,7 +826,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { token } = req.body;
       if (!token) return res.status(400).json({ success: false, message: "Token required" });
-      const clientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '456751858632-brh0ir7j9v2ks5kk6antp6q757kmhaus.apps.googleusercontent.com';
+      const clientId = '456751858632-brh0ir7j9v2ks5kk6antp6q757kmhaus.apps.googleusercontent.com';
       if (!clientId) return res.status(500).json({ success: false, message: "Google OAuth not configured" });
       
       const redirectUri = "https://repair-backend-3siuld7gbq-el.a.run.app/api/auth/google/callback";
@@ -907,7 +907,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return sendGoogleErrorPage(res, "No authorization code received from Google.");
       }
 
-      const clientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '456751858632-brh0ir7j9v2ks5kk6antp6q757kmhaus.apps.googleusercontent.com';
+      const clientId = '456751858632-brh0ir7j9v2ks5kk6antp6q757kmhaus.apps.googleusercontent.com';
       const clientSecret = getGoogleClientSecret();
 
       console.log("[Google Auth] clientId:", clientId);
@@ -1065,10 +1065,10 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
         return res.status(400).json({ success: false, message: "No authorization code" });
       }
 
-      const clientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+      const clientId = '456751858632-brh0ir7j9v2ks5kk6antp6q757kmhaus.apps.googleusercontent.com';
       const clientSecret = getGoogleClientSecret();
 
-      if (!clientId || !clientSecret) {
+      if (!clientSecret) {
         return res.status(500).json({ success: false, message: "Google OAuth not configured" });
       }
 
