@@ -19,7 +19,7 @@
     },
     "android": {
       "package": "com.mobi.app",
-      "versionCode": 7,
+      "versionCode": 8,
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.READ_EXTERNAL_STORAGE",
@@ -58,6 +58,7 @@
       "eas": {
         "projectId": "b933f4a5-13c2-4cc1-91a0-0e04c4203339"
       }
-    }
+    },
+    "owner": "arun173753"
   }
 }
