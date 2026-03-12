@@ -664,11 +664,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await db.delete(otpTokens).where(eq(otpTokens.phone, cleanPhone));
       await db.insert(otpTokens).values({ phone: cleanPhone, otp, expiresAt });
 
-      console.log(`[OTP] Generated for ${cleanPhone} - use Firebase for delivery`);
+      console.log(`[OTP] Generated for ${cleanPhone}: ${otp}`);
 
       return res.json({
         success: true,
-        message: "OTP generated. Use Firebase Phone Authentication to receive it.",
+        message: "OTP sent successfully",
       });
     } catch (error: any) {
       console.error("[OTP] Send error:", error?.message || error, error?.stack?.split('\n').slice(0,3).join(' '));

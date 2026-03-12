@@ -245,16 +245,21 @@ export default function OnboardingScreen() {
     const fullPhone = '+91' + cleanDigits;
     try {
       if (Platform.OS === 'web') {
-        const { RecaptchaVerifier, signInWithPhoneNumber } = await import('firebase/auth');
-        if (!webRecaptchaRef.current) {
-          webRecaptchaRef.current = new RecaptchaVerifier(firebaseAuth, 'recaptcha-container', { size: 'invisible' });
+        try {
+          const { RecaptchaVerifier, signInWithPhoneNumber } = await import('firebase/auth');
+          if (!webRecaptchaRef.current) {
+            webRecaptchaRef.current = new RecaptchaVerifier(firebaseAuth, 'recaptcha-container', { size: 'invisible' });
+          }
+          const confirmation = await signInWithPhoneNumber(firebaseAuth, fullPhone, webRecaptchaRef.current);
+          webConfirmationRef.current = confirmation;
+          setUseFirebaseOTP(true);
+          setOtpSent(true);
+          setOtpResendTimer(30);
+          console.log('[Firebase OTP] Sent via Firebase on web');
+        } catch (fbErr: any) {
+          console.log('[Firebase OTP] Failed on web, using backend OTP:', fbErr?.message);
+          await sendBackendOTP(cleanDigits);
         }
-        const confirmation = await signInWithPhoneNumber(firebaseAuth, fullPhone, webRecaptchaRef.current);
-        webConfirmationRef.current = confirmation;
-        setUseFirebaseOTP(true);
-        setOtpSent(true);
-        setOtpResendTimer(30);
-        console.log('[Firebase OTP] Sent via Firebase on web');
       } else {
         if (!recaptchaVerifierRef.current) {
           throw new Error('Recaptcha not initialized');
@@ -268,10 +273,29 @@ export default function OnboardingScreen() {
         console.log('[Firebase OTP] Sent via Firebase on native');
       }
     } catch (err: any) {
-      console.error('[Firebase OTP] Error:', err?.message);
-      Alert.alert('OTP Error', 'Could not send OTP via Firebase. Please check your phone number and try again.');
+      console.error('[OTP] Error:', err?.message);
+      Alert.alert('OTP Error', 'Could not send OTP. Please try again.');
     } finally {
       setOtpSending(false);
+    }
+  };
+
+  const sendBackendOTP = async (cleanDigits: string) => {
+    try {
+      const res = await apiRequest('POST', '/api/otp/send', { phone: cleanDigits });
+      const data = await res.json();
+      if (data.success) {
+        setUseFirebaseOTP(false);
+        setOtpSent(true);
+        setOtpResendTimer(30);
+        console.log('[Backend OTP] Sent successfully');
+        Alert.alert('OTP Sent', 'Check your phone for the 6-digit OTP code');
+      } else {
+        Alert.alert('OTP Error', data.message || 'Could not send OTP');
+      }
+    } catch (err: any) {
+      console.error('[Backend OTP] Error:', err?.message);
+      Alert.alert('OTP Error', 'Could not send OTP via backend. Please try again.');
     }
   };
 
