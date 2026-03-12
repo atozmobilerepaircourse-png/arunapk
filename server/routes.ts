@@ -407,8 +407,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ success: false, message: "Profile not found" });
       }
       
-      await db.update(profiles).set({ role: newRole as any }).where(eq(profiles.id, profileRows[0].id));
-      console.log("[Profile] Role changed to", newRole, "for user", profileRows[0].id, "phone:", phone);
+      const currentProfile = profileRows[0];
+      const currentRole = currentProfile.role as string;
+      
+      // Admin can switch to any role
+      if (currentRole !== 'admin') {
+        // Non-admin role restrictions
+        const roleRestrictions: Record<string, string[]> = {
+          teacher: ['technician'],
+          technician: ['teacher', 'supplier'],
+          supplier: ['technician'],
+          customer: [],
+          job_provider: [],
+        };
+        
+        const allowedNewRoles = roleRestrictions[currentRole] || [];
+        if (!allowedNewRoles.includes(newRole)) {
+          console.warn("[Profile] Role change denied:", currentRole, "→", newRole);
+          return res.status(403).json({ 
+            success: false, 
+            message: `You can only switch to: ${allowedNewRoles.join(', ') || 'no other roles'}` 
+          });
+        }
+      }
+      
+      await db.update(profiles).set({ role: newRole as any }).where(eq(profiles.id, currentProfile.id));
+      console.log("[Profile] Role changed to", newRole, "for user", currentProfile.id, "phone:", phone);
       res.json({ success: true, message: "Role updated successfully" });
     } catch (error) {
       console.error("[Profile] Change role error:", error);
@@ -5490,7 +5514,8 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
   </div>
 </body></html>`);
     } catch (err: any) {
-      res.status(500).send('<h2>Something went wrong. Please try again.</h2>');
+      console.error("[Landing] Error:", err);
+      res.status(500).send(`<h2>Something went wrong. Error: ${err?.message || 'Unknown error'}</h2>`);
     }
   });
 

@@ -50,12 +50,18 @@ const C = Colors.light;
 // ── Role switching rules ──────────────────────────────────────
 // Teacher ↔ Technician, Supplier ↔ Technician
 function getAllowedRoles(currentRole: UserRole): UserRole[] {
+  // Admin can switch to any role, so return empty (we don't restrict admins)
+  if (currentRole === 'admin') {
+    return ['teacher', 'technician', 'supplier', 'customer', 'job_provider'];
+  }
+  
   const roleMap: Record<UserRole, UserRole[]> = {
     teacher: ['technician'],
     technician: ['teacher', 'supplier'],
     supplier: ['technician'],
     job_provider: [],
     customer: [],
+    admin: [],
   };
   return roleMap[currentRole] || [];
 }
