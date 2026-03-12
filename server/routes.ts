@@ -772,7 +772,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         sessionToken,
       });
 
-      return res.json({ success: true, message: "Phone number verified successfully", sessionToken });
+      // Return profile if existing user, otherwise it's a new user
+      const response: any = { success: true, message: "Phone number verified successfully", sessionToken };
+      if (existingProfile) {
+        response.isNewUser = false;
+        response.profile = existingProfile;
+      } else {
+        response.isNewUser = true;
+      }
+      return res.json(response);
     } catch (error) {
       console.error("[OTP] Verify error:", error);
       return res.status(500).json({ success: false, message: "Verification failed" });
