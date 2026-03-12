@@ -101,6 +101,7 @@ export default function PostCard({
   const [showEditModal, setShowEditModal] = useState(false);
   const [editText, setEditText] = useState(post.text);
   const [editSaving, setEditSaving] = useState(false);
+  const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
 
   const isLiked = currentUserId ? post.likes.includes(currentUserId) : false;
   const isOwn   = currentUserId === post.userId;
@@ -175,11 +176,12 @@ export default function PostCard({
       {/* ── Header (pr-80 to avoid badge) ── */}
       <View style={styles.header}>
         <Pressable onPress={() => router.push({ pathname: '/user-profile', params: { id: post.userId } })}>
-          {post.userAvatar ? (
+          {post.userAvatar && !avatarLoadFailed ? (
             <Image
               source={{ uri: post.userAvatar }}
               style={[styles.avatar, { borderColor: catColor + '80' }]}
               contentFit="cover"
+              onError={() => setAvatarLoadFailed(true)}
             />
           ) : (
             <View style={[styles.avatarFallback, { backgroundColor: catColor + '25', borderColor: catColor + '80' }]}>
