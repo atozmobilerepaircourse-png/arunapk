@@ -166,36 +166,62 @@ export default function OnboardingScreen() {
     const fullPhone = '+91' + cleanDigits;
     try {
       if (Platform.OS === 'web') {
-        const { RecaptchaVerifier, signInWithPhoneNumber } = await import('firebase/auth');
-        if (!webRecaptchaRef.current) {
-          webRecaptchaRef.current = new RecaptchaVerifier(firebaseAuth, 'recaptcha-container', { size: 'invisible' });
+        try {
+          const { RecaptchaVerifier, signInWithPhoneNumber } = await import('firebase/auth');
+          if (!webRecaptchaRef.current) {
+            webRecaptchaRef.current = new RecaptchaVerifier(firebaseAuth, 'recaptcha-container', { size: 'invisible' });
+          }
+          const confirmation = await signInWithPhoneNumber(firebaseAuth, fullPhone, webRecaptchaRef.current);
+          webConfirmationRef.current = confirmation;
+          setUseFirebaseOTP(true);
+          setOtpSent(true);
+          setOtpResendTimer(30);
+          console.log('[Firebase OTP] Sent via Firebase on web');
+        } catch (fbErr) {
+          console.log('[Firebase OTP] Failed, falling back to backend OTP:', (fbErr as any)?.message);
+          await sendBackendOTP(cleanDigits);
         }
-        const confirmation = await signInWithPhoneNumber(firebaseAuth, fullPhone, webRecaptchaRef.current);
-        webConfirmationRef.current = confirmation;
-        setUseFirebaseOTP(true);
-        setOtpSent(true);
-        setOtpResendTimer(30);
-        console.log('[Firebase OTP] Sent via Firebase on web');
       } else {
-        if (!recaptchaVerifierRef.current) {
-          throw new Error('Recaptcha not initialized');
+        try {
+          if (!recaptchaVerifierRef.current) {
+            throw new Error('Recaptcha not initialized');
+          }
+          const phoneProvider = new PhoneAuthProvider(firebaseAuth);
+          const vId = await phoneProvider.verifyPhoneNumber(fullPhone, recaptchaVerifierRef.current);
+          setFirebaseVerificationId(vId);
+          setUseFirebaseOTP(true);
+          setOtpSent(true);
+          setOtpResendTimer(30);
+          console.log('[Firebase OTP] Sent via Firebase on native');
+        } catch (fbErr) {
+          console.log('[Firebase OTP] Failed, falling back to backend OTP:', (fbErr as any)?.message);
+          await sendBackendOTP(cleanDigits);
         }
-        const phoneProvider = new PhoneAuthProvider(firebaseAuth);
-        const vId = await phoneProvider.verifyPhoneNumber(fullPhone, recaptchaVerifierRef.current);
-        setFirebaseVerificationId(vId);
-        setUseFirebaseOTP(true);
-        setOtpSent(true);
-        setOtpResendTimer(30);
-        console.log('[Firebase OTP] Sent via Firebase on native');
       }
-    } catch (fbErr: any) {
-      console.error('[Firebase OTP] Error:', fbErr?.message);
-      const msg = fbErr?.code === 'auth/too-many-requests' 
-        ? 'Too many requests. Please wait a few minutes before trying again.'
-        : fbErr?.message || 'Could not send OTP via Firebase. Make sure Phone Authentication is enabled in Firebase Console.';
-      Alert.alert('Firebase OTP Error', msg);
+    } catch (err: any) {
+      console.error('[OTP] Error:', err?.message);
+      Alert.alert('OTP Error', 'Could not send OTP. Please try again.');
     } finally {
       setOtpSending(false);
+    }
+  };
+
+  const sendBackendOTP = async (cleanDigits: string) => {
+    try {
+      const res = await apiRequest('POST', '/api/otp/send', { phone: cleanDigits });
+      const data = await res.json();
+      if (data.success) {
+        setUseFirebaseOTP(false);
+        setOtpSent(true);
+        setOtpResendTimer(30);
+        console.log('[Backend OTP] Sent successfully');
+        Alert.alert('OTP Sent', `Check your SMS for the 6-digit code.${data.fallbackOtp ? ` For testing: ${data.fallbackOtp}` : ''}`);
+      } else {
+        Alert.alert('OTP Error', data.message || 'Could not send OTP. Please try again.');
+      }
+    } catch (err: any) {
+      console.error('[Backend OTP] Error:', err?.message);
+      Alert.alert('OTP Error', 'Could not send OTP via backend. Please try again.');
     }
   };
 
