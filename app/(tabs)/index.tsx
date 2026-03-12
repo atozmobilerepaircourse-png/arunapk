@@ -265,48 +265,51 @@ export default function FeedScreen() {
         </View>
       </View>
 
-      {/* ── Category Filters ── */}
-      <FlatList
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        data={FILTERS}
-        style={{ flexGrow: 0 }}
-        contentContainerStyle={styles.filtersContent}
-        keyExtractor={item => item.key}
-        renderItem={({ item }) => {
-          const isActive = filter === item.key;
-          const chipColor = item.color;
-          return (
-            <Pressable
-              style={[
-                styles.filterChip,
-                isActive
-                  ? {
-                      backgroundColor: chipColor || PRIMARY,
-                      borderColor: chipColor || PRIMARY,
-                    }
-                  : {
-                      backgroundColor: SURFACE,
-                      borderColor: BORDER + '80',
-                    },
-              ]}
-              onPress={() => setFilter(item.key)}
-            >
-              <Ionicons
-                name={item.icon}
-                size={12}
-                color={isActive ? '#FFF' : chipColor || MUTED}
-              />
-              <Text style={[
-                styles.filterText,
-                { color: isActive ? '#FFF' : chipColor || MUTED },
-              ]}>
-                {item.label}
-              </Text>
-            </Pressable>
-          );
-        }}
-      />
+      {/* ── Category Filters — scrollable horizontal ── */}
+      <View style={styles.filterContainer}>
+        <FlatList
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          data={FILTERS}
+          scrollEnabled={true}
+          style={{ flexGrow: 0, backgroundColor: BG }}
+          contentContainerStyle={styles.filtersContent}
+          keyExtractor={item => item.key}
+          renderItem={({ item }) => {
+            const isActive = filter === item.key;
+            const chipColor = item.color;
+            return (
+              <Pressable
+                style={[
+                  styles.filterChip,
+                  isActive
+                    ? {
+                        backgroundColor: chipColor || PRIMARY,
+                        borderColor: chipColor || PRIMARY,
+                      }
+                    : {
+                        backgroundColor: SURFACE,
+                        borderColor: BORDER + '80',
+                      },
+                ]}
+                onPress={() => setFilter(item.key)}
+              >
+                <Ionicons
+                  name={item.icon}
+                  size={13}
+                  color={isActive ? '#FFF' : chipColor || MUTED}
+                />
+                <Text style={[
+                  styles.filterText,
+                  { color: isActive ? '#FFF' : chipColor || MUTED },
+                ]}>
+                  {item.label}
+                </Text>
+              </Pressable>
+            );
+          }}
+        />
+      </View>
 
       {/* ── Feed ── */}
       <FlatList
@@ -484,23 +487,30 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: 'Inter_400Regular',
   },
+  filterContainer: {
+    backgroundColor: BG,
+    borderBottomWidth: 1,
+    borderBottomColor: BORDER + '40',
+  },
   filtersContent: {
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 10,
     gap: 8,
   },
   filterChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 13,
-    paddingVertical: 8,
-    borderRadius: 20,
+    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 22,
     borderWidth: 1,
+    minHeight: 36,
   },
   filterText: {
-    fontSize: 11,
-    fontFamily: 'Inter_500Medium',
+    fontSize: 12,
+    fontFamily: 'Inter_600SemiBold',
   },
   feedHeader: {
     flexDirection: 'row',
