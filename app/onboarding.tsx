@@ -278,7 +278,12 @@ export default function OnboardingScreen() {
         setOtpSent(true);
         setOtpResendTimer(30);
         console.log('[Backend OTP] Sent successfully');
-        Alert.alert('OTP Sent', 'Check your phone for the 6-digit OTP code');
+        // Show OTP in alert for testing (development mode)
+        if (data.otp) {
+          Alert.alert('🔐 Your OTP Code', `Your 6-digit code:\n\n${data.otp}\n\nEnter this to verify your phone number.`, [{ text: 'Got it' }]);
+        } else {
+          Alert.alert('OTP Sent', 'Check your phone for the 6-digit OTP code');
+        }
       } else {
         Alert.alert('OTP Error', data.message || 'Could not send OTP');
       }

@@ -669,6 +669,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.json({
         success: true,
         message: "OTP sent successfully",
+        otp: otp, // For development/testing on web when SMS isn't configured
       });
     } catch (error: any) {
       console.error("[OTP] Send error:", error?.message || error, error?.stack?.split('\n').slice(0,3).join(' '));
