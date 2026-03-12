@@ -911,7 +911,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const clientSecret = getGoogleClientSecret();
 
       console.log("[Google Auth] clientId:", clientId);
-      console.log("[Google Auth] clientSecret length:", clientSecret?.length, "starts:", clientSecret?.substring(0, 7));
+      console.log("[Google Auth] clientSecret available:", !!clientSecret, "length:", clientSecret?.length);
 
       if (!clientId || !clientSecret) {
         return sendGoogleErrorPage(res, "Google OAuth is not configured on the server.");

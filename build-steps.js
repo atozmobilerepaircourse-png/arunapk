@@ -58,7 +58,7 @@ const buildConfig = {
       id: 'DeployToCloudRun',
       entrypoint: 'gcloud',
       args: (() => {
-        // Extract the actual client_secret value from the JSON blob (avoids JSON chars breaking gcloud args)
+        // Extract the actual client_secret value from the JSON blob
         let googleClientSecret = '';
         try {
           const raw = process.env.GOOGLE_CLIENT_SECRET || '';
@@ -75,13 +75,6 @@ const buildConfig = {
         const bunnyKey = process.env.BUNNY_STREAM_API_KEY || '';
         const bunnyLib = process.env.BUNNY_STREAM_LIBRARY_ID || '';
 
-        // Build env vars string — use ^##^ separator so commas in values don't break parsing
-        const envVarParts = [];
-        if (googleClientSecret) envVarParts.push(`GOOGLE_CLIENT_SECRET=${googleClientSecret}`);
-        if (fast2sms)           envVarParts.push(`FAST2SMS_API_KEY=${fast2sms}`);
-        if (bunnyKey)           envVarParts.push(`BUNNY_STREAM_API_KEY=${bunnyKey}`);
-        if (bunnyLib)           envVarParts.push(`BUNNY_STREAM_LIBRARY_ID=${bunnyLib}`);
-
         const args = [
           'run', 'deploy', 'repair-backend',
           '--image', IMAGE,
@@ -90,9 +83,12 @@ const buildConfig = {
           '--platform', 'managed',
           '--quiet',
         ];
-        if (envVarParts.length > 0) {
-          args.push('--update-env-vars', '^##^' + envVarParts.join('##'));
-        }
+        // Add env vars individually to avoid separator issues
+        if (googleClientSecret) args.push('--update-env-vars', `GOOGLE_CLIENT_SECRET=${googleClientSecret}`);
+        if (fast2sms)           args.push('--update-env-vars', `FAST2SMS_API_KEY=${fast2sms}`);
+        if (bunnyKey)           args.push('--update-env-vars', `BUNNY_STREAM_API_KEY=${bunnyKey}`);
+        if (bunnyLib)           args.push('--update-env-vars', `BUNNY_STREAM_LIBRARY_ID=${bunnyLib}`);
+        
         return args;
       })(),
       timeout: '300s'
