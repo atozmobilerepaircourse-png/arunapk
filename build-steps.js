@@ -192,12 +192,16 @@ console.log('server_dist/index.js is now fully bundled (26MB) with all npm packa
 
             // Secrets to sync from Replit → Cloud Run
             const secretsToSync = [
+              'DATABASE_URL',
               'GOOGLE_CLIENT_SECRET',
               'FAST2SMS_API_KEY',
               'BUNNY_STREAM_API_KEY',
               'BUNNY_STREAM_LIBRARY_ID',
               'GCP_SA_KEY',
             ];
+            
+            // Also ensure NODE_ENV=production
+            envMap['NODE_ENV'] = 'production';
             let syncCount = 0;
             for (const key of secretsToSync) {
               const val = process.env[key];
