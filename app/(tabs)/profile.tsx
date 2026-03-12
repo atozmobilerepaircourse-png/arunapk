@@ -1260,6 +1260,10 @@ export default function ProfileScreen() {
                 <Ionicons name="chevron-forward" size={18} color={T.muted} />
               </Pressable>
               <View style={styles.settingsDivider} />
+            </>
+          )}
+          {getAllowedRoles(profile.role).length > 0 && (
+            <>
               <Pressable
                 style={styles.settingsRow}
                 onPress={() => setShowRolePicker(true)}
