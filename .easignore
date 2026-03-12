@@ -1,5 +1,7 @@
-*.log
-firebase-debug.log
 node_modules
-.git
+dist
+firebase-dist
+server_dist
 .expo
+.git
+*.log
