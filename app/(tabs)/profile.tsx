@@ -254,7 +254,7 @@ function CustomerProfileScreen() {
           // Clear teacher-specific data
           ...(newRole !== 'teacher' && { teachType: undefined }),
           // Clear technician-specific data (skills)
-          ...(newRole !== 'technician' && { skills: '[]' }),
+          ...(newRole !== 'technician' && { skills: [] }),
         };
         await setProfile(updatedProfile);
         if (Platform.OS === 'web') {
@@ -568,7 +568,7 @@ export default function ProfileScreen() {
           // Clear teacher-specific data
           ...(newRole !== 'teacher' && { teachType: undefined }),
           // Clear technician-specific data (skills)
-          ...(newRole !== 'technician' && { skills: '[]' }),
+          ...(newRole !== 'technician' && { skills: [] }),
         };
         await setProfile(updatedProfile);
         if (Platform.OS === 'web') {

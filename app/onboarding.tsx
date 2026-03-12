@@ -563,6 +563,10 @@ export default function OnboardingScreen() {
         const token = data.sessionToken || '';
         setSessionToken(token);
         if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        if (data.exists && data.profile) {
+          await loginWithProfile(data.profile, token);
+          return;
+        }
         setStep(s => s + 1);
       } else {
         Alert.alert('Error', data.message || 'Login failed');
