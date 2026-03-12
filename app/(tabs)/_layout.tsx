@@ -248,30 +248,34 @@ function ClassicTabLayout() {
           tabBarLabel: () => null,
         }}
       />
-      <Tabs.Screen
-        name="my-shop"
-        options={{
-          title: isTeacherOrSupplier && profile?.role === 'teacher' ? "Content" : "Products",
-          href: null,
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? "storefront" : "storefront-outline"} size={22} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="marketplace"
-        options={{
-          title: isCustomer ? "Sell" : "Shop",
-          href: isCustomer ? '/marketplace' : null,
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={isCustomer ? (focused ? "pricetag" : "pricetag-outline") : (focused ? "bag" : "bag-outline")}
-              size={22}
-              color={color}
-            />
-          ),
-        }}
-      />
+      {isTeacherOrSupplier && (
+        <Tabs.Screen
+          name="my-shop"
+          options={{
+            title: profile?.role === 'teacher' ? "Content" : "Products",
+            href: '/my-shop',
+            tabBarIcon: ({ color, focused }) => (
+              <Ionicons name={focused ? "storefront" : "storefront-outline"} size={22} color={color} />
+            ),
+          }}
+        />
+      )}
+      {isCustomer && (
+        <Tabs.Screen
+          name="marketplace"
+          options={{
+            title: "Sell",
+            href: '/marketplace',
+            tabBarIcon: ({ color, focused }) => (
+              <Ionicons
+                name={focused ? "pricetag" : "pricetag-outline"}
+                size={22}
+                color={color}
+              />
+            ),
+          }}
+        />
+      )}
       <Tabs.Screen
         name="jobs"
         options={{
