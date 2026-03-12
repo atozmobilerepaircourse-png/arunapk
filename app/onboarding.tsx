@@ -245,22 +245,11 @@ export default function OnboardingScreen() {
     const fullPhone = '+91' + cleanDigits;
     try {
       if (Platform.OS === 'web') {
-        try {
-          const { RecaptchaVerifier, signInWithPhoneNumber } = await import('firebase/auth');
-          if (!webRecaptchaRef.current) {
-            webRecaptchaRef.current = new RecaptchaVerifier(firebaseAuth, 'recaptcha-container', { size: 'invisible' });
-          }
-          const confirmation = await signInWithPhoneNumber(firebaseAuth, fullPhone, webRecaptchaRef.current);
-          webConfirmationRef.current = confirmation;
-          setUseFirebaseOTP(true);
-          setOtpSent(true);
-          setOtpResendTimer(30);
-          console.log('[Firebase OTP] Sent via Firebase on web');
-        } catch (fbErr: any) {
-          console.log('[Firebase OTP] Failed on web, using backend OTP:', fbErr?.message);
-          await sendBackendOTP(cleanDigits);
-        }
+        // Web: Use backend OTP directly (no Firebase reCAPTCHA issues)
+        console.log('[OTP] Web platform - using backend OTP');
+        await sendBackendOTP(cleanDigits);
       } else {
+        // Native: Use Firebase Phone Auth
         if (!recaptchaVerifierRef.current) {
           throw new Error('Recaptcha not initialized');
         }
