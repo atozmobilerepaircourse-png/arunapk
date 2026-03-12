@@ -531,6 +531,58 @@ export default function ProfileScreen() {
   const [subStatus, setSubStatus] = useState<{ active: boolean; required: boolean; subscriptionEnd?: number; amount?: string; period?: string; commission?: string } | null>(null);
   const [updatingLocation, setUpdatingLocation] = useState(false);
   const [locationStatus, setLocationStatus] = useState<'idle' | 'success' | 'denied'>('idle');
+  const [showRolePicker, setShowRolePicker] = useState(false);
+  const [changingRole, setChangingRole] = useState(false);
+
+  const handleChangeRole = async (newRole: string) => {
+    if (!profile?.id || changingRole) return;
+    
+    const allowed = getAllowedRoles(profile.role);
+    if (!allowed.includes(newRole as UserRole)) {
+      Alert.alert(
+        'Cannot Switch',
+        `You can only switch between: Teacher ↔ Technician or Supplier ↔ Technician`,
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    try {
+      setChangingRole(true);
+      setShowRolePicker(false);
+      const res = await apiRequest('POST', '/api/profile/change-role', { newRole, userPhone: profile.phone });
+      const data = await res.json();
+      if (data.success) {
+        // Clear role-specific fields when switching roles
+        const updatedProfile = { 
+          ...profile, 
+          role: newRole as UserRole,
+          // Clear supplier-specific data
+          ...(newRole !== 'supplier' && { sellType: undefined }),
+          // Clear teacher-specific data
+          ...(newRole !== 'teacher' && { teachType: undefined }),
+          // Clear technician-specific data (skills)
+          ...(newRole !== 'technician' && { skills: '[]' }),
+        };
+        await setProfile(updatedProfile);
+        if (Platform.OS === 'web') {
+          window.alert(`Role changed to ${ROLE_LABELS[newRole as UserRole] || newRole}`);
+        } else {
+          Alert.alert('Role Updated', `Switched to ${ROLE_LABELS[newRole as UserRole] || newRole}`);
+        }
+      } else {
+        throw new Error(data.message || 'Failed to change role');
+      }
+    } catch (e: any) {
+      if (Platform.OS === 'web') {
+        window.alert(e.message || 'Failed to change role');
+      } else {
+        Alert.alert('Error', e.message || 'Failed to change role');
+      }
+    } finally {
+      setChangingRole(false);
+    }
+  };
 
   useEffect(() => {
     if (!profile?.id) return;
