@@ -74,6 +74,8 @@ const buildConfig = {
         const fast2sms = process.env.FAST2SMS_API_KEY || '';
         const bunnyKey = process.env.BUNNY_STREAM_API_KEY || '';
         const bunnyLib = process.env.BUNNY_STREAM_LIBRARY_ID || '';
+        const googleClientId = process.env.GOOGLE_CLIENT_ID || '456751858632-brh0ir7j9v2ks5kk6antp6q757kmhaus.apps.googleusercontent.com';
+        const googleRedirectUri = process.env.GOOGLE_REDIRECT_URI || 'https://repair-backend-3siuld7gbq-el.a.run.app/api/auth/google/callback';
 
         const args = [
           'run', 'deploy', 'repair-backend',
@@ -85,6 +87,8 @@ const buildConfig = {
         ];
         // Add env vars individually to avoid separator issues
         if (googleClientSecret) args.push('--update-env-vars', `GOOGLE_CLIENT_SECRET=${googleClientSecret}`);
+        if (googleClientId)     args.push('--update-env-vars', `GOOGLE_CLIENT_ID=${googleClientId}`);
+        if (googleRedirectUri)  args.push('--update-env-vars', `GOOGLE_REDIRECT_URI=${googleRedirectUri}`);
         if (fast2sms)           args.push('--update-env-vars', `FAST2SMS_API_KEY=${fast2sms}`);
         if (bunnyKey)           args.push('--update-env-vars', `BUNNY_STREAM_API_KEY=${bunnyKey}`);
         if (bunnyLib)           args.push('--update-env-vars', `BUNNY_STREAM_LIBRARY_ID=${bunnyLib}`);

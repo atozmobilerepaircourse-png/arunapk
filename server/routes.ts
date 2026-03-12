@@ -826,10 +826,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { token } = req.body;
       if (!token) return res.status(400).json({ success: false, message: "Token required" });
-      const clientId = '456751858632-brh0ir7j9v2ks5kk6antp6q757kmhaus.apps.googleusercontent.com';
-      if (!clientId) return res.status(500).json({ success: false, message: "Google OAuth not configured" });
+      const clientId = process.env.GOOGLE_CLIENT_ID || '456751858632-brh0ir7j9v2ks5kk6antp6q757kmhaus.apps.googleusercontent.com';
+      const redirectUri = process.env.GOOGLE_REDIRECT_URI || "https://repair-backend-3siuld7gbq-el.a.run.app/api/auth/google/callback";
       
-      const redirectUri = "https://repair-backend-3siuld7gbq-el.a.run.app/api/auth/google/callback";
+      if (!clientId) return res.status(500).json({ success: false, message: "GOOGLE_CLIENT_ID not configured" });
+      if (!redirectUri) return res.status(500).json({ success: false, message: "GOOGLE_REDIRECT_URI not configured" });
       
       const stateObj = { token };
       const stateStr = Buffer.from(JSON.stringify(stateObj)).toString('base64');
@@ -900,29 +901,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("[Google Auth] Callback received, code:", !!code, "state:", !!state, "error:", googleError);
 
       if (googleError) {
+        console.error("[Google Auth] Google error:", googleError);
         return sendGoogleErrorPage(res, `Google returned error: ${googleError}`);
       }
 
       if (!code) {
+        console.error("[Google Auth] No code received");
         return sendGoogleErrorPage(res, "No authorization code received from Google.");
       }
 
-      const clientId = '456751858632-brh0ir7j9v2ks5kk6antp6q757kmhaus.apps.googleusercontent.com';
+      const clientId = process.env.GOOGLE_CLIENT_ID || '456751858632-brh0ir7j9v2ks5kk6antp6q757kmhaus.apps.googleusercontent.com';
       const clientSecret = getGoogleClientSecret();
+      const redirectUri = process.env.GOOGLE_REDIRECT_URI || "https://repair-backend-3siuld7gbq-el.a.run.app/api/auth/google/callback";
 
-      console.log("[Google Auth] clientId:", clientId);
+      console.log("[Google Auth] clientId set:", !!clientId);
       console.log("[Google Auth] clientSecret available:", !!clientSecret, "length:", clientSecret?.length);
+      console.log("[Google Auth] redirectUri:", redirectUri);
 
       if (!clientId || !clientSecret) {
         return sendGoogleErrorPage(res, "Google OAuth is not configured on the server.");
       }
 
-      // Use request host for callback redirection
-      const host = "repair-backend-3siuld7gbq-el.a.run.app";
-      const protocol = 'https';
-      const redirectUri = "https://repair-backend-3siuld7gbq-el.a.run.app/api/auth/google/callback";
-      console.log("[Google Auth] Using redirect_uri:", redirectUri);
-
+      console.log("[Google Auth] Exchanging code for token...");
       const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -936,11 +936,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       const tokenData = await tokenRes.json() as any;
-      console.log("[Google Auth] Token exchange status:", tokenRes.status, "has access_token:", !!tokenData.access_token);
+      console.log("[Google Auth] Token exchange response status:", tokenRes.status);
+      console.log("[Google Auth] Token response keys:", Object.keys(tokenData).join(", "));
+      
+      if (tokenData.error) {
+        console.error("[Google Auth] OAuth error:", tokenData.error, "description:", tokenData.error_description);
+      }
 
       if (!tokenData.access_token) {
-        console.error("[Google Auth] Token exchange failed:", JSON.stringify(tokenData));
-        return sendGoogleErrorPage(res, tokenData.error_description || "Failed to authenticate with Google. The redirect URI may not match.");
+        console.error("[Google Auth] No access token in response:", JSON.stringify(tokenData).substring(0, 300));
+        return sendGoogleErrorPage(res, tokenData.error_description || tokenData.error || "Failed to authenticate with Google.");
       }
 
       const userInfoRes = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
