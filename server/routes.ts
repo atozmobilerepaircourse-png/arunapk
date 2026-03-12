@@ -789,16 +789,109 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Firebase Email Link authentication
+  app.post("/api/auth/firebase-email", async (req, res) => {
+    try {
+      const { idToken, deviceId } = req.body;
+      if (!idToken) {
+        return res.status(400).json({ success: false, message: "Firebase ID token is required" });
+      }
+
+      let decodedToken: any;
+      try {
+        decodedToken = await getAdminAuth().verifyIdToken(idToken);
+      } catch (verifyErr: any) {
+        console.error("[Firebase Email] Token verification failed:", verifyErr?.message);
+        return res.status(401).json({ success: false, message: "Invalid Firebase token. Please try again." });
+      }
+
+      const email = decodedToken.email;
+      if (!email) {
+        return res.status(400).json({ success: false, message: "No email found in Firebase token." });
+      }
+
+      const displayName = decodedToken.name || decodedToken.display_name || '';
+      const picture = decodedToken.picture || '';
+      console.log(`[Firebase Email] Verified email: ${email}`);
+
+      // Find existing user by email
+      const allProfilesList = await db.select().from(profiles);
+      const existingProfile = allProfilesList.find(p => p.email === email);
+
+      if (existingProfile) {
+        if (existingProfile.blocked === 1) {
+          return res.json({ success: false, message: "Your account has been blocked. Please contact admin." });
+        }
+
+        // Update avatar if not set
+        if (picture && !existingProfile.avatar) {
+          await db.update(profiles).set({ avatar: picture }).where(eq(profiles.id, existingProfile.id));
+        }
+
+        const sessionToken = randomUUID();
+        await db.delete(sessions).where(eq(sessions.phone, existingProfile.phone));
+        await db.insert(sessions).values({ phone: existingProfile.phone, sessionToken });
+
+        const updatedProfile = { ...existingProfile, avatar: picture || existingProfile.avatar || '' };
+        return res.json({ success: true, isNewUser: false, sessionToken, profile: updatedProfile, message: "Login successful" });
+      }
+
+      // New user — create placeholder profile, complete onboarding in app
+      const emailPhone = `email:${email}`;
+      const newUserId = randomUUID();
+      const sessionToken = randomUUID();
+
+      await db.insert(profiles).values({
+        id: newUserId,
+        name: displayName || email.split('@')[0],
+        phone: emailPhone,
+        email: email,
+        role: 'customer',
+        avatar: picture || '',
+        skills: '[]',
+        city: '',
+        state: '',
+        experience: '',
+      });
+
+      await db.insert(sessions).values({ phone: emailPhone, sessionToken });
+
+      return res.json({
+        success: true,
+        isNewUser: true,
+        sessionToken,
+        userId: newUserId,
+        emailPhone,
+        email,
+        name: displayName || email.split('@')[0],
+        picture: picture || '',
+        message: "Account created"
+      });
+    } catch (error: any) {
+      console.error("[Firebase Email] Error:", error?.message || error);
+      return res.status(500).json({ success: false, message: "Email verification failed. Please try again." });
+    }
+  });
+
   app.post("/api/session/validate", async (req, res) => {
     try {
       const { sessionToken, phone } = req.body;
       if (!sessionToken || !phone) {
         return res.json({ valid: false });
       }
-      const cleanPhone = phone.replace(/\D/g, "");
-      const result = await db.select().from(sessions).where(
-        and(eq(sessions.sessionToken, sessionToken), eq(sessions.phone, cleanPhone))
-      );
+      // Email-link accounts use "email:xxx@xxx.com" as their phone identifier
+      const isEmailAccount = phone.includes('@') || phone.startsWith('email:');
+      let result;
+      if (isEmailAccount) {
+        result = await db.select().from(sessions).where(
+          and(eq(sessions.sessionToken, sessionToken), eq(sessions.phone, phone))
+        );
+      } else {
+        const cleanPhone = phone.replace(/\D/g, "");
+        result = await db.select().from(sessions).where(
+          and(eq(sessions.sessionToken, sessionToken), eq(sessions.phone, cleanPhone))
+        );
+      }
       return res.json({ valid: result.length > 0 });
     } catch (error) {
       console.error("[Session] Validate error:", error);

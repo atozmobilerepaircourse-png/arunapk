@@ -38,7 +38,7 @@ const ROLES: { key: UserRole; icon: keyof typeof Ionicons.glyphMap; color: strin
   { key: 'supplier', icon: 'cube', color: '#FF9F0A' },
 ];
 
-type ScreenName = 'phone' | 'otp' | 'email' | 'google-phone' | 'details' | 'selfie' | 'skills' | 'sellType' | 'teachType' | 'businessDocs' | 'location';
+type ScreenName = 'phone' | 'otp' | 'email' | 'google-phone' | 'details' | 'selfie' | 'skills' | 'sellType' | 'teachType' | 'businessDocs' | 'location' | 'email-link-entry' | 'email-link-sent';
 
 export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
@@ -85,6 +85,15 @@ export default function OnboardingScreen() {
   const [newUserEmail, setNewUserEmail] = useState('');
   const [emailSendingWelcome, setEmailSendingWelcome] = useState(false);
 
+  // Email Link (passwordless) auth state
+  const [emailLinkMode, setEmailLinkMode] = useState(false);
+  const [emailLinkEmail, setEmailLinkEmail] = useState('');
+  const [emailLinkSending, setEmailLinkSending] = useState(false);
+  const [emailLinkSent, setEmailLinkSent] = useState(false);
+  const [emailLinkSignedIn, setEmailLinkSignedIn] = useState(false);
+  const [emailSigningIn, setEmailSigningIn] = useState(false);
+  const [emailLinkPhone, setEmailLinkPhone] = useState('');
+
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
   const isCustomer = role === 'customer';
@@ -98,9 +107,16 @@ export default function OnboardingScreen() {
   const needsBusinessDocs = isSupplier || isTeacher;
 
   const getScreenSequence = (): ScreenName[] => {
-    const screens: ScreenName[] = googleSignedIn
-      ? ['google-phone', 'details']
-      : ['phone', 'otp', 'email', 'details'];
+    // Email link mode: user clicked "Sign in with Email" button
+    if (emailLinkMode && !emailLinkSignedIn) {
+      return ['email-link-entry', 'email-link-sent'];
+    }
+    // Email link signed-in new user: skip phone/OTP, go straight to profile setup
+    const screens: ScreenName[] = emailLinkSignedIn
+      ? ['details']
+      : googleSignedIn
+        ? ['google-phone', 'details']
+        : ['phone', 'otp', 'email', 'details'];
     if (needsSelfie) screens.push('selfie');
     if (needsSkills) screens.push('skills');
     if (needsSellType) screens.push('sellType');
@@ -148,6 +164,61 @@ export default function OnboardingScreen() {
   const webRecaptchaRef = useRef<any>(null);
   const webConfirmationRef = useRef<any>(null);
   const [useFirebaseOTP, setUseFirebaseOTP] = useState(false);
+
+  // Detect Firebase Email Link on page load (web only)
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const detectEmailLink = async () => {
+      try {
+        const { isSignInWithEmailLink, signInWithEmailLink } = await import('firebase/auth');
+        if (!isSignInWithEmailLink(firebaseAuth, window.location.href)) return;
+
+        setEmailSigningIn(true);
+        let savedEmail = '';
+        try { savedEmail = window.localStorage.getItem('emailForSignIn') || ''; } catch {}
+        if (!savedEmail) {
+          setEmailSigningIn(false);
+          Alert.alert('Complete Sign-In', 'Please re-open the app and try the email sign-in link again.');
+          return;
+        }
+
+        const result = await signInWithEmailLink(firebaseAuth, savedEmail, window.location.href);
+        try { window.localStorage.removeItem('emailForSignIn'); } catch {}
+
+        const idToken = await result.user.getIdToken();
+        const deviceId = await getDeviceId();
+        const res = await apiRequest('POST', '/api/auth/firebase-email', { idToken, deviceId });
+        const data = await res.json();
+
+        if (data.success) {
+          if (!data.isNewUser && data.profile) {
+            Alert.alert('✅ Login Successful', `Welcome back, ${data.profile.name || savedEmail}!`);
+            await loginWithProfile(data.profile, data.sessionToken);
+          } else {
+            // New user — continue to profile setup
+            setEmailLinkEmail(savedEmail);
+            setEmailLinkSignedIn(true);
+            setEmailLinkMode(false);
+            setEmailLinkPhone(data.emailPhone || `email:${savedEmail}`);
+            setSessionToken(data.sessionToken);
+            if (data.name) setUserName(data.name);
+            setStep(0);
+            Alert.alert('✅ Email Verified!', 'Please complete your profile to finish sign-up.');
+          }
+        } else {
+          Alert.alert('Sign-In Failed', data.message || 'Could not complete email sign-in.');
+        }
+      } catch (err: any) {
+        console.error('[EmailLink] Complete sign-in error:', err?.message);
+        if (err?.code !== 'auth/invalid-action-code') {
+          Alert.alert('Error', err?.message || 'Failed to complete email sign-in. Please try again.');
+        }
+      } finally {
+        setEmailSigningIn(false);
+      }
+    };
+    detectEmailLink();
+  }, []);
 
   useEffect(() => {
     if (otpResendTimer <= 0) return;
@@ -397,6 +468,36 @@ export default function OnboardingScreen() {
     }
   };
 
+  const sendEmailLink = async () => {
+    const trimmed = emailLinkEmail.trim();
+    if (!trimmed) {
+      Alert.alert('Email Required', 'Please enter your Gmail address.');
+      return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmed)) {
+      Alert.alert('Invalid Email', 'Please enter a valid email address.');
+      return;
+    }
+    setEmailLinkSending(true);
+    try {
+      const { sendSignInLinkToEmail } = await import('firebase/auth');
+      const actionCodeSettings = {
+        url: 'https://mobile-repair-app-276b6.web.app/onboarding',
+        handleCodeInApp: true,
+      };
+      await sendSignInLinkToEmail(firebaseAuth, trimmed, actionCodeSettings);
+      try { window.localStorage.setItem('emailForSignIn', trimmed); } catch {}
+      setEmailLinkSent(true);
+      setStep(s => s + 1);
+    } catch (err: any) {
+      console.error('[EmailLink] Send error:', err?.message);
+      Alert.alert('Error', err?.message || 'Could not send email link. Please try again.');
+    } finally {
+      setEmailLinkSending(false);
+    }
+  };
+
   const startGoogleSignIn = async () => {
     try {
       const clientToken = Crypto.randomUUID();
@@ -588,6 +689,15 @@ export default function OnboardingScreen() {
       handleEmailStep();
       return;
     }
+    if (currentScreen === 'email-link-entry') {
+      sendEmailLink();
+      return;
+    }
+    if (currentScreen === 'email-link-sent') {
+      // Nothing to do — the link click handles completion automatically
+      // Let user re-send if needed
+      return;
+    }
     if (currentScreen === 'details' && !userName.trim()) {
       Alert.alert('Required', 'Please enter your name.');
       return;
@@ -654,8 +764,8 @@ export default function OnboardingScreen() {
     const profile: UserProfile = {
       id: Crypto.randomUUID(),
       name: userName.trim(),
-      phone: phone.replace(/\D/g, '').trim(),
-      email: googleEmail || newUserEmail.trim() || undefined,
+      phone: emailLinkSignedIn ? emailLinkPhone : phone.replace(/\D/g, '').trim(),
+      email: emailLinkSignedIn ? emailLinkEmail : (googleEmail || newUserEmail.trim() || undefined),
       role,
       skills: selectedSkills,
       city: city.trim(),
@@ -773,7 +883,7 @@ export default function OnboardingScreen() {
                   flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
                   backgroundColor: '#FFF',
                   borderRadius: 12, height: 48,
-                  marginBottom: 12,
+                  marginBottom: 10,
                   shadowColor: '#000',
                   shadowOffset: { width: 0, height: 4 },
                   shadowOpacity: 0.2,
@@ -786,6 +896,22 @@ export default function OnboardingScreen() {
               >
                 <Ionicons name="logo-google" size={20} color="#4285F4" />
                 <Text style={{ fontSize: 16, fontFamily: 'Inter_600SemiBold', color: '#0A0A14' }}>Sign in with Google</Text>
+              </Pressable>
+
+              <Pressable
+                style={({ pressed }) => ({
+                  flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+                  backgroundColor: 'rgba(255,123,71,0.15)',
+                  borderRadius: 12, height: 48,
+                  marginBottom: 12,
+                  borderWidth: 1, borderColor: 'rgba(255,123,71,0.4)',
+                  opacity: pressed ? 0.85 : 1,
+                  transform: [{ scale: pressed ? 0.98 : 1 }]
+                })}
+                onPress={() => { setEmailLinkMode(true); setStep(0); }}
+              >
+                <Ionicons name="mail" size={20} color="#FF7B47" />
+                <Text style={{ fontSize: 16, fontFamily: 'Inter_600SemiBold', color: '#FF7B47' }}>Sign in with Email Link</Text>
               </Pressable>
 
               <View style={{ flex: 1 }} />
@@ -931,6 +1057,97 @@ export default function OnboardingScreen() {
               style={{ marginTop: 20, alignItems: 'center', padding: 12 }}
             >
               <Text style={{ color: C.textTertiary, fontSize: 14, fontFamily: 'Inter_500Medium' }}>Skip for now</Text>
+            </Pressable>
+          </View>
+        );
+      case 'email-link-entry':
+        return (
+          <View style={styles.stepContent}>
+            <View style={styles.stepHeader}>
+              <View style={[styles.stepIconContainer, { backgroundColor: 'rgba(255,123,71,0.15)' }]}>
+                <Ionicons name="mail" size={32} color="#FF7B47" />
+              </View>
+              <Text style={styles.stepTitle}>Sign in with Email</Text>
+              <Text style={styles.stepSubtitle}>
+                Enter your Gmail address and we'll send a secure one-click sign-in link — no password needed.
+              </Text>
+            </View>
+            <Text style={styles.fieldLabel}>Gmail Address</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="yourname@gmail.com"
+              placeholderTextColor={C.textTertiary}
+              value={emailLinkEmail}
+              onChangeText={setEmailLinkEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoFocus
+            />
+            <View style={{ marginTop: 14, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(255,123,71,0.08)', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: 'rgba(255,123,71,0.2)' }}>
+              <Ionicons name="shield-checkmark" size={18} color="#34C759" />
+              <Text style={{ color: C.textSecondary, fontSize: 13, fontFamily: 'Inter_400Regular', flex: 1 }}>
+                Firebase sends a secure magic link. Click it and you're logged in — no OTP, no password!
+              </Text>
+            </View>
+            <Pressable
+              onPress={() => { setEmailLinkMode(false); setStep(0); }}
+              style={{ marginTop: 16, alignItems: 'center', padding: 10 }}
+            >
+              <Text style={{ color: C.textTertiary, fontSize: 14, fontFamily: 'Inter_500Medium' }}>← Back to other sign-in options</Text>
+            </Pressable>
+          </View>
+        );
+      case 'email-link-sent':
+        return (
+          <View style={styles.stepContent}>
+            <View style={styles.stepHeader}>
+              <View style={[styles.stepIconContainer, { backgroundColor: 'rgba(52,199,89,0.15)' }]}>
+                <Ionicons name="checkmark-circle" size={32} color="#34C759" />
+              </View>
+              <Text style={styles.stepTitle}>Check Your Inbox!</Text>
+              <Text style={styles.stepSubtitle}>
+                A sign-in link has been sent to{'\n'}
+                <Text style={{ color: '#FF7B47', fontFamily: 'Inter_600SemiBold' }}>{emailLinkEmail}</Text>
+              </Text>
+            </View>
+            <View style={{ backgroundColor: C.surface, borderRadius: 16, padding: 20, borderWidth: 1, borderColor: C.border, gap: 16 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#4285F420', alignItems: 'center', justifyContent: 'center' }}>
+                  <Ionicons name="logo-google" size={22} color="#4285F4" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: C.text, fontFamily: 'Inter_600SemiBold', fontSize: 15 }}>1. Open Gmail</Text>
+                  <Text style={{ color: C.textSecondary, fontSize: 13 }}>Find the email from Firebase/Mobi</Text>
+                </View>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#FF7B4720', alignItems: 'center', justifyContent: 'center' }}>
+                  <Ionicons name="link" size={22} color="#FF7B47" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: C.text, fontFamily: 'Inter_600SemiBold', fontSize: 15 }}>2. Tap "Sign in to Mobi"</Text>
+                  <Text style={{ color: C.textSecondary, fontSize: 13 }}>The magic link logs you in instantly</Text>
+                </View>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#34C75920', alignItems: 'center', justifyContent: 'center' }}>
+                  <Ionicons name="checkmark-circle" size={22} color="#34C759" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: C.text, fontFamily: 'Inter_600SemiBold', fontSize: 15 }}>3. You're in!</Text>
+                  <Text style={{ color: C.textSecondary, fontSize: 13 }}>Return to this screen — it'll log in automatically</Text>
+                </View>
+              </View>
+            </View>
+            <Pressable
+              onPress={sendEmailLink}
+              disabled={emailLinkSending}
+              style={{ marginTop: 20, alignItems: 'center', padding: 12 }}
+            >
+              <Text style={{ color: emailLinkSending ? C.textTertiary : C.primary, fontSize: 14, fontFamily: 'Inter_500Medium' }}>
+                {emailLinkSending ? 'Resending...' : "Didn't receive it? Resend link"}
+              </Text>
             </Pressable>
           </View>
         );
@@ -1324,6 +1541,8 @@ export default function OnboardingScreen() {
     if (currentScreen === 'phone') return checking ? 'Checking...' : 'Continue';
     if (currentScreen === 'google-phone') return checking ? 'Verifying...' : 'Continue';
     if (currentScreen === 'otp') return otpVerifying ? 'Verifying...' : 'Verify OTP';
+    if (currentScreen === 'email-link-entry') return emailLinkSending ? 'Sending...' : 'Send Login Link';
+    if (currentScreen === 'email-link-sent') return emailLinkSending ? 'Resending...' : 'Resend Link';
     if (isLastStep) return uploadingSelfie ? 'Setting up...' : 'Complete Setup';
     return 'Continue';
   };
@@ -1347,6 +1566,8 @@ export default function OnboardingScreen() {
     if (currentScreen === 'google-phone') return checking || !phone.trim();
     if (currentScreen === 'otp') return otpVerifying || otpCode.length < 6;
     if (currentScreen === 'email') return emailSendingWelcome;
+    if (currentScreen === 'email-link-entry') return emailLinkSending || !emailLinkEmail.trim();
+    if (currentScreen === 'email-link-sent') return emailLinkSending;
     if (currentScreen === 'details') return !userName.trim();
     if (currentScreen === 'selfie') return !selfieUri;
     if (uploadingSelfie) return true;
@@ -1397,7 +1618,7 @@ export default function OnboardingScreen() {
 
       {!isPhoneScreen && (
         <View style={[styles.bottomActions, { paddingBottom: Platform.OS === 'web' ? 34 : Math.max(insets.bottom, 16), zIndex: 9999, elevation: 9999 }]} pointerEvents="box-none">
-          {step > 0 && (
+          {(step > 0 || emailLinkMode) && (
             <Pressable style={styles.backBtn} onPress={() => {
               if (currentScreen === 'otp') {
                 setOtpCode('');
@@ -1407,6 +1628,13 @@ export default function OnboardingScreen() {
                 setFirebaseVerificationId('');
                 webConfirmationRef.current = null;
                 webRecaptchaRef.current = null;
+              }
+              if (emailLinkMode) {
+                setEmailLinkMode(false);
+                setEmailLinkSent(false);
+                setEmailLinkEmail('');
+                setStep(0);
+                return;
               }
               setStep(s => s - 1);
             }}>
@@ -1433,6 +1661,26 @@ export default function OnboardingScreen() {
               </>
             )}
           </Pressable>
+        </View>
+      )}
+
+      {/* Email Link Signing-In Overlay */}
+      {emailSigningIn && (
+        <View style={{
+          position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(10,10,20,0.92)',
+          alignItems: 'center', justifyContent: 'center', zIndex: 99999,
+        }}>
+          <View style={{ alignItems: 'center', gap: 20, padding: 32, backgroundColor: '#1A1A2E', borderRadius: 24, borderWidth: 1, borderColor: 'rgba(255,123,71,0.3)', maxWidth: 300 }}>
+            <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(255,123,71,0.15)', alignItems: 'center', justifyContent: 'center' }}>
+              <Ionicons name="mail" size={32} color="#FF7B47" />
+            </View>
+            <ActivityIndicator size="large" color="#FF7B47" />
+            <Text style={{ color: '#FFF', fontSize: 18, fontFamily: 'Inter_700Bold', textAlign: 'center' }}>Signing you in…</Text>
+            <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 14, fontFamily: 'Inter_400Regular', textAlign: 'center', lineHeight: 20 }}>
+              Verifying your email link with Firebase. This will only take a moment.
+            </Text>
+          </View>
         </View>
       )}
     </View>
