@@ -60,6 +60,10 @@ function NativeTabLayout() {
           <Icon sf={{ default: "plus.circle", selected: "plus.circle.fill" }} />
           <Label>Post</Label>
         </NativeTabs.Trigger>
+        <NativeTabs.Trigger name="my-shop">
+          <Icon sf={{ default: "storefront", selected: "storefront.fill" }} />
+          <Label>{profile?.role === 'teacher' ? 'Content' : 'Shop'}</Label>
+        </NativeTabs.Trigger>
         <NativeTabs.Trigger name="profile">
           <Icon sf={{ default: "person", selected: "person.fill" }} />
           <Label>Profile</Label>
@@ -68,7 +72,6 @@ function NativeTabLayout() {
         <NativeTabs.Trigger name="jobs" hidden />
         <NativeTabs.Trigger name="technician-jobs" hidden />
         <NativeTabs.Trigger name="marketplace" hidden />
-        <NativeTabs.Trigger name="my-shop" hidden />
       </NativeTabs>
     );
   }
@@ -88,6 +91,10 @@ function NativeTabLayout() {
           <Icon sf={{ default: "plus.circle", selected: "plus.circle.fill" }} />
           <Label>Post</Label>
         </NativeTabs.Trigger>
+        <NativeTabs.Trigger name="marketplace">
+          <Icon sf={{ default: "bag", selected: "bag.fill" }} />
+          <Label>Shop</Label>
+        </NativeTabs.Trigger>
         <NativeTabs.Trigger name="profile">
           <Icon sf={{ default: "person", selected: "person.fill" }} />
           <Label>Profile</Label>
@@ -95,7 +102,6 @@ function NativeTabLayout() {
         <NativeTabs.Trigger name="customer-home" hidden />
         <NativeTabs.Trigger name="technician-jobs" hidden />
         <NativeTabs.Trigger name="my-shop" hidden />
-        <NativeTabs.Trigger name="marketplace" hidden />
       </NativeTabs>
     );
   }
@@ -114,6 +120,10 @@ function NativeTabLayout() {
         <Icon sf={{ default: "plus.circle", selected: "plus.circle.fill" }} />
         <Label>Post</Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="marketplace">
+        <Icon sf={{ default: "bag", selected: "bag.fill" }} />
+        <Label>Shop</Label>
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="profile">
         <Icon sf={{ default: "person", selected: "person.fill" }} />
         <Label>Profile</Label>
@@ -121,7 +131,6 @@ function NativeTabLayout() {
       <NativeTabs.Trigger name="customer-home" hidden />
       <NativeTabs.Trigger name="jobs" hidden />
       <NativeTabs.Trigger name="my-shop" hidden />
-      <NativeTabs.Trigger name="marketplace" hidden />
     </NativeTabs>
   );
 }
@@ -225,34 +234,18 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="create"
         options={{
-          title: "",
+          title: "Post",
           href: isCustomer ? null : '/create',
-          tabBarIcon: ({ focused }) => (
-            <View style={{
-              width: 56,
-              height: 56,
-              borderRadius: 28,
-              backgroundColor: C.primary,
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginBottom: Platform.OS === 'web' ? 0 : 20,
-              shadowColor: C.primary,
-              shadowOffset: { width: 0, height: 4 },
-              shadowOpacity: 0.3,
-              shadowRadius: 8,
-              elevation: 8,
-            }}>
-              <Ionicons name="add" size={30} color="#FFF" />
-            </View>
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? "add-circle" : "add-circle-outline"} size={24} color={color} />
           ),
-          tabBarLabel: () => null,
         }}
       />
       {isTeacherOrSupplier && (
         <Tabs.Screen
           name="my-shop"
           options={{
-            title: profile?.role === 'teacher' ? "Content" : "Products",
+            title: profile?.role === 'teacher' ? "Content" : "Shop",
             href: '/my-shop',
             tabBarIcon: ({ color, focused }) => (
               <Ionicons name={focused ? "storefront" : "storefront-outline"} size={22} color={color} />
@@ -264,11 +257,11 @@ function ClassicTabLayout() {
         <Tabs.Screen
           name="marketplace"
           options={{
-            title: "Sell",
+            title: "Shop",
             href: '/marketplace',
             tabBarIcon: ({ color, focused }) => (
               <Ionicons
-                name={focused ? "pricetag" : "pricetag-outline"}
+                name={focused ? "bag" : "bag-outline"}
                 size={22}
                 color={color}
               />
