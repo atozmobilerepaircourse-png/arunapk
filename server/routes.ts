@@ -826,19 +826,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { token } = req.body;
       if (!token) return res.status(400).json({ success: false, message: "Token required" });
-      const clientId = process.env.GOOGLE_CLIENT_ID;
+      
+      // Use EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID which is the actual client ID set in env-secrets
+      const clientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || process.env.GOOGLE_CLIENT_ID;
+      // For production, use the Cloud Run redirect URI; for dev, use the Replit domain from secrets
       const redirectUri = process.env.GOOGLE_REDIRECT_URI || "https://repair-backend-3siuld7gbq-el.a.run.app/api/auth/google/callback";
       
       if (!clientId) {
-        console.error("[Google Auth] GOOGLE_CLIENT_ID is not set in environment!");
+        console.error("[Google Auth] No clientId found in EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID or GOOGLE_CLIENT_ID");
         return res.status(500).json({ success: false, message: "GOOGLE_CLIENT_ID not configured" });
       }
       if (!redirectUri) return res.status(500).json({ success: false, message: "GOOGLE_REDIRECT_URI not configured" });
       
+      console.log("[Google Auth] Using clientId:", clientId.substring(0, 20) + "...");
+      console.log("[Google Auth] Using redirectUri:", redirectUri);
+      
       const stateObj = { token };
       const stateStr = Buffer.from(JSON.stringify(stateObj)).toString('base64');
       const googleUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=email%20profile&state=${encodeURIComponent(stateStr)}&prompt=select_account`;
-      console.log("[Google Auth] Generated login URL with redirect_uri:", redirectUri);
       return res.json({ success: true, url: googleUrl });
     } catch (error) {
       console.error("[Google Auth] get-login-url error:", error);
@@ -913,19 +918,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return sendGoogleErrorPage(res, "No authorization code received from Google.");
       }
 
-      const clientId = process.env.GOOGLE_CLIENT_ID;
+      // Use EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID (the actual registered client ID)
+      const clientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || process.env.GOOGLE_CLIENT_ID;
       const clientSecret = getGoogleClientSecret();
       const redirectUri = process.env.GOOGLE_REDIRECT_URI || "https://repair-backend-3siuld7gbq-el.a.run.app/api/auth/google/callback";
 
-      console.log("[Google Auth] clientId from env:", !!clientId, clientId?.substring(0, 20) + "...");
-      console.log("[Google Auth] clientSecret available:", !!clientSecret, "length:", clientSecret?.length);
-      console.log("[Google Auth] redirectUri:", redirectUri);
+      console.log("[Google Auth] Callback: clientId set:", !!clientId, clientId?.substring(0, 20) + "...");
+      console.log("[Google Auth] Callback: clientSecret length:", clientSecret?.length);
+      console.log("[Google Auth] Callback: redirectUri:", redirectUri);
 
       if (!clientId || !clientSecret) {
+        console.error("[Google Auth] Missing credentials - clientId:", !!clientId, "secret:", !!clientSecret);
         return sendGoogleErrorPage(res, "Google OAuth is not configured on the server.");
       }
 
-      console.log("[Google Auth] Exchanging code for token...");
+      console.log("[Google Auth] Exchanging authorization code for token...");
       const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -939,30 +946,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       const tokenData = await tokenRes.json() as any;
-      console.log("[Google Auth] Token exchange response status:", tokenRes.status);
-      console.log("[Google Auth] Token response keys:", Object.keys(tokenData).join(", "));
+      console.log("[Google Auth] Token exchange status:", tokenRes.status);
       
       if (tokenData.error) {
-        console.error("[Google Auth] OAuth error:", tokenData.error, "description:", tokenData.error_description);
-      }
-
-      if (!tokenData.access_token) {
-        console.error("[Google Auth] No access token in response:", JSON.stringify(tokenData).substring(0, 300));
+        console.error("[Google Auth] Token exchange error:", tokenData.error, "-", tokenData.error_description);
         return sendGoogleErrorPage(res, tokenData.error_description || tokenData.error || "Failed to authenticate with Google.");
       }
 
+      if (!tokenData.access_token) {
+        console.error("[Google Auth] No access_token in response. Response:", JSON.stringify(tokenData).substring(0, 300));
+        return sendGoogleErrorPage(res, "Failed to get access token from Google. Please try again.");
+      }
+
+      console.log("[Google Auth] Token exchange successful, fetching user info...");
       const userInfoRes = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
         headers: { Authorization: `Bearer ${tokenData.access_token}` },
       });
       const userInfo = await userInfoRes.json() as any;
 
       if (!userInfo.email) {
+        console.error("[Google Auth] No email in userInfo:", Object.keys(userInfo).join(", "));
         return sendGoogleErrorPage(res, "Could not get email from your Google account.");
       }
 
       const email = userInfo.email;
       const name = userInfo.name || '';
-      console.log("[Google Auth] Success for email:", email);
+      const picture = userInfo.picture || '';
+      console.log("[Google Auth] Got user email:", email);
+      
+      // Create or update user in profiles table
+      try {
+        const existingUser = await db.select().from(profiles).where(eq(profiles.email, email));
+        let userId: string;
+        
+        if (existingUser.length > 0) {
+          // Update existing user
+          userId = existingUser[0].id;
+          await db.update(profiles)
+            .set({ name, picture })
+            .where(eq(profiles.id, userId));
+          console.log("[Google Auth] Updated existing user:", email);
+        } else {
+          // Create new user
+          userId = randomUUID();
+          await db.insert(profiles).values({
+            id: userId,
+            email,
+            name,
+            picture,
+            phone: '',
+            role: 'customer', // Default role
+            bio: '',
+            location: '',
+            ratingAverage: 0,
+            ratingCount: 0,
+            verifiedBadge: false,
+            deviceId: '',
+          });
+          console.log("[Google Auth] Created new user:", email);
+        }
+      } catch (dbError) {
+        console.error("[Google Auth] Database error creating/updating user:", dbError);
+        return sendGoogleErrorPage(res, "Failed to create user account. Please try again.");
+      }
 
       // Send welcome email asynchronously
       sendWelcomeEmail(email, name).catch(err => console.error("[Email] Async error:", err));

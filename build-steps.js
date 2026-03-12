@@ -74,8 +74,19 @@ const buildConfig = {
         const fast2sms = process.env.FAST2SMS_API_KEY || '';
         const bunnyKey = process.env.BUNNY_STREAM_API_KEY || '';
         const bunnyLib = process.env.BUNNY_STREAM_LIBRARY_ID || '';
-        // Use the client ID that matches the configured secrets
-        const googleClientId = process.env.GOOGLE_CLIENT_ID || '1097660126888-q7kd6cq0kg2qivk08bpl9t0jfvibkt9k.apps.googleusercontent.com';
+        
+        // Extract client ID from GOOGLE_CLIENT_SECRET JSON (matches the secret for Cloud Run)
+        let googleClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || process.env.GOOGLE_CLIENT_ID || '';
+        if (!googleClientId && process.env.GOOGLE_CLIENT_SECRET) {
+          try {
+            const secret = JSON.parse(process.env.GOOGLE_CLIENT_SECRET);
+            googleClientId = secret.web?.client_id || secret.installed?.client_id || '';
+          } catch {}
+        }
+        // Fallback: use the correct client ID for Cloud Run credentials
+        if (!googleClientId) {
+          googleClientId = '1097660126888-oui7uutiqbksd0q82nbvbhejbpo4t4s8.apps.googleusercontent.com';
+        }
         const googleRedirectUri = process.env.GOOGLE_REDIRECT_URI || 'https://repair-backend-3siuld7gbq-el.a.run.app/api/auth/google/callback';
 
         const args = [
