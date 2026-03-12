@@ -10,10 +10,19 @@ import {
   Dimensions,
 } from 'react-native';
 import { Image } from 'expo-image';
-import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
-import { T } from '@/constants/techTheme';
+import { Ionicons, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
 
 const { width } = Dimensions.get('window');
+
+// UX Pilot Colors (Exact from design)
+const COLORS = {
+  dark: '#687494',      // Background
+  card: '#5C6784',      // Card background
+  accent: '#FF7B47',    // Orange accent
+  text: '#FFFFFF',      // Text
+  muted: '#E5E7EB',     // Muted text
+  border: '#4A5568',    // Borders
+};
 
 interface Product {
   id: string;
@@ -24,10 +33,9 @@ interface Product {
   rating: number;
   reviews: number;
   image: string;
-  stockStatus: 'in-stock' | 'low-stock' | 'out-of-stock' | 'notify';
+  stockStatus: 'in-stock' | 'low-stock' | 'out-of-stock';
   stockCount?: number;
   condition: 'new' | 'refurbished' | 'used';
-  liked?: boolean;
 }
 
 const PRODUCTS: Product[] = [
@@ -84,21 +92,27 @@ const PRODUCTS: Product[] = [
   },
 ];
 
+const conditionColors: Record<string, string> = {
+  new: '#10B981',
+  refurbished: '#3B82F6',
+  used: '#6B7280',
+};
+
 interface ShopProductsTabProps {
   search: string;
   onSearch: (query: string) => void;
 }
 
 export function ShopProductsTab({ search, onSearch }: ShopProductsTabProps) {
-  const [selectedCategory, setSelectedCategory] = useState('All');
   const [wishlist, setWishlist] = useState(new Set<string>());
 
   const filteredProducts = useMemo(() => {
     return PRODUCTS.filter(product =>
-      (selectedCategory === 'All' || product.brand.toLowerCase().includes(selectedCategory.toLowerCase()) || product.title.toLowerCase().includes(selectedCategory.toLowerCase())) &&
-      (search === '' || product.title.toLowerCase().includes(search.toLowerCase()) || product.brand.toLowerCase().includes(search.toLowerCase()))
+      product.title.toLowerCase().includes(search.toLowerCase()) ||
+      product.brand.toLowerCase().includes(search.toLowerCase()) ||
+      product.partNumber.toLowerCase().includes(search.toLowerCase())
     );
-  }, [search, selectedCategory]);
+  }, [search]);
 
   const toggleWishlist = (id: string) => {
     const newWishlist = new Set(wishlist);
@@ -112,17 +126,19 @@ export function ShopProductsTab({ search, onSearch }: ShopProductsTabProps) {
 
   const renderProductCard = ({ item }: { item: Product }) => (
     <Pressable style={styles.productCard}>
+      {/* Wishlist Button */}
       <Pressable
         onPress={() => toggleWishlist(item.id)}
         style={styles.wishlistBtn}
       >
         <Ionicons
           name={wishlist.has(item.id) ? 'heart' : 'heart-outline'}
-          size={20}
-          color={wishlist.has(item.id) ? '#FF6B2C' : T.text}
+          size={16}
+          color={wishlist.has(item.id) ? '#FF3B30' : COLORS.text}
         />
       </Pressable>
 
+      {/* Product Image Container */}
       <View style={styles.imageContainer}>
         <Image
           source={{ uri: item.image }}
@@ -130,39 +146,40 @@ export function ShopProductsTab({ search, onSearch }: ShopProductsTabProps) {
           contentFit="cover"
           cachePolicy="memory-disk"
         />
-        <View style={[
-          styles.conditionBadge,
-          {
-            backgroundColor:
-              item.condition === 'new'
-                ? '#10B981'
-                : item.condition === 'refurbished'
-                  ? '#3B82F6'
-                  : '#6B7280',
-          },
-        ]}>
+        {/* Condition Badge */}
+        <View
+          style={[
+            styles.conditionBadge,
+            { backgroundColor: conditionColors[item.condition] },
+          ]}
+        >
           <Text style={styles.conditionBadgeText}>
-            {item.condition.charAt(0).toUpperCase() + item.condition.slice(1)}
+            {item.condition.toUpperCase()}
           </Text>
         </View>
       </View>
 
+      {/* Card Content */}
       <View style={styles.cardContent}>
+        {/* Brand & Rating Row */}
         <View style={styles.brandRatingRow}>
           <Text style={styles.brand}>{item.brand}</Text>
           <View style={styles.ratingContainer}>
-            <FontAwesome5 name="star" size={10} color="#F59E0B" solid />
+            <Ionicons name="star" size={10} color="#FCD34D" />
             <Text style={styles.rating}>{item.rating}</Text>
             <Text style={styles.reviewCount}>({item.reviews})</Text>
           </View>
         </View>
 
+        {/* Product Title */}
         <Text style={styles.productTitle} numberOfLines={2}>
           {item.title}
         </Text>
 
+        {/* Part Number */}
         <Text style={styles.partNumber}>PN: {item.partNumber}</Text>
 
+        {/* Price & Stock Row */}
         <View style={styles.priceStockRow}>
           <View>
             <Text style={styles.price}>{item.price}</Text>
@@ -174,7 +191,7 @@ export function ShopProductsTab({ search, onSearch }: ShopProductsTabProps) {
                     item.stockStatus === 'in-stock'
                       ? '#10B981'
                       : item.stockStatus === 'low-stock'
-                        ? '#F59E0B'
+                        ? '#FCD34D'
                         : '#EF4444',
                 },
               ]}
@@ -183,27 +200,30 @@ export function ShopProductsTab({ search, onSearch }: ShopProductsTabProps) {
                 ? `✓ In Stock (${item.stockCount})`
                 : item.stockStatus === 'low-stock'
                   ? `⚠ Low Stock (${item.stockCount})`
-                  : item.stockStatus === 'out-of-stock'
-                    ? '✕ Out of Stock'
-                    : '🔔 Notify Me'}
+                  : '✕ Out of Stock'}
             </Text>
           </View>
 
+          {/* Cart Button */}
           <Pressable
             style={[
               styles.cartBtn,
               {
                 backgroundColor:
-                  item.stockStatus === 'out-of-stock' ? T.border : T.accent,
+                  item.stockStatus === 'out-of-stock'
+                    ? COLORS.border
+                    : COLORS.accent,
               },
             ]}
           >
-            <Ionicons
+            <MaterialCommunityIcons
               name={
-                item.stockStatus === 'out-of-stock' ? 'notifications-outline' : 'add-circle'
+                item.stockStatus === 'out-of-stock'
+                  ? 'bell-outline'
+                  : 'cart-plus'
               }
-              size={20}
-              color={T.text}
+              size={16}
+              color={COLORS.text}
             />
           </Pressable>
         </View>
@@ -212,42 +232,55 @@ export function ShopProductsTab({ search, onSearch }: ShopProductsTabProps) {
   );
 
   return (
-    <FlatList
-      data={filteredProducts}
-      renderItem={renderProductCard}
-      keyExtractor={(item) => item.id}
-      numColumns={2}
-      columnWrapperStyle={styles.gridRow}
-      contentContainerStyle={styles.gridContent}
-      scrollEnabled={false}
-      ListHeaderComponent={
-        <View style={styles.gridHeader}>
-          <View>
-            <Text style={styles.gridTitle}>Professional Tools & Parts</Text>
-            <Text style={styles.gridSubtitle}>{filteredProducts.length} items found</Text>
-          </View>
+    <View style={styles.container}>
+      {/* Header Section */}
+      <View style={styles.headerSection}>
+        <View>
+          <Text style={styles.headerTitle}>Professional Tools & Parts</Text>
+          <Text style={styles.headerSubtitle}>
+            {filteredProducts.length} items found
+          </Text>
         </View>
-      }
-    />
+      </View>
+
+      {/* Product Grid */}
+      <FlatList
+        data={filteredProducts}
+        renderItem={renderProductCard}
+        keyExtractor={(item) => item.id}
+        numColumns={2}
+        columnWrapperStyle={styles.gridRow}
+        contentContainerStyle={styles.gridContent}
+        scrollEnabled={false}
+        ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  gridContent: {
-    padding: 12,
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.dark,
   },
-  gridHeader: {
-    marginBottom: 16,
+  headerSection: {
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
   },
-  gridTitle: {
+  headerTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: T.text,
+    color: COLORS.text,
     marginBottom: 4,
   },
-  gridSubtitle: {
+  headerSubtitle: {
     fontSize: 12,
-    color: T.muted,
+    color: COLORS.muted,
+  },
+  gridContent: {
+    padding: 12,
   },
   gridRow: {
     justifyContent: 'space-between',
@@ -256,10 +289,10 @@ const styles = StyleSheet.create({
   },
   productCard: {
     flex: 1,
-    backgroundColor: T.card,
+    backgroundColor: COLORS.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: T.border,
+    borderColor: COLORS.border,
     overflow: 'hidden',
     maxWidth: '48%',
   },
@@ -270,7 +303,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: 'rgba(18,18,18,0.7)',
+    backgroundColor: 'rgba(104, 116, 148, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 10,
@@ -279,6 +312,7 @@ const styles = StyleSheet.create({
     aspectRatio: 1,
     backgroundColor: '#F5F5F5',
     position: 'relative',
+    overflow: 'hidden',
   },
   productImage: {
     width: '100%',
@@ -293,7 +327,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   conditionBadgeText: {
-    fontSize: 9,
+    fontSize: 8,
     fontWeight: '700',
     color: '#FFF',
     textTransform: 'uppercase',
@@ -301,54 +335,53 @@ const styles = StyleSheet.create({
   },
   cardContent: {
     padding: 12,
+    gap: 6,
   },
   brandRatingRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 6,
   },
   brand: {
     fontSize: 11,
     fontWeight: '600',
-    color: T.muted,
+    color: COLORS.muted,
   },
   ratingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
+    gap: 2,
   },
   rating: {
     fontSize: 11,
     fontWeight: '600',
-    color: T.text,
+    color: COLORS.text,
   },
   reviewCount: {
     fontSize: 10,
-    color: T.muted,
+    color: COLORS.muted,
   },
   productTitle: {
     fontSize: 13,
     fontWeight: '600',
-    color: T.text,
-    marginBottom: 4,
+    color: COLORS.text,
+    lineHeight: 16,
   },
   partNumber: {
     fontSize: 10,
-    color: T.muted,
+    color: COLORS.muted,
     fontFamily: 'monospace',
-    marginBottom: 8,
   },
   priceStockRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-end',
-    marginTop: 'auto',
+    marginTop: 6,
   },
   price: {
     fontSize: 16,
     fontWeight: '700',
-    color: T.accent,
+    color: COLORS.accent,
     marginBottom: 2,
   },
   stockInfo: {
