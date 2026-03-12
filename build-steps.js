@@ -58,35 +58,27 @@ const buildConfig = {
       id: 'DeployToCloudRun',
       entrypoint: 'gcloud',
       args: (() => {
+        // Production Google OAuth credentials for Cloud Run
+        const GOOGLE_PROD_CLIENT_ID = '456751858632-brh0ir7j9v2ks5kk6antp6q757kmhaus.apps.googleusercontent.com';
+        const GOOGLE_PROD_CLIENT_SECRET = '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';
+        
         // Extract the actual client_secret value from the JSON blob
-        let googleClientSecret = '';
+        let googleClientSecret = GOOGLE_PROD_CLIENT_SECRET;
         try {
           const raw = process.env.GOOGLE_CLIENT_SECRET || '';
           const parsed = JSON.parse(raw);
-          googleClientSecret = parsed?.web?.client_secret
+          const secretFromEnv = parsed?.web?.client_secret
             || parsed?.installed?.client_secret
-            || parsed?.client_secret
-            || raw;
-        } catch {
-          googleClientSecret = process.env.GOOGLE_CLIENT_SECRET || '';
-        }
+            || parsed?.client_secret;
+          if (secretFromEnv) googleClientSecret = secretFromEnv;
+        } catch {}
 
         const fast2sms = process.env.FAST2SMS_API_KEY || '';
         const bunnyKey = process.env.BUNNY_STREAM_API_KEY || '';
         const bunnyLib = process.env.BUNNY_STREAM_LIBRARY_ID || '';
         
-        // Extract client ID from GOOGLE_CLIENT_SECRET JSON (matches the secret for Cloud Run)
-        let googleClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || process.env.GOOGLE_CLIENT_ID || '';
-        if (!googleClientId && process.env.GOOGLE_CLIENT_SECRET) {
-          try {
-            const secret = JSON.parse(process.env.GOOGLE_CLIENT_SECRET);
-            googleClientId = secret.web?.client_id || secret.installed?.client_id || '';
-          } catch {}
-        }
-        // Fallback: use the correct client ID for Cloud Run credentials
-        if (!googleClientId) {
-          googleClientId = '1097660126888-oui7uutiqbksd0q82nbvbhejbpo4t4s8.apps.googleusercontent.com';
-        }
+        // Use production client ID
+        const googleClientId = GOOGLE_PROD_CLIENT_ID;
         const googleRedirectUri = process.env.GOOGLE_REDIRECT_URI || 'https://repair-backend-3siuld7gbq-el.a.run.app/api/auth/google/callback';
 
         const args = [
