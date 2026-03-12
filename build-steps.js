@@ -74,7 +74,8 @@ const buildConfig = {
         const fast2sms = process.env.FAST2SMS_API_KEY || '';
         const bunnyKey = process.env.BUNNY_STREAM_API_KEY || '';
         const bunnyLib = process.env.BUNNY_STREAM_LIBRARY_ID || '';
-        const googleClientId = process.env.GOOGLE_CLIENT_ID || '456751858632-brh0ir7j9v2ks5kk6antp6q757kmhaus.apps.googleusercontent.com';
+        // Use the client ID that matches the configured secrets
+        const googleClientId = process.env.GOOGLE_CLIENT_ID || '1097660126888-q7kd6cq0kg2qivk08bpl9t0jfvibkt9k.apps.googleusercontent.com';
         const googleRedirectUri = process.env.GOOGLE_REDIRECT_URI || 'https://repair-backend-3siuld7gbq-el.a.run.app/api/auth/google/callback';
 
         const args = [
@@ -239,3 +240,6 @@ console.log('server_dist/index.js is now fully bundled (26MB) with all npm packa
     }
   }
 })().catch(err => { console.error(err); process.exit(1); });
+
+// Dummy export to prevent errors
+module.exports = {};

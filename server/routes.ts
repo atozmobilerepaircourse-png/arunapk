@@ -826,10 +826,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { token } = req.body;
       if (!token) return res.status(400).json({ success: false, message: "Token required" });
-      const clientId = process.env.GOOGLE_CLIENT_ID || '456751858632-brh0ir7j9v2ks5kk6antp6q757kmhaus.apps.googleusercontent.com';
+      const clientId = process.env.GOOGLE_CLIENT_ID;
       const redirectUri = process.env.GOOGLE_REDIRECT_URI || "https://repair-backend-3siuld7gbq-el.a.run.app/api/auth/google/callback";
       
-      if (!clientId) return res.status(500).json({ success: false, message: "GOOGLE_CLIENT_ID not configured" });
+      if (!clientId) {
+        console.error("[Google Auth] GOOGLE_CLIENT_ID is not set in environment!");
+        return res.status(500).json({ success: false, message: "GOOGLE_CLIENT_ID not configured" });
+      }
       if (!redirectUri) return res.status(500).json({ success: false, message: "GOOGLE_REDIRECT_URI not configured" });
       
       const stateObj = { token };
@@ -910,11 +913,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return sendGoogleErrorPage(res, "No authorization code received from Google.");
       }
 
-      const clientId = process.env.GOOGLE_CLIENT_ID || '456751858632-brh0ir7j9v2ks5kk6antp6q757kmhaus.apps.googleusercontent.com';
+      const clientId = process.env.GOOGLE_CLIENT_ID;
       const clientSecret = getGoogleClientSecret();
       const redirectUri = process.env.GOOGLE_REDIRECT_URI || "https://repair-backend-3siuld7gbq-el.a.run.app/api/auth/google/callback";
 
-      console.log("[Google Auth] clientId set:", !!clientId);
+      console.log("[Google Auth] clientId from env:", !!clientId, clientId?.substring(0, 20) + "...");
       console.log("[Google Auth] clientSecret available:", !!clientSecret, "length:", clientSecret?.length);
       console.log("[Google Auth] redirectUri:", redirectUri);
 
