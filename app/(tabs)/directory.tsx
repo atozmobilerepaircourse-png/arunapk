@@ -250,38 +250,43 @@ export default function DirectoryScreen() {
         ListHeaderComponent={
           <>
             {/* ── HEADER ── */}
-            <View style={[styles.header, { paddingTop: topPad }]}>
-              {/* Location */}
-              <View style={styles.locationSelector}>
-                <Ionicons name="location" size={13} color={PRIMARY} />
-                <Text style={styles.locationCity}>Hyderabad</Text>
-                <Ionicons name="chevron-down" size={10} color={GRAY} />
-              </View>
+            {Platform.OS !== 'web' && (
+              <View style={[styles.header, { paddingTop: topPad }]}>
+                {/* Location */}
+                <View style={styles.locationSelector}>
+                  <Ionicons name="location" size={13} color={PRIMARY} />
+                  <Text style={styles.locationCity}>Hyderabad</Text>
+                  <Ionicons name="chevron-down" size={10} color={GRAY} />
+                </View>
 
-              {/* Title row */}
-              <View style={styles.titleRow}>
-                {Platform.OS !== 'web' && (
+                {/* Title row */}
+                <View style={styles.titleRow}>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.headerTitle}>Find Professionals{'\n'}Near You</Text>
                     <Text style={styles.headerSub}>Technicians, Teachers, Suppliers and Customers across India</Text>
                   </View>
-                )}
-                {Platform.OS === 'web' && <View style={{ flex: 1 }} />}
-                <View style={styles.headerBtns}>
-                  {Platform.OS !== 'web' && (
+                  <View style={styles.headerBtns}>
                     <Pressable style={styles.mapBtn} onPress={() => setViewMode('map')}>
                       <Ionicons name="map-outline" size={18} color={PRIMARY} />
                       <Text style={styles.mapBtnText}>View Map</Text>
                     </Pressable>
-                  )}
-                  <Pressable style={styles.menuBtn} onPress={() => {}}>
-                    <Ionicons name="menu" size={18} color={GRAY} />
-                  </Pressable>
+                    <Pressable style={styles.menuBtn} onPress={() => {}}>
+                      <Ionicons name="menu" size={18} color={GRAY} />
+                    </Pressable>
+                  </View>
                 </View>
               </View>
+            )}
+            {Platform.OS === 'web' && (
+              <View style={[styles.header, { paddingTop: topPad }]}>
+                <Pressable style={styles.menuBtn} onPress={() => {}}>
+                  <Ionicons name="menu" size={18} color={GRAY} />
+                </Pressable>
+              </View>
+            )}
 
-              {/* Search bar */}
-              <View style={styles.searchBar}>
+              {/* Search bar - Web needs top padding */}
+              <View style={[styles.searchBar, Platform.OS === 'web' && { marginTop: 12 }]}>
                 <Ionicons name="search" size={16} color={GRAY} style={{ marginLeft: 4 }} />
                 <TextInput
                   style={styles.searchInput}
