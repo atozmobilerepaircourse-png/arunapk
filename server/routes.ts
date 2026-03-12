@@ -391,13 +391,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Find profile by phone (handles both phone and email-format phones)
-      const allProfiles = await db.select().from(profiles);
-      let profileRows: typeof allProfiles = [];
+      let profileRows: any[] = [];
       if (phone.startsWith('email:')) {
-        profileRows = allProfiles.filter(p => p.phone === phone);
+        // For email-format phones, match exactly
+        profileRows = await db.select().from(profiles).where(eq(profiles.phone, phone));
       } else {
+        // For regular phone numbers, match by cleaned digits
         const cleanPhone = phone.replace(/\D/g, '');
-        profileRows = allProfiles.filter(p => p.phone.replace(/\D/g, '') === cleanPhone);
+        const allProfiles = await db.select().from(profiles);
+        profileRows = allProfiles.filter((p: any) => p.phone.replace(/\D/g, '') === cleanPhone);
       }
       
       if (!profileRows || !profileRows[0]) {
