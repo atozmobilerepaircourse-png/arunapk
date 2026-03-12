@@ -11,21 +11,40 @@ import Animated, {
   FadeInDown, useSharedValue, useAnimatedStyle,
   withRepeat, withSequence, withTiming, withDelay, Easing,
 } from 'react-native-reanimated';
-import Colors from '@/constants/colors';
-import { T, CATEGORY_COLORS } from '@/constants/techTheme';
+import { T } from '@/constants/techTheme';
 import { useApp } from '@/lib/context';
 import { openLink } from '@/lib/open-link';
 import { PostCategory } from '@/lib/types';
 import PostCard from '@/components/PostCard';
 import { apiRequest } from '@/lib/query-client';
 
-const CL = Colors.light;
+// ─── UX Pilot exact tokens ───────────────────────────────────────────────────
+const BG        = '#121212';
+const CARD      = '#1E1E1E';
+const SURFACE   = '#2A2A2A';
+const BORDER    = '#374151';
+const TEXT      = '#F3F4F6';
+const MUTED     = '#9CA3AF';
+const PRIMARY   = '#4F46E5';
+const BLUE      = '#3B82F6';
+const GREEN     = '#10B981';
+const AMBER     = '#F59E0B';
 
-// ─── Skeleton ────────────────────────────────────────────────────────────────
-function SkeletonBox({
-  width, height, borderRadius = 8, bgColor, style,
-}: {
-  width: number | string; height: number; borderRadius?: number; bgColor?: string; style?: any;
+// ─── Filter type ─────────────────────────────────────────────────────────────
+type FilterKey = PostCategory | 'all' | 'technician' | 'customer';
+
+const FILTERS: { key: FilterKey; label: string; icon: keyof typeof Ionicons.glyphMap; color?: string }[] = [
+  { key: 'all',        label: 'All Posts',        icon: 'layers-outline' },
+  { key: 'technician', label: 'Technician Posts',  icon: 'construct-outline', color: GREEN },
+  { key: 'customer',   label: 'Customer Posts',    icon: 'person-outline',    color: AMBER },
+  { key: 'job',        label: 'Jobs',             icon: 'briefcase-outline' },
+  { key: 'training',   label: 'Training',         icon: 'school-outline' },
+  { key: 'supplier',   label: 'Suppliers',        icon: 'cube-outline' },
+];
+
+// ─── Skeleton ─────────────────────────────────────────────────────────────────
+function SkeletonBox({ width, height, borderRadius = 8, style }: {
+  width: number | string; height: number; borderRadius?: number; style?: any;
 }) {
   const opacity = useSharedValue(0.4);
   useEffect(() => {
@@ -33,49 +52,43 @@ function SkeletonBox({
       withSequence(
         withTiming(1, { duration: 700, easing: Easing.ease }),
         withTiming(0.4, { duration: 700, easing: Easing.ease }),
-      ),
-      -1,
+      ), -1,
     );
   }, []);
   const animStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
   return (
-    <Animated.View
-      style={[{ width: width as any, height, borderRadius, backgroundColor: bgColor || T.card }, animStyle, style]}
-    />
+    <Animated.View style={[{ width: width as any, height, borderRadius, backgroundColor: SURFACE }, animStyle, style]} />
   );
 }
 
-function PostSkeleton({ dark }: { dark: boolean }) {
-  const bg = dark ? T.cardSurface : '#E8E8E8';
+function PostSkeleton() {
   return (
     <View style={{ paddingHorizontal: 16, paddingVertical: 10, gap: 12 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-        <SkeletonBox width={44} height={44} borderRadius={22} bgColor={bg} />
+        <SkeletonBox width={44} height={44} borderRadius={22} />
         <View style={{ gap: 6, flex: 1 }}>
-          <SkeletonBox width="60%" height={14} bgColor={bg} />
-          <SkeletonBox width="40%" height={12} bgColor={bg} />
+          <SkeletonBox width="60%" height={14} />
+          <SkeletonBox width="40%" height={12} />
         </View>
       </View>
-      <SkeletonBox width="100%" height={180} borderRadius={12} bgColor={bg} />
-      <SkeletonBox width="80%" height={14} bgColor={bg} />
-      <SkeletonBox width="50%" height={12} bgColor={bg} />
+      <SkeletonBox width="100%" height={160} borderRadius={12} />
+      <SkeletonBox width="80%" height={14} />
+      <SkeletonBox width="50%" height={12} />
     </View>
   );
 }
 
-// ─── Header Button ────────────────────────────────────────────────────────────
+// ─── Animated header button ───────────────────────────────────────────────────
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-function HeaderButton({
-  children, onPress, delay = 0, style,
-}: {
-  children: React.ReactNode; onPress: () => void; delay?: number; style?: any;
+function HeaderButton({ children, onPress, delay = 0 }: {
+  children: React.ReactNode; onPress: () => void; delay?: number;
 }) {
-  const scale = useSharedValue(0.5);
+  const scale   = useSharedValue(0.5);
   const opacity = useSharedValue(0);
 
   useEffect(() => {
-    scale.value = withDelay(delay, withSequence(
+    scale.value   = withDelay(delay, withSequence(
       withTiming(1.15, { duration: 300, easing: Easing.out(Easing.back(2)) }),
       withTiming(1, { duration: 200, easing: Easing.out(Easing.quad) }),
     ));
@@ -97,21 +110,28 @@ function HeaderButton({
   };
 
   return (
-    <AnimatedPressable hitSlop={12} onPress={handlePress} style={[{ position: 'relative' }, style, animStyle]}>
+    <AnimatedPressable hitSlop={12} onPress={handlePress} style={[{ position: 'relative' }, animStyle]}>
       {children}
     </AnimatedPressable>
   );
 }
 
-// ─── Filter Config ────────────────────────────────────────────────────────────
-const FILTERS: { key: PostCategory | 'all'; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
-  { key: 'all',      label: 'All',       icon: 'grid-outline' },
-  { key: 'repair',   label: 'Repairs',   icon: 'construct-outline' },
-  { key: 'job',      label: 'Jobs',      icon: 'briefcase-outline' },
-  { key: 'training', label: 'Training',  icon: 'school-outline' },
-  { key: 'supplier', label: 'Suppliers', icon: 'cube-outline' },
-  { key: 'sell',     label: 'For Sale',  icon: 'pricetag-outline' },
-];
+// ─── Live ping dot ────────────────────────────────────────────────────────────
+function PingDot({ color }: { color: string }) {
+  const scale   = useSharedValue(1);
+  const opacity = useSharedValue(1);
+  useEffect(() => {
+    scale.value   = withRepeat(withSequence(withTiming(2, { duration: 900 }), withTiming(1, { duration: 0 })), -1);
+    opacity.value = withRepeat(withSequence(withTiming(0, { duration: 900 }), withTiming(1, { duration: 0 })), -1);
+  }, []);
+  const ring = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }], opacity: opacity.value }));
+  return (
+    <View style={{ width: 8, height: 8 }}>
+      <Animated.View style={[StyleSheet.absoluteFill, { borderRadius: 4, backgroundColor: color }, ring]} />
+      <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: color }} />
+    </View>
+  );
+}
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function FeedScreen() {
@@ -130,19 +150,19 @@ export default function FeedScreen() {
     }
   }, [isLoading, isOnboarded]);
 
-  const [filter, setFilter]           = useState<PostCategory | 'all'>('all');
-  const [refreshing, setRefreshing]   = useState(false);
-  const [liveUrl, setLiveUrl]         = useState('');
+  const [filter, setFilter]       = useState<FilterKey>('all');
+  const [refreshing, setRefreshing] = useState(false);
+  const [liveUrl, setLiveUrl]       = useState('');
   const [schematicsUrl, setSchematicsUrl] = useState('');
-  const [webToolsUrl, setWebToolsUrl] = useState('');
+  const [webToolsUrl, setWebToolsUrl]     = useState('');
 
   const loadSettings = useCallback(() => {
     apiRequest('GET', '/api/app-settings')
       .then(r => r.json())
       .then(data => {
-        if (data.live_url)        setLiveUrl(data.live_url);
-        if (data.schematics_url)  setSchematicsUrl(data.schematics_url);
-        if (data.web_tools_url)   setWebToolsUrl(data.web_tools_url);
+        if (data.live_url)       setLiveUrl(data.live_url);
+        if (data.schematics_url) setSchematicsUrl(data.schematics_url);
+        if (data.web_tools_url)  setWebToolsUrl(data.web_tools_url);
       })
       .catch(() => {});
   }, []);
@@ -150,7 +170,12 @@ export default function FeedScreen() {
   useEffect(() => { loadSettings(); }, [loadSettings]);
   useFocusEffect(useCallback(() => { loadSettings(); }, [loadSettings]));
 
-  const filtered = filter === 'all' ? posts : posts.filter(p => p.category === filter);
+  const filtered = (() => {
+    if (filter === 'all')        return posts;
+    if (filter === 'technician') return posts.filter(p => p.userRole === 'technician');
+    if (filter === 'customer')   return posts.filter(p => p.userRole === 'customer');
+    return posts.filter(p => p.category === filter);
+  })();
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -158,56 +183,37 @@ export default function FeedScreen() {
     setRefreshing(false);
   }, [refreshData]);
 
-  const webTopInset = Platform.OS === 'web' ? 67 : 0;
-  const topPad = (Platform.OS === 'web' ? webTopInset : insets.top) + 12;
-
-  // ─── Dark/Light theme based on role ──────────────────────────────────────
-  const bg       = isTech ? T.bg       : CL.background;
-  const headerBg = isTech ? T.bg       : CL.background;
-  const cardBg   = isTech ? T.card     : CL.surface;
-  const txtMain  = isTech ? T.text     : CL.text;
-  const txtMuted = isTech ? T.muted    : CL.textTertiary;
-  const borderC  = isTech ? T.border   : CL.border;
-  const primary  = CL.primary;
+  const topPad = (Platform.OS === 'web' ? 67 : insets.top) + 10;
 
   if (isLoading) {
     return (
-      <View style={[styles.container, { backgroundColor: bg }]}>
-        <View style={[styles.header, { paddingTop: topPad, backgroundColor: headerBg }]}>
-          <View style={styles.headerLeft}>
-            <View style={[styles.logoBox, { backgroundColor: isTech ? T.accentMuted : CL.primaryMuted }]}>
-              <Ionicons name="construct" size={18} color={primary} />
-            </View>
-            <Text style={[styles.headerTitle, { color: txtMain }]}>Mobi</Text>
+      <View style={styles.container}>
+        <View style={[styles.header, { paddingTop: topPad }]}>
+          <View style={styles.logoBox}>
+            <Ionicons name="phone-portrait" size={22} color="#FFF" />
           </View>
+          <Text style={styles.headerTitle}>Mobi</Text>
         </View>
-        {[1, 2, 3].map(i => <PostSkeleton key={i} dark={isTech} />)}
+        {[1, 2, 3].map(i => <PostSkeleton key={i} />)}
       </View>
     );
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: bg }]}>
+    <View style={styles.container}>
       {/* ── Header ── */}
-      <View style={[styles.header, { paddingTop: topPad, backgroundColor: headerBg, borderBottomColor: borderC }]}>
-        <View style={styles.headerLeft}>
-          <View style={[styles.logoBox, { backgroundColor: isTech ? T.accentMuted : CL.primaryMuted }]}>
-            <Ionicons name="construct" size={18} color={primary} />
-          </View>
-          <View>
-            <Text style={[styles.headerTitle, { color: txtMain }]}>Mobi</Text>
-            {isTech && (
-              <Text style={styles.headerSub}>Community Feed</Text>
-            )}
-          </View>
+      <View style={[styles.header, { paddingTop: topPad }]}>
+        {/* App icon - yellow gradient */}
+        <View style={styles.logoBox}>
+          <Ionicons name="phone-portrait" size={22} color="#FFF" />
         </View>
 
         <View style={styles.headerActions}>
           {/* Schematics */}
           <HeaderButton delay={0} onPress={() => {
             if (schematicsUrl) {
-              if (profile?.role === 'technician' && profile?.subscriptionEnd && profile.subscriptionEnd < Date.now()) {
-                Alert.alert('Subscription Required', 'Please subscribe to access Schematics.');
+              if (isTech && profile?.subscriptionEnd && profile.subscriptionEnd < Date.now()) {
+                Alert.alert('Subscription Required', 'Subscribe to access Schematics.');
                 return;
               }
               router.push({ pathname: '/webview', params: { url: schematicsUrl, title: 'Schematics' } });
@@ -215,42 +221,47 @@ export default function FeedScreen() {
               Alert.alert('Coming Soon', 'Schematics not configured yet.');
             }
           }}>
-            <View style={styles.schematicsBtn}>
-              <Ionicons name="document-text" size={16} color="#000" />
-              <Text style={styles.schematicsBtnText}>SCH</Text>
+            <View style={styles.schBtn}>
+              <Ionicons name="document-text" size={14} color="#000" />
+              <Text style={styles.schBtnText}>SCH</Text>
             </View>
           </HeaderButton>
 
-          {/* Live */}
-          {liveUrl ? (
-            <HeaderButton delay={80} onPress={() => openLink(liveUrl, 'Live')}>
-              <View style={styles.liveBtn}>
-                <View style={styles.liveDot} />
-                <Text style={styles.liveBtnText}>LIVE</Text>
+          {/* Live Chat - blue pill with ping */}
+          <HeaderButton delay={80} onPress={() => liveUrl ? openLink(liveUrl, 'Live') : null}>
+            <View style={styles.liveChatBtn}>
+              <Ionicons name="chatbubble" size={13} color={BLUE} />
+              <Text style={styles.liveChatText}>Live Chat</Text>
+              <View style={styles.pingOuter}>
+                <PingDot color={BLUE} />
               </View>
-            </HeaderButton>
-          ) : null}
+            </View>
+          </HeaderButton>
 
           {/* Web Tools */}
           {webToolsUrl ? (
             <HeaderButton delay={160} onPress={() => router.push({ pathname: '/webview', params: { url: webToolsUrl, title: 'Web Tools' } })}>
-              <View style={[styles.iconBtn, { backgroundColor: isTech ? T.blueMuted : 'rgba(94,139,255,0.1)' }]}>
-                <Ionicons name="globe-outline" size={20} color="#5E8BFF" />
+              <View style={styles.iconBtn}>
+                <Ionicons name="globe-outline" size={18} color={BLUE} />
               </View>
             </HeaderButton>
           ) : null}
 
-          {/* Chat */}
+          {/* Chat / Bell */}
           <HeaderButton delay={240} onPress={() => router.push('/chats')}>
-            <View style={[styles.iconBtn, { backgroundColor: isTech ? T.greenMuted : 'rgba(52,199,89,0.1)' }]}>
-              <Ionicons name="chatbubbles-outline" size={20} color="#34C759" />
-              {totalUnread > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{totalUnread > 99 ? '99+' : totalUnread}</Text>
-                </View>
-              )}
+            <View style={styles.bellBtn}>
+              <Ionicons name="notifications-outline" size={18} color={TEXT} />
+              {totalUnread > 0 && <View style={styles.redDot} />}
             </View>
           </HeaderButton>
+        </View>
+      </View>
+
+      {/* ── Search bar ── */}
+      <View style={styles.searchRow}>
+        <View style={styles.searchBar}>
+          <Ionicons name="search" size={15} color={MUTED} />
+          <Text style={styles.searchPlaceholder}>Search repairs, techs, or issues...</Text>
         </View>
       </View>
 
@@ -259,46 +270,37 @@ export default function FeedScreen() {
         horizontal
         showsHorizontalScrollIndicator={false}
         data={FILTERS}
-        style={{ flexGrow: 0, marginBottom: 4 }}
+        style={{ flexGrow: 0 }}
         contentContainerStyle={styles.filtersContent}
         keyExtractor={item => item.key}
         renderItem={({ item }) => {
           const isActive = filter === item.key;
-          const cat = item.key !== 'all' ? CATEGORY_COLORS[item.key] : null;
+          const chipColor = item.color;
           return (
             <Pressable
               style={[
                 styles.filterChip,
-                {
-                  backgroundColor: isActive
-                    ? (isTech && cat ? cat.bg : primary)
-                    : (isTech ? T.card : CL.surfaceElevated),
-                  borderColor: isActive
-                    ? (isTech && cat ? cat.border : primary)
-                    : (isTech ? T.border : CL.border),
-                },
+                isActive
+                  ? {
+                      backgroundColor: chipColor || PRIMARY,
+                      borderColor: chipColor || PRIMARY,
+                    }
+                  : {
+                      backgroundColor: SURFACE,
+                      borderColor: BORDER + '80',
+                    },
               ]}
               onPress={() => setFilter(item.key)}
             >
               <Ionicons
                 name={item.icon}
-                size={13}
-                color={
-                  isActive
-                    ? (isTech && cat ? cat.text : '#FFF')
-                    : (isTech ? T.muted : CL.textTertiary)
-                }
+                size={12}
+                color={isActive ? '#FFF' : chipColor || MUTED}
               />
-              <Text
-                style={[
-                  styles.filterText,
-                  {
-                    color: isActive
-                      ? (isTech && cat ? cat.text : '#FFF')
-                      : (isTech ? T.muted : CL.textTertiary),
-                  },
-                ]}
-              >
+              <Text style={[
+                styles.filterText,
+                { color: isActive ? '#FFF' : chipColor || MUTED },
+              ]}>
                 {item.label}
               </Text>
             </Pressable>
@@ -330,19 +332,25 @@ export default function FeedScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={primary}
-            colors={[primary]}
+            tintColor={PRIMARY}
+            colors={[PRIMARY]}
           />
+        }
+        ListHeaderComponent={
+          filtered.length > 0 ? (
+            <View style={styles.feedHeader}>
+              <Text style={styles.feedHeaderTitle}>Community Feed</Text>
+              <Text style={styles.feedHeaderSub}>(India)</Text>
+            </View>
+          ) : null
         }
         ListEmptyComponent={
           <View style={styles.emptyState}>
-            <View style={[styles.emptyIconBg, { backgroundColor: isTech ? T.accentMuted : CL.primaryMuted }]}>
-              <Ionicons name="newspaper-outline" size={32} color={primary} />
+            <View style={styles.emptyIconBg}>
+              <Ionicons name="newspaper-outline" size={32} color={PRIMARY} />
             </View>
-            <Text style={[styles.emptyTitle, { color: txtMain }]}>No posts yet</Text>
-            <Text style={[styles.emptyText, { color: txtMuted }]}>
-              Be the first to share something with the community
-            </Text>
+            <Text style={styles.emptyTitle}>No posts yet</Text>
+            <Text style={styles.emptyText}>Be the first to share something with the community</Text>
           </View>
         }
         showsVerticalScrollIndicator={false}
@@ -354,44 +362,42 @@ export default function FeedScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: BG,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 18,
-    paddingBottom: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
+    paddingBottom: 12,
+    backgroundColor: BG,
+    borderBottomWidth: 1,
+    borderBottomColor: BORDER + '40',
   },
   logoBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+    width: 50,
+    height: 50,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#CA8A04',
+    shadowColor: '#EAB308',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 8,
   },
   headerTitle: {
     fontSize: 22,
     fontFamily: 'Inter_700Bold',
-    letterSpacing: -0.5,
-  },
-  headerSub: {
-    fontSize: 11,
-    fontFamily: 'Inter_400Regular',
-    color: T.muted,
-    marginTop: -2,
+    color: TEXT,
   },
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-  schematicsBtn: {
+  schBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
@@ -399,66 +405,88 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 6,
     borderRadius: 10,
-    shadowColor: '#FFD60A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.4,
-    shadowRadius: 4,
-    elevation: 4,
   },
-  schematicsBtnText: {
+  schBtnText: {
     fontSize: 10,
     color: '#000',
     fontFamily: 'Inter_700Bold',
   },
-  liveBtn: {
+  liveChatBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: 'rgba(239,68,68,0.15)',
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    borderRadius: 10,
+    backgroundColor: SURFACE,
     borderWidth: 1,
-    borderColor: 'rgba(239,68,68,0.3)',
+    borderColor: BORDER + '80',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 20,
+    position: 'relative',
   },
-  liveDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#EF4444',
+  liveChatText: {
+    fontSize: 11,
+    color: BLUE,
+    fontFamily: 'Inter_600SemiBold',
   },
-  liveBtnText: {
-    fontSize: 10,
-    color: '#EF4444',
-    fontFamily: 'Inter_700Bold',
+  pingOuter: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
   },
   iconBtn: {
     width: 36,
     height: 36,
-    borderRadius: 10,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: SURFACE,
+    borderWidth: 1,
+    borderColor: BORDER + '80',
   },
-  badge: {
+  bellBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: SURFACE,
+    borderWidth: 1,
+    borderColor: BORDER + '80',
+    position: 'relative',
+  },
+  redDot: {
     position: 'absolute',
-    top: -4,
-    right: -4,
+    top: 6,
+    right: 6,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
     backgroundColor: '#EF4444',
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 3,
   },
-  badgeText: {
-    color: '#FFF',
-    fontSize: 9,
-    fontFamily: 'Inter_700Bold',
+  searchRow: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: BG,
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: SURFACE,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    borderWidth: 1,
+    borderColor: BORDER + '80',
+  },
+  searchPlaceholder: {
+    color: MUTED,
+    fontSize: 13,
+    fontFamily: 'Inter_400Regular',
   },
   filtersContent: {
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: 8,
     gap: 8,
   },
   filterChip: {
@@ -466,13 +494,30 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 5,
     paddingHorizontal: 13,
-    paddingVertical: 7,
+    paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
   },
   filterText: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: 'Inter_500Medium',
+  },
+  feedHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  feedHeaderTitle: {
+    color: TEXT,
+    fontSize: 13,
+    fontFamily: 'Inter_700Bold',
+  },
+  feedHeaderSub: {
+    color: MUTED,
+    fontSize: 11,
+    fontFamily: 'Inter_400Regular',
   },
   listContent: {
     paddingTop: 4,
@@ -489,13 +534,16 @@ const styles = StyleSheet.create({
     borderRadius: 36,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: PRIMARY + '20',
     marginBottom: 4,
   },
   emptyTitle: {
+    color: TEXT,
     fontSize: 18,
     fontFamily: 'Inter_600SemiBold',
   },
   emptyText: {
+    color: MUTED,
     fontSize: 14,
     fontFamily: 'Inter_400Regular',
     textAlign: 'center',

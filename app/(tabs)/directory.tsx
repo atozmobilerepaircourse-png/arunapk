@@ -51,6 +51,18 @@ const STAT_ROLES: { key: string; label: string; color: string }[] = [
 const CUSTOMER_STAT_ROLES = STAT_ROLES.filter(r => r.key === 'technician' || r.key === 'customer');
 const CUSTOMER_ROLE_FILTERS = ROLE_FILTERS.filter(r => r.key === 'all' || r.key === 'customer' || r.key === 'technician');
 
+const SKILL_CATEGORIES: { label: string; icon: keyof typeof Ionicons.glyphMap; color: string }[] = [
+  { label: 'All', icon: 'apps', color: '#4F46E5' },
+  { label: 'iPhone', icon: 'logo-apple', color: '#6B7280' },
+  { label: 'Samsung', icon: 'phone-portrait', color: '#3B82F6' },
+  { label: 'OnePlus', icon: 'phone-portrait', color: '#EF4444' },
+  { label: 'Screen Fix', icon: 'tablet-portrait', color: '#F59E0B' },
+  { label: 'Battery', icon: 'battery-charging', color: '#10B981' },
+  { label: 'Software', icon: 'code-slash', color: '#8B5CF6' },
+  { label: 'Water Damage', icon: 'water', color: '#0EA5E9' },
+  { label: 'Motherboard', icon: 'hardware-chip', color: '#FF6B2C' },
+];
+
 export default function DirectoryScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ view?: string }>();
@@ -60,6 +72,7 @@ export default function DirectoryScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [stats, setStats] = useState<OnlineStats | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'map'>(params.view === 'map' ? 'map' : 'list');
+  const [skillFilter, setSkillFilter] = useState<string>('All');
 
   const isCustomer = profile?.role === 'customer';
   const isTechnician = profile?.role === 'technician';
@@ -130,6 +143,10 @@ export default function DirectoryScreen() {
     if (roleFilter !== 'all') {
       list = list.filter(e => e.role === roleFilter);
     }
+    if (skillFilter && skillFilter !== 'All') {
+      const q = skillFilter.toLowerCase();
+      list = list.filter(e => e.skills.some(s => s.toLowerCase().includes(q)));
+    }
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter(e =>
@@ -139,7 +156,7 @@ export default function DirectoryScreen() {
       );
     }
     return list;
-  }, [directory, roleFilter, search]);
+  }, [directory, roleFilter, skillFilter, search]);
 
   const mapProfiles = useMemo(() => {
     return filtered.filter(p => {
@@ -338,6 +355,33 @@ export default function DirectoryScreen() {
           )}
         />
       </View>
+
+      {/* UX Pilot skill category tiles — technician dark theme only */}
+      {isTechnician && (
+        <View style={[styles.skillCatWrap, { backgroundColor: D.bg }]}>
+          <FlatList
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            data={SKILL_CATEGORIES}
+            keyExtractor={item => item.label}
+            contentContainerStyle={styles.skillCatRow}
+            renderItem={({ item: cat }) => {
+              const active = skillFilter === cat.label;
+              return (
+                <Pressable
+                  style={[styles.skillCatTile, { backgroundColor: active ? cat.color : D.card, borderColor: active ? cat.color : D.border }]}
+                  onPress={() => setSkillFilter(cat.label)}
+                >
+                  <View style={[styles.skillCatIcon, { backgroundColor: active ? 'rgba(255,255,255,0.2)' : cat.color + '18' }]}>
+                    <Ionicons name={cat.icon} size={16} color={active ? '#FFF' : cat.color} />
+                  </View>
+                  <Text style={[styles.skillCatLabel, { color: active ? '#FFF' : D.text }]}>{cat.label}</Text>
+                </Pressable>
+              );
+            }}
+          />
+        </View>
+      )}
 
       <FlatList
         data={filtered}
@@ -706,5 +750,28 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_400Regular',
     textAlign: 'center',
     paddingHorizontal: 32,
+  },
+  skillCatWrap: { paddingVertical: 8 },
+  skillCatRow: { paddingHorizontal: 12, gap: 8 },
+  skillCatTile: {
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    minWidth: 68,
+  },
+  skillCatIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  skillCatLabel: {
+    fontSize: 11,
+    fontFamily: 'Inter_600SemiBold',
+    textAlign: 'center' as const,
   },
 });

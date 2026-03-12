@@ -1766,24 +1766,36 @@ export default function MarketplaceScreen() {
     try {
       if (Array.isArray(p.images)) imgs = p.images;
       else if (typeof p.images === 'string' && p.images) imgs = JSON.parse(p.images);
-    } catch (e) {
-      console.warn('[Marketplace] Image parse error:', e);
-    }
+    } catch (e) {}
     const firstImg = imgs && imgs.length > 0 ? getImageUri(imgs[0]) : null;
+    const conditionColors: Record<string, string> = {
+      new: '#10B981', refurbished: '#3B82F6', used: '#9CA3AF',
+    };
+    const condition = p.condition || 'new';
+    const conditionColor = conditionColors[condition.toLowerCase()] || '#10B981';
     return (
       <Pressable
         key={p.id}
         style={s.productCard}
         onPress={() => router.push(`/product-detail?productId=${p.id}` as any)}
       >
+        {/* Image area */}
         <View style={s.productImageWrap}>
           {firstImg ? (
             <Image source={{ uri: firstImg }} style={s.productImage} contentFit="cover" />
           ) : (
-            <View style={[s.productImage, { backgroundColor: '#F0F0F0', alignItems: 'center', justifyContent: 'center' }]}>
+            <View style={[s.productImage, { backgroundColor: T.cardSurface, alignItems: 'center', justifyContent: 'center' }]}>
               <Ionicons name="cube" size={30} color={BLUE} />
             </View>
           )}
+          {/* Condition badge - bottom left */}
+          <View style={[s.conditionBadge, { backgroundColor: conditionColor }]}>
+            <Text style={s.conditionBadgeText}>{condition.toUpperCase()}</Text>
+          </View>
+          {/* Wishlist button - top right */}
+          <Pressable style={s.wishlistBtn} onPress={(e) => { e.stopPropagation?.(); }}>
+            <Ionicons name="heart-outline" size={14} color="#FFF" />
+          </Pressable>
         </View>
         <View style={s.productInfo}>
           <Text style={s.productTitle} numberOfLines={2}>{p.title}</Text>
@@ -1800,32 +1812,68 @@ export default function MarketplaceScreen() {
   };
 
   const renderSupplierCard = (sup: ProfileData) => (
-    <Pressable key={sup.id} style={s.card} onPress={() => router.push(`/supplier-store?id=${sup.id}` as any)}>
-      <View style={s.cardRow}>
-        {sup.avatar ? (
-          <Image source={{ uri: getImageUri(sup.avatar) }} style={s.avatar} contentFit="cover" />
-        ) : (
-          <View style={[s.avatar, s.avatarPlaceholder, { backgroundColor: T.cardSurface }]}>
-            <Text style={s.initials}>{getInitials(sup.name)}</Text>
+    <Pressable
+      key={sup.id}
+      style={s.supplierCard}
+      onPress={() => router.push(`/supplier-store?id=${sup.id}` as any)}
+    >
+      <View style={{ flexDirection: 'row', gap: 14, alignItems: 'flex-start' }}>
+        {/* Logo */}
+        <View style={s.supplierLogoWrap}>
+          {sup.avatar ? (
+            <Image source={{ uri: getImageUri(sup.avatar) }} style={s.supplierLogo} contentFit="contain" />
+          ) : (
+            <View style={[s.supplierLogo, { alignItems: 'center', justifyContent: 'center' }]}>
+              <Text style={{ color: BLUE, fontSize: 18, fontWeight: '700' as const }}>{getInitials(sup.name)}</Text>
+            </View>
+          )}
+          <View style={s.supplierVerified}>
+            <Ionicons name="checkmark" size={9} color="#FFF" />
           </View>
-        )}
-        <View style={s.cardInfo}>
+        </View>
+
+        {/* Info */}
+        <View style={{ flex: 1, gap: 3 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Text style={s.cardName}>{sup.name}</Text>
+            <Text style={s.supplierName} numberOfLines={1}>{sup.name}</Text>
             {(sup.city || sup.state) && (
               <View style={s.locationBadge}>
-                <Ionicons name="location" size={10} color={BLUE} />
+                <Ionicons name="location" size={9} color={BLUE} />
                 <Text style={s.locationBadgeText}>{sup.city || sup.state}</Text>
               </View>
             )}
           </View>
-          <Text style={s.metaText}>{sup.shopName || 'Supplier'}</Text>
-          <View style={s.metaRowCompact}>
-            <Ionicons name="cube" size={12} color={BLUE} />
-            <Text style={s.metaTextCompact}>{productCounts[sup.id] || 0} Products</Text>
+          <Text style={s.supplierShop} numberOfLines={1}>{sup.shopName || 'Mobile Parts Supplier'}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
+            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#10B981' }} />
+            <Text style={{ color: '#10B981', fontSize: 11, fontWeight: '600' as const }}>Open Now</Text>
           </View>
         </View>
-        <Ionicons name="chevron-forward" size={20} color="#CCC" />
+      </View>
+
+      {/* Tags */}
+      {sup.skills && sup.skills.length > 0 && (
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
+          {sup.skills.slice(0, 4).map((skill, i) => (
+            <View key={i} style={s.supplierTag}>
+              <Text style={s.supplierTagText}>{skill}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {/* Action buttons */}
+      <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+        <Pressable
+          style={s.supplierContactBtn}
+          onPress={() => router.push(`/supplier-store?id=${sup.id}` as any)}
+        >
+          <Ionicons name="cube-outline" size={13} color="#FFF" />
+          <Text style={s.supplierContactBtnText}>View Products ({productCounts[sup.id] || 0})</Text>
+        </Pressable>
+        <Pressable style={s.supplierSecondBtn}>
+          <Ionicons name="bookmark-outline" size={14} color={T.muted} />
+        </Pressable>
       </View>
     </Pressable>
   );
@@ -1973,47 +2021,41 @@ export default function MarketplaceScreen() {
                       style={s.liveCard}
                       onPress={() => router.push({ pathname: '/live-session', params: { url: session.link, title: session.title } } as any)}
                     >
-                      {session.latestImage ? (
-                        <View style={{ position: 'relative', marginBottom: 10 }}>
+                      {/* Thumbnail area - aspect-video ratio */}
+                      <View style={s.liveThumbWrap}>
+                        {session.latestImage ? (
                           <Image
                             source={{ uri: getImageUri(session.latestImage) }}
-                            style={{ width: '100%', height: 180, borderRadius: 10 }}
+                            style={StyleSheet.absoluteFill}
                             contentFit="cover"
                           />
-                          <View style={{ position: 'absolute', top: 8, right: 8, backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#FF3B30' }} />
-                            <Text style={{ color: '#FFF', fontSize: 11, fontWeight: '700' as const }}>LIVE</Text>
-                          </View>
-                        </View>
-                      ) : null}
-                      <View style={s.liveCardHeader}>
-                        <View style={[s.livePlatformBadge, { backgroundColor: color + '15', borderColor: color + '30' }]}>
-                          <Ionicons name={iconName as any} size={14} color={color} />
-                          <Text style={[s.livePlatformText, { color }]}>{platformName}</Text>
-                        </View>
-                        {!session.latestImage && (
-                          <View style={s.liveActiveBadge}>
-                            <View style={s.liveActiveDot} />
-                            <Text style={s.liveActiveText}>LIVE</Text>
+                        ) : (
+                          <View style={[StyleSheet.absoluteFill, { backgroundColor: color + '20', alignItems: 'center', justifyContent: 'center' }]}>
+                            <Ionicons name={iconName as any} size={40} color={color} />
                           </View>
                         )}
-                      </View>
-                      <Text style={s.liveCardTitle} numberOfLines={2}>{session.title}</Text>
-                      {session.description ? (
-                        <Text style={s.liveCardDesc} numberOfLines={2}>{session.description}</Text>
-                      ) : null}
-                      <View style={s.liveCardFooter}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                          <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: color + '20', alignItems: 'center', justifyContent: 'center' }}>
-                            <Text style={{ color, fontSize: 11, fontWeight: '700' as const }}>{getInitials(session.teacherName)}</Text>
-                          </View>
-                          <Text style={s.liveTeacherName}>{session.teacherName}</Text>
+                        {/* Gradient overlay */}
+                        <View style={s.liveThumbGradient} />
+                        {/* LIVE badge - top-left */}
+                        <View style={s.liveBadge}>
+                          <View style={s.liveBadgeDot} />
+                          <Text style={s.liveBadgeText}>LIVE</Text>
                         </View>
-                        <Text style={s.liveElapsed}>Started {elapsedText}</Text>
+                        {/* Platform badge - top-right */}
+                        <View style={[s.platformBadge, { backgroundColor: color + '22' }]}>
+                          <Ionicons name={iconName as any} size={12} color={color} />
+                        </View>
                       </View>
-                      <View style={[s.joinLiveBtn, { backgroundColor: color }]}>
-                        <Ionicons name="play" size={14} color="#FFF" />
-                        <Text style={s.joinLiveBtnText}>Join Session</Text>
+
+                      {/* Info section below image */}
+                      <View style={s.liveInfo}>
+                        <View style={[s.liveAvatar, { backgroundColor: color + '20' }]}>
+                          <Text style={[s.liveAvatarText, { color }]}>{getInitials(session.teacherName)}</Text>
+                        </View>
+                        <View style={{ flex: 1, gap: 2 }}>
+                          <Text style={s.liveCardTitle} numberOfLines={2}>{session.title}</Text>
+                          <Text style={s.liveTeacherName}>{session.teacherName} · Started {elapsedText}</Text>
+                        </View>
                       </View>
                     </Pressable>
                   );
@@ -2047,6 +2089,17 @@ const s = StyleSheet.create({
   chipText: { fontSize: 12, fontWeight: '600' as const, color: T.muted },
   chipTextActive: { color: '#FFF' },
   grid: { padding: 16, gap: 16 },
+  supplierCard: { backgroundColor: T.card, borderRadius: 14, borderWidth: 1, borderColor: T.borderLight, padding: 14, marginHorizontal: 12, marginBottom: 10 },
+  supplierLogoWrap: { position: 'relative', width: 60, height: 60 },
+  supplierLogo: { width: 60, height: 60, borderRadius: 10, backgroundColor: '#FFF' },
+  supplierVerified: { position: 'absolute', top: -4, right: -4, width: 18, height: 18, borderRadius: 9, backgroundColor: '#3B82F6', alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: T.card },
+  supplierName: { color: T.text, fontSize: 14, fontWeight: '700' as const },
+  supplierShop: { color: T.muted, fontSize: 12, fontWeight: '400' as const },
+  supplierTag: { backgroundColor: T.bg, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: T.borderLight },
+  supplierTagText: { color: T.muted, fontSize: 11, fontWeight: '500' as const },
+  supplierContactBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: BLUE, borderRadius: 8, paddingVertical: 8 },
+  supplierContactBtnText: { color: '#FFF', fontSize: 12, fontWeight: '600' as const },
+  supplierSecondBtn: { width: 36, height: 36, borderRadius: 8, backgroundColor: T.cardSurface, borderWidth: 1, borderColor: T.borderLight, alignItems: 'center', justifyContent: 'center' },
   grid2: { padding: 12, flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   courseCard: { backgroundColor: T.card, borderRadius: 20, overflow: 'hidden', borderWidth: 1, borderColor: T.border, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 4 },
   courseImageWrap: { width: '100%', height: 180, position: 'relative' },
@@ -2056,7 +2109,10 @@ const s = StyleSheet.create({
   courseInfo: { padding: 16, gap: 8 },
   courseTitle: { fontSize: 16, fontWeight: '700' as const, color: T.text, lineHeight: 22 },
   productCard: { width: (width - 36) / 2, backgroundColor: T.card, borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: T.border },
-  productImageWrap: { width: '100%', height: 130 },
+  productImageWrap: { width: '100%', height: 130, position: 'relative' },
+  conditionBadge: { position: 'absolute', bottom: 6, left: 6, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+  conditionBadgeText: { color: '#FFF', fontSize: 9, fontWeight: '700' as const },
+  wishlistBtn: { position: 'absolute', top: 6, right: 6, width: 26, height: 26, borderRadius: 13, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' },
   productImage: { width: '100%', height: '100%' },
   productInfo: { padding: 10, gap: 4 },
   productTitle: { fontSize: 13, fontWeight: '600' as const, color: T.text, height: 32 },
@@ -2119,7 +2175,16 @@ const s = StyleSheet.create({
   goLiveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#FFF' },
   goLiveBtnText: { color: '#FFF', fontSize: 13, fontWeight: '700' as const },
   liveHeaderDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#EF4444' },
-  liveCard: { backgroundColor: T.card, borderRadius: 20, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: T.borderLight, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 4 },
+  liveCard: { backgroundColor: T.card, borderRadius: 24, marginBottom: 16, borderWidth: 1, borderColor: T.borderLight, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 4 },
+  liveThumbWrap: { width: '100%', aspectRatio: 16/9, position: 'relative', backgroundColor: '#000' },
+  liveThumbGradient: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 60, backgroundColor: 'rgba(0,0,0,0.5)' },
+  liveBadge: { position: 'absolute', top: 10, left: 10, flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#DC2626', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
+  liveBadgeDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#FFF' },
+  liveBadgeText: { color: '#FFF', fontSize: 11, fontWeight: '700' as const },
+  platformBadge: { position: 'absolute', top: 10, right: 10, width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  liveInfo: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, padding: 12 },
+  liveAvatar: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  liveAvatarText: { fontSize: 13, fontWeight: '700' as const },
   liveCardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
   livePlatformBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10, borderWidth: 1 },
   livePlatformText: { fontSize: 12, fontWeight: '700' as const },

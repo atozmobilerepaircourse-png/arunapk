@@ -1,24 +1,57 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Pressable, TextInput, Platform, Dimensions, Alert, Modal } from 'react-native';
+import {
+  View, Text, StyleSheet, Pressable, TextInput,
+  Platform, Alert, Modal,
+} from 'react-native';
 import { Image } from 'expo-image';
-import { Ionicons, Feather } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
-import Animated, { useAnimatedStyle, useSharedValue, withSpring, withSequence } from 'react-native-reanimated';
-import Colors from '@/constants/colors';
-import { Post, ROLE_LABELS, CATEGORY_LABELS } from '@/lib/types';
+import Animated, {
+  useAnimatedStyle, useSharedValue, withSpring, withSequence,
+} from 'react-native-reanimated';
+import { Post, ROLE_LABELS } from '@/lib/types';
 import MediaViewer from '@/components/MediaViewer';
 import { apiRequest } from '@/lib/query-client';
 
-const C = Colors.dark;
-const SCREEN_WIDTH = Dimensions.get('window').width;
+// ─── UX Pilot exact tokens ──────────────────────────────────────────────────
+const BG_DARK       = '#121212';
+const CARD_CHARCOAL = '#2A2A2A';
+const BORDER_DARK   = '#374151';
+const TEXT_MAIN     = '#F3F4F6';
+const TEXT_MUTED    = '#9CA3AF';
+const ACCENT_BLUE   = '#3B82F6';
+const ACCENT_GREEN  = '#10B981';
+const ACCENT_ORANGE = '#FF6B2C';
+const PURPLE        = '#8B5CF6';
 
-const CATEGORY_COLORS: Record<string, string> = {
-  repair: '#34C759',
-  job: '#5E8BFF',
-  training: '#FFD60A',
-  supplier: '#FF6B2C',
-  sell: '#FF2D55',
+const CAT_CONFIG: Record<string, {
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  color: string;
+  ctaLabel: string;
+  ctaIcon: keyof typeof Ionicons.glyphMap;
+}> = {
+  repair: {
+    label: 'Repair', icon: 'construct', color: ACCENT_BLUE,
+    ctaLabel: 'Related', ctaIcon: 'link',
+  },
+  job: {
+    label: 'Job', icon: 'briefcase', color: PURPLE,
+    ctaLabel: 'Apply', ctaIcon: 'paper-plane',
+  },
+  training: {
+    label: 'Training', icon: 'school', color: ACCENT_GREEN,
+    ctaLabel: 'Learn', ctaIcon: 'book',
+  },
+  sell: {
+    label: 'For Sale', icon: 'pricetag', color: ACCENT_ORANGE,
+    ctaLabel: 'View', ctaIcon: 'eye',
+  },
+  supplier: {
+    label: 'Supplier', icon: 'cube', color: ACCENT_GREEN,
+    ctaLabel: 'Contact', ctaIcon: 'call',
+  },
 };
 
 function timeAgo(ts: number): string {
@@ -37,6 +70,19 @@ function getInitials(name: string): string {
   return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
 }
 
+function extractHashtags(text: string): string[] {
+  const matches = text.match(/#[\w]+/g);
+  return matches ? matches.slice(0, 4) : [];
+}
+
+function pickTagColor(tag: string, fallback: string): string {
+  const lc = tag.toLowerCase();
+  if (lc.includes('damage') || lc.includes('issue') || lc.includes('error')) return '#EF4444';
+  if (lc.includes('success') || lc.includes('fixed') || lc.includes('done')) return ACCENT_GREEN;
+  if (lc.includes('job') || lc.includes('hire') || lc.includes('work')) return PURPLE;
+  return fallback;
+}
+
 interface PostCardProps {
   post: Post;
   currentUserId?: string;
@@ -46,28 +92,30 @@ interface PostCardProps {
   onPostUpdated?: (updatedPost: Partial<Post> & { id: string }) => void;
 }
 
-export default function PostCard({ post, currentUserId, onLike, onComment, onDelete, onPostUpdated }: PostCardProps) {
+export default function PostCard({
+  post, currentUserId, onLike, onComment, onDelete, onPostUpdated,
+}: PostCardProps) {
   const [showComments, setShowComments] = useState(false);
   const [commentText, setCommentText] = useState('');
-  const [viewerMedia, setViewerMedia] = useState<{type: 'image' | 'video', url: string} | null>(null);
+  const [viewerMedia, setViewerMedia] = useState<{ type: 'image' | 'video'; url: string } | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editText, setEditText] = useState(post.text);
   const [editSaving, setEditSaving] = useState(false);
+
   const isLiked = currentUserId ? post.likes.includes(currentUserId) : false;
-  const isOwn = currentUserId === post.userId;
-  const catColor = CATEGORY_COLORS[post.category] || C.primary;
+  const isOwn   = currentUserId === post.userId;
+  const isTech  = post.userRole === 'technician';
+
+  const cat      = CAT_CONFIG[post.category] || CAT_CONFIG.repair;
+  const catColor = cat.color;
 
   const handleShowOptions = () => {
     if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    Alert.alert(
-      'Post Options',
-      '',
-      [
-        { text: 'Edit Post', onPress: () => { setEditText(post.text); setShowEditModal(true); } },
-        onDelete ? { text: 'Delete Post', style: 'destructive', onPress: () => onDelete(post.id) } : null,
-        { text: 'Cancel', style: 'cancel' },
-      ].filter(Boolean) as any[]
-    );
+    Alert.alert('Post Options', '', [
+      { text: 'Edit Post', onPress: () => { setEditText(post.text); setShowEditModal(true); } },
+      onDelete ? { text: 'Delete Post', style: 'destructive', onPress: () => onDelete(post.id) } : null,
+      { text: 'Cancel', style: 'cancel' },
+    ].filter(Boolean) as any[]);
   };
 
   const handleSaveEdit = async () => {
@@ -77,17 +125,15 @@ export default function PostCard({ post, currentUserId, onLike, onComment, onDel
       await apiRequest('PATCH', `/api/posts/${post.id}`, { userId: currentUserId, text: editText.trim() });
       setShowEditModal(false);
       onPostUpdated?.({ id: post.id, text: editText.trim() });
-    } catch (err) {
+    } catch {
       Alert.alert('Error', 'Failed to update post');
     } finally {
       setEditSaving(false);
     }
   };
 
-  const likeScale = useSharedValue(1);
-  const likeAnimStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: likeScale.value }],
-  }));
+  const likeScale    = useSharedValue(1);
+  const likeAnimStyle = useAnimatedStyle(() => ({ transform: [{ scale: likeScale.value }] }));
 
   const handleLike = () => {
     likeScale.value = withSequence(withSpring(1.4, { damping: 4 }), withSpring(1, { damping: 6 }));
@@ -101,102 +147,101 @@ export default function PostCard({ post, currentUserId, onLike, onComment, onDel
     setCommentText('');
   };
 
-  const imageWidth = SCREEN_WIDTH - 64;
+  // Sell post parsing
+  const isSellPost = post.category === 'sell' && post.text.startsWith('SELL_TITLE:');
+  let sellTitle = '', sellPrice = '', sellDesc = '', sellCondition = '';
+  if (isSellPost) {
+    post.text.split('\n').forEach(line => {
+      if (line.startsWith('SELL_TITLE:'))     sellTitle     = line.replace('SELL_TITLE:', '').trim();
+      if (line.startsWith('SELL_PRICE:'))     sellPrice     = line.replace('SELL_PRICE:', '').trim();
+      if (line.startsWith('SELL_DESC:'))      sellDesc      = line.replace('SELL_DESC:', '').trim();
+      if (line.startsWith('SELL_CONDITION:')) sellCondition = line.replace('SELL_CONDITION:', '').trim();
+    });
+  }
+  const displayText = isSellPost ? sellDesc : post.text;
+
+  // Hashtags
+  const hashtags   = extractHashtags(displayText);
+  const fallbackTag = `#${post.category.charAt(0).toUpperCase() + post.category.slice(1)}`;
 
   return (
     <View style={styles.card}>
+      {/* ── Category Badge: absolute top-right, rounded-bl ── */}
+      <View style={[styles.badge, { backgroundColor: catColor + '33' }]}>
+        <Ionicons name={cat.icon} size={10} color={catColor} />
+        <Text style={[styles.badgeText, { color: catColor }]}>{cat.label}</Text>
+      </View>
+
+      {/* ── Header (pr-80 to avoid badge) ── */}
       <View style={styles.header}>
         <Pressable onPress={() => router.push({ pathname: '/user-profile', params: { id: post.userId } })}>
           {post.userAvatar ? (
-            <Image source={{ uri: post.userAvatar }} style={styles.avatarImg} contentFit="cover" />
+            <Image
+              source={{ uri: post.userAvatar }}
+              style={[styles.avatar, { borderColor: catColor + '80' }]}
+              contentFit="cover"
+            />
           ) : (
-            <View style={[styles.avatar, { backgroundColor: catColor + '30' }]}>
+            <View style={[styles.avatarFallback, { backgroundColor: catColor + '25', borderColor: catColor + '80' }]}>
               <Text style={[styles.avatarText, { color: catColor }]}>{getInitials(post.userName)}</Text>
             </View>
           )}
         </Pressable>
+
         <View style={styles.headerInfo}>
-          <Pressable onPress={() => router.push({ pathname: '/user-profile', params: { id: post.userId } })}>
-            <Text style={styles.userName}>{post.userName}</Text>
-          </Pressable>
-          <View style={styles.metaRow}>
-            <View style={[styles.roleBadge, { backgroundColor: catColor + '20' }]}>
-              <Text style={[styles.roleText, { color: catColor }]}>{ROLE_LABELS[post.userRole]}</Text>
-            </View>
-            <Text style={styles.timeText}>{timeAgo(post.createdAt)}</Text>
+          <View style={styles.nameRow}>
+            <Pressable onPress={() => router.push({ pathname: '/user-profile', params: { id: post.userId } })}>
+              <Text style={styles.userName} numberOfLines={1}>{post.userName}</Text>
+            </Pressable>
+            {isTech && <Ionicons name="checkmark-circle" size={11} color={ACCENT_GREEN} />}
           </View>
+          <Text style={styles.metaText}>{ROLE_LABELS[post.userRole]} · {timeAgo(post.createdAt)}</Text>
         </View>
+
         {isOwn && (
-          <Pressable onPress={handleShowOptions} hitSlop={12}>
-            <Feather name="more-vertical" size={18} color={C.textTertiary} />
+          <Pressable onPress={handleShowOptions} hitSlop={12} style={styles.moreBtn}>
+            <Ionicons name="ellipsis-horizontal" size={16} color={TEXT_MUTED} />
           </Pressable>
         )}
       </View>
 
-      <View style={[styles.categoryTag, { backgroundColor: catColor + '15' }]}>
-        <View style={[styles.categoryDot, { backgroundColor: catColor }]} />
-        <Text style={[styles.categoryText, { color: catColor }]}>{CATEGORY_LABELS[post.category]}</Text>
-      </View>
-
-      {post.text.length > 0 && (
-        post.category === 'sell' && post.text.startsWith('SELL_TITLE:') ? (
-          <View style={styles.sellTextBlock}>
-            {(() => {
-              const lines = post.text.split('\n');
-              let title = '', price = '', condition = '', desc = '';
-              for (const l of lines) {
-                if (l.startsWith('SELL_TITLE:')) title = l.replace('SELL_TITLE:', '').trim();
-                else if (l.startsWith('SELL_PRICE:')) price = l.replace('SELL_PRICE:', '').trim();
-                else if (l.startsWith('SELL_CONDITION:')) condition = l.replace('SELL_CONDITION:', '').trim();
-                else if (l.startsWith('SELL_DESC:')) desc = l.replace('SELL_DESC:', '').trim();
-              }
-              return (
-                <>
-                  {price ? <Text style={styles.sellPrice}>{price.startsWith('₹') ? price : `₹${price}`}</Text> : null}
-                  <Text style={styles.sellTitle}>{title}</Text>
-                  {condition ? (
-                    <View style={styles.sellConditionPill}>
-                      <Text style={styles.sellConditionText}>{condition}</Text>
-                    </View>
-                  ) : null}
-                  {desc ? <Text style={styles.postText}>{desc}</Text> : null}
-                </>
-              );
-            })()}
+      {/* ── Sell header ── */}
+      {isSellPost && (
+        <View style={styles.sellHeader}>
+          <Text style={styles.sellTitle}>{sellTitle}</Text>
+          <View style={styles.sellMeta}>
+            <Text style={styles.sellPrice}>₹{sellPrice}</Text>
+            {!!sellCondition && (
+              <View style={[styles.conditionBadge, { backgroundColor: ACCENT_GREEN + '20' }]}>
+                <Text style={[styles.conditionText, { color: ACCENT_GREEN }]}>{sellCondition}</Text>
+              </View>
+            )}
           </View>
-        ) : (
-          <Text style={styles.postText}>{post.text}</Text>
-        )
+        </View>
       )}
 
+      {/* ── Post text ── */}
+      {displayText.length > 0 && (
+        <Text style={styles.postText}>{displayText}</Text>
+      )}
+
+      {/* ── Images ── */}
       {post.images.length > 0 && (
-        <View style={styles.imagesContainer}>
+        <View style={styles.imageWrap}>
           {post.images.length === 1 ? (
-            <Pressable onPress={() => setViewerMedia({type: 'image', url: post.images[0]})}>
-              <Image
-                source={{ uri: post.images[0] }}
-                style={[styles.singleImage, { width: imageWidth }]}
-                contentFit="cover"
-                transition={200}
-              />
+            <Pressable onPress={() => setViewerMedia({ type: 'image', url: post.images[0] })}>
+              <Image source={{ uri: post.images[0] }} style={styles.singleImage} contentFit="cover" />
             </Pressable>
           ) : (
             <View style={styles.imageGrid}>
-              {post.images.slice(0, 4).map((uri, idx) => (
-                <Pressable key={idx} onPress={() => setViewerMedia({type: 'image', url: uri})}>
-                  <View style={styles.gridImageWrapper}>
-                    <Image
-                      source={{ uri }}
-                      style={styles.gridImage}
-                      contentFit="cover"
-                      transition={200}
-                    />
-                    {idx === 3 && post.images.length > 4 && (
-                      <View style={styles.moreOverlay}>
-                        <Text style={styles.moreText}>+{post.images.length - 4}</Text>
-                      </View>
-                    )}
-                  </View>
+              {post.images.slice(0, 4).map((img, i) => (
+                <Pressable key={i} style={styles.gridCell} onPress={() => setViewerMedia({ type: 'image', url: img })}>
+                  <Image source={{ uri: img }} style={styles.gridImage} contentFit="cover" />
+                  {i === 3 && post.images.length > 4 && (
+                    <View style={styles.moreOverlay}>
+                      <Text style={styles.moreText}>+{post.images.length - 4}</Text>
+                    </View>
+                  )}
                 </Pressable>
               ))}
             </View>
@@ -204,73 +249,92 @@ export default function PostCard({ post, currentUserId, onLike, onComment, onDel
         </View>
       )}
 
-      {!!post.videoUrl && post.videoUrl.length > 0 && (
-        <Pressable
-          style={styles.videoContainer}
-          onPress={() => setViewerMedia({type: 'video', url: post.videoUrl!})}
-        >
-          <View style={styles.videoPlaceholder}>
-            <Ionicons name="play-circle" size={56} color="rgba(255,255,255,0.9)" />
-          </View>
+      {/* ── Video ── */}
+      {post.videoUrl && !post.images.length && (
+        <Pressable style={styles.videoThumb} onPress={() => setViewerMedia({ type: 'video', url: post.videoUrl! })}>
+          <Ionicons name="play-circle" size={48} color="#FFF" />
+          <Text style={styles.videoLabel}>Play Video</Text>
         </Pressable>
       )}
 
+      {/* ── Hashtag pills ── */}
+      <View style={styles.tags}>
+        {(hashtags.length > 0 ? hashtags : [fallbackTag]).map((tag, i) => {
+          const tc = hashtags.length > 0 ? pickTagColor(tag, catColor) : catColor;
+          return (
+            <View key={i} style={[styles.tagPill, { backgroundColor: tc + '1A' }]}>
+              <Text style={[styles.tagText, { color: tc }]}>{tag}</Text>
+            </View>
+          );
+        })}
+      </View>
+
+      {/* ── Action row ── */}
       <View style={styles.actions}>
-        <Pressable style={styles.actionBtn} onPress={handleLike}>
+        <View style={styles.actionLeft}>
+          <Pressable style={styles.actionBtn} onPress={() => setShowComments(v => !v)}>
+            <Ionicons name="chatbubble-outline" size={13} color={TEXT_MUTED} />
+            <Text style={styles.actionBtnText}>{post.comments.length}</Text>
+          </Pressable>
+
           <Animated.View style={likeAnimStyle}>
-            <Ionicons
-              name={isLiked ? 'heart' : 'heart-outline'}
-              size={22}
-              color={isLiked ? '#FF3B30' : C.textSecondary}
-            />
+            <Pressable
+              style={[styles.actionBtn, isLiked && { borderColor: ACCENT_GREEN + '80' }]}
+              onPress={handleLike}
+            >
+              <Ionicons
+                name={isLiked ? 'arrow-up-circle' : 'arrow-up-circle-outline'}
+                size={13}
+                color={isLiked ? ACCENT_GREEN : TEXT_MUTED}
+              />
+              <Text style={[styles.actionBtnText, isLiked && { color: ACCENT_GREEN }]}>
+                {post.likes.length}
+              </Text>
+            </Pressable>
           </Animated.View>
-          {post.likes.length > 0 && (
-            <Text style={[styles.actionCount, isLiked && { color: '#FF3B30' }]}>
-              {post.likes.length}
-            </Text>
-          )}
-        </Pressable>
+        </View>
 
-        <Pressable style={styles.actionBtn} onPress={() => setShowComments(!showComments)}>
-          <Ionicons name="chatbubble-outline" size={20} color={C.textSecondary} />
-          {post.comments.length > 0 && (
-            <Text style={styles.actionCount}>{post.comments.length}</Text>
-          )}
-        </Pressable>
-
-        <Pressable style={styles.actionBtn}>
-          <Ionicons name="share-outline" size={20} color={C.textSecondary} />
+        {/* Category CTA */}
+        <Pressable
+          style={[styles.ctaBtn, { backgroundColor: catColor + '1A', borderColor: catColor + '33' }]}
+          onPress={() => { if (post.category === 'job') router.push({ pathname: '/user-profile', params: { id: post.userId } }); }}
+        >
+          <Ionicons name={cat.ctaIcon} size={11} color={catColor} />
+          <Text style={[styles.ctaBtnText, { color: catColor }]}>{cat.ctaLabel}</Text>
         </Pressable>
       </View>
 
+      {/* ── Comments section ── */}
       {showComments && (
         <View style={styles.commentsSection}>
-          {post.comments.map(c => (
-            <View key={c.id} style={styles.commentItem}>
-              <Text style={styles.commentUser}>{c.userName}</Text>
-              <Text style={styles.commentText}>{c.text}</Text>
+          {post.comments.slice(-3).map((c, i) => (
+            <View key={i} style={styles.commentRow}>
+              <View style={[styles.commentAvatar, { backgroundColor: catColor + '25' }]}>
+                <Text style={[styles.commentAvatarText, { color: catColor }]}>{getInitials(c.userName)}</Text>
+              </View>
+              <View style={styles.commentBody}>
+                <Text style={styles.commentName}>{c.userName}</Text>
+                <Text style={styles.commentText}>{c.text}</Text>
+              </View>
             </View>
           ))}
           <View style={styles.commentInput}>
             <TextInput
               style={styles.commentTextInput}
               placeholder="Add a comment..."
-              placeholderTextColor={C.textTertiary}
+              placeholderTextColor={TEXT_MUTED}
               value={commentText}
               onChangeText={setCommentText}
               onSubmitEditing={handleComment}
               returnKeyType="send"
             />
             <Pressable onPress={handleComment} disabled={!commentText.trim()}>
-              <Ionicons
-                name="send"
-                size={20}
-                color={commentText.trim() ? C.primary : C.textTertiary}
-              />
+              <Ionicons name="send" size={18} color={commentText.trim() ? catColor : TEXT_MUTED} />
             </Pressable>
           </View>
         </View>
       )}
+
       <MediaViewer
         visible={!!viewerMedia}
         onClose={() => setViewerMedia(null)}
@@ -278,18 +342,13 @@ export default function PostCard({ post, currentUserId, onLike, onComment, onDel
         videoUrl={viewerMedia?.type === 'video' ? viewerMedia.url : undefined}
       />
 
-      <Modal
-        visible={showEditModal}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowEditModal(false)}
-      >
+      <Modal visible={showEditModal} transparent animationType="slide" onRequestClose={() => setShowEditModal(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.editModal}>
             <View style={styles.editModalHeader}>
               <Text style={styles.editModalTitle}>Edit Post</Text>
               <Pressable onPress={() => setShowEditModal(false)} hitSlop={12}>
-                <Ionicons name="close" size={22} color={C.textSecondary} />
+                <Ionicons name="close" size={22} color={TEXT_MUTED} />
               </Pressable>
             </View>
             <TextInput
@@ -299,7 +358,7 @@ export default function PostCard({ post, currentUserId, onLike, onComment, onDel
               multiline
               numberOfLines={6}
               placeholder="Edit your post..."
-              placeholderTextColor={C.textTertiary}
+              placeholderTextColor={TEXT_MUTED}
               autoFocus
             />
             <Pressable
@@ -318,111 +377,135 @@ export default function PostCard({ post, currentUserId, onLike, onComment, onDel
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: C.surface,
+    backgroundColor: CARD_CHARCOAL,
     borderRadius: 16,
     padding: 16,
     marginHorizontal: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: C.border,
+    borderColor: BORDER_DARK + '4D',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  badge: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderBottomLeftRadius: 10,
+  },
+  badgeText: {
+    fontSize: 10,
+    fontFamily: 'Inter_700Bold',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 12,
+    paddingRight: 80,
+    gap: 10,
   },
   avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 2,
+  },
+  avatarFallback: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarImg: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 1.5,
-    borderColor: '#E5E5E5',
-  },
   avatarText: {
-    fontSize: 16,
+    fontSize: 14,
     fontFamily: 'Inter_600SemiBold',
   },
   headerInfo: {
     flex: 1,
-    marginLeft: 12,
+    gap: 2,
   },
-  userName: {
-    color: C.text,
-    fontSize: 15,
-    fontFamily: 'Inter_600SemiBold',
-  },
-  metaRow: {
+  nameRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 3,
+    gap: 4,
+  },
+  userName: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontFamily: 'Inter_700Bold',
+  },
+  metaText: {
+    color: TEXT_MUTED,
+    fontSize: 10,
+    fontFamily: 'Inter_400Regular',
+  },
+  moreBtn: {
+    position: 'absolute',
+    right: -2,
+    top: -2,
+    padding: 4,
+  },
+  sellHeader: {
+    marginBottom: 10,
+  },
+  sellTitle: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontFamily: 'Inter_700Bold',
+    marginBottom: 4,
+  },
+  sellMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
   },
-  roleBadge: {
+  sellPrice: {
+    color: ACCENT_GREEN,
+    fontSize: 14,
+    fontFamily: 'Inter_700Bold',
+  },
+  conditionBadge: {
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 6,
   },
-  roleText: {
+  conditionText: {
     fontSize: 11,
     fontFamily: 'Inter_500Medium',
   },
-  timeText: {
-    color: C.textTertiary,
-    fontSize: 12,
-    fontFamily: 'Inter_400Regular',
-  },
-  categoryTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-    marginBottom: 10,
-    gap: 6,
-  },
-  categoryDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  categoryText: {
-    fontSize: 12,
-    fontFamily: 'Inter_500Medium',
-  },
   postText: {
-    color: C.text,
-    fontSize: 14,
-    lineHeight: 21,
+    color: TEXT_MAIN,
+    fontSize: 13,
+    lineHeight: 20,
     fontFamily: 'Inter_400Regular',
-    marginBottom: 14,
+    marginBottom: 12,
   },
-  imagesContainer: {
-    marginBottom: 14,
+  imageWrap: {
     borderRadius: 12,
     overflow: 'hidden',
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: BORDER_DARK + '80',
   },
   singleImage: {
-    height: 220,
-    borderRadius: 12,
+    width: '100%',
+    height: 160,
   },
   imageGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 4,
+    gap: 2,
   },
-  gridImageWrapper: {
+  gridCell: {
     width: '49%' as any,
-    height: 140,
-    borderRadius: 8,
-    overflow: 'hidden',
+    height: 120,
     position: 'relative',
   },
   gridImage: {
@@ -431,123 +514,149 @@ const styles = StyleSheet.create({
   },
   moreOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.55)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   moreText: {
     color: '#FFF',
-    fontSize: 22,
+    fontSize: 20,
     fontFamily: 'Inter_700Bold',
   },
-  videoContainer: {
-    marginBottom: 14,
+  videoThumb: {
+    height: 160,
     borderRadius: 12,
-    overflow: 'hidden',
     backgroundColor: '#000',
-  },
-  videoPlayer: {
-    width: '100%',
-    height: 220,
-  },
-  videoPlaceholder: {
-    width: '100%',
-    height: 220,
-    backgroundColor: '#1a1a1a',
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 12,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: BORDER_DARK,
+  },
+  videoLabel: {
+    color: '#FFF',
+    fontSize: 13,
+    fontFamily: 'Inter_500Medium',
+  },
+  tags: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 12,
+  },
+  tagPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  tagText: {
+    fontSize: 10,
+    fontFamily: 'Inter_500Medium',
   },
   actions: {
     flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     borderTopWidth: 1,
-    borderTopColor: C.borderLight,
+    borderTopColor: BORDER_DARK + '80',
     paddingTop: 12,
-    gap: 24,
+  },
+  actionLeft: {
+    flexDirection: 'row',
+    gap: 8,
   },
   actionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: BG_DARK,
+    borderWidth: 1,
+    borderColor: BORDER_DARK,
   },
-  actionCount: {
-    color: C.textSecondary,
-    fontSize: 13,
+  actionBtnText: {
+    color: TEXT_MUTED,
+    fontSize: 11,
     fontFamily: 'Inter_500Medium',
+  },
+  ctaBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  ctaBtnText: {
+    fontSize: 11,
+    fontFamily: 'Inter_700Bold',
   },
   commentsSection: {
     marginTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: C.borderLight,
-    paddingTop: 12,
+    gap: 8,
   },
-  commentItem: {
-    marginBottom: 10,
+  commentRow: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'flex-start',
   },
-  commentUser: {
-    color: C.text,
-    fontSize: 13,
+  commentAvatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  commentAvatarText: {
+    fontSize: 10,
+    fontFamily: 'Inter_600SemiBold',
+  },
+  commentBody: {
+    flex: 1,
+    backgroundColor: BG_DARK,
+    borderRadius: 10,
+    padding: 8,
+  },
+  commentName: {
+    color: TEXT_MAIN,
+    fontSize: 11,
     fontFamily: 'Inter_600SemiBold',
     marginBottom: 2,
   },
   commentText: {
-    color: C.textSecondary,
-    fontSize: 13,
+    color: TEXT_MUTED,
+    fontSize: 12,
     fontFamily: 'Inter_400Regular',
-    lineHeight: 18,
+    lineHeight: 17,
   },
   commentInput: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: C.surfaceElevated,
-    borderRadius: 12,
+    gap: 8,
+    backgroundColor: BG_DARK,
+    borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    marginTop: 4,
+    borderWidth: 1,
+    borderColor: BORDER_DARK,
   },
   commentTextInput: {
     flex: 1,
-    color: C.text,
+    color: TEXT_MAIN,
     fontSize: 13,
     fontFamily: 'Inter_400Regular',
-    marginRight: 8,
-    padding: 0,
-  },
-  sellTextBlock: {
-    marginBottom: 12,
-  },
-  sellPrice: {
-    color: C.text,
-    fontSize: 22,
-    fontFamily: 'Inter_800ExtraBold',
-    marginBottom: 2,
-  },
-  sellTitle: {
-    color: C.text,
-    fontSize: 16,
-    fontFamily: 'Inter_600SemiBold',
-    marginBottom: 4,
-  },
-  sellConditionPill: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#34C75915',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-    marginTop: 4,
-    marginBottom: 4,
-  },
-  sellConditionText: {
-    color: '#34C759',
-    fontSize: 11,
-    fontFamily: 'Inter_600SemiBold',
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
+    backgroundColor: 'rgba(0,0,0,0.75)',
     justifyContent: 'flex-end',
   },
   editModal: {
-    backgroundColor: C.surface,
+    backgroundColor: '#1E1E1E',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 20,
@@ -560,33 +669,33 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   editModalTitle: {
-    color: C.text,
+    color: TEXT_MAIN,
     fontSize: 18,
     fontFamily: 'Inter_700Bold',
   },
   editTextInput: {
-    backgroundColor: C.surfaceElevated,
+    backgroundColor: CARD_CHARCOAL,
     borderRadius: 12,
     padding: 14,
-    color: C.text,
-    fontSize: 15,
+    color: TEXT_MAIN,
+    fontSize: 14,
     fontFamily: 'Inter_400Regular',
-    lineHeight: 22,
+    lineHeight: 21,
     minHeight: 120,
     textAlignVertical: 'top',
     borderWidth: 1,
-    borderColor: C.border,
+    borderColor: BORDER_DARK,
     marginBottom: 16,
   },
   editSaveBtn: {
-    backgroundColor: C.primary,
+    backgroundColor: '#4F46E5',
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
   },
   editSaveBtnText: {
     color: '#FFF',
-    fontSize: 16,
+    fontSize: 15,
     fontFamily: 'Inter_600SemiBold',
   },
 });
