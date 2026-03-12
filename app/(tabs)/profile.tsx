@@ -126,8 +126,9 @@ const ROLE_COLORS: Record<UserRole, string> = {
   customer: '#FF2D55',
 };
 
-function getInitials(name: string): string {
-  return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+function getInitials(name: string | undefined): string {
+  if (!name || typeof name !== 'string') return 'U';
+  return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || 'U';
 }
 
 // ── Customer-specific profile screen (matches Mobix design) ───────────────
@@ -278,7 +279,7 @@ function CustomerProfileScreen() {
 
   if (!profile) return null;
 
-  const ini = profile.name.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2);
+  const ini = getInitials(profile.name);
   const validTill = subStatus?.subscriptionEnd
     ? new Date(subStatus.subscriptionEnd).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })
     : 'Mar 2025';
@@ -884,7 +885,7 @@ export default function ProfileScreen() {
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>{profile.skills.length}</Text>
+            <Text style={styles.statValue}>{Array.isArray(profile.skills) ? profile.skills.length : 0}</Text>
             <Text style={styles.statLabel}>Skills</Text>
           </View>
         </View>
@@ -1010,7 +1011,7 @@ export default function ProfileScreen() {
           ) : null}
         </View>
 
-        {profile.skills.length > 0 && (
+        {Array.isArray(profile.skills) && profile.skills.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Skills</Text>
             <View style={styles.skillsGrid}>
