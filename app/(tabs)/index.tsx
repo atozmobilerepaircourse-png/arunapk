@@ -31,7 +31,7 @@ const GREEN     = '#10B981';
 const AMBER     = '#F59E0B';
 
 // ─── Filter type ─────────────────────────────────────────────────────────────
-type FilterKey = PostCategory | 'all' | 'technician' | 'customer';
+type FilterKey = PostCategory | 'all' | 'technician' | 'customer' | 'teacher' | 'supplier';
 
 const FILTERS: { key: FilterKey; label: string; icon: keyof typeof Ionicons.glyphMap; color?: string }[] = [
   { key: 'all',        label: 'All Posts',        icon: 'layers-outline' },
@@ -174,6 +174,8 @@ export default function FeedScreen() {
     if (filter === 'all')        return posts;
     if (filter === 'technician') return posts.filter(p => p.userRole === 'technician');
     if (filter === 'customer')   return posts.filter(p => p.userRole === 'customer');
+    if (filter === 'teacher')    return posts.filter(p => p.userRole === 'teacher');
+    if (filter === 'supplier')   return posts.filter(p => p.userRole === 'supplier');
     return posts.filter(p => p.category === filter);
   })();
 
