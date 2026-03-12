@@ -358,8 +358,13 @@ function setupErrorHandler(app: express.Application) {
 
   setupErrorHandler(app);
 
-  const devDefault = process.env.NODE_ENV === "production" ? "8080" : "5000";
-  const port = parseInt(process.env.PORT || devDefault, 10);
+  // Cloud Run (and most cloud platforms) set PORT env var. Always respect it.
+  // Default to 8080 for production, 5000 for development if PORT not set
+  const port = parseInt(
+    process.env.PORT || 
+    (process.env.NODE_ENV === "production" ? "8080" : "5000"),
+    10
+  );
   server.listen(port, "0.0.0.0", () => {
     log(`express server serving on port ${port}`);
   });
