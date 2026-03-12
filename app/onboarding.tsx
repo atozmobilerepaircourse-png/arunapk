@@ -304,18 +304,25 @@ export default function OnboardingScreen() {
     }
   };
 
-  const handleOtpVerified = async (sessionData: { success: boolean; sessionToken?: string; message?: string; isNewUser?: boolean; profile?: UserProfile }, cleanPhone: string, deviceId: string) => {
+  const handleOtpVerified = async (sessionData: { success: boolean; sessionToken?: string; message?: string; isNewUser?: boolean; profile?: any }, cleanPhone: string, deviceId: string) => {
     if (!sessionData.success) {
       Alert.alert('Verification Failed', sessionData.message || 'Invalid OTP. Please try again.');
       return;
     }
     // Existing user - log them in and redirect to home
-    if (!sessionData.isNewUser && sessionData.profile) {
-      await loginWithProfile(sessionData.profile, sessionData.sessionToken || '');
+    if (sessionData.isNewUser === false && sessionData.profile) {
+      // Fix skills field - DB returns string, app expects array
+      const p = {
+        ...sessionData.profile,
+        skills: Array.isArray(sessionData.profile.skills)
+          ? sessionData.profile.skills
+          : (() => { try { return JSON.parse(sessionData.profile.skills || '[]'); } catch { return []; } })(),
+      };
+      await loginWithProfile(p, sessionData.sessionToken || '');
       setTimeout(() => {
-        const isCustomer = sessionData.profile.role === 'customer';
+        const isCustomer = p.role === 'customer';
         router.replace(isCustomer ? '/(tabs)/customer-home' : '/(tabs)');
-      }, 100);
+      }, 200);
       return;
     }
     // New user - continue with onboarding

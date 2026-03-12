@@ -830,7 +830,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await db.delete(sessions).where(eq(sessions.phone, cleanPhone));
       await db.insert(sessions).values({ phone: cleanPhone, sessionToken });
 
-      return res.json({ success: true, message: "Phone verified via Firebase", sessionToken });
+      // Return profile for existing users so frontend can skip registration
+      const response: any = { success: true, message: "Phone verified via Firebase", sessionToken };
+      if (existingProfile) {
+        response.isNewUser = false;
+        response.profile = existingProfile;
+      } else {
+        response.isNewUser = true;
+      }
+      return res.json(response);
     } catch (error: any) {
       console.error("[Firebase Phone] Error:", error?.message || error);
       return res.status(500).json({ success: false, message: "Firebase verification failed. Please try again." });
