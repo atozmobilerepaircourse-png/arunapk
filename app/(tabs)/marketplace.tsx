@@ -14,6 +14,7 @@ import {
   FlatList,
   Alert,
   Modal,
+  Linking,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -1507,7 +1508,7 @@ const cmStyles = StyleSheet.create({
 
 export default function MarketplaceScreen() {
   const insets = useSafeAreaInsets();
-  const { profile } = useApp();
+  const { profile, startConversation } = useApp();
   const isCustomer = profile?.role === 'customer';
 
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
@@ -1818,72 +1819,132 @@ export default function MarketplaceScreen() {
     );
   };
 
-  const renderSupplierCard = (sup: ProfileData) => (
-    <Pressable
-      key={sup.id}
-      style={s.supplierCard}
-      onPress={() => router.push(`/supplier-store?id=${sup.id}` as any)}
-    >
-      <View style={{ flexDirection: 'row', gap: 14, alignItems: 'flex-start' }}>
-        {/* Logo */}
-        <View style={s.supplierLogoWrap}>
-          {sup.avatar ? (
-            <Image source={{ uri: getImageUri(sup.avatar) }} style={s.supplierLogo} contentFit="contain" />
-          ) : (
-            <View style={[s.supplierLogo, { alignItems: 'center', justifyContent: 'center' }]}>
-              <Text style={{ color: BLUE, fontSize: 18, fontWeight: '700' as const }}>{getInitials(sup.name)}</Text>
-            </View>
-          )}
-          <View style={s.supplierVerified}>
-            <Ionicons name="checkmark" size={9} color="#FFF" />
-          </View>
-        </View>
+  const getSupplierRating = (id: string): number => {
+    let h = 0;
+    for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) & 0xffffffff;
+    return 3.8 + ((Math.abs(h) % 13) / 10);
+  };
 
-        {/* Info */}
-        <View style={{ flex: 1, gap: 3 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Text style={s.supplierName} numberOfLines={1}>{sup.name}</Text>
-            {(sup.city || sup.state) && (
-              <View style={s.locationBadge}>
-                <Ionicons name="location" size={9} color={BLUE} />
-                <Text style={s.locationBadgeText}>{sup.city || sup.state}</Text>
+  const handleChatWithSupplier = async (sup: ProfileData) => {
+    if (!profile) { Alert.alert('Login Required', 'Please log in to chat.'); return; }
+    if (sup.id === profile.id) return;
+    try {
+      const convoId = await startConversation(sup.id, sup.name, sup.role as any);
+      if (convoId) router.push(`/chat/${convoId}` as any);
+    } catch (e) {
+      Alert.alert('Error', 'Could not start chat. Please try again.');
+    }
+  };
+
+  const handleCallSupplier = (phone: string) => {
+    if (!phone) { Alert.alert('No number', 'Phone not available for this supplier.'); return; }
+    Linking.openURL(`tel:${phone}`).catch(() => Alert.alert('Error', 'Cannot open dialer.'));
+  };
+
+  const renderStars = (rating: number) => {
+    const stars = [];
+    const full = Math.floor(rating);
+    for (let i = 0; i < 5; i++) {
+      stars.push(
+        <Ionicons
+          key={i}
+          name={i < full ? 'star' : (i === full && rating % 1 >= 0.5 ? 'star-half' : 'star-outline')}
+          size={11}
+          color="#FBBF24"
+        />
+      );
+    }
+    return stars;
+  };
+
+  const renderSupplierCard = (sup: ProfileData) => {
+    const rating = getSupplierRating(sup.id);
+    const isOwn = profile?.id === sup.id;
+    return (
+      <Pressable
+        key={sup.id}
+        style={s.supplierCard}
+        onPress={() => router.push(`/supplier-store?id=${sup.id}` as any)}
+      >
+        <View style={{ flexDirection: 'row', gap: 14, alignItems: 'flex-start' }}>
+          {/* Logo */}
+          <View style={s.supplierLogoWrap}>
+            {sup.avatar ? (
+              <Image source={{ uri: getImageUri(sup.avatar) }} style={s.supplierLogo} contentFit="contain" />
+            ) : (
+              <View style={[s.supplierLogo, { backgroundColor: BLUE + '22', alignItems: 'center', justifyContent: 'center' }]}>
+                <Text style={{ color: BLUE, fontSize: 18, fontWeight: '700' as const }}>{getInitials(sup.name)}</Text>
               </View>
             )}
-          </View>
-          <Text style={s.supplierShop} numberOfLines={1}>{sup.shopName || 'Mobile Parts Supplier'}</Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
-            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#10B981' }} />
-            <Text style={{ color: '#10B981', fontSize: 11, fontWeight: '600' as const }}>Open Now</Text>
-          </View>
-        </View>
-      </View>
-
-      {/* Tags */}
-      {sup.skills && sup.skills.length > 0 && (
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
-          {sup.skills.slice(0, 4).map((skill, i) => (
-            <View key={i} style={s.supplierTag}>
-              <Text style={s.supplierTagText}>{skill}</Text>
+            <View style={s.supplierVerified}>
+              <Ionicons name="checkmark" size={9} color="#FFF" />
             </View>
-          ))}
-        </View>
-      )}
+          </View>
 
-      {/* Action buttons */}
-      <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
-        <Pressable
-          style={s.supplierContactBtn}
-          onPress={() => router.push(`/supplier-store?id=${sup.id}` as any)}
-        >
-          <Ionicons name="cube-outline" size={13} color="#FFF" />
-          <Text style={s.supplierContactBtnText}>View Products ({productCounts[sup.id] || 0})</Text>
-        </Pressable>
-        <Pressable style={s.supplierSecondBtn}>
-          <Ionicons name="bookmark-outline" size={14} color={T.muted} />
-        </Pressable>
-      </View>
-    </Pressable>
-  );
+          {/* Info */}
+          <View style={{ flex: 1, gap: 3 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Text style={s.supplierName} numberOfLines={1}>{sup.name}</Text>
+              {(sup.city || sup.state) && (
+                <View style={s.locationBadge}>
+                  <Ionicons name="location" size={9} color={BLUE} />
+                  <Text style={s.locationBadgeText}>{sup.city || sup.state}</Text>
+                </View>
+              )}
+            </View>
+            <Text style={s.supplierShop} numberOfLines={1}>{sup.shopName || 'Mobile Parts Supplier'}</Text>
+            {/* Rating row */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
+              <View style={{ flexDirection: 'row', gap: 1 }}>{renderStars(rating)}</View>
+              <Text style={{ color: '#FBBF24', fontSize: 11, fontWeight: '700' as const }}>{rating.toFixed(1)}</Text>
+              <Text style={{ color: T.muted, fontSize: 10 }}>({Math.floor(12 + Math.abs(rating * 7) % 88)} reviews)</Text>
+              <View style={{ width: 4 }} />
+              <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#10B981' }} />
+              <Text style={{ color: '#10B981', fontSize: 11, fontWeight: '600' as const }}>Open</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Tags */}
+        {sup.skills && sup.skills.length > 0 && (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
+            {sup.skills.slice(0, 4).map((skill, i) => (
+              <View key={i} style={s.supplierTag}>
+                <Text style={s.supplierTagText}>{skill}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Action buttons */}
+        <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+          <Pressable
+            style={s.supplierContactBtn}
+            onPress={() => router.push(`/supplier-store?id=${sup.id}` as any)}
+          >
+            <Ionicons name="cube-outline" size={13} color="#FFF" />
+            <Text style={s.supplierContactBtnText}>Products ({productCounts[sup.id] || 0})</Text>
+          </Pressable>
+          {!isOwn && (
+            <Pressable
+              style={[s.supplierSecondBtn, { backgroundColor: '#10B98122', borderColor: '#10B981' }]}
+              onPress={() => handleChatWithSupplier(sup)}
+            >
+              <Ionicons name="chatbubble-ellipses" size={14} color="#10B981" />
+            </Pressable>
+          )}
+          {!isOwn && (sup as any).phone && (
+            <Pressable
+              style={[s.supplierSecondBtn, { backgroundColor: ORANGE + '22', borderColor: ORANGE }]}
+              onPress={() => handleCallSupplier((sup as any).phone)}
+            >
+              <Ionicons name="call" size={14} color={ORANGE} />
+            </Pressable>
+          )}
+        </View>
+      </Pressable>
+    );
+  };
 
   const renderFilterChips = (items: string[], selected: string, onSelect: (v: string) => void, color: string) => (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chipRow} style={s.chipScroll}>

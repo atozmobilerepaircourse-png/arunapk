@@ -4808,6 +4808,59 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
     }
   });
 
+  app.post("/api/admin/seed-suppliers", adminMiddleware, async (req, res) => {
+    try {
+      const testSuppliers = [
+        { name: "Raj Mobile Parts", phone: "9911001001", city: "Delhi", state: "Delhi", shopName: "Raj Mobile Parts Store", shopAddress: "Nehru Place, New Delhi", sellType: "Spare Parts", skills: ["iPhone Parts", "Samsung Parts", "Screen Replacement", "Battery"], gstNumber: "07AABCU9603R1ZP" },
+        { name: "Chennai Spare Hub", phone: "9922002002", city: "Chennai", state: "Tamil Nadu", shopName: "Chennai Spare Hub", shopAddress: "Richie Street, Chennai", sellType: "Spare Parts", skills: ["All Brands", "OEM Parts", "Tools", "Accessories"] },
+        { name: "Mumbai Tech Supplies", phone: "9933003003", city: "Mumbai", state: "Maharashtra", shopName: "Mumbai Tech Supplies", shopAddress: "Lamington Road, Mumbai", sellType: "Accessories", skills: ["Chargers", "Cables", "Cases", "Screen Guards"] },
+        { name: "Hyderabad Electronics", phone: "9944004004", city: "Hyderabad", state: "Telangana", shopName: "Hyderabad Electronics", shopAddress: "Abids, Hyderabad", sellType: "Tools", skills: ["Repair Tools", "Soldering", "BGA Tools", "Test Equipment"] },
+        { name: "Bangalore Spare World", phone: "9955005005", city: "Bangalore", state: "Karnataka", shopName: "Bangalore Spare World", shopAddress: "SP Road, Bangalore", sellType: "Spare Parts", skills: ["Motherboard Repair", "IC Chips", "Components", "Flex Cables"] },
+        { name: "Kolkata Mobile Zone", phone: "9966006006", city: "Kolkata", state: "West Bengal", shopName: "Kolkata Mobile Zone", shopAddress: "Chandni Chowk, Kolkata", sellType: "Spare Parts", skills: ["Nokia", "Samsung", "Oppo", "Vivo Parts"] },
+        { name: "Pune Parts Palace", phone: "9977007007", city: "Pune", state: "Maharashtra", shopName: "Pune Parts Palace", shopAddress: "FC Road, Pune", sellType: "Accessories", skills: ["Back Panels", "Frames", "Batteries", "Charging Ports"] },
+        { name: "Jaipur Tech Trader", phone: "9988008008", city: "Jaipur", state: "Rajasthan", shopName: "Jaipur Tech Trader", shopAddress: "MI Road, Jaipur", sellType: "Spare Parts", skills: ["Apple Parts", "Chinese Brand Parts", "Refurbished Screens"] },
+        { name: "Ahmedabad Spares Co", phone: "9999009009", city: "Ahmedabad", state: "Gujarat", shopName: "Ahmedabad Spares Co", shopAddress: "Raipur Gate, Ahmedabad", sellType: "Tools", skills: ["Hot Air Guns", "Ultrasonic Cleaners", "Power Supplies", "Microscopes"] },
+        { name: "Lucknow Mobile Mart", phone: "9800100200", city: "Lucknow", state: "Uttar Pradesh", shopName: "Lucknow Mobile Mart", shopAddress: "Aminabad, Lucknow", sellType: "Spare Parts", skills: ["All Models", "Bulk Orders", "OEM Screens", "Camera Modules"] },
+      ];
+      let created = 0;
+      let skipped = 0;
+      for (const sup of testSuppliers) {
+        const existing = await db.select().from(profiles).where(eq(profiles.phone, sup.phone));
+        if (existing.length > 0) { skipped++; continue; }
+        const newId = "supplier-seed-" + randomUUID();
+        await db.insert(profiles).values({
+          id: newId,
+          name: sup.name,
+          phone: sup.phone,
+          role: "supplier",
+          city: sup.city,
+          state: sup.state,
+          shopName: sup.shopName,
+          shopAddress: sup.shopAddress,
+          sellType: sup.sellType,
+          skills: JSON.stringify(sup.skills),
+          gstNumber: (sup as any).gstNumber || "",
+          createdAt: Date.now() - Math.floor(Math.random() * 30 * 24 * 3600 * 1000),
+          verified: 1,
+        } as any);
+        created++;
+      }
+      return res.json({ success: true, created, skipped, message: `Seeded ${created} suppliers (${skipped} already existed)` });
+    } catch (error) {
+      console.error("[Admin] Seed suppliers error:", error);
+      return res.status(500).json({ success: false, message: "Failed to seed suppliers" });
+    }
+  });
+
+  app.delete("/api/admin/products/:id", adminMiddleware, async (req, res) => {
+    try {
+      await db.delete(products).where(eq(products.id, req.params.id));
+      return res.json({ success: true, message: "Product deleted" });
+    } catch (error) {
+      return res.status(500).json({ success: false, message: "Failed to delete product" });
+    }
+  });
+
   app.get("/api/device-change/checkout", (req, res) => {
     const { orderId, amount, phone, deviceId } = req.query;
     

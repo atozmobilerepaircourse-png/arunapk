@@ -14,7 +14,7 @@ import { openLink } from '@/lib/open-link';
 
 const C = Colors.light;
 
-type AdminTab = 'dashboard' | 'users' | 'posts' | 'jobs' | 'bookings' | 'subscriptions' | 'revenue' | 'links' | 'device' | 'notifications' | 'payouts' | 'email' | 'security' | 'insurance';
+type AdminTab = 'dashboard' | 'users' | 'posts' | 'jobs' | 'bookings' | 'subscriptions' | 'revenue' | 'links' | 'device' | 'notifications' | 'payouts' | 'email' | 'security' | 'insurance' | 'ads' | 'listings';
 
 const ROLE_COLORS: Record<UserRole | 'admin', string> = {
   technician: '#34C759',
@@ -367,6 +367,21 @@ export default function AdminScreen() {
   const [insuranceSaving, setInsuranceSaving] = useState(false);
   const [insuranceSaved, setInsuranceSaved] = useState(false);
 
+  // Ads management state
+  const [adsList, setAdsList] = useState<any[]>([]);
+  const [adsLoading, setAdsLoading] = useState(false);
+  const [adsSeeding, setAdsSeeding] = useState(false);
+  const [newAdTitle, setNewAdTitle] = useState('');
+  const [newAdDescription, setNewAdDescription] = useState('');
+  const [newAdImageUrl, setNewAdImageUrl] = useState('');
+  const [newAdLinkUrl, setNewAdLinkUrl] = useState('');
+  const [adSaving, setAdSaving] = useState(false);
+
+  // Listings management state
+  const [allProducts, setAllProducts] = useState<any[]>([]);
+  const [listingsLoading, setListingsLoading] = useState(false);
+  const [listingsSearch, setListingsSearch] = useState('');
+
   const [repairBookings, setRepairBookings] = useState<any[]>([]);
   const [repairLoading, setRepairLoading] = useState(false);
   const [repairFilter, setRepairFilter] = useState<'all' | 'pending' | 'assigned' | 'completed' | 'cancelled'>('all');
@@ -414,7 +429,233 @@ export default function AdminScreen() {
 
   useEffect(() => {
     if (activeTab === 'bookings') fetchRepairBookings();
+    if (activeTab === 'ads') fetchAds();
+    if (activeTab === 'listings') fetchAllProducts();
   }, [activeTab, fetchRepairBookings]);
+
+  const fetchAds = async () => {
+    setAdsLoading(true);
+    try {
+      const res = await apiRequest('GET', '/api/ads');
+      const data = await res.json();
+      if (Array.isArray(data)) setAdsList(data);
+    } catch { } finally { setAdsLoading(false); }
+  };
+
+  const fetchAllProducts = async () => {
+    setListingsLoading(true);
+    try {
+      const res = await apiRequest('GET', '/api/products');
+      const data = await res.json();
+      if (Array.isArray(data)) setAllProducts(data);
+    } catch { } finally { setListingsLoading(false); }
+  };
+
+  const createAd = async () => {
+    if (!newAdTitle.trim()) { Alert.alert('Error', 'Title is required'); return; }
+    setAdSaving(true);
+    try {
+      const res = await apiRequest('POST', '/api/ads', { title: newAdTitle, description: newAdDescription, imageUrl: newAdImageUrl, linkUrl: newAdLinkUrl, isActive: 1, sortOrder: adsList.length });
+      if (res.ok) {
+        setNewAdTitle(''); setNewAdDescription(''); setNewAdImageUrl(''); setNewAdLinkUrl('');
+        await fetchAds();
+      }
+    } catch (e) {
+      Alert.alert('Error', 'Failed to create ad');
+    } finally { setAdSaving(false); }
+  };
+
+  const toggleAd = async (ad: any) => {
+    try {
+      await apiRequest('PATCH', `/api/ads/${ad.id}`, { isActive: ad.isActive ? 0 : 1 });
+      await fetchAds();
+    } catch { Alert.alert('Error', 'Failed to toggle ad'); }
+  };
+
+  const deleteAd = (id: string, title: string) => {
+    Alert.alert('Delete Ad', `Delete "${title}"?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete', style: 'destructive', onPress: async () => {
+          try {
+            await apiRequest('DELETE', `/api/ads/${id}`);
+            await fetchAds();
+          } catch { Alert.alert('Error', 'Failed to delete ad'); }
+        }
+      }
+    ]);
+  };
+
+  const seedSuppliers = async () => {
+    setAdsSeeding(true);
+    try {
+      const res = await apiRequest('POST', '/api/admin/seed-suppliers', {});
+      const data = await res.json();
+      Alert.alert('Done', data.message || 'Suppliers seeded');
+    } catch { Alert.alert('Error', 'Failed to seed suppliers'); } finally { setAdsSeeding(false); }
+  };
+
+  const adminDeleteProduct = (id: string, title: string) => {
+    Alert.alert('Delete Listing', `Delete "${title}"?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete', style: 'destructive', onPress: async () => {
+          try {
+            await apiRequest('DELETE', `/api/admin/products/${id}`);
+            await fetchAllProducts();
+          } catch { Alert.alert('Error', 'Failed to delete listing'); }
+        }
+      }
+    ]);
+  };
+
+  const renderAds = () => {
+    const inputStyle = { borderWidth: 1, borderColor: C.border, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: C.text, backgroundColor: C.card, marginTop: 6 };
+    return (
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 80 }} showsVerticalScrollIndicator={false}>
+        <Text style={{ fontSize: 20, fontWeight: '700', color: C.text, marginBottom: 4 }}>Ads Manager</Text>
+        <Text style={{ fontSize: 13, color: C.textSecondary, marginBottom: 16 }}>Manage banner ads displayed in the Shop. Toggle active/inactive or delete.</Text>
+
+        {/* Seed Suppliers */}
+        <View style={{ backgroundColor: '#FF6B2C15', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#FF6B2C33', marginBottom: 16 }}>
+          <Text style={{ fontSize: 14, fontWeight: '700', color: '#FF6B2C', marginBottom: 4 }}>Seed Test Suppliers</Text>
+          <Text style={{ fontSize: 12, color: C.textSecondary, marginBottom: 10 }}>Add 10 test supplier accounts to populate the Suppliers tab.</Text>
+          <Pressable
+            style={{ backgroundColor: '#FF6B2C', borderRadius: 10, paddingVertical: 10, alignItems: 'center' }}
+            onPress={seedSuppliers}
+            disabled={adsSeeding}
+          >
+            <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 14 }}>{adsSeeding ? 'Seeding...' : 'Seed 10 Test Suppliers'}</Text>
+          </Pressable>
+        </View>
+
+        {/* Create New Ad */}
+        <View style={{ backgroundColor: C.card, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: C.border, marginBottom: 20 }}>
+          <Text style={{ fontSize: 16, fontWeight: '700', color: C.text, marginBottom: 12 }}>Create New Ad</Text>
+          <Text style={{ fontSize: 12, color: C.textSecondary }}>Title *</Text>
+          <TextInput style={inputStyle} value={newAdTitle} onChangeText={setNewAdTitle} placeholder="Ad title" placeholderTextColor={C.textTertiary} />
+          <Text style={{ fontSize: 12, color: C.textSecondary, marginTop: 10 }}>Description</Text>
+          <TextInput style={inputStyle} value={newAdDescription} onChangeText={setNewAdDescription} placeholder="Short description" placeholderTextColor={C.textTertiary} />
+          <Text style={{ fontSize: 12, color: C.textSecondary, marginTop: 10 }}>Image URL</Text>
+          <TextInput style={inputStyle} value={newAdImageUrl} onChangeText={setNewAdImageUrl} placeholder="https://..." placeholderTextColor={C.textTertiary} autoCapitalize="none" />
+          <Text style={{ fontSize: 12, color: C.textSecondary, marginTop: 10 }}>Link URL</Text>
+          <TextInput style={inputStyle} value={newAdLinkUrl} onChangeText={setNewAdLinkUrl} placeholder="https://..." placeholderTextColor={C.textTertiary} autoCapitalize="none" />
+          <Pressable
+            style={{ marginTop: 14, backgroundColor: C.primary, borderRadius: 10, paddingVertical: 12, alignItems: 'center' }}
+            onPress={createAd} disabled={adSaving}
+          >
+            <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 15 }}>{adSaving ? 'Creating...' : '+ Create Ad'}</Text>
+          </Pressable>
+        </View>
+
+        {/* Existing Ads */}
+        <Text style={{ fontSize: 16, fontWeight: '700', color: C.text, marginBottom: 12 }}>All Ads ({adsList.length})</Text>
+        {adsLoading ? (
+          <ActivityIndicator color={C.primary} style={{ marginTop: 20 }} />
+        ) : adsList.length === 0 ? (
+          <View style={{ alignItems: 'center', paddingVertical: 40 }}>
+            <Ionicons name="megaphone-outline" size={48} color={C.textTertiary} />
+            <Text style={{ color: C.textSecondary, marginTop: 10 }}>No ads yet. Create one above.</Text>
+          </View>
+        ) : (
+          adsList.map(ad => (
+            <View key={ad.id} style={{ backgroundColor: C.card, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: ad.isActive ? C.primary + '44' : C.border, marginBottom: 12 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
+                {ad.imageUrl ? (
+                  <View style={{ width: 70, height: 50, borderRadius: 10, overflow: 'hidden', backgroundColor: C.surface }}>
+                    <TouchableOpacity activeOpacity={0.8} style={{ flex: 1 }}>
+                      {/* eslint-disable-next-line react-native/no-inline-styles */}
+                      <Text style={{ position: 'absolute', top: 2, left: 4, color: C.textTertiary, fontSize: 9 }}>IMG</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <View style={{ width: 70, height: 50, borderRadius: 10, backgroundColor: C.surface, alignItems: 'center', justifyContent: 'center' }}>
+                    <Ionicons name="image-outline" size={24} color={C.textTertiary} />
+                  </View>
+                )}
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: C.text, fontWeight: '700', fontSize: 14 }} numberOfLines={1}>{ad.title}</Text>
+                  {ad.description ? <Text style={{ color: C.textSecondary, fontSize: 12, marginTop: 2 }} numberOfLines={1}>{ad.description}</Text> : null}
+                  {ad.linkUrl ? <Text style={{ color: C.primary, fontSize: 11, marginTop: 2 }} numberOfLines={1}>{ad.linkUrl}</Text> : null}
+                </View>
+              </View>
+              <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+                <Pressable
+                  style={{ flex: 1, paddingVertical: 9, borderRadius: 8, backgroundColor: ad.isActive ? '#34C75915' : '#FF3B3015', alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6 }}
+                  onPress={() => toggleAd(ad)}
+                >
+                  <Ionicons name={ad.isActive ? 'eye' : 'eye-off'} size={15} color={ad.isActive ? '#34C759' : '#FF3B30'} />
+                  <Text style={{ color: ad.isActive ? '#34C759' : '#FF3B30', fontWeight: '700', fontSize: 13 }}>{ad.isActive ? 'Active' : 'Hidden'}</Text>
+                </Pressable>
+                <Pressable
+                  style={{ paddingVertical: 9, paddingHorizontal: 16, borderRadius: 8, backgroundColor: '#FF3B3015', flexDirection: 'row', alignItems: 'center', gap: 6 }}
+                  onPress={() => deleteAd(ad.id, ad.title)}
+                >
+                  <Ionicons name="trash-outline" size={15} color="#FF3B30" />
+                  <Text style={{ color: '#FF3B30', fontWeight: '700', fontSize: 13 }}>Delete</Text>
+                </Pressable>
+              </View>
+            </View>
+          ))
+        )}
+      </ScrollView>
+    );
+  };
+
+  const renderListings = () => {
+    const filtered = allProducts.filter(p =>
+      !listingsSearch || [p.title, p.userName, p.city, p.category].filter(Boolean).join(' ').toLowerCase().includes(listingsSearch.toLowerCase())
+    );
+    return (
+      <View style={{ flex: 1 }}>
+        <View style={{ padding: 16, paddingBottom: 8 }}>
+          <Text style={{ fontSize: 20, fontWeight: '700', color: C.text, marginBottom: 4 }}>All Listings</Text>
+          <Text style={{ fontSize: 13, color: C.textSecondary, marginBottom: 12 }}>Delete inappropriate or spam product listings.</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: C.card, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1, borderColor: C.border }}>
+            <Ionicons name="search" size={16} color={C.textTertiary} />
+            <TextInput
+              style={{ flex: 1, color: C.text, fontSize: 14 }}
+              placeholder="Search listings..."
+              placeholderTextColor={C.textTertiary}
+              value={listingsSearch}
+              onChangeText={setListingsSearch}
+            />
+          </View>
+        </View>
+        {listingsLoading ? (
+          <ActivityIndicator color={C.primary} style={{ marginTop: 40 }} />
+        ) : (
+          <FlatList
+            data={filtered}
+            keyExtractor={item => item.id}
+            contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 80 }}
+            ListEmptyComponent={
+              <View style={{ alignItems: 'center', paddingVertical: 60 }}>
+                <Ionicons name="cube-outline" size={48} color={C.textTertiary} />
+                <Text style={{ color: C.textSecondary, marginTop: 10 }}>No listings found</Text>
+              </View>
+            }
+            renderItem={({ item }) => (
+              <View style={{ backgroundColor: C.card, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: C.border, marginBottom: 10, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: C.text, fontWeight: '700', fontSize: 14 }} numberOfLines={1}>{item.title}</Text>
+                  <Text style={{ color: C.textSecondary, fontSize: 12, marginTop: 2 }}>By {item.userName} · {item.category || 'general'}</Text>
+                  {item.city && <Text style={{ color: C.textTertiary, fontSize: 11, marginTop: 1 }}>{item.city}</Text>}
+                  {item.price && <Text style={{ color: C.primary, fontSize: 13, fontWeight: '700', marginTop: 2 }}>₹{item.price}</Text>}
+                </View>
+                <Pressable
+                  style={{ padding: 10, borderRadius: 8, backgroundColor: '#FF3B3015' }}
+                  onPress={() => adminDeleteProduct(item.id, item.title)}
+                >
+                  <Ionicons name="trash-outline" size={18} color="#FF3B30" />
+                </Pressable>
+              </View>
+            )}
+          />
+        )}
+      </View>
+    );
+  };
 
   const fetchInsuranceSettings = useCallback(async () => {
     setInsuranceLoading(true);
@@ -784,6 +1025,8 @@ export default function AdminScreen() {
     { key: 'revenue', label: 'Revenue', icon: 'trending-up' },
     { key: 'posts', label: 'Posts', icon: 'newspaper' },
     { key: 'jobs', label: 'Jobs', icon: 'briefcase' },
+    { key: 'ads', label: 'Ads & Shop', icon: 'megaphone' },
+    { key: 'listings', label: 'Listings', icon: 'cube' },
     { key: 'links', label: 'Links', icon: 'link' },
     { key: 'device', label: 'Device', icon: 'phone-portrait' },
     { key: 'notifications', label: 'Notify', icon: 'notifications' },
@@ -2608,6 +2851,8 @@ export default function AdminScreen() {
         {activeTab === 'revenue' && renderRevenue()}
         {activeTab === 'posts' && renderPosts()}
         {activeTab === 'jobs' && renderJobs()}
+        {activeTab === 'ads' && renderAds()}
+        {activeTab === 'listings' && renderListings()}
         {activeTab === 'links' && renderLinks()}
         {activeTab === 'device' && renderDevice()}
         {activeTab === 'notifications' && renderNotifications()}
