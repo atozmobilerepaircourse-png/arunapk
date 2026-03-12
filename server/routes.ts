@@ -1339,10 +1339,16 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
       const found = allProfiles.find(p => p.email && p.email.toLowerCase() === email.toLowerCase());
 
       if (found) {
+        let skillsArray = [];
+        try {
+          skillsArray = found.skills ? JSON.parse(found.skills) : [];
+        } catch (e) {
+          skillsArray = [];
+        }
         return res.json({
           success: true,
           exists: true,
-          profile: { ...found, skills: JSON.parse(found.skills) },
+          profile: { ...found, skills: skillsArray },
         });
       }
       return res.json({ success: true, exists: false });
@@ -1431,10 +1437,16 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
       const found = allProfiles.find(p => p.phone.replace(/\D/g, "") === cleanPhone);
 
       if (found) {
+        let skillsArray = [];
+        try {
+          skillsArray = found.skills ? JSON.parse(found.skills) : [];
+        } catch (e) {
+          skillsArray = [];
+        }
         return res.json({
           success: true,
           exists: true,
-          profile: { ...found, skills: JSON.parse(found.skills) },
+          profile: { ...found, skills: skillsArray },
         });
       }
       return res.json({ success: true, exists: false });
@@ -1492,10 +1504,15 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
   app.get("/api/profiles", async (_req, res) => {
     try {
       const allProfiles = await db.select().from(profiles);
-      const parsed = allProfiles.map(p => ({
-        ...p,
-        skills: JSON.parse(p.skills),
-      }));
+      const parsed = allProfiles.map(p => {
+        let skillsArray = [];
+        try {
+          skillsArray = p.skills ? JSON.parse(p.skills) : [];
+        } catch (e) {
+          skillsArray = [];
+        }
+        return { ...p, skills: skillsArray };
+      });
       return res.json(parsed);
     } catch (error) {
       console.error("[Profile] List error:", error);
@@ -1510,7 +1527,13 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
         return res.status(404).json({ success: false, message: "Profile not found" });
       }
       const p = result[0];
-      return res.json({ ...p, skills: JSON.parse(p.skills) });
+      let skillsArray = [];
+      try {
+        skillsArray = p.skills ? JSON.parse(p.skills) : [];
+      } catch (e) {
+        skillsArray = [];
+      }
+      return res.json({ ...p, skills: skillsArray });
     } catch (error) {
       console.error("[Profile] Get error:", error);
       return res.status(500).json({ success: false, message: "Failed to get profile" });
@@ -2025,10 +2048,15 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
   app.get("/api/jobs", async (_req, res) => {
     try {
       const allJobs = await db.select().from(jobs).orderBy(desc(jobs.createdAt));
-      const parsed = allJobs.map(j => ({
-        ...j,
-        skills: JSON.parse(j.skills),
-      }));
+      const parsed = allJobs.map(j => {
+        let skillsArray = [];
+        try {
+          skillsArray = j.skills ? JSON.parse(j.skills) : [];
+        } catch (e) {
+          skillsArray = [];
+        }
+        return { ...j, skills: skillsArray };
+      });
       return res.json(parsed);
     } catch (error) {
       console.error("[Jobs] List error:", error);
@@ -4846,11 +4874,17 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
       await db.delete(sessions).where(eq(sessions.phone, cleanPhone));
       await db.insert(sessions).values({ phone: cleanPhone, sessionToken });
 
+      let skillsArray = [];
+      try {
+        skillsArray = existingProfile.skills ? JSON.parse(existingProfile.skills) : [];
+      } catch (e) {
+        skillsArray = [];
+      }
       return res.json({
         success: true,
         message: "Device changed successfully",
         sessionToken,
-        profile: { ...existingProfile, deviceId, skills: JSON.parse(existingProfile.skills) },
+        profile: { ...existingProfile, deviceId, skills: skillsArray },
       });
     } catch (error) {
       console.error("[DeviceChange] Verify payment error:", error);
