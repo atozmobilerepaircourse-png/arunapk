@@ -211,6 +211,7 @@ export default function CreatePostScreen() {
       userId: profile.id,
       userName: profile.name,
       userRole: profile.role,
+      userAvatar: profile.avatar || '',
       text: text.trim(),
       images: uploadedImages,
       videoUrl: uploadedVideoUrl,
