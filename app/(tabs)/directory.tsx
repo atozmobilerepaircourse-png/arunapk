@@ -250,43 +250,14 @@ export default function DirectoryScreen() {
         ListHeaderComponent={
           <>
             {/* ── HEADER ── */}
-            {Platform.OS !== 'web' && (
-              <View style={[styles.header, { paddingTop: topPad }]}>
-                {/* Location */}
-                <View style={styles.locationSelector}>
-                  <Ionicons name="location" size={13} color={PRIMARY} />
-                  <Text style={styles.locationCity}>Hyderabad</Text>
-                  <Ionicons name="chevron-down" size={10} color={GRAY} />
-                </View>
+            <View style={[styles.header, { paddingTop: topPad }]}>
+              <Pressable style={styles.menuBtn} onPress={() => {}}>
+                <Ionicons name="menu" size={18} color={GRAY} />
+              </Pressable>
+            </View>
 
-                {/* Title row */}
-                <View style={styles.titleRow}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.headerTitle}>Find Professionals{'\n'}Near You</Text>
-                    <Text style={styles.headerSub}>Technicians, Teachers, Suppliers and Customers across India</Text>
-                  </View>
-                  <View style={styles.headerBtns}>
-                    <Pressable style={styles.mapBtn} onPress={() => setViewMode('map')}>
-                      <Ionicons name="map-outline" size={18} color={PRIMARY} />
-                      <Text style={styles.mapBtnText}>View Map</Text>
-                    </Pressable>
-                    <Pressable style={styles.menuBtn} onPress={() => {}}>
-                      <Ionicons name="menu" size={18} color={GRAY} />
-                    </Pressable>
-                  </View>
-                </View>
-              </View>
-            )}
-            {Platform.OS === 'web' && (
-              <View style={[styles.header, { paddingTop: topPad }]}>
-                <Pressable style={styles.menuBtn} onPress={() => {}}>
-                  <Ionicons name="menu" size={18} color={GRAY} />
-                </Pressable>
-              </View>
-            )}
-
-              {/* Search bar - Web needs top padding */}
-              <View style={[styles.searchBar, Platform.OS === 'web' && { marginTop: 12 }]}>
+            {/* Search bar */}
+            <View style={styles.searchBar}>
                 <Ionicons name="search" size={16} color={GRAY} style={{ marginLeft: 4 }} />
                 <TextInput
                   style={styles.searchInput}
