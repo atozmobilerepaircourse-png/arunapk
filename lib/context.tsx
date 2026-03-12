@@ -16,6 +16,8 @@ interface AppContextValue {
   allProfiles: UserProfile[];
   isLoading: boolean;
   isOnboarded: boolean;
+  navigationMode: 'default' | 'marketplace';
+  setNavigationMode: (mode: 'default' | 'marketplace') => void;
   setProfile: (profile: UserProfile) => Promise<void>;
   completeOnboarding: (profile: UserProfile, sessionToken: string) => Promise<void>;
   loginWithProfile: (profile: UserProfile, sessionToken: string) => Promise<void>;
@@ -205,6 +207,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isOnboarded, setIsOnboarded] = useState(false);
   const [liveChatUnread, setLiveChatUnread] = useState(0);
+  const [navigationMode, setNavigationMode] = useState<'default' | 'marketplace'>('default');
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastConvoTimestamps = useRef<Record<string, number>>({});
   const activeChatIdRef = useRef<string | null>(null);
@@ -724,6 +727,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     allProfiles,
     isLoading,
     isOnboarded,
+    navigationMode,
+    setNavigationMode,
     setProfile,
     completeOnboarding,
     loginWithProfile,
@@ -746,7 +751,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     loadMessages,
     pollMessages,
     setActiveChatId,
-  }), [profile, posts, jobs, conversations, allProfiles, isLoading, isOnboarded, setProfile, completeOnboarding, loginWithProfile, addPost, toggleLike, addComment, deletePostCb, updatePostCb, addJob, deleteJobCb, refreshData, startConversation, sendMessage, deleteConversationCb, logout, totalUnread, liveChatUnread, resetLiveChatUnread, setLiveChatActive, loadMessages, pollMessages, setActiveChatId]);
+  }), [profile, posts, jobs, conversations, allProfiles, isLoading, isOnboarded, navigationMode, setProfile, completeOnboarding, loginWithProfile, addPost, toggleLike, addComment, deletePostCb, updatePostCb, addJob, deleteJobCb, refreshData, startConversation, sendMessage, deleteConversationCb, logout, totalUnread, liveChatUnread, resetLiveChatUnread, setLiveChatActive, loadMessages, pollMessages, setActiveChatId]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }

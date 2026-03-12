@@ -13,13 +13,13 @@ import { ADMIN_PHONE } from "@/lib/types";
 const C = Colors.light;
 
 function NativeTabLayout() {
-  const { profile } = useApp();
+  const { profile, navigationMode } = useApp();
   const isCustomer = profile?.role === 'customer';
   const isTeacher = profile?.role === 'teacher';
   const isSupplier = profile?.role === 'supplier';
-  const isTechnician = profile?.role === 'technician';
 
   const getRoleTab = () => {
+    if (navigationMode === 'marketplace') return { name: 'marketplace', icon: 'bag', label: 'Marketplace' };
     if (isTeacher) return { name: 'content', icon: 'book', label: 'Content' };
     if (isSupplier) return { name: 'products', icon: 'cube', label: 'Products' };
     return { name: 'marketplace', icon: 'bag', label: 'Marketplace' };
@@ -93,11 +93,10 @@ function NativeTabLayout() {
 function ClassicTabLayout() {
   const isWeb = Platform.OS === "web";
   const isIOS = Platform.OS === "ios";
-  const { profile } = useApp();
+  const { profile, navigationMode } = useApp();
   const isCustomer = profile?.role === 'customer';
   const isTeacher = profile?.role === 'teacher';
   const isSupplier = profile?.role === 'supplier';
-  const isTechnician = profile?.role === 'technician';
 
   return (
     <Tabs
@@ -202,7 +201,7 @@ function ClassicTabLayout() {
         name="marketplace"
         options={{
           title: "Marketplace",
-          href: (isTeacher || isSupplier) ? null : '/marketplace',
+          href: navigationMode === 'marketplace' || (!isTeacher && !isSupplier) ? '/marketplace' : null,
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? "bag" : "bag-outline"}
@@ -216,7 +215,7 @@ function ClassicTabLayout() {
         name="content"
         options={{
           title: "Content",
-          href: isTeacher ? '/content' : null,
+          href: isTeacher && navigationMode === 'default' ? '/content' : null,
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? "book" : "book-outline"}
@@ -230,7 +229,7 @@ function ClassicTabLayout() {
         name="products"
         options={{
           title: "Products",
-          href: isSupplier ? '/products' : null,
+          href: isSupplier && navigationMode === 'default' ? '/products' : null,
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? "cube" : "cube-outline"}
