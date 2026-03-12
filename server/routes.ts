@@ -827,10 +827,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { token } = req.body;
       if (!token) return res.status(400).json({ success: false, message: "Token required" });
       
-      // Use EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID which is the actual client ID set in env-secrets
-      const clientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || process.env.GOOGLE_CLIENT_ID;
-      // For production, use the Cloud Run redirect URI; for dev, use the Replit domain from secrets
-      const redirectUri = process.env.GOOGLE_REDIRECT_URI || "https://repair-backend-3siuld7gbq-el.a.run.app/api/auth/google/callback";
+      // Extract client ID from GOOGLE_CLIENT_SECRET JSON (matches the registered client)
+      let clientId = process.env.GOOGLE_CLIENT_ID || '';
+      if (!clientId && process.env.GOOGLE_CLIENT_SECRET) {
+        try {
+          const secret = JSON.parse(process.env.GOOGLE_CLIENT_SECRET);
+          clientId = secret.web?.client_id || secret.installed?.client_id || '';
+        } catch {}
+      }
+      const redirectUri = "https://repair-backend-3siuld7gbq-el.a.run.app/api/auth/google/callback";
       
       if (!clientId) {
         console.error("[Google Auth] No clientId found in EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID or GOOGLE_CLIENT_ID");
@@ -918,12 +923,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return sendGoogleErrorPage(res, "No authorization code received from Google.");
       }
 
-      // Use EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID (the actual registered client ID)
-      const clientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || process.env.GOOGLE_CLIENT_ID;
+      // Extract client ID from GOOGLE_CLIENT_SECRET JSON
+      let clientId = process.env.GOOGLE_CLIENT_ID || '';
+      if (!clientId && process.env.GOOGLE_CLIENT_SECRET) {
+        try {
+          const secret = JSON.parse(process.env.GOOGLE_CLIENT_SECRET);
+          clientId = secret.web?.client_id || secret.installed?.client_id || '';
+        } catch {}
+      }
       const clientSecret = getGoogleClientSecret();
-      const redirectUri = process.env.GOOGLE_REDIRECT_URI || "https://repair-backend-3siuld7gbq-el.a.run.app/api/auth/google/callback";
+      const redirectUri = "https://repair-backend-3siuld7gbq-el.a.run.app/api/auth/google/callback";
 
-      console.log("[Google Auth] Callback: clientId set:", !!clientId, clientId?.substring(0, 20) + "...");
+      console.log("[Google Auth] Callback: clientId:", clientId?.substring(0, 20) + "...");
       console.log("[Google Auth] Callback: clientSecret length:", clientSecret?.length);
       console.log("[Google Auth] Callback: redirectUri:", redirectUri);
 
