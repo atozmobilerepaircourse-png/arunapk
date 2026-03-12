@@ -827,24 +827,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { token } = req.body;
       if (!token) return res.status(400).json({ success: false, message: "Token required" });
       
-      // Production Google OAuth client (registered with Google Cloud Console)
-      const PROD_CLIENT_ID = '456751858632-brh0ir7j9v2ks5kk6antp6q757kmhaus.apps.googleusercontent.com';
-      
-      // Extract client ID from env or use production default
-      let clientId = process.env.GOOGLE_CLIENT_ID || PROD_CLIENT_ID;
-      if (clientId === PROD_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
-        try {
-          const secret = JSON.parse(process.env.GOOGLE_CLIENT_SECRET);
-          const envClientId = secret.web?.client_id || secret.installed?.client_id;
-          if (envClientId) clientId = envClientId;
-        } catch {}
-      }
+      // Production Google OAuth credentials
+      const clientId = '456751858632-brh0ir7j9v2ks5kk6antp6q757kmhaus.apps.googleusercontent.com';
       const redirectUri = "https://repair-backend-3siuld7gbq-el.a.run.app/api/auth/google/callback";
       
-      if (!clientId) return res.status(500).json({ success: false, message: "GOOGLE_CLIENT_ID not configured" });
-      if (!redirectUri) return res.status(500).json({ success: false, message: "GOOGLE_REDIRECT_URI not configured" });
-      
-      console.log("[Google Auth] Using clientId:", clientId.substring(0, 20) + "...");
+      console.log("[Google Auth] Using clientId: 456751858632-...");
       
       const stateObj = { token };
       const stateStr = Buffer.from(JSON.stringify(stateObj)).toString('base64');
@@ -923,32 +910,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return sendGoogleErrorPage(res, "No authorization code received from Google.");
       }
 
-      // Production Google OAuth credentials (hardcoded for Cloud Run)
-      const PROD_CLIENT_ID = '456751858632-brh0ir7j9v2ks5kk6antp6q757kmhaus.apps.googleusercontent.com';
-      const PROD_CLIENT_SECRET = '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';
-      
-      // Extract client ID from env or use production default
-      let clientId = process.env.GOOGLE_CLIENT_ID || PROD_CLIENT_ID;
-      if (clientId === PROD_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
-        try {
-          const secret = JSON.parse(process.env.GOOGLE_CLIENT_SECRET);
-          const envClientId = secret.web?.client_id || secret.installed?.client_id;
-          if (envClientId) clientId = envClientId;
-        } catch {}
-      }
-      
-      // Get client secret - use production default if env not set
-      let clientSecret = getGoogleClientSecret() || PROD_CLIENT_SECRET;
+      // Production Google OAuth credentials
+      const clientId = '456751858632-brh0ir7j9v2ks5kk6antp6q757kmhaus.apps.googleusercontent.com';
+      const clientSecret = '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';
       const redirectUri = "https://repair-backend-3siuld7gbq-el.a.run.app/api/auth/google/callback";
 
-      console.log("[Google Auth] Callback: clientId:", clientId?.substring(0, 20) + "...");
-      console.log("[Google Auth] Callback: clientSecret length:", clientSecret?.length);
+      console.log("[Google Auth] Callback: clientId: 456751858632-...");
+      console.log("[Google Auth] Callback: clientSecret length: 35");
       console.log("[Google Auth] Callback: redirectUri:", redirectUri);
-
-      if (!clientId || !clientSecret) {
-        console.error("[Google Auth] Missing credentials - clientId:", !!clientId, "secret:", !!clientSecret);
-        return sendGoogleErrorPage(res, "Google OAuth is not configured on the server.");
-      }
 
       console.log("[Google Auth] Exchanging authorization code for token...");
       const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
