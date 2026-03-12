@@ -304,11 +304,21 @@ export default function OnboardingScreen() {
     }
   };
 
-  const handleOtpVerified = async (sessionData: { success: boolean; sessionToken?: string; message?: string }, cleanPhone: string, deviceId: string) => {
+  const handleOtpVerified = async (sessionData: { success: boolean; sessionToken?: string; message?: string; isNewUser?: boolean; profile?: UserProfile }, cleanPhone: string, deviceId: string) => {
     if (!sessionData.success) {
       Alert.alert('Verification Failed', sessionData.message || 'Invalid OTP. Please try again.');
       return;
     }
+    // Existing user - log them in and redirect to home
+    if (!sessionData.isNewUser && sessionData.profile) {
+      await loginWithProfile(sessionData.profile, sessionData.sessionToken || '');
+      setTimeout(() => {
+        const isCustomer = sessionData.profile.role === 'customer';
+        router.replace(isCustomer ? '/(tabs)/customer-home' : '/(tabs)');
+      }, 100);
+      return;
+    }
+    // New user - continue with onboarding
     const token = sessionData.sessionToken || '';
     setSessionToken(token);
     if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
