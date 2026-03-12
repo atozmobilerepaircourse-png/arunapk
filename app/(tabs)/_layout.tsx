@@ -39,7 +39,6 @@ function NativeTabLayout() {
         <NativeTabs.Trigger name="support" hidden />
         <NativeTabs.Trigger name="index" hidden />
         <NativeTabs.Trigger name="jobs" hidden />
-        <NativeTabs.Trigger name="my-shop" hidden />
         <NativeTabs.Trigger name="directory" hidden />
       </NativeTabs>
     );
@@ -68,7 +67,6 @@ function NativeTabLayout() {
         <NativeTabs.Trigger name="jobs" hidden />
         <NativeTabs.Trigger name="technician-jobs" hidden />
         <NativeTabs.Trigger name="directory" hidden />
-        <NativeTabs.Trigger name="my-shop" hidden />
       </NativeTabs>
     );
   }
@@ -95,7 +93,6 @@ function NativeTabLayout() {
         <NativeTabs.Trigger name="customer-home" hidden />
         <NativeTabs.Trigger name="technician-jobs" hidden />
         <NativeTabs.Trigger name="directory" hidden />
-        <NativeTabs.Trigger name="my-shop" hidden />
       </NativeTabs>
     );
   }
@@ -121,7 +118,6 @@ function NativeTabLayout() {
       <NativeTabs.Trigger name="customer-home" hidden />
       <NativeTabs.Trigger name="jobs" hidden />
       <NativeTabs.Trigger name="directory" hidden />
-      <NativeTabs.Trigger name="my-shop" hidden />
     </NativeTabs>
   );
 }

@@ -27,7 +27,6 @@ import { useApp } from '@/lib/context';
 import { apiRequest, getApiUrl } from '@/lib/query-client';
 import { openLink } from '@/lib/open-link';
 import BuySellScreen from '@/app/buy-sell';
-import { ShopProductsTab } from '@/app/(tabs)/shop-products-tab';
 import { T } from '@/constants/techTheme';
 
 
@@ -104,7 +103,7 @@ function getInitials(name: string): string {
   return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
 }
 
-type TabKey = 'courses' | 'spare' | 'suppliers' | 'buysell' | 'live';
+type TabKey = 'courses' | 'suppliers' | 'buysell' | 'live';
 
 interface LiveSession {
   id: string;
@@ -1980,7 +1979,6 @@ export default function MarketplaceScreen() {
         <View style={s.tabContainer}>
           {[
             { key: 'live', label: liveUrl ? 'Mobi Live' : 'Live', icon: 'radio', color: '#FF3B30' },
-            { key: 'spare', label: 'Spare Parts', icon: 'cube' },
             { key: 'suppliers', label: 'Suppliers', icon: 'construct' },
             ...(!['technician', 'teacher', 'supplier'].includes(profile?.role || '') ? [{ key: 'buysell', label: 'Buy & Sell', icon: 'pricetags' }] : []),
           ].map(tab => {
@@ -2014,10 +2012,6 @@ export default function MarketplaceScreen() {
           contentContainerStyle={{ paddingBottom: webBottomInset + 40 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={ORANGE} />}
         >
-          {activeTab === 'spare' && (
-            <ShopProductsTab search={search} onSearch={setSearch} />
-          )}
-
           {activeTab === 'suppliers' && (
             <View style={{ paddingVertical: 10 }}>
               {suppliers.map(renderSupplierCard)}
