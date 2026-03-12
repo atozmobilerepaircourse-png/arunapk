@@ -13,14 +13,14 @@ import DirectoryMap from '@/components/DirectoryMap';
 import { apiRequest } from '@/lib/query-client';
 import { T } from '@/constants/techTheme';
 
-// Light theme tokens
-const PRIMARY  = '#E8704A';
-const PRIMARY_L = '#FFF1EC';
-const BG       = '#F5F5F5';
-const CARD     = '#FFFFFF';
-const DARK     = '#1A1A1A';
-const MUTED    = '#888888';
-const BORDER   = '#EEEEEE';
+// Dark UX Pilot theme tokens
+const PRIMARY  = '#FF6B2C';
+const PRIMARY_L = '#FF6B2C';
+const BG       = '#0F0F0F';
+const CARD     = '#1E1E1E';
+const DARK     = '#F3F4F6';
+const MUTED    = '#9CA3AF';
+const BORDER   = '#374151';
 
 const ROLE_FILTERS: { key: UserRole | 'all'; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
   { key: 'all', label: 'All', icon: 'grid' },

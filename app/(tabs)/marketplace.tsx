@@ -31,10 +31,16 @@ import { T } from '@/constants/techTheme';
 
 const { width } = Dimensions.get('window');
 const ORANGE = '#FF6B2C';
-const BLUE = '#2C7AFF';
-const YELLOW = '#FFD100';
-const LIGHT_BG = '#F8F9FA';
-const GRAY = '#666666';
+const BLUE = '#3B82F6';
+const YELLOW = '#FBBF24';
+const LIGHT_BG = '#0F0F0F';
+const GRAY = '#9CA3AF';
+const DARK_BG = '#0F0F0F';
+const DARK_CARD = '#1E1E1E';
+const DARK_SURFACE = '#2A2A2A';
+const DARK_TEXT = '#F3F4F6';
+const DARK_MUTED = '#9CA3AF';
+const DARK_BORDER = '#374151';
 
 const TEACH_TYPE_FILTERS = ['All', 'Software Repair', 'Hardware Repair', 'Mobile Repair', 'Laptop Repair', 'AC Repair'];
 const SELL_TYPE_FILTERS = ['All', 'Spare Parts', 'Accessories', 'Tools', 'Software'];
