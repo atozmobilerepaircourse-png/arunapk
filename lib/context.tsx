@@ -378,40 +378,57 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [profile]);
 
   const setProfile = useCallback(async (p: UserProfile) => {
-    await Storage.saveProfile(p);
-    setProfileState(p);
-    syncProfileToServer(p);
+    try {
+      await Storage.saveProfile(p);
+      setProfileState(p);
+      syncProfileToServer(p).catch(() => {});
+    } catch (e) {
+      console.error('[Context] setProfile error:', e);
+      setProfileState(p);
+    }
   }, []);
 
   const completeOnboarding = useCallback(async (p: UserProfile, sessionToken: string) => {
-    await Storage.saveProfile(p);
-    await Storage.setOnboarded();
-    await Storage.saveSessionToken(sessionToken);
-    setProfileState(p);
-    setIsOnboarded(true);
-    const deviceId = await getDeviceId();
-    await syncProfileToServer(p, deviceId);
-    await refreshData();
-    registerPushToken(p.id).catch(() => {});
+    try {
+      await Storage.saveProfile(p);
+      await Storage.setOnboarded();
+      await Storage.saveSessionToken(sessionToken);
+      setProfileState(p);
+      setIsOnboarded(true);
+      const deviceId = await getDeviceId();
+      syncProfileToServer(p, deviceId).catch(() => {});
+      await refreshData().catch(() => {});
+      registerPushToken(p.id).catch(() => {});
+    } catch (e) {
+      console.error('[Context] completeOnboarding error:', e);
+      setProfileState(p);
+      setIsOnboarded(true);
+    }
   }, [refreshData]);
 
   const loginWithProfile = useCallback(async (p: UserProfile, sessionToken: string) => {
-    await Storage.saveProfile(p);
-    await Storage.setOnboarded();
-    await Storage.saveSessionToken(sessionToken);
-    setProfileState(p);
-    setIsOnboarded(true);
-    const [serverPosts, serverJobs, serverConvos, serverProfiles] = await Promise.all([
-      fetchPostsFromServer(),
-      fetchJobsFromServer(),
-      fetchConversationsFromServer(p.id),
-      fetchProfilesFromServer(),
-    ]);
-    setPosts(serverPosts);
-    setJobs(serverJobs);
-    setConversations(serverConvos);
-    setAllProfiles(serverProfiles);
-    registerPushToken(p.id).catch(() => {});
+    try {
+      await Storage.saveProfile(p);
+      await Storage.setOnboarded();
+      await Storage.saveSessionToken(sessionToken);
+      setProfileState(p);
+      setIsOnboarded(true);
+      const [serverPosts, serverJobs, serverConvos, serverProfiles] = await Promise.all([
+        fetchPostsFromServer(),
+        fetchJobsFromServer(),
+        fetchConversationsFromServer(p.id),
+        fetchProfilesFromServer(),
+      ]);
+      setPosts(serverPosts);
+      setJobs(serverJobs);
+      setConversations(serverConvos);
+      setAllProfiles(serverProfiles);
+      registerPushToken(p.id).catch(() => {});
+    } catch (e) {
+      console.error('[Context] loginWithProfile error:', e);
+      setProfileState(p);
+      setIsOnboarded(true);
+    }
   }, []);
 
   const uploadLocalImage = useCallback(async (localUri: string): Promise<string | null> => {
