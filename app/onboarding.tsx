@@ -568,6 +568,10 @@ export default function OnboardingScreen() {
         if (data.exists && data.profile) {
           console.log('[GooglePhoneSubmit] Existing user, logging in');
           await loginWithProfile(data.profile, token);
+          setTimeout(() => {
+            const isCustomer = data.profile.role === 'customer';
+            router.replace(isCustomer ? '/(tabs)/customer-home' : '/(tabs)');
+          }, 100);
           return;
         }
         console.log('[GooglePhoneSubmit] New user, moving to next step');

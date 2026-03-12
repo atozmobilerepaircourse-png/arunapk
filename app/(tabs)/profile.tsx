@@ -51,9 +51,10 @@ const C = Colors.light;
 // Teacher ↔ Technician, Supplier ↔ Technician
 // Admin (ADMIN_PHONE) can switch to any role
 function getAllowedRoles(currentRole: UserRole, userPhone?: string): UserRole[] {
-  // Admin phone can switch to any role
-  const cleanPhone = userPhone?.replace(/\D/g, '');
-  const isAdminPhone = cleanPhone === '8179142535' || cleanPhone === '9876543210';
+  // Admin phone can switch to any role (check last 10 digits to handle +91 prefix)
+  const cleanPhone = userPhone?.replace(/\D/g, '') || '';
+  const last10 = cleanPhone.slice(-10);
+  const isAdminPhone = last10 === '8179142535' || last10 === '9876543210';
   if (currentRole === 'admin' || isAdminPhone) {
     return ['teacher', 'technician', 'supplier', 'customer', 'job_provider'];
   }
@@ -1348,7 +1349,7 @@ export default function ProfileScreen() {
           <View style={rolePickerStyles.sheet}>
             <Text style={rolePickerStyles.title}>Switch Role</Text>
             <Text style={rolePickerStyles.subtitle}>Select a role to switch to</Text>
-            {getAllowedRoles(profile?.role || 'customer').map(r => (
+            {getAllowedRoles(profile?.role || 'customer', profile?.phone).map(r => (
               <Pressable
                 key={r}
                 style={[rolePickerStyles.roleRow, profile?.role === r && rolePickerStyles.roleRowActive]}
