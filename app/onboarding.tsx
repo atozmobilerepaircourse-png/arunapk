@@ -398,11 +398,53 @@ export default function OnboardingScreen() {
   };
 
   const startGoogleSignIn = async () => {
-    Alert.alert(
-      'Google Sign-In Unavailable',
-      'We\'re temporarily using phone number verification instead. Enter your phone number above and we\'ll send you an OTP to verify your account.',
-      [{ text: 'Got it', onPress: () => {} }]
-    );
+    try {
+      const clientToken = Crypto.randomUUID();
+      const baseUrl = getApiUrl();
+
+      if (Platform.OS === 'web') {
+        const returnUrl = window.location.origin + '/onboarding';
+        console.log('[Google] Starting web sign-in with returnUrl:', returnUrl);
+        await apiRequest('POST', '/api/auth/google/set-return-url', { token: clientToken, returnUrl });
+        const urlRes = await apiRequest('POST', '/api/auth/google/get-login-url', { token: clientToken });
+        const urlData = await urlRes.json();
+        if (!urlData.success || !urlData.url) {
+          Alert.alert('Setup Required', urlData.message || 'Google Sign-In is not yet configured. Please contact support or use phone verification.');
+          return;
+        }
+        window.location.href = urlData.url;
+        return;
+      }
+
+      await apiRequest('POST', '/api/auth/google/set-return-url', { token: clientToken, returnUrl: `${baseUrl}/api/auth/google/done` });
+      const urlRes = await apiRequest('POST', '/api/auth/google/get-login-url', { token: clientToken });
+      const urlData = await urlRes.json();
+      if (!urlData.success || !urlData.url) {
+        Alert.alert('Setup Required', urlData.message || 'Google Sign-In is not yet configured. Please contact support or use phone verification.');
+        return;
+      }
+      pendingGoogleTokenRef.current = clientToken;
+      await WebBrowser.openBrowserAsync(urlData.url);
+      const tokenToExchange = pendingGoogleTokenRef.current;
+      pendingGoogleTokenRef.current = null;
+      if (tokenToExchange) {
+        try {
+          const exchRes = await apiRequest('POST', '/api/auth/google/exchange', { token: tokenToExchange });
+          const exchData = await exchRes.json();
+          if (exchData.success && exchData.email) {
+            setGoogleEmail(exchData.email);
+            setGoogleSignedIn(true);
+            if (exchData.name) setUserName(exchData.name);
+            setStep(0);
+          }
+        } catch (e) {
+          console.warn('[Google] Exchange failed after browser:', e);
+        }
+      }
+    } catch (e) {
+      Alert.alert('Error', 'Could not start Google sign-in. Please try again or use phone verification.');
+      console.warn('[Google] Sign-in error:', e);
+    }
   };
 
   const handleGooglePhoneSubmit = async () => {
