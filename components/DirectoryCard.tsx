@@ -6,11 +6,11 @@ import * as Haptics from 'expo-haptics';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { ROLE_LABELS, UserRole } from '@/lib/types';
 
-const BG     = '#FFFFFF';
-const BORDER = '#EEEEEE';
-const DARK   = '#1A1A1A';
-const MUTED  = '#888888';
-const AMBER  = '#F59E0B';
+const BG     = '#1E1E1E';
+const BORDER = '#374151';
+const DARK   = '#F3F4F6';
+const MUTED  = '#9CA3AF';
+const AMBER  = '#FF6B2C';
 
 const DARK_BG     = '#1E1E1E';
 const DARK_BORDER = '#374151';

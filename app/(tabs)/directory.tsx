@@ -78,28 +78,21 @@ export default function DirectoryScreen() {
   const isTechnician = profile?.role === 'technician';
   const visibleStatRoles = isCustomer ? CUSTOMER_STAT_ROLES : STAT_ROLES;
   const visibleFilters = isCustomer ? CUSTOMER_ROLE_FILTERS : ROLE_FILTERS;
+  
+  // Force dark theme for all users
+  const isTechnicanForce = true;
 
-  const D = useMemo(() => isTechnician ? {
-    bg: T.bg,
-    card: T.card,
-    surface: T.cardSurface,
-    text: T.text,
-    textSub: T.textSub,
-    muted: T.muted,
-    border: T.border,
-    accent: T.accent,
-    iconBtn: T.cardSurface,
-  } : {
+  const D = useMemo(() => ({
     bg: BG,
     card: CARD,
-    surface: '#FAFAFA',
+    surface: '#2A2A2A',
     text: DARK,
-    textSub: '#4B5563',
+    textSub: MUTED,
     muted: MUTED,
     border: BORDER,
     accent: PRIMARY,
     iconBtn: CARD,
-  }, [isTechnician]);
+  }), []);
 
   useEffect(() => {
     if (params.view === 'map') setViewMode('map');
