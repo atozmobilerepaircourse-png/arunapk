@@ -258,28 +258,27 @@ export default function DirectoryScreen() {
 
             {/* Search bar */}
             <View style={styles.searchBar}>
-                <Ionicons name="search" size={16} color={GRAY} style={{ marginLeft: 4 }} />
-                <TextInput
-                  style={styles.searchInput}
-                  placeholder="Search by skill, repair type, name or city..."
-                  placeholderTextColor={GRAY}
-                  value={search}
-                  onChangeText={setSearch}
-                />
-                <Pressable style={styles.filterBtn}>
-                  <Ionicons name="options" size={14} color="#FFF" />
-                </Pressable>
-              </View>
-
-              {/* Category chips */}
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips} style={styles.chipsScroll}>
-                {CATEGORY_CHIPS.map(chip => (
-                  <Pressable key={chip} style={[styles.chip, chipFilter === chip && styles.chipActive]} onPress={() => setChipFilter(chipFilter === chip ? '' : chip)}>
-                    <Text style={[styles.chipText, chipFilter === chip && styles.chipTextActive]}>{chip}</Text>
-                  </Pressable>
-                ))}
-              </ScrollView>
+              <Ionicons name="search" size={16} color={GRAY} style={{ marginLeft: 4 }} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search by skill, repair type, name or city..."
+                placeholderTextColor={GRAY}
+                value={search}
+                onChangeText={setSearch}
+              />
+              <Pressable style={styles.filterBtn}>
+                <Ionicons name="options" size={14} color="#FFF" />
+              </Pressable>
             </View>
+
+            {/* Category chips */}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips} style={styles.chipsScroll}>
+              {CATEGORY_CHIPS.map(chip => (
+                <Pressable key={chip} style={[styles.chip, chipFilter === chip && styles.chipActive]} onPress={() => setChipFilter(chipFilter === chip ? '' : chip)}>
+                  <Text style={[styles.chipText, chipFilter === chip && styles.chipTextActive]}>{chip}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
 
             {/* ── STATS CARDS ── */}
             {stats && (
