@@ -557,22 +557,27 @@ export default function OnboardingScreen() {
     setChecking(true);
     try {
       const deviceId = await getDeviceId();
+      console.log('[GooglePhoneSubmit] Submitting:', { email: googleEmail, phone: cleanPhone, deviceId });
       const res = await apiRequest('POST', '/api/auth/google-phone-login', { email: googleEmail, phone: cleanPhone, deviceId });
       const data = await res.json();
+      console.log('[GooglePhoneSubmit] Response:', data);
       if (data.success) {
         const token = data.sessionToken || '';
         setSessionToken(token);
         if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         if (data.exists && data.profile) {
+          console.log('[GooglePhoneSubmit] Existing user, logging in');
           await loginWithProfile(data.profile, token);
           return;
         }
+        console.log('[GooglePhoneSubmit] New user, moving to next step');
         setStep(s => s + 1);
       } else {
         Alert.alert('Error', data.message || 'Login failed');
       }
-    } catch (e) {
-      Alert.alert('Error', 'Could not connect to server.');
+    } catch (e: any) {
+      console.error('[GooglePhoneSubmit] Error:', e);
+      Alert.alert('Error', e?.message || 'Could not connect to server.');
     } finally {
       setChecking(false);
     }
