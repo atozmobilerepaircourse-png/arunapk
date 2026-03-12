@@ -24,7 +24,7 @@ const SUCCESS   = '#10B981';
 
 const CATEGORY_CHIPS = ['Mobile repair', 'AC technician', 'Plumbing', 'Electrician', 'Carpentry'];
 
-const ROLE_FILTERS_MOBILE: { key: UserRole | 'all'; label: string }[] = [
+const ROLE_FILTERS: { key: UserRole | 'all'; label: string }[] = [
   { key: 'all',          label: 'All' },
   { key: 'technician',   label: 'Technicians' },
   { key: 'customer',     label: 'Customers' },
@@ -33,26 +33,12 @@ const ROLE_FILTERS_MOBILE: { key: UserRole | 'all'; label: string }[] = [
   { key: 'job_provider', label: 'Jobs' },
 ];
 
-const ROLE_FILTERS_WEB: { key: UserRole | 'all'; label: string }[] = [
-  { key: 'all',          label: 'All' },
-  { key: 'technician',   label: 'Technicians' },
-  { key: 'customer',     label: 'Customers' },
-  { key: 'supplier',     label: 'Suppliers' },
-  { key: 'job_provider', label: 'Jobs' },
-];
-
 type OnlineStats = Record<string, { registered: number; online: number }>;
 
-const STAT_CONFIG_MOBILE: { key: string; label: string; icon: keyof typeof Ionicons.glyphMap; iconColor: string; iconBg: string; cornerBg: string }[] = [
+const STAT_CONFIG: { key: string; label: string; icon: keyof typeof Ionicons.glyphMap; iconColor: string; iconBg: string; cornerBg: string }[] = [
   { key: 'technician', label: 'Technicians',  icon: 'construct',  iconColor: '#2563EB', iconBg: '#DBEAFE', cornerBg: '#EFF6FF' },
   { key: 'customer',   label: 'Customers',    icon: 'people',     iconColor: '#7C3AED', iconBg: '#EDE9FE', cornerBg: '#F5F3FF' },
   { key: 'teacher',    label: 'Teachers',     icon: 'school',     iconColor: '#EA580C', iconBg: '#FFEDD5', cornerBg: '#FFF7ED' },
-  { key: 'supplier',   label: 'Suppliers',    icon: 'cube',       iconColor: '#0D9488', iconBg: '#CCFBF1', cornerBg: '#F0FDFA' },
-];
-
-const STAT_CONFIG_WEB: { key: string; label: string; icon: keyof typeof Ionicons.glyphMap; iconColor: string; iconBg: string; cornerBg: string }[] = [
-  { key: 'technician', label: 'Technicians',  icon: 'construct',  iconColor: '#2563EB', iconBg: '#DBEAFE', cornerBg: '#EFF6FF' },
-  { key: 'customer',   label: 'Customers',    icon: 'people',     iconColor: '#7C3AED', iconBg: '#EDE9FE', cornerBg: '#F5F3FF' },
   { key: 'supplier',   label: 'Suppliers',    icon: 'cube',       iconColor: '#0D9488', iconBg: '#CCFBF1', cornerBg: '#F0FDFA' },
 ];
 
@@ -241,49 +227,48 @@ export default function DirectoryScreen() {
 
   return (
     <View style={styles.container}>
-      <FlatList
-        data={filtered}
-        keyExtractor={item => item.id}
-        showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={PRIMARY} colors={[PRIMARY]} />}
-        contentContainerStyle={{ paddingBottom: Platform.OS === 'web' ? 118 : 100 }}
-        ListHeaderComponent={
-          <>
-            {/* ── HEADER ── */}
-            <View style={[styles.header, { paddingTop: topPad }]}>
-              <Pressable style={styles.menuBtn} onPress={() => {}}>
-                <Ionicons name="menu" size={18} color={GRAY} />
-              </Pressable>
-            </View>
+      {/* Fixed Header Section */}
+      <View style={[styles.fixedHeader, { paddingTop: topPad }]}>
+        {/* Menu button */}
+        <View style={styles.headerRow}>
+          <Pressable style={styles.menuBtn} onPress={() => {}}>
+            <Ionicons name="menu" size={18} color={GRAY} />
+          </Pressable>
+        </View>
 
-            {/* Search bar */}
-            <View style={styles.searchBar}>
-              <Ionicons name="search" size={16} color={GRAY} style={{ marginLeft: 4 }} />
-              <TextInput
-                style={styles.searchInput}
-                placeholder="Search by skill, repair type, name or city..."
-                placeholderTextColor={GRAY}
-                value={search}
-                onChangeText={setSearch}
-              />
-              <Pressable style={styles.filterBtn}>
-                <Ionicons name="options" size={14} color="#FFF" />
-              </Pressable>
-            </View>
+        {/* Search bar + Map button */}
+        <View style={styles.searchContainer}>
+          <View style={styles.searchBar}>
+            <Ionicons name="search" size={16} color={GRAY} style={{ marginLeft: 4 }} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search by skill, repair type, name or city..."
+              placeholderTextColor={GRAY}
+              value={search}
+              onChangeText={setSearch}
+            />
+            <Pressable style={styles.filterBtn}>
+              <Ionicons name="options" size={14} color="#FFF" />
+            </Pressable>
+          </View>
+          <Pressable style={styles.mapBtn} onPress={() => setViewMode('map')}>
+            <Ionicons name="map-outline" size={16} color={PRIMARY} />
+          </Pressable>
+        </View>
 
-            {/* Category chips */}
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips} style={styles.chipsScroll}>
-              {CATEGORY_CHIPS.map(chip => (
-                <Pressable key={chip} style={[styles.chip, chipFilter === chip && styles.chipActive]} onPress={() => setChipFilter(chipFilter === chip ? '' : chip)}>
-                  <Text style={[styles.chipText, chipFilter === chip && styles.chipTextActive]}>{chip}</Text>
-                </Pressable>
-              ))}
-            </ScrollView>
+        {/* Category chips */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips} style={styles.chipsScroll}>
+          {CATEGORY_CHIPS.map(chip => (
+            <Pressable key={chip} style={[styles.chip, chipFilter === chip && styles.chipActive]} onPress={() => setChipFilter(chipFilter === chip ? '' : chip)}>
+              <Text style={[styles.chipText, chipFilter === chip && styles.chipTextActive]}>{chip}</Text>
+            </Pressable>
+          ))}
+        </ScrollView>
 
-            {/* ── STATS CARDS ── */}
-            {stats && (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.statsScroll} style={{ backgroundColor: BG }}>
-                {(Platform.OS === 'web' ? STAT_CONFIG_WEB : STAT_CONFIG_MOBILE).map(cfg => {
+        {/* Stats Cards - Fixed */}
+        {stats && (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.statsScroll} style={{ backgroundColor: BG }}>
+            {STAT_CONFIG.map(cfg => {
                   const s = stats[cfg.key];
                   if (!s) return null;
                   return (
@@ -305,13 +290,13 @@ export default function DirectoryScreen() {
                       </View>
                     </View>
                   );
-                })}
-              </ScrollView>
-            )}
+            })}
+          </ScrollView>
+        )}
 
-            {/* ── ROLE FILTER TABS ── */}
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs} style={{ backgroundColor: BG, paddingVertical: 8 }}>
-              {(Platform.OS === 'web' ? ROLE_FILTERS_WEB : ROLE_FILTERS_MOBILE).map(f => (
+        {/* Role Filter Tabs - Fixed */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs} style={{ backgroundColor: BG, paddingVertical: 8 }}>
+          {ROLE_FILTERS.map(f => (
                 <Pressable
                   key={f.key}
                   style={[styles.tab, roleFilter === f.key && styles.tabActive]}
@@ -319,10 +304,18 @@ export default function DirectoryScreen() {
                 >
                   <Text style={[styles.tabText, roleFilter === f.key && styles.tabTextActive]}>{f.label}</Text>
                 </Pressable>
-              ))}
-            </ScrollView>
-          </>
-        }
+            ))}
+          </ScrollView>
+        </View>
+      </View>
+
+      {/* Scrollable Profile List */}
+      <FlatList
+        data={filtered}
+        keyExtractor={item => item.id}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={PRIMARY} colors={[PRIMARY]} />}
+        contentContainerStyle={{ paddingBottom: Platform.OS === 'web' ? 118 : 100 }}
         renderItem={({ item }) => (
           <ProfCard
             item={item}
@@ -357,6 +350,23 @@ export default function DirectoryScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: BG },
 
+  // Fixed Header
+  fixedHeader: {
+    backgroundColor: CARD,
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 3,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    zIndex: 100,
+  },
+  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', marginBottom: 12 },
+  searchContainer: { flexDirection: 'row', gap: 8, alignItems: 'center', marginBottom: 12 },
+
   // Header
   header: {
     backgroundColor: CARD,
@@ -378,16 +388,16 @@ const styles = StyleSheet.create({
   headerSub: { fontSize: 12, color: GRAY, fontFamily: 'Inter_400Regular', marginTop: 4, maxWidth: 220 },
   headerBtns: { flexDirection: 'row', gap: 8, alignItems: 'center', paddingTop: 4 },
   mapBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: PRIMARY_L, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8,
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: PRIMARY_L, alignItems: 'center', justifyContent: 'center',
   },
   mapBtnText: { fontSize: 13, color: PRIMARY, fontFamily: 'Inter_600SemiBold' },
   menuBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' },
   searchBar: {
+    flex: 1,
     flexDirection: 'row', alignItems: 'center', gap: 10,
     backgroundColor: '#F3F4F6', borderRadius: 20,
     paddingHorizontal: 12, paddingVertical: 10,
-    marginBottom: 12,
   },
   searchInput: { flex: 1, fontSize: 13, color: DARK, fontFamily: 'Inter_400Regular', padding: 0 },
   filterBtn: { width: 30, height: 30, borderRadius: 10, backgroundColor: PRIMARY, alignItems: 'center', justifyContent: 'center' },
