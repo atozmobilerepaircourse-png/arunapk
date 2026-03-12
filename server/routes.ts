@@ -233,44 +233,6 @@ function checkOtpRateLimit(phone: string): { allowed: boolean; retryAfterMs: num
   return { allowed: true, retryAfterMs: 0 };
 }
 
-async function sendFast2SMSOTP(phone: string, otp: string): Promise<boolean> {
-  const apiKey = process.env.FAST2SMS_API_KEY;
-  if (!apiKey) {
-    console.error("[OTP] FAST2SMS_API_KEY not set");
-    return false;
-  }
-
-  const cleanPhone = phone.replace(/\D/g, "").replace(/^91/, "");
-
-  try {
-    const response = await fetch("https://www.fast2sms.com/dev/bulkV2", {
-      method: "POST",
-      headers: {
-        authorization: apiKey,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        route: "otp",
-        variables_values: otp,
-        numbers: cleanPhone,
-      }),
-    });
-
-    const data = await response.json() as any;
-    console.log(`[OTP] Fast2SMS response for ${cleanPhone}:`, JSON.stringify(data));
-
-    if (data.return === true) {
-      console.log(`[OTP] SMS sent successfully to ${cleanPhone}`);
-      return true;
-    } else {
-      console.error(`[OTP] Fast2SMS error:`, data.message || data);
-      return false;
-    }
-  } catch (err: any) {
-    console.error("[OTP] Fast2SMS request failed:", err?.message || err);
-    return false;
-  }
-}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Ensure admin account exists
@@ -702,15 +664,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await db.delete(otpTokens).where(eq(otpTokens.phone, cleanPhone));
       await db.insert(otpTokens).values({ phone: cleanPhone, otp, expiresAt });
 
-      const sent = await sendFast2SMSOTP(cleanPhone, otp);
-      console.log(`[OTP] Generated for ${cleanPhone} | Sent via Fast2SMS: ${sent}`);
+      console.log(`[OTP] Generated for ${cleanPhone} - use Firebase for delivery`);
 
       return res.json({
         success: true,
-        message: sent ? "OTP sent via SMS" : "OTP sent",
-        sent,
-        // When SMS delivery is unavailable, return OTP directly so login still works
-        ...(!sent && { fallbackOtp: otp }),
+        message: "OTP generated. Use Firebase Phone Authentication to receive it.",
       });
     } catch (error: any) {
       console.error("[OTP] Send error:", error?.message || error, error?.stack?.split('\n').slice(0,3).join(' '));
@@ -5407,68 +5365,10 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
       if (phone !== '8179142535') return res.status(403).json({ success: false, message: "Admin only" });
       if (!message?.trim()) return res.status(400).json({ success: false, message: "Message required" });
 
-      const fast2smsKey = process.env.FAST2SMS_API_KEY;
-      if (!fast2smsKey) {
-        return res.status(500).json({ success: false, message: "Fast2SMS not configured. Set FAST2SMS_API_KEY in secrets." });
-      }
-
-      let userRows;
-      if (!role || role === 'all') {
-        userRows = await db.select({ phone: profiles.phone }).from(profiles);
-      } else {
-        userRows = await db.select({ phone: profiles.phone }).from(profiles).where(eq(profiles.role, role));
-      }
-
-      const phoneNumbers = userRows
-        .map(r => r.phone?.trim())
-        .filter(Boolean)
-        .map(p => {
-          const digits = p!.replace(/\D/g, '');
-          if (digits.startsWith('91') && digits.length === 12) return digits.slice(2);
-          return digits.slice(-10);
-        })
-        .filter(p => p.length === 10);
-
-      if (phoneNumbers.length === 0) {
-        return res.json({ success: true, sent: 0, message: 'No phone numbers found for this role' });
-      }
-
-      // Fast2SMS bulk DLT route for custom messages
-      let sent = 0;
-      let failed = 0;
-      // Send in batches of 100 (Fast2SMS limit)
-      for (let i = 0; i < phoneNumbers.length; i += 100) {
-        const batch = phoneNumbers.slice(i, i + 100);
-        try {
-          const resp = await fetch("https://www.fast2sms.com/dev/bulkV2", {
-            method: "POST",
-            headers: { authorization: fast2smsKey, "Content-Type": "application/json" },
-            body: JSON.stringify({
-              route: "q",
-              message: message.trim(),
-              language: "english",
-              flash: 0,
-              numbers: batch.join(","),
-            }),
-          });
-          const data = await resp.json() as any;
-          if (data.return === true) {
-            sent += batch.length;
-          } else {
-            console.error(`[SMS] Fast2SMS batch error:`, data.message);
-            failed += batch.length;
-          }
-        } catch (batchErr: any) {
-          console.error(`[SMS] Batch failed:`, batchErr.message);
-          failed += batch.length;
-        }
-      }
-
-      console.log(`[SMS] Sent ${sent} messages via Fast2SMS, failed ${failed}`);
-      res.json({ success: true, sent, failed, total: phoneNumbers.length });
+      return res.status(501).json({ success: false, message: "SMS broadcast removed - Firebase OTP only. Use Firebase Cloud Messaging for broadcasts." });
     } catch (error: any) {
       console.error("[Admin] send-sms error:", error);
-      res.status(500).json({ success: false, message: error.message || "Failed to send SMS" });
+      return res.status(500).json({ success: false, message: error.message || "Failed to send SMS" });
     }
   });
 
