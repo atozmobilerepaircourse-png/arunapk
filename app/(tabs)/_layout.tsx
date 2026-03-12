@@ -60,10 +60,6 @@ function NativeTabLayout() {
           <Icon sf={{ default: "plus.circle", selected: "plus.circle.fill" }} />
           <Label>Post</Label>
         </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="my-shop">
-          <Icon sf={{ default: "storefront", selected: "storefront.fill" }} />
-          <Label>{profile?.role === 'teacher' ? 'Content' : 'Products'}</Label>
-        </NativeTabs.Trigger>
         <NativeTabs.Trigger name="profile">
           <Icon sf={{ default: "person", selected: "person.fill" }} />
           <Label>Profile</Label>
@@ -72,6 +68,7 @@ function NativeTabLayout() {
         <NativeTabs.Trigger name="jobs" hidden />
         <NativeTabs.Trigger name="technician-jobs" hidden />
         <NativeTabs.Trigger name="marketplace" hidden />
+        <NativeTabs.Trigger name="my-shop" hidden />
       </NativeTabs>
     );
   }
@@ -255,7 +252,7 @@ function ClassicTabLayout() {
         name="my-shop"
         options={{
           title: isTeacherOrSupplier && profile?.role === 'teacher' ? "Content" : "Products",
-          href: isTeacherOrSupplier ? '/my-shop' : null,
+          href: null,
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? "storefront" : "storefront-outline"} size={22} color={color} />
           ),
