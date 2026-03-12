@@ -1710,8 +1710,9 @@ const styles = StyleSheet.create({
   stepContent: {
     flex: 1,
     padding: 32,
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     backgroundColor: C.background,
+    paddingTop: 40,
   },
   stepHeader: {
     marginBottom: 40,
@@ -1881,12 +1882,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 12,
+    marginBottom: 8,
   },
   roleCard: {
-    width: '47%' as any,
+    flex: 1,
+    minWidth: '45%',
     backgroundColor: C.surface,
     borderRadius: 16,
-    padding: 16,
+    padding: 14,
     borderWidth: 2,
     borderColor: C.border,
     alignItems: 'center',
