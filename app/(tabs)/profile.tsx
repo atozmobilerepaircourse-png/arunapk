@@ -239,7 +239,18 @@ function CustomerProfileScreen() {
       const res = await apiRequest('POST', '/api/profile/change-role', { newRole, userPhone: profile.phone });
       const data = await res.json();
       if (data.success) {
-        await setProfile({ ...profile, role: newRole as UserRole });
+        // Clear role-specific fields when switching roles
+        const updatedProfile = { 
+          ...profile, 
+          role: newRole as UserRole,
+          // Clear supplier-specific data
+          ...(newRole !== 'supplier' && { sellType: undefined }),
+          // Clear teacher-specific data
+          ...(newRole !== 'teacher' && { teachType: undefined }),
+          // Clear technician-specific data (skills)
+          ...(newRole !== 'technician' && { skills: '[]' }),
+        };
+        await setProfile(updatedProfile);
         if (Platform.OS === 'web') {
           window.alert(`Role changed to ${ROLE_LABELS[newRole as UserRole] || newRole}`);
         } else {
@@ -542,7 +553,18 @@ export default function ProfileScreen() {
       const res = await apiRequest('POST', '/api/profile/change-role', { newRole });
       const data = await res.json();
       if (data.success) {
-        await setProfile({ ...profile, role: newRole as UserRole });
+        // Clear role-specific fields when switching roles
+        const updatedProfile = { 
+          ...profile, 
+          role: newRole as UserRole,
+          // Clear supplier-specific data
+          ...(newRole !== 'supplier' && { sellType: undefined }),
+          // Clear teacher-specific data
+          ...(newRole !== 'teacher' && { teachType: undefined }),
+          // Clear technician-specific data (skills)
+          ...(newRole !== 'technician' && { skills: '[]' }),
+        };
+        await setProfile(updatedProfile);
         if (Platform.OS === 'web') {
           window.alert(`Role changed to ${ROLE_LABELS[newRole as UserRole] || newRole}`);
         } else {
