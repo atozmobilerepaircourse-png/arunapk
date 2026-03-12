@@ -24,7 +24,16 @@ const SUCCESS   = '#10B981';
 
 const CATEGORY_CHIPS = ['Mobile repair', 'AC technician', 'Plumbing', 'Electrician', 'Carpentry'];
 
-const ROLE_FILTERS: { key: UserRole | 'all'; label: string }[] = [
+const ROLE_FILTERS_MOBILE: { key: UserRole | 'all'; label: string }[] = [
+  { key: 'all',          label: 'All' },
+  { key: 'technician',   label: 'Technicians' },
+  { key: 'customer',     label: 'Customers' },
+  { key: 'teacher',      label: 'Teachers' },
+  { key: 'supplier',     label: 'Suppliers' },
+  { key: 'job_provider', label: 'Jobs' },
+];
+
+const ROLE_FILTERS_WEB: { key: UserRole | 'all'; label: string }[] = [
   { key: 'all',          label: 'All' },
   { key: 'technician',   label: 'Technicians' },
   { key: 'customer',     label: 'Customers' },
@@ -34,7 +43,14 @@ const ROLE_FILTERS: { key: UserRole | 'all'; label: string }[] = [
 
 type OnlineStats = Record<string, { registered: number; online: number }>;
 
-const STAT_CONFIG: { key: string; label: string; icon: keyof typeof Ionicons.glyphMap; iconColor: string; iconBg: string; cornerBg: string }[] = [
+const STAT_CONFIG_MOBILE: { key: string; label: string; icon: keyof typeof Ionicons.glyphMap; iconColor: string; iconBg: string; cornerBg: string }[] = [
+  { key: 'technician', label: 'Technicians',  icon: 'construct',  iconColor: '#2563EB', iconBg: '#DBEAFE', cornerBg: '#EFF6FF' },
+  { key: 'customer',   label: 'Customers',    icon: 'people',     iconColor: '#7C3AED', iconBg: '#EDE9FE', cornerBg: '#F5F3FF' },
+  { key: 'teacher',    label: 'Teachers',     icon: 'school',     iconColor: '#EA580C', iconBg: '#FFEDD5', cornerBg: '#FFF7ED' },
+  { key: 'supplier',   label: 'Suppliers',    icon: 'cube',       iconColor: '#0D9488', iconBg: '#CCFBF1', cornerBg: '#F0FDFA' },
+];
+
+const STAT_CONFIG_WEB: { key: string; label: string; icon: keyof typeof Ionicons.glyphMap; iconColor: string; iconBg: string; cornerBg: string }[] = [
   { key: 'technician', label: 'Technicians',  icon: 'construct',  iconColor: '#2563EB', iconBg: '#DBEAFE', cornerBg: '#EFF6FF' },
   { key: 'customer',   label: 'Customers',    icon: 'people',     iconColor: '#7C3AED', iconBg: '#EDE9FE', cornerBg: '#F5F3FF' },
   { key: 'supplier',   label: 'Suppliers',    icon: 'cube',       iconColor: '#0D9488', iconBg: '#CCFBF1', cornerBg: '#F0FDFA' },
@@ -244,8 +260,20 @@ export default function DirectoryScreen() {
 
               {/* Title row */}
               <View style={styles.titleRow}>
-                <View style={{ flex: 1 }} />
+                {Platform.OS !== 'web' && (
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.headerTitle}>Find Professionals{'\n'}Near You</Text>
+                    <Text style={styles.headerSub}>Technicians, Teachers, Suppliers and Customers across India</Text>
+                  </View>
+                )}
+                {Platform.OS === 'web' && <View style={{ flex: 1 }} />}
                 <View style={styles.headerBtns}>
+                  {Platform.OS !== 'web' && (
+                    <Pressable style={styles.mapBtn} onPress={() => setViewMode('map')}>
+                      <Ionicons name="map-outline" size={18} color={PRIMARY} />
+                      <Text style={styles.mapBtnText}>View Map</Text>
+                    </Pressable>
+                  )}
                   <Pressable style={styles.menuBtn} onPress={() => {}}>
                     <Ionicons name="menu" size={18} color={GRAY} />
                   </Pressable>
@@ -277,10 +305,10 @@ export default function DirectoryScreen() {
               </ScrollView>
             </View>
 
-            {/* ── STATS CARDS (STICKY) ── */}
+            {/* ── STATS CARDS ── */}
             {stats && (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.statsScroll} style={{ backgroundColor: BG, position: 'relative', zIndex: 10 }} scrollEventThrottle={16}>
-                {STAT_CONFIG.map(cfg => {
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.statsScroll} style={{ backgroundColor: BG }}>
+                {(Platform.OS === 'web' ? STAT_CONFIG_WEB : STAT_CONFIG_MOBILE).map(cfg => {
                   const s = stats[cfg.key];
                   if (!s) return null;
                   return (
@@ -308,7 +336,7 @@ export default function DirectoryScreen() {
 
             {/* ── ROLE FILTER TABS ── */}
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs} style={{ backgroundColor: BG, paddingVertical: 8 }}>
-              {ROLE_FILTERS.map(f => (
+              {(Platform.OS === 'web' ? ROLE_FILTERS_WEB : ROLE_FILTERS_MOBILE).map(f => (
                 <Pressable
                   key={f.key}
                   style={[styles.tab, roleFilter === f.key && styles.tabActive]}
@@ -374,6 +402,11 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 22, fontFamily: 'Inter_700Bold', color: DARK, lineHeight: 30 },
   headerSub: { fontSize: 12, color: GRAY, fontFamily: 'Inter_400Regular', marginTop: 4, maxWidth: 220 },
   headerBtns: { flexDirection: 'row', gap: 8, alignItems: 'center', paddingTop: 4 },
+  mapBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: PRIMARY_L, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8,
+  },
+  mapBtnText: { fontSize: 13, color: PRIMARY, fontFamily: 'Inter_600SemiBold' },
   menuBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' },
   searchBar: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
