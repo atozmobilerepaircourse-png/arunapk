@@ -558,15 +558,17 @@ export default function OnboardingScreen() {
 
   const handleGooglePhoneSubmit = async () => {
     const cleanPhone = phone.replace(/\D/g, '');
-    if (cleanPhone.length !== 10) {
+    // Take last 10 digits to handle country code (+91)
+    const phoneToSend = cleanPhone.length > 10 ? cleanPhone.slice(-10) : cleanPhone;
+    if (phoneToSend.length !== 10) {
       Alert.alert('Invalid Number', 'Please enter a valid 10-digit mobile number.');
       return;
     }
     setChecking(true);
     try {
       const deviceId = await getDeviceId();
-      console.log('[GooglePhoneSubmit] Submitting:', { email: googleEmail, phone: cleanPhone, deviceId });
-      const res = await apiRequest('POST', '/api/auth/google-phone-login', { email: googleEmail, phone: cleanPhone, deviceId });
+      console.log('[GooglePhoneSubmit] Submitting:', { email: googleEmail, phone: phoneToSend, deviceId });
+      const res = await apiRequest('POST', '/api/auth/google-phone-login', { email: googleEmail, phone: phoneToSend, deviceId });
       const data = await res.json();
       console.log('[GooglePhoneSubmit] Response:', data);
       if (data.success) {
