@@ -1978,16 +1978,21 @@ export default function MarketplaceScreen() {
   return (
     <View style={s.container}>
       <View style={[s.header, { paddingTop: topPad }]}>
-        <Text style={s.headerTitle}>Shop</Text>
+        <Text style={s.headerTitle}>Marketplace</Text>
         <View style={s.searchWrap}>
           <Ionicons name="search" size={18} color="#999" />
           <TextInput
             style={s.searchInput}
-            placeholder="Search courses, spare parts..."
+            placeholder={activeTab === 'suppliers' ? 'Search suppliers by name, specialty or location...' : activeTab === 'live' ? 'Search live sessions...' : 'Search courses, spare parts...'}
             placeholderTextColor="#999"
             value={search}
             onChangeText={setSearch}
           />
+          {search.length > 0 && (
+            <Pressable onPress={() => setSearch('')} style={{ padding: 4 }}>
+              <Ionicons name="close-circle" size={16} color="#999" />
+            </Pressable>
+          )}
         </View>
       </View>
 
@@ -2029,10 +2034,24 @@ export default function MarketplaceScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={ORANGE} />}
         >
           {activeTab === 'suppliers' && (
-            <View style={{ paddingVertical: 10 }}>
-              {suppliers.map(renderSupplierCard)}
+            <View>
+              {/* Directory Header */}
+              <View style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 }}>
+                <Text style={{ fontSize: 22, fontWeight: '800' as const, color: T.text, marginBottom: 2 }}>Supplier Directory</Text>
+                <Text style={{ fontSize: 13, color: T.muted }}>Showing {suppliers.length} supplier{suppliers.length !== 1 ? 's' : ''} near you</Text>
+              </View>
+
+              {/* Supplier cards */}
+              <View style={{ paddingVertical: 8 }}>
+                {suppliers.map(renderSupplierCard)}
+              </View>
+
               {suppliers.length === 0 && !loading && (
-                <View style={s.emptyWrap}><Ionicons name="construct-outline" size={48} color="#DDD" /><Text style={s.emptyText}>No suppliers found</Text></View>
+                <View style={s.emptyWrap}>
+                  <Ionicons name="storefront-outline" size={48} color="#DDD" />
+                  <Text style={s.emptyText}>No suppliers found</Text>
+                  <Text style={{ color: T.muted, fontSize: 13, textAlign: 'center' }}>Try adjusting your search or check back later</Text>
+                </View>
               )}
             </View>
           )}
