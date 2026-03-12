@@ -233,16 +233,6 @@ function ClassicTabLayout() {
         }}
       />
       <Tabs.Screen
-        name="my-shop"
-        options={{
-          title: profile?.role === 'teacher' ? "Content" : "Shop",
-          href: null,
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? "storefront" : "storefront-outline"} size={22} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
         name="marketplace"
         options={{
           title: "Marketplace",
