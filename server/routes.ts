@@ -1098,6 +1098,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             ratingCount: 0,
             verifiedBadge: false,
             deviceId: '',
+            skills: '[]',
           });
           console.log("[Google Auth] Created new user:", email);
         }
@@ -1348,10 +1349,16 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
         }
         const sToken = require("crypto").randomBytes(32).toString("hex");
         await db.insert(sessions).values({ phone: foundByEmail.phone, sessionToken: sToken, createdAt: Date.now() });
+        let parsedSkills = [];
+        try {
+          parsedSkills = JSON.parse(foundByEmail.skills || '[]');
+        } catch (e) {
+          parsedSkills = [];
+        }
         return res.json({
           success: true,
           exists: true,
-          profile: { ...foundByEmail, skills: JSON.parse(foundByEmail.skills) },
+          profile: { ...foundByEmail, skills: parsedSkills },
           sessionToken: sToken,
         });
       }
@@ -1365,10 +1372,16 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
         }
         const sToken = require("crypto").randomBytes(32).toString("hex");
         await db.insert(sessions).values({ phone: foundByPhone.phone, sessionToken: sToken, createdAt: Date.now() });
+        let parsedSkills = [];
+        try {
+          parsedSkills = JSON.parse(foundByPhone.skills || '[]');
+        } catch (e) {
+          parsedSkills = [];
+        }
         return res.json({
           success: true,
           exists: true,
-          profile: { ...foundByPhone, skills: JSON.parse(foundByPhone.skills) },
+          profile: { ...foundByPhone, skills: parsedSkills },
           sessionToken: sToken,
         });
       }
