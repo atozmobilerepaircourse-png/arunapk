@@ -43,7 +43,15 @@ type ScreenName = 'phone' | 'otp' | 'email' | 'google-phone' | 'details' | 'self
 export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ email?: string; name?: string; google?: string; error?: string }>();
-  const { completeOnboarding, loginWithProfile } = useApp();
+  const { completeOnboarding, loginWithProfile, isOnboarded, profile } = useApp();
+  
+  // If user is already onboarded (logged in), redirect immediately
+  useEffect(() => {
+    if (isOnboarded && profile?.id) {
+      const isCustomer = profile.role === 'customer';
+      router.replace(isCustomer ? '/(tabs)/customer-home' : '/(tabs)');
+    }
+  }, [isOnboarded, profile?.id]);
   const [step, setStep] = useState(0);
   const [phone, setPhone] = useState('');
   const [userName, setUserName] = useState('');
@@ -1586,6 +1594,11 @@ export default function OnboardingScreen() {
     if (uploadingSelfie) return true;
     return false;
   };
+
+  // Don't render if already onboarded
+  if (isOnboarded && profile?.id) {
+    return null;
+  }
 
   const isPhoneScreen = currentScreen === 'phone';
 
