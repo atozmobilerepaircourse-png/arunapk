@@ -1982,7 +1982,7 @@ export default function MarketplaceScreen() {
             { key: 'live', label: liveUrl ? 'Mobi Live' : 'Live', icon: 'radio', color: '#FF3B30' },
             { key: 'spare', label: 'Spare Parts', icon: 'cube' },
             { key: 'suppliers', label: 'Suppliers', icon: 'construct' },
-            { key: 'buysell', label: 'Buy & Sell', icon: 'pricetags' },
+            ...(profile?.role !== 'technician' ? [{ key: 'buysell', label: 'Buy & Sell', icon: 'pricetags' }] : []),
           ].map(tab => {
             const isActive = activeTab === tab.key;
             const isLive = tab.key === 'live';
