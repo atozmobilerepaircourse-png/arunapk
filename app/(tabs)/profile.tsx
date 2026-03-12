@@ -370,6 +370,8 @@ function CustomerProfileScreen() {
         <>
           <Text style={{ fontSize: 11, fontWeight: '700', color: '#888', letterSpacing: 1, marginBottom: 8, marginLeft: 4 }}>TECHNICIAN TOOLS</Text>
           <View style={{ backgroundColor: '#FFF', borderRadius: 16, marginBottom: 14, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 6, elevation: 2 }}>
+            <MenuItem icon="construct-outline" label="Skills & Services" onPress={() => router.push('/skills-services' as any)} />
+            <View style={{ height: 1, backgroundColor: '#F5F5F5', marginHorizontal: 16 }} />
             <MenuItem icon="wrench.and.screwdriver" label="Repair Jobs" onPress={() => router.push('/(tabs)/technician-jobs' as any)} />
             <View style={{ height: 1, backgroundColor: '#F5F5F5', marginHorizontal: 16 }} />
             <MenuItem icon="cash-outline" label="My Earnings" onPress={() => router.push('/technician-earnings')} />

@@ -173,3 +173,46 @@ Builds run on Expo's cloud servers (10-25 min). Download from https://expo.dev d
 
 ### Admin Ads (app/admin.tsx) — TOGGLE FIX
 - Fixed ad toggle to use direct `apiRequest()` call instead of fetch with dynamic import
+
+## UX Pilot Dark Theme Redesign — Technician App (March 12, 2026)
+
+### New File: constants/techTheme.ts
+- Complete dark design token system for the technician UI
+- Tokens: `bg=#121212`, `card=#1E1E1E`, `cardSurface=#2A2A2A`, `border=#2C2C2C`, `accent=#FF6B2C`, `text=#F3F4F6`, `muted=#9CA3AF`
+- Includes semantic color maps, category colors, and badge helpers
+
+### Technician Home Feed (app/(tabs)/index.tsx) — DARK THEME
+- Dark background applied only when `profile?.role === 'technician'`
+- Post type badges per category (repair=blue, question=yellow, job=green, sell=orange)
+- Category filter chips with per-category accent colors
+- Icon-based header buttons (Schematics / Live / Tools / Chat)
+- Improved empty state with icon-background container
+
+### Marketplace (app/(tabs)/marketplace.tsx) — DARK THEME
+- Full dark theme using T tokens
+- Sub-tabs: Live | Products | Suppliers | Buy & Sell | Ads
+- Live card, supplier card, product card all updated to dark
+
+### Skills & Services Screen (app/skills-services.tsx) — NEW
+- Full-screen management of technician skills
+- Profile card at top, active skills grid with colorful icons
+- Remove skill (swipe badge), add from categorized modal with search
+- Integrates with `setProfile` from context
+
+### Tab Layout (app/(tabs)/_layout.tsx) — TECHNICIAN CREATE TAB
+- Added visible "Post" tab (plus.circle icon) to technician NativeTabs
+- Changed Marketplace tab icon to storefront for technicians
+- Fixed duplicate `marketplace` trigger in customer NativeTabs
+
+### Directory (app/(tabs)/directory.tsx) — DARK THEME
+- Dynamic `D` color object switches between dark (technician) and light (other roles)
+- Header, stat cards, search box, filter chips, empty state all themed
+- Map view also supports dark theme
+
+### DirectoryCard component (components/DirectoryCard.tsx) — DARK MODE PROP
+- Added `darkMode?: boolean` prop
+- Dynamically switches card background, text, skill tags, avatar border, dot color
+
+### Profile (app/(tabs)/profile.tsx) — SKILLS LINK
+- Added "Skills & Services" button to Technician Tools section
+- Routes to `/skills-services` screen

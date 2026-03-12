@@ -11,8 +11,9 @@ import { UserRole, ROLE_LABELS } from '@/lib/types';
 import DirectoryCard from '@/components/DirectoryCard';
 import DirectoryMap from '@/components/DirectoryMap';
 import { apiRequest } from '@/lib/query-client';
+import { T } from '@/constants/techTheme';
 
-// Mobix design tokens
+// Light theme tokens
 const PRIMARY  = '#E8704A';
 const PRIMARY_L = '#FFF1EC';
 const BG       = '#F5F5F5';
@@ -61,8 +62,31 @@ export default function DirectoryScreen() {
   const [viewMode, setViewMode] = useState<'list' | 'map'>(params.view === 'map' ? 'map' : 'list');
 
   const isCustomer = profile?.role === 'customer';
+  const isTechnician = profile?.role === 'technician';
   const visibleStatRoles = isCustomer ? CUSTOMER_STAT_ROLES : STAT_ROLES;
   const visibleFilters = isCustomer ? CUSTOMER_ROLE_FILTERS : ROLE_FILTERS;
+
+  const D = useMemo(() => isTechnician ? {
+    bg: T.bg,
+    card: T.card,
+    surface: T.cardSurface,
+    text: T.text,
+    textSub: T.textSub,
+    muted: T.muted,
+    border: T.border,
+    accent: T.accent,
+    iconBtn: T.cardSurface,
+  } : {
+    bg: BG,
+    card: CARD,
+    surface: '#FAFAFA',
+    text: DARK,
+    textSub: '#4B5563',
+    muted: MUTED,
+    border: BORDER,
+    accent: PRIMARY,
+    iconBtn: CARD,
+  }, [isTechnician]);
 
   useEffect(() => {
     if (params.view === 'map') setViewMode('map');
@@ -157,33 +181,33 @@ export default function DirectoryScreen() {
 
   if (viewMode === 'map') {
     return (
-      <View style={styles.container}>
-        <View style={[styles.mapHeader, { paddingTop: (Platform.OS === 'web' ? webTopInset : insets.top) + 8 }]}>
+      <View style={[styles.container, { backgroundColor: D.bg }]}>
+        <View style={[styles.mapHeader, { paddingTop: (Platform.OS === 'web' ? webTopInset : insets.top) + 8, backgroundColor: D.bg }]}>
           <Pressable
-            style={styles.mapBackBtn}
+            style={[styles.mapBackBtn, { backgroundColor: D.accent }]}
             onPress={() => setViewMode('list')}
           >
             <Ionicons name="list" size={20} color="#FFF" />
           </Pressable>
 
-          <View style={styles.mapSearchBox}>
-            <Ionicons name="search" size={16} color={MUTED} />
+          <View style={[styles.mapSearchBox, { backgroundColor: D.card, borderColor: D.border }]}>
+            <Ionicons name="search" size={16} color={D.muted} />
             <TextInput
-              style={styles.mapSearchInput}
+              style={[styles.mapSearchInput, { color: D.text }]}
               placeholder="Search..."
-              placeholderTextColor={MUTED}
+              placeholderTextColor={D.muted}
               value={search}
               onChangeText={setSearch}
             />
             {search.length > 0 && (
               <Pressable onPress={() => setSearch('')}>
-                <Ionicons name="close-circle" size={16} color={MUTED} />
+                <Ionicons name="close-circle" size={16} color={D.muted} />
               </Pressable>
             )}
           </View>
         </View>
 
-        <View style={styles.mapFilters}>
+        <View style={[styles.mapFilters, { backgroundColor: D.bg }]}>
           <FlatList
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -192,15 +216,15 @@ export default function DirectoryScreen() {
             keyExtractor={item => item.key}
             renderItem={({ item }) => (
               <Pressable
-                style={[styles.mapFilterChip, roleFilter === item.key && styles.mapFilterChipActive]}
+                style={[styles.mapFilterChip, { backgroundColor: D.card, borderColor: D.border }, roleFilter === item.key && { backgroundColor: D.accent, borderColor: D.accent }]}
                 onPress={() => setRoleFilter(item.key)}
               >
                 <Ionicons
                   name={item.icon}
                   size={12}
-                  color={roleFilter === item.key ? '#FFF' : MUTED}
+                  color={roleFilter === item.key ? '#FFF' : D.muted}
                 />
-                <Text style={[styles.mapFilterText, roleFilter === item.key && styles.mapFilterTextActive]}>
+                <Text style={[styles.mapFilterText, { color: D.muted }, roleFilter === item.key && styles.mapFilterTextActive]}>
                   {item.label}
                 </Text>
               </Pressable>
@@ -220,22 +244,22 @@ export default function DirectoryScreen() {
   }
 
   return (
-    <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: (Platform.OS === 'web' ? webTopInset : insets.top) + 12 }]}>
+    <View style={[styles.container, { backgroundColor: D.bg }]}>
+      <View style={[styles.header, { paddingTop: (Platform.OS === 'web' ? webTopInset : insets.top) + 12, backgroundColor: D.bg }]}>
         <View style={styles.headerRow}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.headerTitle}>{isCustomer ? 'Find Technicians' : 'Directory'}</Text>
-            <Text style={styles.headerSubtitle}>{isCustomer ? 'Certified repair experts near you' : 'Find professionals across India'}</Text>
+            <Text style={[styles.headerTitle, { color: D.text }]}>{isCustomer ? 'Find Technicians' : 'Directory'}</Text>
+            <Text style={[styles.headerSubtitle, { color: D.muted }]}>{isCustomer ? 'Certified repair experts near you' : 'Find professionals across India'}</Text>
           </View>
           <View style={styles.headerActions}>
             <Pressable
-              style={styles.headerIconBtn}
+              style={[styles.headerIconBtn, { backgroundColor: D.iconBtn, borderColor: D.border }]}
               onPress={() => router.push('/chats')}
             >
-              <Ionicons name="chatbubble-ellipses" size={20} color={DARK} />
+              <Ionicons name="chatbubble-ellipses" size={20} color={D.text} />
             </Pressable>
             <Pressable
-              style={[styles.headerIconBtn, styles.headerIconBtnMap]}
+              style={[styles.headerIconBtn, { backgroundColor: D.accent, borderColor: D.accent }]}
               onPress={() => setViewMode('map')}
             >
               <Ionicons name="map" size={20} color="#FFF" />
@@ -245,26 +269,26 @@ export default function DirectoryScreen() {
       </View>
 
       {stats && (
-        <View style={styles.statsBar}>
+        <View style={[styles.statsBar, { backgroundColor: D.bg }]}>
           {visibleStatRoles.map(r => {
             const s = stats[r.key];
             if (!s) return null;
             return (
-              <View key={r.key} style={styles.statCard}>
+              <View key={r.key} style={[styles.statCard, { backgroundColor: D.card, borderColor: D.border }]}>
                 <View style={styles.statHeader}>
                   <View style={[styles.statDot, { backgroundColor: r.color }]} />
                   <Text style={[styles.statLabel, { color: r.color }]}>{r.label}</Text>
                 </View>
                 <View style={styles.statNumbers}>
-                  <Text style={styles.statRegistered}>{s.registered}</Text>
-                  <Text style={styles.statSep}>/</Text>
+                  <Text style={[styles.statRegistered, { color: D.text }]}>{s.registered}</Text>
+                  <Text style={[styles.statSep, { color: D.muted }]}>/</Text>
                   <View style={styles.liveRow}>
                     <View style={[styles.livePulse, { backgroundColor: '#34C759' }]} />
-                    <Text style={styles.statOnline}>{s.online}</Text>
+                    <Text style={[styles.statOnline, { color: '#34C759' }]}>{s.online}</Text>
                   </View>
                 </View>
                 <View style={styles.statFooter}>
-                  <Text style={styles.statFooterText}>Total / Live</Text>
+                  <Text style={[styles.statFooterText, { color: D.muted }]}>Total / Live</Text>
                 </View>
               </View>
             );
@@ -272,25 +296,25 @@ export default function DirectoryScreen() {
         </View>
       )}
 
-      <View style={styles.searchContainer}>
-        <View style={styles.searchBox}>
-          <Ionicons name="search" size={18} color={MUTED} />
+      <View style={[styles.searchContainer, { backgroundColor: D.bg }]}>
+        <View style={[styles.searchBox, { backgroundColor: D.card, borderColor: D.border }]}>
+          <Ionicons name="search" size={18} color={D.muted} />
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, { color: D.text }]}
             placeholder="Search by name, city, or skill..."
-            placeholderTextColor={MUTED}
+            placeholderTextColor={D.muted}
             value={search}
             onChangeText={setSearch}
           />
           {search.length > 0 && (
             <Pressable onPress={() => setSearch('')}>
-              <Ionicons name="close-circle" size={18} color={MUTED} />
+              <Ionicons name="close-circle" size={18} color={D.muted} />
             </Pressable>
           )}
         </View>
       </View>
 
-      <View style={styles.filtersContainer}>
+      <View style={[styles.filtersContainer, { backgroundColor: D.bg }]}>
         <FlatList
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -299,15 +323,15 @@ export default function DirectoryScreen() {
           keyExtractor={item => item.key}
           renderItem={({ item }) => (
             <Pressable
-              style={[styles.filterChip, roleFilter === item.key && styles.filterChipActive]}
+              style={[styles.filterChip, { backgroundColor: D.card, borderColor: D.border }, roleFilter === item.key && { backgroundColor: D.accent, borderColor: D.accent }]}
               onPress={() => setRoleFilter(item.key)}
             >
               <Ionicons
                 name={item.icon}
                 size={14}
-                color={roleFilter === item.key ? '#FFF' : MUTED}
+                color={roleFilter === item.key ? '#FFF' : D.muted}
               />
-              <Text style={[styles.filterText, roleFilter === item.key && styles.filterTextActive]}>
+              <Text style={[styles.filterText, { color: D.muted }, roleFilter === item.key && styles.filterTextActive]}>
                 {item.label}
               </Text>
             </Pressable>
@@ -332,6 +356,7 @@ export default function DirectoryScreen() {
               const convoId = await startConversation(item.id, item.name, item.role);
               if (convoId) router.push({ pathname: '/chat/[id]', params: { id: convoId } });
             } : undefined}
+            darkMode={isTechnician}
           />
         )}
         contentContainerStyle={[
@@ -342,15 +367,17 @@ export default function DirectoryScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={PRIMARY}
-            colors={[PRIMARY]}
+            tintColor={D.accent}
+            colors={[D.accent]}
           />
         }
         ListEmptyComponent={
           <View style={styles.emptyState}>
-            <Ionicons name="people-outline" size={48} color={MUTED} />
-            <Text style={styles.emptyTitle}>No professionals yet</Text>
-            <Text style={styles.emptyText}>Pull down to refresh or invite others to join</Text>
+            <View style={[styles.emptyIconBg, { backgroundColor: D.card }]}>
+              <Ionicons name="people-outline" size={36} color={D.accent} />
+            </View>
+            <Text style={[styles.emptyTitle, { color: D.text }]}>No professionals yet</Text>
+            <Text style={[styles.emptyText, { color: D.muted }]}>Pull down to refresh or invite others to join</Text>
           </View>
         }
         showsVerticalScrollIndicator={false}
@@ -661,6 +688,13 @@ const styles = StyleSheet.create({
     paddingTop: 80,
     gap: 12,
   },
+  emptyIconBg: {
+    width: 72,
+    height: 72,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   emptyTitle: {
     color: DARK,
     fontSize: 18,
@@ -670,5 +704,7 @@ const styles = StyleSheet.create({
     color: MUTED,
     fontSize: 14,
     fontFamily: 'Inter_400Regular',
+    textAlign: 'center',
+    paddingHorizontal: 32,
   },
 });

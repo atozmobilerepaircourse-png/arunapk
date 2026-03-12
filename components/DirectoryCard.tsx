@@ -12,6 +12,12 @@ const DARK   = '#1A1A1A';
 const MUTED  = '#888888';
 const AMBER  = '#F59E0B';
 
+const DARK_BG     = '#1E1E1E';
+const DARK_BORDER = '#374151';
+const DARK_TEXT   = '#F3F4F6';
+const DARK_MUTED  = '#9CA3AF';
+const DARK_SKILL  = '#2A2A2A';
+
 const ROLE_ICONS: Record<UserRole, { name: keyof typeof Ionicons.glyphMap; color: string; bg: string }> = {
   technician:   { name: 'construct',  color: '#34C759', bg: '#E8F5ED' },
   teacher:      { name: 'school',     color: '#F59E0B', bg: '#FFFBEB' },
@@ -34,19 +40,28 @@ interface DirectoryCardProps {
   isOnline?: boolean;
   onPress?: () => void;
   onMessage?: () => void;
+  darkMode?: boolean;
 }
 
-export default function DirectoryCard({ name, role, city, skills, experience, avatar, isOnline, onPress, onMessage }: DirectoryCardProps) {
+export default function DirectoryCard({ name, role, city, skills, experience, avatar, isOnline, onPress, onMessage, darkMode }: DirectoryCardProps) {
   const icon = ROLE_ICONS[role] ?? ROLE_ICONS.customer;
   const cardScale = useSharedValue(1);
   const cardAnimStyle = useAnimatedStyle(() => ({
     transform: [{ scale: cardScale.value }],
   }));
 
+  const cardBg     = darkMode ? DARK_BG : BG;
+  const cardBorder = darkMode ? DARK_BORDER : BORDER;
+  const textColor  = darkMode ? DARK_TEXT : DARK;
+  const mutedColor = darkMode ? DARK_MUTED : MUTED;
+  const skillBg    = darkMode ? DARK_SKILL : '#F5F5F5';
+  const dotBorder  = darkMode ? DARK_BG : BG;
+  const iconBg     = darkMode ? icon.color + '22' : icon.bg;
+
   return (
     <Animated.View style={cardAnimStyle}>
       <Pressable
-        style={({ pressed }) => [styles.card, pressed && { opacity: 0.92 }]}
+        style={({ pressed }) => [styles.card, { backgroundColor: cardBg, borderColor: cardBorder }, pressed && { opacity: 0.92 }]}
         onPress={onPress}
         onPressIn={() => { cardScale.value = withSpring(0.97, { damping: 15 }); }}
         onPressOut={() => { cardScale.value = withSpring(1, { damping: 15 }); }}
@@ -54,48 +69,48 @@ export default function DirectoryCard({ name, role, city, skills, experience, av
         {/* Avatar */}
         <View style={styles.avatarWrap}>
           {avatar ? (
-            <Image source={{ uri: avatar }} style={styles.avatarImg} contentFit="cover" />
+            <Image source={{ uri: avatar }} style={[styles.avatarImg, { borderColor: cardBorder }]} contentFit="cover" />
           ) : (
-            <View style={[styles.avatar, { backgroundColor: icon.bg }]}>
+            <View style={[styles.avatar, { backgroundColor: iconBg }]}>
               <Text style={[styles.avatarText, { color: icon.color }]}>{getInitials(name)}</Text>
             </View>
           )}
           {isOnline !== undefined && (
-            <View style={[styles.onlineDot, { backgroundColor: isOnline ? '#34C759' : '#CCC' }]} />
+            <View style={[styles.onlineDot, { backgroundColor: isOnline ? '#34C759' : (darkMode ? '#4B5563' : '#CCC'), borderColor: dotBorder }]} />
           )}
         </View>
 
         {/* Info */}
         <View style={styles.info}>
           <View style={styles.nameRow}>
-            <Text style={styles.name} numberOfLines={1}>{name}</Text>
+            <Text style={[styles.name, { color: textColor }]} numberOfLines={1}>{name}</Text>
             {role === 'technician' && (
-              <View style={styles.verifiedBadge}>
-                <Text style={styles.verifiedText}>Verified</Text>
+              <View style={[styles.verifiedBadge, darkMode && { backgroundColor: '#1A3326' }]}>
+                <Text style={[styles.verifiedText, darkMode && { color: '#34C759' }]}>Verified</Text>
               </View>
             )}
           </View>
           <View style={styles.metaRow}>
-            <View style={[styles.roleChip, { backgroundColor: icon.bg }]}>
+            <View style={[styles.roleChip, { backgroundColor: iconBg }]}>
               <Ionicons name={icon.name} size={11} color={icon.color} />
               <Text style={[styles.roleText, { color: icon.color }]}>{ROLE_LABELS[role]}</Text>
             </View>
             {city.length > 0 && (
               <View style={styles.cityRow}>
-                <Ionicons name="location-outline" size={11} color={MUTED} />
-                <Text style={styles.cityText} numberOfLines={1}>{city}</Text>
+                <Ionicons name="location-outline" size={11} color={mutedColor} />
+                <Text style={[styles.cityText, { color: mutedColor }]} numberOfLines={1}>{city}</Text>
               </View>
             )}
           </View>
           {skills.length > 0 && (
             <View style={styles.skillsRow}>
               {skills.slice(0, 2).map((s, i) => (
-                <View key={i} style={styles.skillTag}>
-                  <Text style={styles.skillText} numberOfLines={1}>{s}</Text>
+                <View key={i} style={[styles.skillTag, { backgroundColor: skillBg }]}>
+                  <Text style={[styles.skillText, { color: mutedColor }]} numberOfLines={1}>{s}</Text>
                 </View>
               ))}
               {skills.length > 2 && (
-                <Text style={styles.moreSkills}>+{skills.length - 2}</Text>
+                <Text style={[styles.moreSkills, { color: mutedColor }]}>+{skills.length - 2}</Text>
               )}
             </View>
           )}
@@ -110,12 +125,12 @@ export default function DirectoryCard({ name, role, city, skills, experience, av
               onMessage();
             }}
             hitSlop={8}
-            style={[styles.msgBtn, { backgroundColor: icon.bg }]}
+            style={[styles.msgBtn, { backgroundColor: iconBg }]}
           >
             <Ionicons name="chatbubble-outline" size={16} color={icon.color} />
           </Pressable>
         ) : (
-          <Ionicons name="chevron-forward" size={16} color="#BDBDBD" />
+          <Ionicons name="chevron-forward" size={16} color={mutedColor} />
         )}
       </Pressable>
     </Animated.View>

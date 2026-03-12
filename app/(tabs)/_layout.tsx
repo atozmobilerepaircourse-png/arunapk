@@ -38,7 +38,6 @@ function NativeTabLayout() {
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="support" hidden />
         <NativeTabs.Trigger name="index" hidden />
-        <NativeTabs.Trigger name="marketplace" hidden />
         <NativeTabs.Trigger name="create" hidden />
         <NativeTabs.Trigger name="jobs" hidden />
         <NativeTabs.Trigger name="my-shop" hidden />
@@ -88,16 +87,19 @@ function NativeTabLayout() {
           <Icon sf={{ default: "person.2", selected: "person.2.fill" }} />
           <Label>Directory</Label>
         </NativeTabs.Trigger>
+        <NativeTabs.Trigger name="create">
+          <Icon sf={{ default: "plus.circle", selected: "plus.circle.fill" }} />
+          <Label>Post</Label>
+        </NativeTabs.Trigger>
         <NativeTabs.Trigger name="marketplace">
-          <Icon sf={{ default: "bag", selected: "bag.fill" }} />
-          <Label>Shop</Label>
+          <Icon sf={{ default: "storefront", selected: "storefront.fill" }} />
+          <Label>Mobi</Label>
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="profile">
           <Icon sf={{ default: "person", selected: "person.fill" }} />
           <Label>Profile</Label>
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="customer-home" hidden />
-        <NativeTabs.Trigger name="create" hidden />
         <NativeTabs.Trigger name="technician-jobs" hidden />
         <NativeTabs.Trigger name="my-shop" hidden />
       </NativeTabs>

@@ -26,6 +26,7 @@ import { useApp } from '@/lib/context';
 import { apiRequest, getApiUrl } from '@/lib/query-client';
 import { openLink } from '@/lib/open-link';
 import BuySellScreen from '@/app/buy-sell';
+import { T } from '@/constants/techTheme';
 
 
 const { width } = Dimensions.get('window');
@@ -1804,7 +1805,7 @@ export default function MarketplaceScreen() {
         {sup.avatar ? (
           <Image source={{ uri: getImageUri(sup.avatar) }} style={s.avatar} contentFit="cover" />
         ) : (
-          <View style={[s.avatar, s.avatarPlaceholder, { backgroundColor: '#EEE' }]}>
+          <View style={[s.avatar, s.avatarPlaceholder, { backgroundColor: T.cardSurface }]}>
             <Text style={s.initials}>{getInitials(sup.name)}</Text>
           </View>
         )}
@@ -1923,11 +1924,11 @@ export default function MarketplaceScreen() {
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                   <View style={s.liveHeaderDot} />
-                  <Text style={{ fontSize: 20, fontWeight: '800' as const, color: '#000' }}>Live Now</Text>
+                  <Text style={{ fontSize: 20, fontWeight: '800' as const, color: T.text }}>Live Now</Text>
                 </View>
                 <View style={{ flexDirection: 'row', gap: 8 }}>
-                  <Pressable onPress={fetchLiveSessions} style={{ backgroundColor: '#F2F2F2', padding: 8, borderRadius: 10 }}>
-                    <Ionicons name="refresh" size={18} color="#666" />
+                  <Pressable onPress={fetchLiveSessions} style={{ backgroundColor: T.card, padding: 8, borderRadius: 10, borderWidth: 1, borderColor: T.border }}>
+                    <Ionicons name="refresh" size={18} color={T.muted} />
                   </Pressable>
                   {profile?.role === 'teacher' && (
                     <Pressable
@@ -1944,10 +1945,10 @@ export default function MarketplaceScreen() {
                 <ActivityIndicator size="large" color="#FF3B30" style={{ marginTop: 40 }} />
               ) : liveSessions.length === 0 ? (
                 <View style={s.emptyWrap}>
-                  <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: '#FFF0F0', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
+                  <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(239,68,68,0.15)', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
                     <Ionicons name="radio-outline" size={40} color="#FF3B30" />
                   </View>
-                  <Text style={{ fontSize: 17, fontWeight: '700' as const, color: '#000', marginBottom: 4 }}>No Live Sessions</Text>
+                  <Text style={{ fontSize: 17, fontWeight: '700' as const, color: T.text, marginBottom: 4 }}>No Live Sessions</Text>
                   <Text style={s.emptyText}>Teachers will appear here when they go live</Text>
                   {profile?.role === 'teacher' && (
                     <Pressable style={[s.goLiveBtn, { marginTop: 16, paddingHorizontal: 24, paddingVertical: 12 }]} onPress={() => router.push('/go-live' as any)}>
@@ -2030,76 +2031,76 @@ export default function MarketplaceScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFF' },
-  header: { paddingHorizontal: 16, backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#F0F0F0', paddingBottom: 12 },
-  headerTitle: { fontSize: 28, fontWeight: '800' as const, color: '#000', marginBottom: 12 },
-  searchWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F2F2F2', borderRadius: 12, paddingHorizontal: 12, height: 44 },
-  searchInput: { flex: 1, marginLeft: 8, fontSize: 15, color: '#000' },
-  tabContainer: { flexDirection: 'row', paddingHorizontal: 12, paddingVertical: 8, gap: 6 },
-  tabPill: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 18, backgroundColor: '#F2F2F2' },
-  tabPillActive: { backgroundColor: '#000' },
-  tabPillText: { fontSize: 12, fontWeight: '600' as const, color: '#666' },
+  container: { flex: 1, backgroundColor: T.bg },
+  header: { paddingHorizontal: 16, backgroundColor: T.bg, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: T.border, paddingBottom: 12 },
+  headerTitle: { fontSize: 26, fontWeight: '800' as const, color: T.text, marginBottom: 10 },
+  searchWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: T.card, borderRadius: 14, paddingHorizontal: 12, height: 44, borderWidth: 1, borderColor: T.border },
+  searchInput: { flex: 1, marginLeft: 8, fontSize: 15, color: T.text },
+  tabContainer: { flexDirection: 'row', paddingHorizontal: 12, paddingVertical: 10, gap: 8 },
+  tabPill: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 13, paddingVertical: 7, borderRadius: 20, backgroundColor: T.card, borderWidth: 1, borderColor: T.border },
+  tabPillActive: { backgroundColor: T.accent, borderColor: T.accent },
+  tabPillText: { fontSize: 12, fontWeight: '600' as const, color: T.muted },
   tabPillTextActive: { color: '#FFF' },
-  chipScroll: { maxHeight: 40, marginBottom: 6 },
+  chipScroll: { maxHeight: 44, marginBottom: 6 },
   chipRow: { paddingHorizontal: 12, gap: 6, alignItems: 'center' },
-  chip: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 10, backgroundColor: '#F2F2F2', borderWidth: 1, borderColor: '#EEE' },
-  chipText: { fontSize: 12, fontWeight: '600' as const, color: '#666' },
+  chip: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 10, backgroundColor: T.card, borderWidth: 1, borderColor: T.border },
+  chipText: { fontSize: 12, fontWeight: '600' as const, color: T.muted },
   chipTextActive: { color: '#FFF' },
   grid: { padding: 16, gap: 16 },
   grid2: { padding: 12, flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  courseCard: { backgroundColor: '#FFF', borderRadius: 20, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 10, elevation: 4 },
+  courseCard: { backgroundColor: T.card, borderRadius: 20, overflow: 'hidden', borderWidth: 1, borderColor: T.border, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 4 },
   courseImageWrap: { width: '100%', height: 180, position: 'relative' },
   courseImage: { width: '100%', height: '100%' },
-  priceBadge: { position: 'absolute', top: 12, left: 12, backgroundColor: '#000', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10 },
+  priceBadge: { position: 'absolute', top: 12, left: 12, backgroundColor: 'rgba(0,0,0,0.75)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
   priceBadgeText: { color: '#FFF', fontSize: 14, fontWeight: '800' as const },
   courseInfo: { padding: 16, gap: 8 },
-  courseTitle: { fontSize: 18, fontWeight: '700' as const, color: '#000', lineHeight: 24 },
-  productCard: { width: (width - 36) / 2, backgroundColor: '#FFF', borderRadius: 14, overflow: 'hidden', borderWidth: 1, borderColor: '#F0F0F0' },
+  courseTitle: { fontSize: 16, fontWeight: '700' as const, color: T.text, lineHeight: 22 },
+  productCard: { width: (width - 36) / 2, backgroundColor: T.card, borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: T.border },
   productImageWrap: { width: '100%', height: 130 },
   productImage: { width: '100%', height: '100%' },
-  productInfo: { padding: 8, gap: 3 },
-  productTitle: { fontSize: 13, fontWeight: '600' as const, color: '#000', height: 32 },
+  productInfo: { padding: 10, gap: 4 },
+  productTitle: { fontSize: 13, fontWeight: '600' as const, color: T.text, height: 32 },
   productPrice: { fontSize: 15, fontWeight: '800' as const, color: BLUE },
-  card: { marginHorizontal: 12, marginBottom: 8, backgroundColor: '#FFF', borderRadius: 14, padding: 10, borderWidth: 1, borderColor: '#F0F0F0' },
+  card: { marginHorizontal: 12, marginBottom: 8, backgroundColor: T.card, borderRadius: 16, padding: 12, borderWidth: 1, borderColor: T.border },
   cardRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   avatar: { width: 50, height: 50, borderRadius: 25 },
   avatarPlaceholder: { alignItems: 'center', justifyContent: 'center' },
-  initials: { fontSize: 16, fontWeight: '700' as const, color: '#666' },
+  initials: { fontSize: 16, fontWeight: '700' as const, color: T.muted },
   cardInfo: { flex: 1, gap: 2 },
-  cardName: { fontSize: 16, fontWeight: '700' as const, color: '#000' },
+  cardName: { fontSize: 16, fontWeight: '700' as const, color: T.text },
   metaRowCompact: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  metaTextCompact: { fontSize: 12, color: GRAY, fontWeight: '500' as const },
-  metaText: { fontSize: 13, color: GRAY },
-  dot: { width: 3, height: 3, borderRadius: 1.5, backgroundColor: '#CCC', marginHorizontal: 2 },
-  adCard: { marginBottom: 16, borderRadius: 16, overflow: 'hidden', height: 160, position: 'relative' },
+  metaTextCompact: { fontSize: 12, color: T.muted, fontWeight: '500' as const },
+  metaText: { fontSize: 13, color: T.muted },
+  dot: { width: 3, height: 3, borderRadius: 1.5, backgroundColor: T.border, marginHorizontal: 2 },
+  adCard: { marginBottom: 16, borderRadius: 20, overflow: 'hidden', height: 160, position: 'relative', borderWidth: 1, borderColor: T.border },
   adImage: { width: '100%', height: '100%' },
-  adOverlay: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 16, backgroundColor: 'rgba(0,0,0,0.5)' },
+  adOverlay: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 16, backgroundColor: 'rgba(0,0,0,0.7)' },
   adTitle: { color: '#FFF', fontSize: 16, fontWeight: '700' as const },
   emptyWrap: { alignItems: 'center', paddingVertical: 60, gap: 12, width: '100%' },
-  emptyText: { fontSize: 15, color: '#999', fontWeight: '500' as const },
-  allCoursesLabel: { fontSize: 18, fontWeight: '700' as const, color: '#000', marginTop: 8 },
-  recSection: { marginBottom: 8, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
+  emptyText: { fontSize: 15, color: T.muted, fontWeight: '500' as const },
+  allCoursesLabel: { fontSize: 18, fontWeight: '700' as const, color: T.text, marginTop: 8 },
+  recSection: { marginBottom: 8, paddingBottom: 16, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: T.border },
   recHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 },
   recHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  sparkleIcon: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#FFF0E8', alignItems: 'center', justifyContent: 'center' },
-  recTitle: { fontSize: 17, fontWeight: '700' as const, color: '#000' },
-  refreshBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#FFF0E8', alignItems: 'center', justifyContent: 'center' },
-  recCardSkeleton: { width: 180, height: 220, borderRadius: 16, backgroundColor: '#F0F0F0' },
-  recCard: { width: 180, backgroundColor: '#FFF', borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: '#F0F0F0', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 8, elevation: 3 },
+  sparkleIcon: { width: 28, height: 28, borderRadius: 14, backgroundColor: T.accentMuted, alignItems: 'center', justifyContent: 'center' },
+  recTitle: { fontSize: 17, fontWeight: '700' as const, color: T.text },
+  refreshBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: T.accentMuted, alignItems: 'center', justifyContent: 'center' },
+  recCardSkeleton: { width: 180, height: 220, borderRadius: 16, backgroundColor: T.card },
+  recCard: { width: 180, backgroundColor: T.card, borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: T.border, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 3 },
   recImageWrap: { width: '100%', height: 110, position: 'relative' },
   recImage: { width: '100%', height: '100%' },
   recPriceBadge: { position: 'absolute', top: 8, left: 8, backgroundColor: 'rgba(0,0,0,0.75)', paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6 },
   recPriceBadgeText: { color: '#FFF', fontSize: 11, fontWeight: '800' as const },
   recCardBody: { padding: 10, gap: 6 },
-  recCardTitle: { fontSize: 13, fontWeight: '700' as const, color: '#000', lineHeight: 18 },
-  recAiReason: { flexDirection: 'row', alignItems: 'flex-start', gap: 4, backgroundColor: '#FFF8F5', padding: 6, borderRadius: 8 },
-  recReasonText: { fontSize: 10, color: '#FF6B2C', lineHeight: 14, flex: 1, fontWeight: '500' as const },
+  recCardTitle: { fontSize: 13, fontWeight: '700' as const, color: T.text, lineHeight: 18 },
+  recAiReason: { flexDirection: 'row', alignItems: 'flex-start', gap: 4, backgroundColor: T.accentMuted, padding: 6, borderRadius: 8 },
+  recReasonText: { fontSize: 10, color: T.accent, lineHeight: 14, flex: 1, fontWeight: '500' as const },
   recMeta: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  recMetaText: { fontSize: 10, color: GRAY, flex: 1 },
+  recMetaText: { fontSize: 10, color: T.muted, flex: 1 },
   locationBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#E8F0FF',
+    backgroundColor: 'rgba(59,130,246,0.15)',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
@@ -2108,28 +2109,28 @@ const s = StyleSheet.create({
   locationBadgeText: {
     fontSize: 10,
     fontWeight: '700' as const,
-    color: BLUE,
+    color: '#3B82F6',
   },
-  tabPillLive: { backgroundColor: '#FF3B30' },
-  liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#FF3B30' },
-  liveCountBadge: { backgroundColor: '#FF3B30', borderRadius: 8, minWidth: 16, height: 16, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 },
+  tabPillLive: { backgroundColor: '#EF4444', borderColor: '#EF4444' },
+  liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#EF4444' },
+  liveCountBadge: { backgroundColor: '#EF4444', borderRadius: 8, minWidth: 16, height: 16, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 },
   liveCountText: { color: '#FFF', fontSize: 9, fontWeight: '700' as const },
-  goLiveBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#FF3B30', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20 },
+  goLiveBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#EF4444', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20 },
   goLiveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#FFF' },
   goLiveBtnText: { color: '#FFF', fontSize: 13, fontWeight: '700' as const },
-  liveHeaderDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#FF3B30' },
-  liveCard: { backgroundColor: '#FFF', borderRadius: 20, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: '#FFE0E0', shadowColor: '#FF3B30', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 10, elevation: 4 },
+  liveHeaderDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#EF4444' },
+  liveCard: { backgroundColor: T.card, borderRadius: 20, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: T.borderLight, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 4 },
   liveCardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
   livePlatformBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10, borderWidth: 1 },
   livePlatformText: { fontSize: 12, fontWeight: '700' as const },
-  liveActiveBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#FF3B3015', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10 },
-  liveActiveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#FF3B30' },
-  liveActiveText: { fontSize: 10, fontWeight: '800' as const, color: '#FF3B30', letterSpacing: 1 },
-  liveCardTitle: { fontSize: 18, fontWeight: '800' as const, color: '#000', marginBottom: 6, lineHeight: 24 },
-  liveCardDesc: { fontSize: 13, color: '#666', lineHeight: 18, marginBottom: 12 },
+  liveActiveBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(239,68,68,0.15)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10 },
+  liveActiveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#EF4444' },
+  liveActiveText: { fontSize: 10, fontWeight: '800' as const, color: '#EF4444', letterSpacing: 1 },
+  liveCardTitle: { fontSize: 16, fontWeight: '800' as const, color: T.text, marginBottom: 6, lineHeight: 22 },
+  liveCardDesc: { fontSize: 13, color: T.muted, lineHeight: 18, marginBottom: 12 },
   liveCardFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
-  liveTeacherName: { fontSize: 13, fontWeight: '600' as const, color: '#333' },
-  liveElapsed: { fontSize: 11, color: '#999' },
+  liveTeacherName: { fontSize: 13, fontWeight: '600' as const, color: T.textSub },
+  liveElapsed: { fontSize: 11, color: T.muted },
   joinLiveBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, borderRadius: 14 },
   joinLiveBtnText: { color: '#FFF', fontSize: 14, fontWeight: '700' as const },
 });
