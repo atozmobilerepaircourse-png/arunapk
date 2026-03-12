@@ -267,19 +267,18 @@ export default function FeedScreen() {
 
       {/* ── Category Filters — scrollable horizontal ── */}
       <View style={styles.filterContainer}>
-        <FlatList
+        <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          data={FILTERS}
-          scrollEnabled={true}
-          style={{ flexGrow: 0, backgroundColor: BG }}
           contentContainerStyle={styles.filtersContent}
-          keyExtractor={item => item.key}
-          renderItem={({ item }) => {
+          scrollEventThrottle={16}
+        >
+          {FILTERS.map((item) => {
             const isActive = filter === item.key;
             const chipColor = item.color;
             return (
               <Pressable
+                key={item.key}
                 style={[
                   styles.filterChip,
                   isActive
@@ -307,8 +306,8 @@ export default function FeedScreen() {
                 </Text>
               </Pressable>
             );
-          }}
-        />
+          })}
+        </ScrollView>
       </View>
 
       {/* ── Feed ── */}
