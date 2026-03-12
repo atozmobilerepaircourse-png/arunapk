@@ -1865,7 +1865,8 @@ export default function MarketplaceScreen() {
         style={s.supplierCard}
         onPress={() => router.push(`/supplier-store?id=${sup.id}` as any)}
       >
-        <View style={{ flexDirection: 'row', gap: 14, alignItems: 'flex-start' }}>
+        {/* Top section: Logo + Basic Info + Location Badge */}
+        <View style={{ flexDirection: 'row', gap: 12, marginBottom: 14 }}>
           {/* Logo */}
           <View style={s.supplierLogoWrap}>
             {sup.avatar ? (
@@ -1875,39 +1876,55 @@ export default function MarketplaceScreen() {
                 <Text style={{ color: BLUE, fontSize: 18, fontWeight: '700' as const }}>{getInitials(sup.name)}</Text>
               </View>
             )}
-            <View style={s.supplierVerified}>
-              <Ionicons name="checkmark" size={9} color="#FFF" />
-            </View>
+            {sup.verified && <View style={s.supplierVerified}><Ionicons name="checkmark" size={9} color="#FFF" /></View>}
           </View>
 
-          {/* Info */}
-          <View style={{ flex: 1, gap: 3 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          {/* Name + Rating + Status */}
+          <View style={{ flex: 1 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
               <Text style={s.supplierName} numberOfLines={1}>{sup.name}</Text>
-              {(sup.city || sup.state) && (
-                <View style={s.locationBadge}>
-                  <Ionicons name="location" size={9} color={BLUE} />
-                  <Text style={s.locationBadgeText}>{sup.city || sup.state}</Text>
-                </View>
-              )}
             </View>
-            <Text style={s.supplierShop} numberOfLines={1}>{sup.shopName || 'Mobile Parts Supplier'}</Text>
+            
             {/* Rating row */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginBottom: 4 }}>
               <View style={{ flexDirection: 'row', gap: 1 }}>{renderStars(rating)}</View>
-              <Text style={{ color: '#FBBF24', fontSize: 11, fontWeight: '700' as const }}>{rating.toFixed(1)}</Text>
+              <Text style={{ color: '#FBBF24', fontSize: 12, fontWeight: '700' as const }}>{rating.toFixed(1)}</Text>
               <Text style={{ color: T.muted, fontSize: 10 }}>({Math.floor(12 + Math.abs(rating * 7) % 88)} reviews)</Text>
-              <View style={{ width: 4 }} />
-              <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#10B981' }} />
-              <Text style={{ color: '#10B981', fontSize: 11, fontWeight: '600' as const }}>Open</Text>
+            </View>
+
+            {/* Status row */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#10B981' }} />
+                <Text style={{ color: '#10B981', fontSize: 11, fontWeight: '600' as const }}>Open Now</Text>
+              </View>
+              <Text style={{ color: T.muted, fontSize: 10 }}>• Closes 6PM</Text>
             </View>
           </View>
         </View>
 
-        {/* Tags */}
+        {/* Middle section: Distance + Response */}
+        <View style={{ flexDirection: 'row', gap: 16, marginBottom: 12, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: T.borderLight }}>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8, flex: 1 }}>
+            <Ionicons name="location" size={14} color={T.muted} style={{ marginTop: 2 }} />
+            <View>
+              <Text style={{ color: T.text, fontSize: 12, fontWeight: '600' as const }}>12.4 miles away</Text>
+              <Text style={{ color: T.muted, fontSize: 11 }}>{sup.city || 'Location'}, {sup.state || 'State'}</Text>
+            </View>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8, flex: 1 }}>
+            <Ionicons name="flash" size={14} color={ORANGE} style={{ marginTop: 2 }} />
+            <View>
+              <Text style={{ color: T.text, fontSize: 12, fontWeight: '600' as const }}>Fast Response</Text>
+              <Text style={{ color: T.muted, fontSize: 11 }}>Usually within 15 mins</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Specialties Tags */}
         {sup.skills && sup.skills.length > 0 && (
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
-            {sup.skills.slice(0, 4).map((skill, i) => (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+            {sup.skills.slice(0, 3).map((skill, i) => (
               <View key={i} style={s.supplierTag}>
                 <Text style={s.supplierTagText}>{skill}</Text>
               </View>
@@ -1916,30 +1933,29 @@ export default function MarketplaceScreen() {
         )}
 
         {/* Action buttons */}
-        <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
           <Pressable
-            style={s.supplierContactBtn}
-            onPress={() => router.push(`/supplier-store?id=${sup.id}` as any)}
+            style={[s.supplierContactBtn, { flex: 1 }]}
+            onPress={() => handleChatWithSupplier(sup)}
           >
-            <Ionicons name="cube-outline" size={13} color="#FFF" />
-            <Text style={s.supplierContactBtnText}>Products ({productCounts[sup.id] || 0})</Text>
+            <Ionicons name="chatbubble-ellipses-outline" size={14} color="#FFF" />
+            <Text style={s.supplierContactBtnText}>Chat</Text>
           </Pressable>
-          {!isOwn && (
+          {(sup as any).phone && (
             <Pressable
-              style={[s.supplierSecondBtn, { backgroundColor: '#10B98122', borderColor: '#10B981' }]}
-              onPress={() => handleChatWithSupplier(sup)}
-            >
-              <Ionicons name="chatbubble-ellipses" size={14} color="#10B981" />
-            </Pressable>
-          )}
-          {!isOwn && (sup as any).phone && (
-            <Pressable
-              style={[s.supplierSecondBtn, { backgroundColor: ORANGE + '22', borderColor: ORANGE }]}
+              style={[s.supplierContactBtn, { flex: 1, backgroundColor: T.cardSurface, borderWidth: 1, borderColor: T.borderLight }]}
               onPress={() => handleCallSupplier((sup as any).phone)}
             >
-              <Ionicons name="call" size={14} color={ORANGE} />
+              <Ionicons name="call-outline" size={14} color={T.text} />
+              <Text style={[s.supplierContactBtnText, { color: T.text }]}>Call</Text>
             </Pressable>
           )}
+          <Pressable
+            style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center', backgroundColor: T.cardSurface, borderRadius: 8, borderWidth: 1, borderColor: T.borderLight }}
+            onPress={() => {}}
+          >
+            <Ionicons name="ellipsis-vertical" size={16} color={T.muted} />
+          </Pressable>
         </View>
       </Pressable>
     );
@@ -2143,17 +2159,17 @@ const s = StyleSheet.create({
   chipText: { fontSize: 12, fontWeight: '600' as const, color: T.muted },
   chipTextActive: { color: '#FFF' },
   grid: { padding: 16, gap: 16 },
-  supplierCard: { backgroundColor: T.card, borderRadius: 14, borderWidth: 1, borderColor: T.borderLight, padding: 14, marginHorizontal: 12, marginBottom: 10 },
-  supplierLogoWrap: { position: 'relative', width: 60, height: 60 },
-  supplierLogo: { width: 60, height: 60, borderRadius: 10, backgroundColor: '#FFF' },
-  supplierVerified: { position: 'absolute', top: -4, right: -4, width: 18, height: 18, borderRadius: 9, backgroundColor: '#3B82F6', alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: T.card },
-  supplierName: { color: T.text, fontSize: 14, fontWeight: '700' as const },
+  supplierCard: { backgroundColor: T.card, borderRadius: 16, borderWidth: 1, borderColor: T.borderLight, padding: 16, marginHorizontal: 12, marginBottom: 12 },
+  supplierLogoWrap: { position: 'relative', width: 70, height: 70 },
+  supplierLogo: { width: 70, height: 70, borderRadius: 12, backgroundColor: '#FFF' },
+  supplierVerified: { position: 'absolute', top: -6, right: -6, width: 20, height: 20, borderRadius: 10, backgroundColor: '#3B82F6', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: T.card },
+  supplierName: { color: T.text, fontSize: 15, fontWeight: '700' as const },
   supplierShop: { color: T.muted, fontSize: 12, fontWeight: '400' as const },
-  supplierTag: { backgroundColor: T.bg, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: T.borderLight },
+  supplierTag: { backgroundColor: T.bg, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1, borderColor: T.borderLight },
   supplierTagText: { color: T.muted, fontSize: 11, fontWeight: '500' as const },
-  supplierContactBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: BLUE, borderRadius: 8, paddingVertical: 8 },
-  supplierContactBtnText: { color: '#FFF', fontSize: 12, fontWeight: '600' as const },
-  supplierSecondBtn: { width: 36, height: 36, borderRadius: 8, backgroundColor: T.cardSurface, borderWidth: 1, borderColor: T.borderLight, alignItems: 'center', justifyContent: 'center' },
+  supplierContactBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: ORANGE, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 12 },
+  supplierContactBtnText: { color: '#FFF', fontSize: 13, fontWeight: '600' as const },
+  supplierSecondBtn: { width: 40, height: 40, borderRadius: 10, backgroundColor: T.cardSurface, borderWidth: 1, borderColor: T.borderLight, alignItems: 'center', justifyContent: 'center' },
   grid2: { padding: 12, flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   courseCard: { backgroundColor: T.card, borderRadius: 20, overflow: 'hidden', borderWidth: 1, borderColor: T.border, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 4 },
   courseImageWrap: { width: '100%', height: 180, position: 'relative' },
