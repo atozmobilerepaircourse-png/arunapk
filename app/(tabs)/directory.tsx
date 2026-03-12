@@ -297,20 +297,19 @@ export default function DirectoryScreen() {
         {/* Role Filter Tabs - Fixed */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs} style={{ backgroundColor: BG, paddingVertical: 8 }}>
           {ROLE_FILTERS.map(f => (
-                <Pressable
-                  key={f.key}
-                  style={[styles.tab, roleFilter === f.key && styles.tabActive]}
-                  onPress={() => setRoleFilter(f.key)}
-                >
-                  <Text style={[styles.tabText, roleFilter === f.key && styles.tabTextActive]}>{f.label}</Text>
-                </Pressable>
-            ))}
-          </ScrollView>
-        </View>
+            <Pressable
+              key={f.key}
+              style={[styles.tab, roleFilter === f.key && styles.tabActive]}
+              onPress={() => setRoleFilter(f.key)}
+            >
+              <Text style={[styles.tabText, roleFilter === f.key && styles.tabTextActive]}>{f.label}</Text>
+            </Pressable>
+          ))}
+        </ScrollView>
       </View>
 
       {/* Scrollable Profile List */}
-      <FlatList
+      <FlatList style={{ flex: 1 }}
         data={filtered}
         keyExtractor={item => item.id}
         showsVerticalScrollIndicator={false}
