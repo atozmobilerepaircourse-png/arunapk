@@ -1327,28 +1327,34 @@ export default function ProfileScreen() {
         </View>
       </ScrollView>
 
-      <Modal visible={showRolePicker} transparent animationType="slide" onRequestClose={() => setShowRolePicker(false)}>
-        <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }} onPress={() => setShowRolePicker(false)}>
-          <View style={{ backgroundColor: '#FFF', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingBottom: insets.bottom + 20 }}>
-            <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: '#DDD', alignSelf: 'center', marginTop: 10, marginBottom: 4 }} />
-            <Text style={{ fontSize: 17, fontWeight: '800', color: '#1A1A1A', textAlign: 'center', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' }}>Switch Role</Text>
-            {getAllowedRoles(profile?.role || 'customer').length > 0 && getAllowedRoles(profile?.role || 'customer').map(r => (
+      {/* Role Picker Modal */}
+      <Modal
+        visible={showRolePicker}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowRolePicker(false)}
+      >
+        <Pressable style={rolePickerStyles.backdrop} onPress={() => setShowRolePicker(false)}>
+          <View style={rolePickerStyles.sheet}>
+            <Text style={rolePickerStyles.title}>Switch Role</Text>
+            <Text style={rolePickerStyles.subtitle}>Select a role to switch to</Text>
+            {getAllowedRoles(profile?.role || 'customer').map(r => (
               <Pressable
                 key={r}
+                style={[rolePickerStyles.roleRow, profile?.role === r && rolePickerStyles.roleRowActive]}
                 onPress={() => handleChangeRole(r)}
-                style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: '#F5F5F5', backgroundColor: profile?.role === r ? '#FFF1EC' : '#FFF' }}
               >
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                  <Ionicons
-                    name={r === 'technician' ? 'construct-outline' : r === 'teacher' ? 'school-outline' : r === 'supplier' ? 'cube-outline' : r === 'job_provider' ? 'briefcase-outline' : 'person-outline'}
-                    size={20}
-                    color={profile?.role === r ? '#FF6B2C' : '#555'}
-                  />
-                  <Text style={{ fontSize: 15, color: '#1A1A1A', fontWeight: profile?.role === r ? '700' : '400' }}>{ROLE_LABELS[r] || r}</Text>
-                </View>
-                {profile?.role === r && <Ionicons name="checkmark-circle" size={20} color="#FF6B2C" />}
+                <Text style={[rolePickerStyles.roleLabel, profile?.role === r && rolePickerStyles.roleLabelActive]}>
+                  {ROLE_LABELS[r]}
+                </Text>
+                {profile?.role === r && (
+                  <Ionicons name="checkmark-circle" size={20} color="#FF6B2C" />
+                )}
               </Pressable>
             ))}
+            <Pressable style={rolePickerStyles.cancelBtn} onPress={() => setShowRolePicker(false)}>
+              <Text style={rolePickerStyles.cancelText}>Cancel</Text>
+            </Pressable>
           </View>
         </Pressable>
       </Modal>
