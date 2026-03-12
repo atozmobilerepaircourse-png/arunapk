@@ -28,13 +28,17 @@ import { fetch as expoFetch } from 'expo/fetch';
 import * as Haptics from 'expo-haptics';
 import { playNotificationSound } from '@/lib/notification-sound';
 import { openLink } from '@/lib/open-link';
+import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
+import { firestoreDb } from '@/lib/firebase';
 
-const PRIMARY = '#4A6CF7';
-const BG = '#F8F9FA';
-const SURFACE = '#FFFFFF';
-const TEXT_PRIMARY = '#1A1A1A';
-const TEXT_SECONDARY = '#666666';
-const TEXT_TERTIARY = '#999999';
+const PRIMARY = '#4F46E5';
+const BG = '#0F0F0F';
+const SURFACE = '#1E1E1E';
+const CARD = '#2A2A2A';
+const BORDER = '#374151';
+const TEXT_PRIMARY = '#F3F4F6';
+const TEXT_SECONDARY = '#9CA3AF';
+const TEXT_TERTIARY = '#6B7280';
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
 const ROLE_COLORS: Record<string, string> = {
@@ -172,7 +176,7 @@ const dateSepStyles = StyleSheet.create({
   pill: {
     paddingHorizontal: 14,
     paddingVertical: 4,
-    backgroundColor: 'rgba(0,0,0,0.06)',
+    backgroundColor: 'rgba(255,255,255,0.08)',
     borderRadius: 12,
   },
   text: {
@@ -561,44 +565,46 @@ export default function LiveChatScreen() {
 
   useEffect(() => {
     setIsLoading(true);
-    apiRequest('GET', '/api/live-chat/messages?limit=50')
-      .then(res => res.json())
-      .then(data => {
-        if (Array.isArray(data)) setMessages(data.map(normalizeMsg));
-      })
-      .catch(err => console.warn('Failed to load chat history:', err))
-      .finally(() => setIsLoading(false));
+
+    // Firestore real-time listener
+    let unsubscribe: (() => void) | null = null;
+    try {
+      const q = query(
+        collection(firestoreDb, 'live_chat_messages'),
+        orderBy('createdAt', 'desc'),
+        limit(60)
+      );
+      unsubscribe = onSnapshot(q, (snapshot) => {
+        const msgs = snapshot.docs.map(doc => {
+          const d = doc.data();
+          return normalizeMsg({ id: doc.id, ...d });
+        });
+        setMessages(msgs.reverse());
+        setIsLoading(false);
+      }, (error) => {
+        console.warn('[LiveChat] Firestore onSnapshot error:', error);
+        // Fallback: load via REST API
+        apiRequest('GET', '/api/live-chat/messages?limit=60')
+          .then(res => res.json())
+          .then(data => { if (Array.isArray(data)) setMessages(data.map(normalizeMsg)); })
+          .catch(() => {})
+          .finally(() => setIsLoading(false));
+      });
+    } catch (err) {
+      console.warn('[LiveChat] Firestore setup error:', err);
+      apiRequest('GET', '/api/live-chat/messages?limit=60')
+        .then(res => res.json())
+        .then(data => { if (Array.isArray(data)) setMessages(data.map(normalizeMsg)); })
+        .catch(() => {})
+        .finally(() => setIsLoading(false));
+    }
 
     apiRequest('GET', '/api/community/stats')
       .then(res => res.json())
-      .then(data => {
-        if (data.totalMembers) setTotalMembers(data.totalMembers);
-      })
+      .then(data => { if (data.totalMembers) setTotalMembers(data.totalMembers); })
       .catch(() => {});
 
-    let lastFetchTime = Date.now();
-    const messagesInterval = setInterval(() => {
-      apiRequest('GET', `/api/live-chat/messages?limit=50&after=${lastFetchTime}`)
-        .then(res => res.json())
-        .then(data => {
-          if (Array.isArray(data) && data.length > 0) {
-            const normalized = data.map(normalizeMsg);
-            lastFetchTime = Math.max(...normalized.map(m => m.createdAt), lastFetchTime);
-            setMessages(prev => {
-              const newMsgs = normalized.filter(m => !prev.some(p => p.id === m.id));
-              if (newMsgs.length > 0) {
-                if (Platform.OS !== 'web') {
-                  playNotificationSound().catch(() => {});
-                }
-                return [...prev, ...newMsgs].sort((a, b) => a.createdAt - b.createdAt);
-              }
-              return prev;
-            });
-          }
-        });
-    }, 2000);
-
-    // HTTP-based presence — much more reliable than Socket.IO on mobile
+    // HTTP-based presence
     const pingPresence = () => {
       if (!profile) return;
       apiRequest('POST', '/api/live-chat/presence', {
@@ -608,29 +614,25 @@ export default function LiveChatScreen() {
         avatar: profile.avatar || '',
       }).catch(() => {});
     };
-    pingPresence(); // ping immediately on enter
-    const presenceInterval = setInterval(pingPresence, 20000); // keep alive every 20s
+    pingPresence();
+    const presenceInterval = setInterval(pingPresence, 20000);
 
     // Poll online users every 5 seconds
     const onlineInterval = setInterval(() => {
       apiRequest('GET', '/api/live-chat/online-users')
         .then(res => res.json())
-        .then(data => {
-          if (Array.isArray(data)) setOnlineUsers(data);
-        })
+        .then(data => { if (Array.isArray(data)) setOnlineUsers(data); })
         .catch(() => {});
     }, 5000);
-    // Fetch immediately
     apiRequest('GET', '/api/live-chat/online-users')
       .then(res => res.json())
       .then(data => { if (Array.isArray(data)) setOnlineUsers(data); })
       .catch(() => {});
 
     return () => {
-      clearInterval(messagesInterval);
+      if (unsubscribe) unsubscribe();
       clearInterval(presenceInterval);
       clearInterval(onlineInterval);
-      // Remove presence on leave
       if (profile) {
         apiRequest('DELETE', '/api/live-chat/presence', { userId: profile.id }).catch(() => {});
       }
@@ -900,7 +902,7 @@ export default function LiveChatScreen() {
             <Ionicons name="people" size={18} color="#FFF" />
           </View>
           <Pressable style={styles.headerCenter} onPress={() => setShowOnlineModal(true)}>
-            <Text style={styles.headerTitle}>Live Community</Text>
+            <Text style={styles.headerTitle}>Technician Live Chat</Text>
             <Text style={styles.headerSub}>
               {onlineUsers.length} online now • {totalMembers} total members
             </Text>
@@ -963,8 +965,8 @@ export default function LiveChatScreen() {
           </View>
         ) : !repliesEnabled && profile?.phone !== '8179142535' ? (
           <View style={[styles.center, { flex: 1, padding: 40 }]}>
-            <View style={{ backgroundColor: '#FFF0E8', padding: 20, borderRadius: 20, marginBottom: 20 }}>
-              <Ionicons name="chatbubble-ellipses-outline" size={60} color="#FF6B2C" />
+            <View style={{ backgroundColor: 'rgba(79,70,229,0.15)', padding: 20, borderRadius: 20, marginBottom: 20 }}>
+              <Ionicons name="chatbubble-ellipses-outline" size={60} color={PRIMARY} />
             </View>
             <Text style={{ fontSize: 22, fontWeight: '700', color: TEXT_PRIMARY, textAlign: 'center', marginBottom: 12 }}>Live Chat is Offline</Text>
             <Text style={{ fontSize: 16, color: TEXT_SECONDARY, textAlign: 'center', lineHeight: 24, marginBottom: 24 }}>The admin has temporarily disabled the community chat. Please check back later.</Text>
@@ -1059,12 +1061,20 @@ export default function LiveChatScreen() {
 
       <View style={[styles.inputBar, { paddingBottom: Platform.OS === 'web' ? webBottomPad : Math.max(insets.bottom, 6) }]}>
         {!repliesEnabled && profile?.phone !== '8179142535' ? (
-          <View style={{ paddingVertical: 16, paddingHorizontal: 20, alignItems: 'center', backgroundColor: '#F8F9FA', borderTopWidth: 1, borderTopColor: '#EEE' }}>
+          <View style={{ paddingVertical: 16, paddingHorizontal: 20, alignItems: 'center', backgroundColor: SURFACE, borderTopWidth: 1, borderTopColor: BORDER }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
               <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#FF3B30' }} />
               <Text style={{ color: '#FF3B30', fontSize: 15, fontWeight: '700' }}>Live Chat is Offline</Text>
             </View>
-            <Text style={{ color: '#666', fontSize: 13, textAlign: 'center' }}>You cannot send messages while chat is disabled by admin.</Text>
+            <Text style={{ color: TEXT_SECONDARY, fontSize: 13, textAlign: 'center' }}>You cannot send messages while chat is disabled by admin.</Text>
+          </View>
+        ) : profile?.role !== 'technician' && profile?.phone !== '8179142535' ? (
+          <View style={{ paddingVertical: 16, paddingHorizontal: 20, alignItems: 'center', backgroundColor: SURFACE, borderTopWidth: 1, borderTopColor: BORDER }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+              <Ionicons name="eye-outline" size={18} color={TEXT_SECONDARY} />
+              <Text style={{ color: TEXT_PRIMARY, fontSize: 14, fontFamily: 'Inter_600SemiBold' }}>View Only</Text>
+            </View>
+            <Text style={{ color: TEXT_SECONDARY, fontSize: 12, textAlign: 'center', lineHeight: 18 }}>Only technicians can send messages in this chat.</Text>
           </View>
         ) : (
           <>
@@ -1191,7 +1201,7 @@ const styles = StyleSheet.create({
   inputBar: {
     backgroundColor: SURFACE,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.05)',
+    borderTopColor: 'rgba(255,255,255,0.08)',
   },
   inputContainer: {
     flexDirection: 'row',
@@ -1203,7 +1213,7 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 40,
     maxHeight: 120,
-    backgroundColor: '#F1F3F5',
+    backgroundColor: '#2A2A2A',
     borderRadius: 20,
     paddingHorizontal: 16,
     paddingTop: 10,
@@ -1227,7 +1237,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   sendBtnDisabled: {
-    backgroundColor: '#CCC',
+    backgroundColor: '#374151',
   },
   row: {
     flexDirection: 'row',
@@ -1339,7 +1349,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F3F5',
+    borderBottomColor: '#374151',
   },
   modalTitle: {
     fontSize: 18,
@@ -1362,12 +1372,12 @@ const styles = StyleSheet.create({
     height: 280,
     backgroundColor: SURFACE,
     borderTopWidth: 1,
-    borderTopColor: '#F1F3F5',
+    borderTopColor: '#374151',
   },
   emojiTabRow: {
     flexDirection: 'row',
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F3F5',
+    borderBottomColor: '#374151',
   },
   emojiTabBtn: {
     flex: 1,
@@ -1441,7 +1451,7 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: '#EEF2FF',
+    backgroundColor: 'rgba(79,70,229,0.12)',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 20,

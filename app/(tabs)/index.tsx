@@ -228,7 +228,7 @@ export default function FeedScreen() {
           </HeaderButton>
 
           {/* Live Chat - blue pill with ping */}
-          <HeaderButton delay={80} onPress={() => liveUrl ? openLink(liveUrl, 'Live') : null}>
+          <HeaderButton delay={80} onPress={() => router.push('/live-chat')}>
             <View style={styles.liveChatBtn}>
               <Ionicons name="chatbubble" size={13} color={BLUE} />
               <Text style={styles.liveChatText}>Live Chat</Text>
