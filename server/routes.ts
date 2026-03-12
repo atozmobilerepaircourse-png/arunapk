@@ -374,9 +374,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Fallback: use phone from request body if session lookup failed
       if (!phone && userPhone) {
-        const cleanPhone = (userPhone || '').replace(/\D/g, '');
-        if (cleanPhone.length >= 10) {
-          phone = cleanPhone;
+        // Handle both regular phone (10+ digits) and email-format phones (email:xxx@xxx.com)
+        if (userPhone.startsWith('email:')) {
+          phone = userPhone; // Email-format, use as-is
+        } else {
+          const cleanPhone = (userPhone || '').replace(/\D/g, '');
+          if (cleanPhone.length >= 10) {
+            phone = cleanPhone;
+          }
         }
       }
       
@@ -385,7 +390,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ success: false, message: "Session expired. Please log out and log in again." });
       }
       
-      const profileRows = await db.select().from(profiles).where(eq(profiles.phone, phone));
+      // Find profile by phone (handles both phone and email-format phones)
+      const allProfiles = await db.select().from(profiles);
+      let profileRows: typeof allProfiles = [];
+      if (phone.startsWith('email:')) {
+        profileRows = allProfiles.filter(p => p.phone === phone);
+      } else {
+        const cleanPhone = phone.replace(/\D/g, '');
+        profileRows = allProfiles.filter(p => p.phone.replace(/\D/g, '') === cleanPhone);
+      }
+      
       if (!profileRows || !profileRows[0]) {
         console.warn("[Profile] Profile not found for phone:", phone);
         return res.status(404).json({ success: false, message: "Profile not found" });
