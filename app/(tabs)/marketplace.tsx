@@ -26,6 +26,7 @@ import { useApp } from '@/lib/context';
 import { apiRequest, getApiUrl } from '@/lib/query-client';
 import { openLink } from '@/lib/open-link';
 import BuySellScreen from '@/app/buy-sell';
+import { ShopProductsTab } from '@/app/(tabs)/shop-products-tab';
 import { T } from '@/constants/techTheme';
 
 
@@ -1953,15 +1954,7 @@ export default function MarketplaceScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={ORANGE} />}
         >
           {activeTab === 'spare' && (
-            <>
-              {renderFilterChips(SELL_TYPE_FILTERS, sellFilter, setSellFilter, BLUE)}
-              <View style={s.grid2}>
-                {spareProducts.map(renderProductCard)}
-                {spareProducts.length === 0 && !loading && (
-                  <View style={s.emptyWrap}><Ionicons name="cube-outline" size={48} color="#DDD" /><Text style={s.emptyText}>No products found</Text></View>
-                )}
-              </View>
-            </>
+            <ShopProductsTab search={search} onSearch={setSearch} />
           )}
 
           {activeTab === 'suppliers' && (
