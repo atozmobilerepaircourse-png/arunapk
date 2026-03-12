@@ -47,6 +47,19 @@ const CONDITIONS = ['Like New', 'Good', 'Fair', 'Used'];
 
 const C = Colors.light;
 
+// ── Role switching rules ──────────────────────────────────────
+// Teacher ↔ Technician, Supplier ↔ Technician
+function getAllowedRoles(currentRole: UserRole): UserRole[] {
+  const roleMap: Record<UserRole, UserRole[]> = {
+    teacher: ['technician'],
+    technician: ['teacher', 'supplier'],
+    supplier: ['technician'],
+    job_provider: [],
+    customer: [],
+  };
+  return roleMap[currentRole] || [];
+}
+
 type ListingItem = {
   id: string;
   title: string;
@@ -209,6 +222,17 @@ function CustomerProfileScreen() {
 
   const handleChangeRole = async (newRole: string) => {
     if (!profile?.id || changingRole) return;
+    
+    const allowed = getAllowedRoles(profile.role);
+    if (!allowed.includes(newRole as UserRole)) {
+      Alert.alert(
+        'Cannot Switch',
+        `You can only switch between: Teacher ↔ Technician or Supplier ↔ Technician`,
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
     try {
       setChangingRole(true);
       setShowRolePicker(false);
@@ -446,23 +470,27 @@ function CustomerProfileScreen() {
         <View style={{ backgroundColor: '#FFF', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingBottom: botPad + 20 }}>
           <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: '#DDD', alignSelf: 'center', marginTop: 10, marginBottom: 4 }} />
           <Text style={{ fontSize: 17, fontWeight: '800', color: '#1A1A1A', textAlign: 'center', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' }}>Switch Role</Text>
-          {ALL_ROLES.map(r => (
-            <Pressable
-              key={r}
-              onPress={() => handleChangeRole(r)}
-              style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: '#F5F5F5', backgroundColor: profile?.role === r ? '#FFF1EC' : '#FFF' }}
-            >
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                <Ionicons
-                  name={r === 'technician' ? 'construct-outline' : r === 'teacher' ? 'school-outline' : r === 'supplier' ? 'cube-outline' : r === 'job_provider' ? 'briefcase-outline' : 'person-outline'}
-                  size={20}
-                  color={profile?.role === r ? ORANGE : '#555'}
-                />
-                <Text style={{ fontSize: 15, color: '#1A1A1A', fontWeight: profile?.role === r ? '700' : '400' }}>{ROLE_LABELS[r] || r}</Text>
-              </View>
-              {profile?.role === r && <Ionicons name="checkmark-circle" size={20} color={ORANGE} />}
-            </Pressable>
-          ))}
+          {(() => {
+            const allowed = getAllowedRoles(profile?.role || 'customer');
+            const availableRoles = allowed.length > 0 ? allowed : [profile?.role || 'customer'];
+            return availableRoles.map(r => (
+              <Pressable
+                key={r}
+                onPress={() => handleChangeRole(r)}
+                style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: '#F5F5F5', backgroundColor: profile?.role === r ? '#FFF1EC' : '#FFF' }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                  <Ionicons
+                    name={r === 'technician' ? 'construct-outline' : r === 'teacher' ? 'school-outline' : r === 'supplier' ? 'cube-outline' : r === 'job_provider' ? 'briefcase-outline' : 'person-outline'}
+                    size={20}
+                    color={profile?.role === r ? ORANGE : '#555'}
+                  />
+                  <Text style={{ fontSize: 15, color: '#1A1A1A', fontWeight: profile?.role === r ? '700' : '400' }}>{ROLE_LABELS[r] || r}</Text>
+                </View>
+                {profile?.role === r && <Ionicons name="checkmark-circle" size={20} color={ORANGE} />}
+              </Pressable>
+            ));
+          })()}
         </View>
       </Pressable>
     </Modal>
@@ -497,6 +525,17 @@ export default function ProfileScreen() {
 
   const handleChangeRole = async (newRole: string) => {
     if (!profile?.id || changingRole) return;
+    
+    const allowed = getAllowedRoles(profile.role);
+    if (!allowed.includes(newRole as UserRole)) {
+      Alert.alert(
+        'Cannot Switch',
+        `You can only switch between: Teacher ↔ Technician or Supplier ↔ Technician`,
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
     try {
       setChangingRole(true);
       setShowRolePicker(false);
