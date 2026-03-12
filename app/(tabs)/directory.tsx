@@ -265,8 +265,8 @@ export default function DirectoryScreen() {
       <View style={[styles.header, { paddingTop: (Platform.OS === 'web' ? webTopInset : insets.top) + 12, backgroundColor: D.bg }]}>
         <View style={styles.headerRow}>
           <View style={{ flex: 1 }}>
-            <Text style={[styles.headerTitle, { color: D.text }]}>{isCustomer ? 'Find Technicians' : 'Directory'}</Text>
-            <Text style={[styles.headerSubtitle, { color: D.muted }]}>{isCustomer ? 'Certified repair experts near you' : 'Find professionals across India'}</Text>
+            <Text style={[styles.headerTitle, { color: D.text }]}>Find Professionals Near You</Text>
+            <Text style={[styles.headerSubtitle, { color: D.muted }]}>200+ experienced professionals available</Text>
           </View>
           <View style={styles.headerActions}>
             <Pressable
@@ -286,27 +286,14 @@ export default function DirectoryScreen() {
       </View>
 
       {stats && (
-        <View style={[styles.statsBar, { backgroundColor: D.bg }]}>
+        <View style={[styles.statsContainer, { backgroundColor: D.bg }]}>
           {visibleStatRoles.map(r => {
             const s = stats[r.key];
             if (!s) return null;
             return (
-              <View key={r.key} style={[styles.statCard, { backgroundColor: D.card, borderColor: D.border }]}>
-                <View style={styles.statHeader}>
-                  <View style={[styles.statDot, { backgroundColor: r.color }]} />
-                  <Text style={[styles.statLabel, { color: r.color }]}>{r.label}</Text>
-                </View>
-                <View style={styles.statNumbers}>
-                  <Text style={[styles.statRegistered, { color: D.text }]}>{s.registered}</Text>
-                  <Text style={[styles.statSep, { color: D.muted }]}>/</Text>
-                  <View style={styles.liveRow}>
-                    <View style={[styles.livePulse, { backgroundColor: '#34C759' }]} />
-                    <Text style={[styles.statOnline, { color: '#34C759' }]}>{s.online}</Text>
-                  </View>
-                </View>
-                <View style={styles.statFooter}>
-                  <Text style={[styles.statFooterText, { color: D.muted }]}>Total / Live</Text>
-                </View>
+              <View key={r.key} style={[styles.statBox, { backgroundColor: D.card, borderColor: D.border }]}>
+                <Text style={[styles.statNumber, { color: r.color }]}>{s.registered}</Text>
+                <Text style={[styles.statRoleLabel, { color: D.text }]}>{r.label}</Text>
               </View>
             );
           })}
@@ -563,75 +550,30 @@ const styles = StyleSheet.create({
   mapFull: {
     flex: 1,
   },
-  statsBar: {
+  statsContainer: {
     flexDirection: 'row',
     paddingHorizontal: 12,
-    gap: 6,
-    marginBottom: 6,
+    gap: 12,
+    marginBottom: 12,
   },
-  statCard: {
+  statBox: {
     flex: 1,
     backgroundColor: CARD,
-    borderRadius: 10,
-    padding: 8,
+    borderRadius: 12,
+    padding: 16,
     borderWidth: 1,
     borderColor: BORDER,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  statHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
+  statNumber: {
+    fontSize: 28,
+    fontFamily: 'Inter_700Bold',
     marginBottom: 6,
   },
-  statDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  statLabel: {
-    fontSize: 10,
-    fontFamily: 'Inter_600SemiBold',
-    textTransform: 'uppercase' as const,
-    letterSpacing: 0.3,
-  },
-  statNumbers: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-  },
-  statRegistered: {
-    color: DARK,
-    fontSize: 20,
-    fontFamily: 'Inter_700Bold',
-  },
-  statSep: {
-    color: MUTED,
-    fontSize: 14,
-    fontFamily: 'Inter_400Regular',
-  },
-  liveRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-  },
-  livePulse: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  statOnline: {
-    color: '#34C759',
-    fontSize: 16,
-    fontFamily: 'Inter_700Bold',
-  },
-  statFooter: {
-    marginTop: 2,
-  },
-  statFooterText: {
-    color: MUTED,
-    fontSize: 9,
-    fontFamily: 'Inter_400Regular',
+  statRoleLabel: {
+    fontSize: 12,
+    fontFamily: 'Inter_500Medium',
   },
   searchContainer: {
     paddingHorizontal: 16,
