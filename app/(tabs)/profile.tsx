@@ -49,9 +49,12 @@ const C = Colors.light;
 
 // ── Role switching rules ──────────────────────────────────────
 // Teacher ↔ Technician, Supplier ↔ Technician
-function getAllowedRoles(currentRole: UserRole): UserRole[] {
-  // Admin can switch to any role, so return empty (we don't restrict admins)
-  if (currentRole === 'admin') {
+// Admin (ADMIN_PHONE) can switch to any role
+function getAllowedRoles(currentRole: UserRole, userPhone?: string): UserRole[] {
+  // Admin phone can switch to any role
+  const cleanPhone = userPhone?.replace(/\D/g, '');
+  const isAdminPhone = cleanPhone === '8179142535' || cleanPhone === '9876543210';
+  if (currentRole === 'admin' || isAdminPhone) {
     return ['teacher', 'technician', 'supplier', 'customer', 'job_provider'];
   }
   
@@ -230,7 +233,7 @@ function CustomerProfileScreen() {
   const handleChangeRole = async (newRole: string) => {
     if (!profile?.id || changingRole) return;
     
-    const allowed = getAllowedRoles(profile.role);
+    const allowed = getAllowedRoles(profile.role, profile.phone);
     if (!allowed.includes(newRole as UserRole)) {
       Alert.alert(
         'Cannot Switch',
@@ -489,7 +492,7 @@ function CustomerProfileScreen() {
           <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: '#DDD', alignSelf: 'center', marginTop: 10, marginBottom: 4 }} />
           <Text style={{ fontSize: 17, fontWeight: '800', color: '#1A1A1A', textAlign: 'center', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' }}>Switch Role</Text>
           {(() => {
-            const allowed = getAllowedRoles(profile?.role || 'customer');
+            const allowed = getAllowedRoles(profile?.role || 'customer', profile?.phone);
             const availableRoles = allowed.length > 0 ? allowed : [profile?.role || 'customer'];
             return availableRoles.map(r => (
               <Pressable
@@ -544,7 +547,7 @@ export default function ProfileScreen() {
   const handleChangeRole = async (newRole: string) => {
     if (!profile?.id || changingRole) return;
     
-    const allowed = getAllowedRoles(profile.role);
+    const allowed = getAllowedRoles(profile.role, profile.phone);
     if (!allowed.includes(newRole as UserRole)) {
       Alert.alert(
         'Cannot Switch',
@@ -1269,7 +1272,7 @@ export default function ProfileScreen() {
               <View style={styles.settingsDivider} />
             </>
           )}
-          {getAllowedRoles(profile.role).length > 0 && (
+          {getAllowedRoles(profile.role, profile.phone).length > 0 && (
             <>
               <Pressable
                 style={styles.settingsRow}
