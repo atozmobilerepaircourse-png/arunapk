@@ -13,6 +13,7 @@ import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import Colors from '@/constants/colors';
+import { T } from '@/constants/techTheme';
 import { openLink } from '@/lib/open-link';
 import { useApp } from '@/lib/context';
 import { getApiUrl, apiRequest } from '@/lib/query-client';
@@ -71,7 +72,7 @@ const ListingCard = React.memo(function ListingCard({
           <Image source={{ uri: listing.image }} style={styles.listingThumb} contentFit="cover" cachePolicy="memory-disk" />
         ) : (
           <View style={[styles.listingThumb, styles.listingThumbPlaceholder]}>
-            <Ionicons name="image-outline" size={20} color={C.textTertiary} />
+            <Ionicons name="image-outline" size={20} color={T.muted} />
           </View>
         )}
         <View style={styles.listingInfo}>
@@ -727,7 +728,7 @@ export default function ProfileScreen() {
   if (!profile) {
     return (
       <View style={[styles.container, styles.center]}>
-        <Ionicons name="person-outline" size={48} color={C.textTertiary} />
+        <Ionicons name="person-outline" size={48} color={T.muted} />
         <Text style={styles.emptyTitle}>No profile yet</Text>
         <Text style={styles.emptyText}>Complete onboarding to create your profile</Text>
       </View>
@@ -760,7 +761,7 @@ export default function ProfileScreen() {
             <Ionicons
               name={isEditing ? 'checkmark-circle' : 'create-outline'}
               size={24}
-              color={isEditing ? C.success : C.textSecondary}
+              color={isEditing ? T.green : T.textSub}
             />
           </Pressable>
         </View>
@@ -792,7 +793,7 @@ export default function ProfileScreen() {
               value={editName}
               onChangeText={setEditName}
               placeholder="Your name"
-              placeholderTextColor={C.textTertiary}
+              placeholderTextColor={T.muted}
             />
           ) : (
             <Text style={styles.profileName}>{profile.name}</Text>
@@ -829,7 +830,7 @@ export default function ProfileScreen() {
               value={editBio}
               onChangeText={setEditBio}
               placeholder="Tell others about yourself..."
-              placeholderTextColor={C.textTertiary}
+              placeholderTextColor={T.muted}
               multiline
               maxLength={200}
             />
@@ -843,14 +844,14 @@ export default function ProfileScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Details</Text>
           <View style={styles.detailRow}>
-            <Ionicons name="location-outline" size={18} color={C.textSecondary} />
+            <Ionicons name="location-outline" size={18} color={T.textSub} />
             {isEditing ? (
               <TextInput
                 style={styles.detailInput}
                 value={editCity}
                 onChangeText={setEditCity}
                 placeholder="City"
-                placeholderTextColor={C.textTertiary}
+                placeholderTextColor={T.muted}
               />
             ) : (
               <Text style={styles.detailText}>{profile.city}, {profile.state}</Text>
@@ -862,28 +863,28 @@ export default function ProfileScreen() {
             style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 10, paddingHorizontal: 4, opacity: updatingLocation ? 0.6 : 1 }}
           >
             {updatingLocation ? (
-              <ActivityIndicator size="small" color={C.primary} />
+              <ActivityIndicator size="small" color={T.accent} />
             ) : (
               <Ionicons
                 name={locationStatus === 'success' ? 'checkmark-circle' : locationStatus === 'denied' ? 'alert-circle-outline' : 'navigate-outline'}
                 size={18}
-                color={locationStatus === 'success' ? '#34C759' : locationStatus === 'denied' ? '#FF3B30' : C.primary}
+                color={locationStatus === 'success' ? '#34C759' : locationStatus === 'denied' ? '#FF3B30' : T.accent}
               />
             )}
-            <Text style={{ fontSize: 14, fontFamily: 'Inter_500Medium', color: locationStatus === 'success' ? '#34C759' : locationStatus === 'denied' ? '#FF3B30' : C.primary }}>
+            <Text style={{ fontSize: 14, fontFamily: 'Inter_500Medium', color: locationStatus === 'success' ? '#34C759' : locationStatus === 'denied' ? '#FF3B30' : T.accent }}>
               {updatingLocation ? 'Updating location...' : locationStatus === 'success' ? 'Location updated!' : locationStatus === 'denied' ? 'Location access denied' : 'Update Live Location'}
             </Text>
           </Pressable>
           {!isCustomer && (
             <View style={styles.detailRow}>
-              <Ionicons name="time-outline" size={18} color={C.textSecondary} />
+              <Ionicons name="time-outline" size={18} color={T.textSub} />
               {isEditing ? (
                 <TextInput
                   style={styles.detailInput}
                   value={editExperience}
                   onChangeText={setEditExperience}
                   placeholder="Experience (e.g. 5 years)"
-                  placeholderTextColor={C.textTertiary}
+                  placeholderTextColor={T.muted}
                 />
               ) : (
                 <Text style={styles.detailText}>{profile.experience || 'Not specified'}</Text>
@@ -892,19 +893,19 @@ export default function ProfileScreen() {
           )}
           {profile.shopName && (
             <View style={styles.detailRow}>
-              <Ionicons name="storefront-outline" size={18} color={C.textSecondary} />
+              <Ionicons name="storefront-outline" size={18} color={T.textSub} />
               <Text style={styles.detailText}>{profile.shopName}</Text>
             </View>
           )}
           <View style={styles.detailRow}>
-            <Ionicons name="mail-outline" size={18} color={C.textSecondary} />
+            <Ionicons name="mail-outline" size={18} color={T.textSub} />
             {isEditing ? (
               <TextInput
                 style={styles.detailInput}
                 value={editEmail}
                 onChangeText={setEditEmail}
                 placeholder="Gmail Address"
-                placeholderTextColor={C.textTertiary}
+                placeholderTextColor={T.muted}
                 keyboardType="email-address"
                 autoCapitalize="none"
               />
@@ -913,30 +914,30 @@ export default function ProfileScreen() {
             )}
           </View>
           <View style={styles.detailRow}>
-            <Ionicons name="call-outline" size={18} color={C.textSecondary} />
+            <Ionicons name="call-outline" size={18} color={T.textSub} />
             <Text style={styles.detailText}>{profile.phone}</Text>
           </View>
           {profile.sellType ? (
             <View style={styles.detailRow}>
-              <Ionicons name="cube-outline" size={18} color={C.textSecondary} />
+              <Ionicons name="cube-outline" size={18} color={T.textSub} />
               <Text style={styles.detailText}>Sells: {profile.sellType}</Text>
             </View>
           ) : null}
           {profile.teachType ? (
             <View style={styles.detailRow}>
-              <Ionicons name="school-outline" size={18} color={C.textSecondary} />
+              <Ionicons name="school-outline" size={18} color={T.textSub} />
               <Text style={styles.detailText}>Teaches: {profile.teachType}</Text>
             </View>
           ) : null}
           {profile.shopAddress ? (
             <View style={styles.detailRow}>
-              <Ionicons name="business-outline" size={18} color={C.textSecondary} />
+              <Ionicons name="business-outline" size={18} color={T.textSub} />
               <Text style={styles.detailText}>{profile.shopAddress}</Text>
             </View>
           ) : null}
           {profile.gstNumber ? (
             <View style={styles.detailRow}>
-              <Ionicons name="document-text-outline" size={18} color={C.textSecondary} />
+              <Ionicons name="document-text-outline" size={18} color={T.textSub} />
               <Text style={styles.detailText}>GST: {profile.gstNumber}</Text>
             </View>
           ) : null}
@@ -963,7 +964,7 @@ export default function ProfileScreen() {
           >
             <Ionicons name="briefcase-outline" size={20} color="#5E8BFF" />
             <Text style={styles.detailText}>Jobs</Text>
-            <Ionicons name="chevron-forward" size={16} color={C.textTertiary} style={{ marginLeft: 'auto' }} />
+            <Ionicons name="chevron-forward" size={16} color={T.muted} style={{ marginLeft: 'auto' }} />
           </Pressable>
           <Pressable
             style={[styles.supportRow, { marginTop: 8 }]}
@@ -971,7 +972,7 @@ export default function ProfileScreen() {
           >
             <Ionicons name="notifications-outline" size={20} color="#FF9F0A" />
             <Text style={styles.detailText}>Notifications</Text>
-            <Ionicons name="chevron-forward" size={16} color={C.textTertiary} style={{ marginLeft: 'auto' }} />
+            <Ionicons name="chevron-forward" size={16} color={T.muted} style={{ marginLeft: 'auto' }} />
           </Pressable>
         </View>
 
@@ -994,7 +995,7 @@ export default function ProfileScreen() {
           >
             <Ionicons name="logo-whatsapp" size={20} color="#25D366" />
             <Text style={styles.detailText}>Help & Support</Text>
-            <Ionicons name="chevron-forward" size={16} color={C.textTertiary} style={{ marginLeft: 'auto' }} />
+            <Ionicons name="chevron-forward" size={16} color={T.muted} style={{ marginLeft: 'auto' }} />
           </Pressable>
         </View>
 
@@ -1035,7 +1036,7 @@ export default function ProfileScreen() {
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Edit Listing</Text>
                 <Pressable onPress={() => setEditListingVisible(false)}>
-                  <Ionicons name="close" size={24} color={C.text} />
+                  <Ionicons name="close" size={24} color={T.text} />
                 </Pressable>
               </View>
               <ScrollView showsVerticalScrollIndicator={false} style={styles.modalScroll}>
@@ -1045,7 +1046,7 @@ export default function ProfileScreen() {
                   value={editListingTitle}
                   onChangeText={setEditListingTitle}
                   placeholder="Item name"
-                  placeholderTextColor={C.textTertiary}
+                  placeholderTextColor={T.muted}
                 />
                 <Text style={styles.fieldLabel}>Price (₹)</Text>
                 <TextInput
@@ -1053,7 +1054,7 @@ export default function ProfileScreen() {
                   value={editListingPrice}
                   onChangeText={setEditListingPrice}
                   placeholder="Price"
-                  placeholderTextColor={C.textTertiary}
+                  placeholderTextColor={T.muted}
                   keyboardType="numeric"
                 />
                 <Text style={styles.fieldLabel}>Condition</Text>
@@ -1080,7 +1081,7 @@ export default function ProfileScreen() {
                   value={editListingDesc}
                   onChangeText={setEditListingDesc}
                   placeholder="Describe the item"
-                  placeholderTextColor={C.textTertiary}
+                  placeholderTextColor={T.muted}
                   multiline
                 />
               </ScrollView>
@@ -1111,7 +1112,7 @@ export default function ProfileScreen() {
               </View>
               {subStatus.subscriptionEnd && subStatus.subscriptionEnd > 0 && (
                 <View style={styles.subRow}>
-                  <Ionicons name="calendar-outline" size={16} color={C.textSecondary} />
+                  <Ionicons name="calendar-outline" size={16} color={T.textSub} />
                   <Text style={styles.subRowText}>
                     {subStatus.active ? 'Expires' : 'Expired'}: {new Date(subStatus.subscriptionEnd).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                   </Text>
@@ -1119,13 +1120,13 @@ export default function ProfileScreen() {
               )}
               {subStatus.amount && parseInt(subStatus.amount) > 0 && (
                 <View style={styles.subRow}>
-                  <Ionicons name="pricetag-outline" size={16} color={C.textSecondary} />
+                  <Ionicons name="pricetag-outline" size={16} color={T.textSub} />
                   <Text style={styles.subRowText}>₹{subStatus.amount}/{subStatus.period || 'monthly'}</Text>
                 </View>
               )}
               {subStatus.commission && (
                 <View style={styles.subRow}>
-                  <Ionicons name="trending-up-outline" size={16} color={C.textSecondary} />
+                  <Ionicons name="trending-up-outline" size={16} color={T.textSub} />
                   <Text style={styles.subRowText}>Commission: {subStatus.commission}%</Text>
                 </View>
               )}
@@ -1145,7 +1146,7 @@ export default function ProfileScreen() {
               </View>
               <Text style={styles.settingsRowText}>Change Profile Photo</Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color={C.textTertiary} />
+            <Ionicons name="chevron-forward" size={18} color={T.muted} />
           </Pressable>
           <View style={styles.settingsDivider} />
           {profile.role !== 'customer' && (
@@ -1160,7 +1161,7 @@ export default function ProfileScreen() {
                   </View>
                   <Text style={styles.settingsRowText}>My Orders</Text>
                 </View>
-                <Ionicons name="chevron-forward" size={18} color={C.textTertiary} />
+                <Ionicons name="chevron-forward" size={18} color={T.muted} />
               </Pressable>
               <View style={styles.settingsDivider} />
             </>
@@ -1178,7 +1179,7 @@ export default function ProfileScreen() {
                   </View>
                   <Text style={styles.settingsRowText}>My Revenue</Text>
                 </View>
-                <Ionicons name="chevron-forward" size={18} color={C.textTertiary} />
+                <Ionicons name="chevron-forward" size={18} color={T.muted} />
               </Pressable>
             </>
           )}
@@ -1195,7 +1196,7 @@ export default function ProfileScreen() {
                   </View>
                   <Text style={styles.settingsRowText}>Admin Panel</Text>
                 </View>
-                <Ionicons name="chevron-forward" size={18} color={C.textTertiary} />
+                <Ionicons name="chevron-forward" size={18} color={T.muted} />
               </Pressable>
               <View style={styles.settingsDivider} />
               <Pressable
@@ -1211,12 +1212,12 @@ export default function ProfileScreen() {
                     <Text style={styles.settingsRowText}>
                       {changingRole ? 'Changing Role...' : 'Switch Role'}
                     </Text>
-                    <Text style={{ fontSize: 12, color: C.textTertiary, marginTop: 1 }}>
+                    <Text style={{ fontSize: 12, color: T.muted, marginTop: 1 }}>
                       Current: {ROLE_LABELS[profile.role as UserRole] || profile.role}
                     </Text>
                   </View>
                 </View>
-                <Ionicons name="chevron-forward" size={18} color={C.textTertiary} />
+                <Ionicons name="chevron-forward" size={18} color={T.muted} />
               </Pressable>
               <View style={styles.settingsDivider} />
             </>
@@ -1256,7 +1257,7 @@ export default function ProfileScreen() {
               </View>
               <Text style={styles.settingsRowText}>Log Out</Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color={C.textTertiary} />
+            <Ionicons name="chevron-forward" size={18} color={T.muted} />
           </Pressable>
         </View>
       </ScrollView>
@@ -1299,7 +1300,7 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: C.background,
+    backgroundColor: T.bg,
   },
   center: {
     alignItems: 'center',
@@ -1316,7 +1317,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   pageTitle: {
-    color: C.text,
+    color: T.text,
     fontSize: 28,
     fontFamily: 'Inter_700Bold',
   },
@@ -1338,7 +1339,7 @@ const styles = StyleSheet.create({
     borderRadius: 40,
     marginBottom: 12,
     borderWidth: 2,
-    borderColor: C.border,
+    borderColor: T.border,
   },
   avatarText: {
     fontSize: 28,
@@ -1358,19 +1359,19 @@ const styles = StyleSheet.create({
     borderColor: '#FFFFFF',
   },
   profileName: {
-    color: C.text,
+    color: T.text,
     fontSize: 22,
     fontFamily: 'Inter_700Bold',
     marginBottom: 8,
   },
   nameInput: {
-    color: C.text,
+    color: T.text,
     fontSize: 22,
     fontFamily: 'Inter_700Bold',
     textAlign: 'center',
     marginBottom: 8,
     borderBottomWidth: 1,
-    borderBottomColor: C.primary,
+    borderBottomColor: T.accent,
     paddingBottom: 4,
   },
   roleBadge: {
@@ -1384,42 +1385,42 @@ const styles = StyleSheet.create({
   },
   statsRow: {
     flexDirection: 'row',
-    backgroundColor: C.surface,
+    backgroundColor: T.card,
     borderRadius: 16,
     padding: 20,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: C.border,
+    borderColor: T.border,
   },
   statItem: {
     flex: 1,
     alignItems: 'center',
   },
   statValue: {
-    color: C.text,
+    color: T.text,
     fontSize: 22,
     fontFamily: 'Inter_700Bold',
   },
   statLabel: {
-    color: C.textTertiary,
+    color: T.muted,
     fontSize: 12,
     fontFamily: 'Inter_400Regular',
     marginTop: 4,
   },
   statDivider: {
     width: 1,
-    backgroundColor: C.border,
+    backgroundColor: T.border,
   },
   section: {
-    backgroundColor: C.surface,
+    backgroundColor: T.card,
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: C.border,
+    borderColor: T.border,
   },
   subCard: {
-    backgroundColor: C.surface,
+    backgroundColor: T.card,
     borderRadius: 12,
     padding: 14,
     borderWidth: 1.5,
@@ -1445,12 +1446,12 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   subRowText: {
-    color: C.text,
+    color: T.text,
     fontSize: 14,
     fontFamily: 'Inter_400Regular',
   },
   sectionTitle: {
-    color: C.textSecondary,
+    color: T.muted,
     fontSize: 12,
     fontFamily: 'Inter_600SemiBold',
     textTransform: 'uppercase' as const,
@@ -1458,17 +1459,17 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   bioText: {
-    color: C.textSecondary,
+    color: T.textSub,
     fontSize: 14,
     fontFamily: 'Inter_400Regular',
     lineHeight: 20,
   },
   bioInput: {
-    color: C.text,
+    color: T.text,
     fontSize: 14,
     fontFamily: 'Inter_400Regular',
     lineHeight: 20,
-    backgroundColor: C.surfaceElevated,
+    backgroundColor: T.cardSurface,
     borderRadius: 10,
     padding: 12,
     minHeight: 60,
@@ -1479,20 +1480,20 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: C.borderLight,
+    borderBottomColor: T.border,
   },
   detailText: {
-    color: C.text,
+    color: T.text,
     fontSize: 14,
     fontFamily: 'Inter_400Regular',
   },
   detailInput: {
     flex: 1,
-    color: C.text,
+    color: T.text,
     fontSize: 14,
     fontFamily: 'Inter_400Regular',
     borderBottomWidth: 1,
-    borderBottomColor: C.primary,
+    borderBottomColor: T.accent,
     paddingVertical: 2,
     padding: 0,
   },
@@ -1522,7 +1523,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   cancelText: {
-    color: C.textTertiary,
+    color: T.muted,
     fontSize: 14,
     fontFamily: 'Inter_500Medium',
   },
@@ -1545,29 +1546,29 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   settingsRowText: {
-    color: C.text,
+    color: T.text,
     fontSize: 15,
     fontFamily: 'Inter_500Medium',
   },
   settingsDivider: {
     height: 1,
-    backgroundColor: C.borderLight,
+    backgroundColor: T.border,
     marginVertical: 2,
   },
   emptyTitle: {
-    color: C.text,
+    color: T.text,
     fontSize: 18,
     fontFamily: 'Inter_600SemiBold',
   },
   emptyText: {
-    color: C.textTertiary,
+    color: T.muted,
     fontSize: 14,
     fontFamily: 'Inter_400Regular',
   },
   listingCard: {
     marginBottom: 8,
     borderBottomWidth: 1,
-    borderBottomColor: C.borderLight,
+    borderBottomColor: T.border,
     paddingBottom: 8,
   },
   listingRow: {
@@ -1581,7 +1582,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   listingThumbPlaceholder: {
-    backgroundColor: C.surfaceElevated,
+    backgroundColor: T.cardSurface,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1590,7 +1591,7 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   listingTitle: {
-    color: C.text,
+    color: T.text,
     fontSize: 14,
     fontFamily: 'Inter_600SemiBold',
   },
@@ -1600,7 +1601,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_700Bold',
   },
   listingCondition: {
-    color: C.textTertiary,
+    color: T.muted,
     fontSize: 12,
     fontFamily: 'Inter_400Regular',
   },
@@ -1612,7 +1613,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: C.surfaceElevated,
+    backgroundColor: T.cardSurface,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1622,7 +1623,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: C.surface,
+    backgroundColor: T.card,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 20,
@@ -1635,7 +1636,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   modalTitle: {
-    color: C.text,
+    color: T.text,
     fontSize: 18,
     fontFamily: 'Inter_700Bold',
   },
@@ -1643,7 +1644,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   fieldLabel: {
-    color: C.textSecondary,
+    color: T.muted,
     fontSize: 12,
     fontFamily: 'Inter_600SemiBold',
     textTransform: 'uppercase' as const,
@@ -1652,14 +1653,14 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   modalInput: {
-    backgroundColor: C.surfaceElevated,
-    color: C.text,
+    backgroundColor: T.cardSurface,
+    color: T.text,
     fontSize: 15,
     fontFamily: 'Inter_400Regular',
     borderRadius: 10,
     padding: 12,
     borderWidth: 1,
-    borderColor: C.border,
+    borderColor: T.border,
   },
   conditionRow: {
     flexDirection: 'row',
@@ -1670,16 +1671,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 10,
-    backgroundColor: C.surfaceElevated,
+    backgroundColor: T.cardSurface,
     borderWidth: 1,
-    borderColor: C.border,
+    borderColor: T.border,
   },
   conditionChipActive: {
     backgroundColor: '#FF6B2C20',
     borderColor: '#FF6B2C',
   },
   conditionChipText: {
-    color: C.textSecondary,
+    color: T.muted,
     fontSize: 13,
     fontFamily: 'Inter_500Medium',
   },

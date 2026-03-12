@@ -1,131 +1,191 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TextInput, Pressable, Platform,
-  RefreshControl,
+  RefreshControl, ScrollView, Animated,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useApp } from '@/lib/context';
 import { UserRole, ROLE_LABELS } from '@/lib/types';
-import DirectoryCard from '@/components/DirectoryCard';
 import DirectoryMap from '@/components/DirectoryMap';
-import { apiRequest } from '@/lib/query-client';
-import { T } from '@/constants/techTheme';
+import { apiRequest, getApiUrl } from '@/lib/query-client';
 
-// Dark UX Pilot theme tokens
-const PRIMARY  = '#FF6B2C';
-const PRIMARY_L = '#FF6B2C';
-const BG       = '#0F0F0F';
-const CARD     = '#1E1E1E';
-const DARK     = '#F3F4F6';
-const MUTED    = '#9CA3AF';
-const BORDER   = '#374151';
+// UX Pilot exact design tokens
+const PRIMARY   = '#1D4ED8';
+const PRIMARY_L = '#E0E7FF';
+const BG        = '#F9FAFB';
+const CARD      = '#FFFFFF';
+const BORDER    = '#F3F4F6';
+const DARK      = '#111827';
+const GRAY      = '#6B7280';
+const SUCCESS   = '#10B981';
 
-const ROLE_FILTERS: { key: UserRole | 'all'; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
-  { key: 'all', label: 'All', icon: 'grid' },
-  { key: 'customer', label: 'Customers', icon: 'person' },
-  { key: 'teacher', label: 'Teachers', icon: 'school' },
-  { key: 'supplier', label: 'Suppliers', icon: 'cube' },
-  { key: 'job_provider', label: 'Jobs', icon: 'briefcase' },
-  { key: 'technician', label: 'Technicians', icon: 'construct' },
+const CATEGORY_CHIPS = ['Mobile repair', 'AC technician', 'Plumbing', 'Electrician', 'Carpentry'];
+
+const ROLE_FILTERS: { key: UserRole | 'all'; label: string }[] = [
+  { key: 'all',          label: 'All' },
+  { key: 'technician',   label: 'Technicians' },
+  { key: 'customer',     label: 'Customers' },
+  { key: 'teacher',      label: 'Teachers' },
+  { key: 'supplier',     label: 'Suppliers' },
+  { key: 'job_provider', label: 'Jobs' },
 ];
-
-const ROLE_COLORS: Record<string, string> = {
-  technician: '#34C759',
-  teacher: '#F59E0B',
-  supplier: '#E8704A',
-  job_provider: '#5E8BFF',
-  customer: '#FF2D55',
-};
 
 type OnlineStats = Record<string, { registered: number; online: number }>;
 
-const STAT_ROLES: { key: string; label: string; color: string }[] = [
-  { key: 'technician', label: 'Technicians', color: '#34C759' },
-  { key: 'teacher', label: 'Teachers', color: '#FFD60A' },
-  { key: 'supplier', label: 'Suppliers', color: '#FF6B2C' },
-  { key: 'customer', label: 'Customers', color: '#FF2D55' },
+const STAT_CONFIG: { key: string; label: string; icon: keyof typeof Ionicons.glyphMap; iconColor: string; iconBg: string; cornerBg: string }[] = [
+  { key: 'technician', label: 'Technicians',  icon: 'construct',  iconColor: '#2563EB', iconBg: '#DBEAFE', cornerBg: '#EFF6FF' },
+  { key: 'customer',   label: 'Customers',    icon: 'people',     iconColor: '#7C3AED', iconBg: '#EDE9FE', cornerBg: '#F5F3FF' },
+  { key: 'teacher',    label: 'Teachers',     icon: 'school',     iconColor: '#EA580C', iconBg: '#FFEDD5', cornerBg: '#FFF7ED' },
+  { key: 'supplier',   label: 'Suppliers',    icon: 'cube',       iconColor: '#0D9488', iconBg: '#CCFBF1', cornerBg: '#F0FDFA' },
 ];
 
-const CUSTOMER_STAT_ROLES = STAT_ROLES.filter(r => r.key === 'technician' || r.key === 'customer');
-const CUSTOMER_ROLE_FILTERS = ROLE_FILTERS.filter(r => r.key === 'all' || r.key === 'customer' || r.key === 'technician');
+const ROLE_BADGE: Record<string, { bg: string; text: string }> = {
+  technician:   { bg: '#DBEAFE', text: '#1D4ED8' },
+  teacher:      { bg: '#EDE9FE', text: '#7C3AED' },
+  supplier:     { bg: '#CCFBF1', text: '#0D9488' },
+  job_provider: { bg: '#DBEAFE', text: '#1D4ED8' },
+  customer:     { bg: '#FEE2E2', text: '#DC2626' },
+};
 
-const SKILL_CATEGORIES: { label: string; icon: keyof typeof Ionicons.glyphMap; color: string }[] = [
-  { label: 'All', icon: 'apps', color: '#4F46E5' },
-  { label: 'iPhone', icon: 'logo-apple', color: '#6B7280' },
-  { label: 'Samsung', icon: 'phone-portrait', color: '#3B82F6' },
-  { label: 'OnePlus', icon: 'phone-portrait', color: '#EF4444' },
-  { label: 'Screen Fix', icon: 'tablet-portrait', color: '#F59E0B' },
-  { label: 'Battery', icon: 'battery-charging', color: '#10B981' },
-  { label: 'Software', icon: 'code-slash', color: '#8B5CF6' },
-  { label: 'Water Damage', icon: 'water', color: '#0EA5E9' },
-  { label: 'Motherboard', icon: 'hardware-chip', color: '#FF6B2C' },
-];
+function getInitials(name: string) {
+  if (!name) return '??';
+  return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+}
+
+function LivePing() {
+  const anim = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(anim, { toValue: 0.2, duration: 750, useNativeDriver: true }),
+        Animated.timing(anim, { toValue: 1, duration: 750, useNativeDriver: true }),
+      ])
+    ).start();
+  }, []);
+  return (
+    <View style={{ width: 8, height: 8, position: 'relative', alignItems: 'center', justifyContent: 'center' }}>
+      <Animated.View style={{ position: 'absolute', width: 8, height: 8, borderRadius: 4, backgroundColor: SUCCESS, opacity: anim }} />
+      <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: SUCCESS }} />
+    </View>
+  );
+}
+
+interface ProfCardProps {
+  item: {
+    id: string; name: string; role: UserRole; city: string;
+    skills: string[]; avatar: string; isOnline: boolean;
+  };
+  onChat?: () => void;
+  onCall?: () => void;
+  onPress?: () => void;
+}
+
+function ProfCard({ item, onChat, onPress }: ProfCardProps) {
+  const badge = ROLE_BADGE[item.role] ?? { bg: '#F3F4F6', text: '#374151' };
+  const skillLabel = item.skills[0] || ROLE_LABELS[item.role] || item.role;
+  const avatarUri = item.avatar
+    ? (item.avatar.startsWith('http') ? item.avatar : `${getApiUrl()}${item.avatar}`)
+    : null;
+
+  return (
+    <Pressable style={styles.card} onPress={onPress}>
+      {/* Top row */}
+      <View style={styles.cardTop}>
+        {/* Avatar */}
+        <View style={styles.avatarWrap}>
+          {avatarUri ? (
+            <Image source={{ uri: avatarUri }} style={styles.avatar} contentFit="cover" />
+          ) : (
+            <View style={[styles.avatar, styles.avatarFallback]}>
+              <Text style={styles.avatarInitials}>{getInitials(item.name)}</Text>
+            </View>
+          )}
+          <View style={[styles.onlineDot, { backgroundColor: item.isOnline ? SUCCESS : '#D1D5DB' }]} />
+        </View>
+
+        {/* Info */}
+        <View style={styles.cardInfo}>
+          <View style={styles.nameRow}>
+            <Text style={styles.cardName} numberOfLines={1}>{item.name}</Text>
+            <Ionicons name="checkmark-circle" size={14} color={PRIMARY} />
+          </View>
+
+          <View style={styles.badgeRow}>
+            <View style={[styles.roleBadge, { backgroundColor: badge.bg }]}>
+              <Text style={[styles.roleBadgeText, { color: badge.text }]}>{skillLabel}</Text>
+            </View>
+            <View style={styles.ratingRow}>
+              <Ionicons name="star" size={10} color="#FBBF24" />
+              <Text style={styles.ratingText}>4.8 (120)</Text>
+            </View>
+          </View>
+
+          <View style={styles.locationRow}>
+            <Ionicons name="location-dot" size={10} color={GRAY} />
+            <Text style={styles.locationText} numberOfLines={1}>{item.city || 'India'}</Text>
+            <View style={styles.distancePill}>
+              <Ionicons name="navigate" size={9} color={PRIMARY} />
+              <Text style={styles.distanceText}>Nearby</Text>
+            </View>
+          </View>
+        </View>
+      </View>
+
+      {/* Footer buttons */}
+      <View style={styles.cardFooter}>
+        <Pressable style={styles.chatBtn} onPress={onChat}>
+          <Ionicons name="chatbubble-outline" size={13} color="#374151" />
+          <Text style={styles.chatBtnText}>Chat</Text>
+        </Pressable>
+        <Pressable style={styles.callBtn} onPress={() => {}}>
+          <Ionicons name="call" size={13} color="#FFF" />
+          <Text style={styles.callBtnText}>Call</Text>
+        </Pressable>
+        <Pressable style={styles.chevronBtn} onPress={onPress}>
+          <Ionicons name="chevron-forward" size={13} color={GRAY} />
+        </Pressable>
+      </View>
+    </Pressable>
+  );
+}
 
 export default function DirectoryScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ view?: string }>();
   const { allProfiles, profile, startConversation, refreshData } = useApp();
-  const [search, setSearch] = useState('');
+  const [search, setSearch]         = useState('');
   const [roleFilter, setRoleFilter] = useState<UserRole | 'all'>('all');
+  const [chipFilter, setChipFilter] = useState('');
   const [refreshing, setRefreshing] = useState(false);
-  const [stats, setStats] = useState<OnlineStats | null>(null);
-  const [viewMode, setViewMode] = useState<'list' | 'map'>(params.view === 'map' ? 'map' : 'list');
-  const [skillFilter, setSkillFilter] = useState<string>('All');
+  const [stats, setStats]           = useState<OnlineStats | null>(null);
+  const [viewMode, setViewMode]     = useState<'list' | 'map'>(params.view === 'map' ? 'map' : 'list');
 
-  const isCustomer = profile?.role === 'customer';
-  const isTechnician = profile?.role === 'technician';
-  const visibleStatRoles = isCustomer ? CUSTOMER_STAT_ROLES : STAT_ROLES;
-  const visibleFilters = isCustomer ? CUSTOMER_ROLE_FILTERS : ROLE_FILTERS;
-  
-  // Force dark theme for all users
-  const isTechnicanForce = true;
+  const topPad = (Platform.OS === 'web' ? 67 : insets.top) + 12;
 
-  const D = useMemo(() => ({
-    bg: BG,
-    card: CARD,
-    surface: '#2A2A2A',
-    text: DARK,
-    textSub: MUTED,
-    muted: MUTED,
-    border: BORDER,
-    accent: PRIMARY,
-    iconBtn: CARD,
-  }), []);
-
-  useEffect(() => {
-    if (params.view === 'map') setViewMode('map');
-  }, [params.view]);
+  useEffect(() => { if (params.view === 'map') setViewMode('map'); }, [params.view]);
 
   const fetchStats = useCallback(async () => {
-    try {
-      const res = await apiRequest('GET', '/api/stats/online');
-      const data = await res.json();
-      setStats(data);
-    } catch (e) {}
+    try { const res = await apiRequest('GET', '/api/stats/online'); setStats(await res.json()); } catch {}
   }, []);
 
   useEffect(() => {
     fetchStats();
-    const interval = setInterval(fetchStats, 10000);
-    return () => clearInterval(interval);
+    const iv = setInterval(fetchStats, 10000);
+    return () => clearInterval(iv);
   }, [fetchStats]);
 
   const directory = useMemo(() => {
     const now = Date.now();
-    const THRESHOLD = 5 * 60 * 1000;
+    const THR = 5 * 60 * 1000;
     return allProfiles.map(p => ({
-      id: p.id,
-      name: p.name,
-      role: p.role as UserRole,
-      city: p.city || '',
-      skills: Array.isArray(p.skills) ? p.skills : [],
-      experience: p.experience,
+      id: p.id, name: p.name, role: p.role as UserRole,
+      city: p.city || '', skills: Array.isArray(p.skills) ? p.skills : [],
       avatar: p.avatar || '',
-      isOnline: !!(p as any).lastSeen && (now - (p as any).lastSeen) < THRESHOLD,
-      lastSeen: (p as any).lastSeen || 0,
-      latitude: (p as any).latitude ? parseFloat((p as any).latitude) : null,
+      isOnline: !!(p as any).lastSeen && now - (p as any).lastSeen < THR,
+      latitude:  (p as any).latitude  ? parseFloat((p as any).latitude)  : null,
       longitude: (p as any).longitude ? parseFloat((p as any).longitude) : null,
       locationSharing: (p as any).locationSharing,
     }));
@@ -133,580 +193,303 @@ export default function DirectoryScreen() {
 
   const filtered = useMemo(() => {
     let list = directory;
-    if (roleFilter !== 'all') {
-      list = list.filter(e => e.role === roleFilter);
-    }
-    if (skillFilter && skillFilter !== 'All') {
-      const q = skillFilter.toLowerCase();
-      list = list.filter(e => e.skills.some(s => s.toLowerCase().includes(q)));
-    }
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      list = list.filter(e =>
-        e.name.toLowerCase().includes(q) ||
-        e.city.toLowerCase().includes(q) ||
-        e.skills.some(s => s.toLowerCase().includes(q))
-      );
-    }
+    if (roleFilter !== 'all') list = list.filter(e => e.role === roleFilter);
+    if (chipFilter) { const q = chipFilter.toLowerCase(); list = list.filter(e => e.skills.some(s => s.toLowerCase().includes(q))); }
+    if (search.trim()) { const q = search.toLowerCase(); list = list.filter(e => e.name.toLowerCase().includes(q) || e.city.toLowerCase().includes(q) || e.skills.some(s => s.toLowerCase().includes(q))); }
     return list;
-  }, [directory, roleFilter, skillFilter, search]);
+  }, [directory, roleFilter, chipFilter, search]);
 
-  const mapProfiles = useMemo(() => {
-    return filtered.filter(p => {
-      if (!p.latitude || !p.longitude) return false;
-      if (isNaN(p.latitude) || isNaN(p.longitude)) return false;
-      if (p.role === 'customer' && p.locationSharing !== 'true') return false;
-      return true;
-    }).map(p => ({
-      id: p.id,
-      latitude: p.latitude!,
-      longitude: p.longitude!,
-      name: p.name,
-      role: ROLE_LABELS[p.role] || p.role,
-      roleKey: p.role,
-      city: p.city,
-      skills: p.skills,
-      color: ROLE_COLORS[p.role] || '#007AFF',
-      avatar: p.avatar,
-      isOnline: p.isOnline,
-      lastSeen: p.lastSeen,
-    }));
-  }, [filtered]);
+  const mapProfiles = useMemo(() => filtered.filter(p => p.latitude && p.longitude && !isNaN(p.latitude!) && !isNaN(p.longitude!) && (p.role !== 'customer' || p.locationSharing === 'true')).map(p => ({ id: p.id, latitude: p.latitude!, longitude: p.longitude!, name: p.name, role: ROLE_LABELS[p.role] || p.role, roleKey: p.role, city: p.city, skills: p.skills, color: '#1D4ED8', avatar: p.avatar, isOnline: p.isOnline, lastSeen: 0 })), [filtered]);
 
   const handleMapChat = useCallback(async (id: string) => {
     const p = allProfiles.find(p => p.id === id);
-    if (p) {
-      const convoId = await startConversation(p.id, p.name, p.role);
-      if (convoId) router.push({ pathname: '/chat/[id]', params: { id: convoId } });
-    }
+    if (p) { const c = await startConversation(p.id, p.name, p.role); if (c) router.push({ pathname: '/chat/[id]', params: { id: c } }); }
   }, [allProfiles, startConversation]);
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await Promise.all([refreshData(), fetchStats()]);
-    setRefreshing(false);
-  };
-
-  const webTopInset = Platform.OS === 'web' ? 67 : 0;
+  const onRefresh = async () => { setRefreshing(true); await Promise.all([refreshData(), fetchStats()]); setRefreshing(false); };
 
   if (viewMode === 'map') {
     return (
-      <View style={[styles.container, { backgroundColor: D.bg }]}>
-        <View style={[styles.mapHeader, { paddingTop: (Platform.OS === 'web' ? webTopInset : insets.top) + 8, backgroundColor: D.bg }]}>
-          <Pressable
-            style={[styles.mapBackBtn, { backgroundColor: D.accent }]}
-            onPress={() => setViewMode('list')}
-          >
-            <Ionicons name="list" size={20} color="#FFF" />
+      <View style={{ flex: 1, backgroundColor: BG }}>
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 100, paddingTop: topPad, paddingHorizontal: 12, paddingBottom: 8, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(255,255,255,0.95)' }}>
+          <Pressable style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: PRIMARY, alignItems: 'center', justifyContent: 'center' }} onPress={() => setViewMode('list')}>
+            <Ionicons name="list" size={18} color="#FFF" />
           </Pressable>
-
-          <View style={[styles.mapSearchBox, { backgroundColor: D.card, borderColor: D.border }]}>
-            <Ionicons name="search" size={16} color={D.muted} />
-            <TextInput
-              style={[styles.mapSearchInput, { color: D.text }]}
-              placeholder="Search..."
-              placeholderTextColor={D.muted}
-              value={search}
-              onChangeText={setSearch}
-            />
-            {search.length > 0 && (
-              <Pressable onPress={() => setSearch('')}>
-                <Ionicons name="close-circle" size={16} color={D.muted} />
-              </Pressable>
-            )}
+          <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#F3F4F6', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 8, gap: 8 }}>
+            <Ionicons name="search" size={16} color={GRAY} />
+            <TextInput style={{ flex: 1, fontSize: 14, color: DARK, padding: 0 }} placeholder="Search..." placeholderTextColor={GRAY} value={search} onChangeText={setSearch} />
           </View>
         </View>
-
-        <View style={[styles.mapFilters, { backgroundColor: D.bg }]}>
-          <FlatList
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            data={visibleFilters}
-            contentContainerStyle={{ paddingHorizontal: 12, gap: 6 }}
-            keyExtractor={item => item.key}
-            renderItem={({ item }) => (
-              <Pressable
-                style={[styles.mapFilterChip, { backgroundColor: D.card, borderColor: D.border }, roleFilter === item.key && { backgroundColor: D.accent, borderColor: D.accent }]}
-                onPress={() => setRoleFilter(item.key)}
-              >
-                <Ionicons
-                  name={item.icon}
-                  size={12}
-                  color={roleFilter === item.key ? '#FFF' : D.muted}
-                />
-                <Text style={[styles.mapFilterText, { color: D.muted }, roleFilter === item.key && styles.mapFilterTextActive]}>
-                  {item.label}
-                </Text>
-              </Pressable>
-            )}
-          />
-        </View>
-
-        <View style={styles.mapFull}>
-          <DirectoryMap
-            markers={mapProfiles}
-            onMarkerPress={(id: string) => router.push({ pathname: '/user-profile', params: { id } })}
-            onChatPress={handleMapChat}
-          />
-        </View>
+        <DirectoryMap markers={mapProfiles} onMarkerPress={(id) => router.push({ pathname: '/user-profile', params: { id } })} onChatPress={handleMapChat} />
       </View>
     );
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: D.bg }]}>
-      <View style={[styles.header, { paddingTop: (Platform.OS === 'web' ? webTopInset : insets.top) + 12, backgroundColor: D.bg }]}>
-        <View style={styles.headerRow}>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.headerTitle, { color: D.text }]}>Find Professionals Near You</Text>
-            <Text style={[styles.headerSubtitle, { color: D.muted }]}>200+ experienced professionals available</Text>
-          </View>
-          <View style={styles.headerActions}>
-            <Pressable
-              style={[styles.headerIconBtn, { backgroundColor: D.iconBtn, borderColor: D.border }]}
-              onPress={() => router.push('/chats')}
-            >
-              <Ionicons name="chatbubble-ellipses" size={20} color={D.text} />
-            </Pressable>
-            <Pressable
-              style={[styles.headerIconBtn, { backgroundColor: D.accent, borderColor: D.accent }]}
-              onPress={() => setViewMode('map')}
-            >
-              <Ionicons name="map" size={20} color="#FFF" />
-            </Pressable>
-          </View>
-        </View>
-      </View>
-
-      {stats && (
-        <View style={[styles.statsContainer, { backgroundColor: D.bg }]}>
-          {visibleStatRoles.map(r => {
-            const s = stats[r.key];
-            if (!s) return null;
-            return (
-              <View key={r.key} style={[styles.statBox, { backgroundColor: D.card, borderColor: D.border }]}>
-                <Text style={[styles.statNumber, { color: r.color }]}>{s.registered}</Text>
-                <Text style={[styles.statRoleLabel, { color: D.text }]}>{r.label}</Text>
-              </View>
-            );
-          })}
-        </View>
-      )}
-
-      <View style={[styles.searchContainer, { backgroundColor: D.bg }]}>
-        <View style={[styles.searchBox, { backgroundColor: D.card, borderColor: D.border }]}>
-          <Ionicons name="search" size={18} color={D.muted} />
-          <TextInput
-            style={[styles.searchInput, { color: D.text }]}
-            placeholder="Search by name, city, or skill..."
-            placeholderTextColor={D.muted}
-            value={search}
-            onChangeText={setSearch}
-          />
-          {search.length > 0 && (
-            <Pressable onPress={() => setSearch('')}>
-              <Ionicons name="close-circle" size={18} color={D.muted} />
-            </Pressable>
-          )}
-        </View>
-      </View>
-
-      <View style={[styles.filtersContainer, { backgroundColor: D.bg }]}>
-        <FlatList
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          data={visibleFilters}
-          contentContainerStyle={styles.filtersContent}
-          keyExtractor={item => item.key}
-          renderItem={({ item }) => (
-            <Pressable
-              style={[styles.filterChip, { backgroundColor: D.card, borderColor: D.border }, roleFilter === item.key && { backgroundColor: D.accent, borderColor: D.accent }]}
-              onPress={() => setRoleFilter(item.key)}
-            >
-              <Ionicons
-                name={item.icon}
-                size={14}
-                color={roleFilter === item.key ? '#FFF' : D.muted}
-              />
-              <Text style={[styles.filterText, { color: D.muted }, roleFilter === item.key && styles.filterTextActive]}>
-                {item.label}
-              </Text>
-            </Pressable>
-          )}
-        />
-      </View>
-
-      {/* UX Pilot skill category tiles — technician dark theme only */}
-      {isTechnician && (
-        <View style={[styles.skillCatWrap, { backgroundColor: D.bg }]}>
-          <FlatList
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            data={SKILL_CATEGORIES}
-            keyExtractor={item => item.label}
-            contentContainerStyle={styles.skillCatRow}
-            renderItem={({ item: cat }) => {
-              const active = skillFilter === cat.label;
-              return (
-                <Pressable
-                  style={[styles.skillCatTile, { backgroundColor: active ? cat.color : D.card, borderColor: active ? cat.color : D.border }]}
-                  onPress={() => setSkillFilter(cat.label)}
-                >
-                  <View style={[styles.skillCatIcon, { backgroundColor: active ? 'rgba(255,255,255,0.2)' : cat.color + '18' }]}>
-                    <Ionicons name={cat.icon} size={16} color={active ? '#FFF' : cat.color} />
-                  </View>
-                  <Text style={[styles.skillCatLabel, { color: active ? '#FFF' : D.text }]}>{cat.label}</Text>
-                </Pressable>
-              );
-            }}
-          />
-        </View>
-      )}
-
+    <View style={styles.container}>
       <FlatList
         data={filtered}
         keyExtractor={item => item.id}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={PRIMARY} colors={[PRIMARY]} />}
+        contentContainerStyle={{ paddingBottom: Platform.OS === 'web' ? 118 : 100 }}
+        ListHeaderComponent={
+          <>
+            {/* ── HEADER ── */}
+            <View style={[styles.header, { paddingTop: topPad }]}>
+              {/* Location */}
+              <View style={styles.locationSelector}>
+                <Ionicons name="location" size={13} color={PRIMARY} />
+                <Text style={styles.locationCity}>Hyderabad</Text>
+                <Ionicons name="chevron-down" size={10} color={GRAY} />
+              </View>
+
+              {/* Title row */}
+              <View style={styles.titleRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.headerTitle}>Find Professionals{'\n'}Near You</Text>
+                  <Text style={styles.headerSub}>Technicians, Teachers, Suppliers and Customers across India</Text>
+                </View>
+                <View style={styles.headerBtns}>
+                  <Pressable style={styles.mapBtn} onPress={() => setViewMode('map')}>
+                    <Ionicons name="map-outline" size={18} color={PRIMARY} />
+                    <Text style={styles.mapBtnText}>View Map</Text>
+                  </Pressable>
+                  <Pressable style={styles.menuBtn} onPress={() => {}}>
+                    <Ionicons name="menu" size={18} color={GRAY} />
+                  </Pressable>
+                </View>
+              </View>
+
+              {/* Search bar */}
+              <View style={styles.searchBar}>
+                <Ionicons name="search" size={16} color={GRAY} style={{ marginLeft: 4 }} />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Search by skill, repair type, name or city..."
+                  placeholderTextColor={GRAY}
+                  value={search}
+                  onChangeText={setSearch}
+                />
+                <Pressable style={styles.filterBtn}>
+                  <Ionicons name="options" size={14} color="#FFF" />
+                </Pressable>
+              </View>
+
+              {/* Category chips */}
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips} style={styles.chipsScroll}>
+                {CATEGORY_CHIPS.map(chip => (
+                  <Pressable key={chip} style={[styles.chip, chipFilter === chip && styles.chipActive]} onPress={() => setChipFilter(chipFilter === chip ? '' : chip)}>
+                    <Text style={[styles.chipText, chipFilter === chip && styles.chipTextActive]}>{chip}</Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </View>
+
+            {/* ── STATS CARDS ── */}
+            {stats && (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.statsScroll} style={{ backgroundColor: BG }}>
+                {STAT_CONFIG.map(cfg => {
+                  const s = stats[cfg.key];
+                  if (!s) return null;
+                  return (
+                    <View key={cfg.key} style={styles.statCard}>
+                      {/* Corner decoration */}
+                      <View style={[styles.statCorner, { backgroundColor: cfg.cornerBg }]} />
+                      <View style={styles.statInner}>
+                        <View style={styles.statTopRow}>
+                          <View style={[styles.statIcon, { backgroundColor: cfg.iconBg }]}>
+                            <Ionicons name={cfg.icon} size={18} color={cfg.iconColor} />
+                          </View>
+                          <View style={styles.liveChip}>
+                            <LivePing />
+                            <Text style={styles.liveText}>{s.online} Live</Text>
+                          </View>
+                        </View>
+                        <Text style={styles.statLabel}>{cfg.label}</Text>
+                        <Text style={styles.statCount}>{s.registered.toLocaleString()}</Text>
+                      </View>
+                    </View>
+                  );
+                })}
+              </ScrollView>
+            )}
+
+            {/* ── ROLE FILTER TABS ── */}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs} style={{ backgroundColor: BG, paddingVertical: 8 }}>
+              {ROLE_FILTERS.map(f => (
+                <Pressable
+                  key={f.key}
+                  style={[styles.tab, roleFilter === f.key && styles.tabActive]}
+                  onPress={() => setRoleFilter(f.key)}
+                >
+                  <Text style={[styles.tabText, roleFilter === f.key && styles.tabTextActive]}>{f.label}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </>
+        }
         renderItem={({ item }) => (
-          <DirectoryCard
-            name={item.name}
-            role={item.role}
-            city={item.city}
-            skills={item.skills}
-            experience={item.experience}
-            avatar={item.avatar}
-            isOnline={item.isOnline}
+          <ProfCard
+            item={item}
             onPress={() => router.push({ pathname: '/user-profile', params: { id: item.id } })}
-            onMessage={item.id !== profile?.id && item.role !== 'customer' ? async () => {
-              const convoId = await startConversation(item.id, item.name, item.role);
-              if (convoId) router.push({ pathname: '/chat/[id]', params: { id: convoId } });
+            onChat={item.id !== profile?.id && item.role !== 'customer' ? async () => {
+              const c = await startConversation(item.id, item.name, item.role);
+              if (c) router.push({ pathname: '/chat/[id]', params: { id: c } });
             } : undefined}
-            darkMode={isTechnician}
           />
         )}
-        contentContainerStyle={[
-          styles.listContent,
-          { paddingBottom: Platform.OS === 'web' ? 84 + 34 : 100 },
-        ]}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={D.accent}
-            colors={[D.accent]}
-          />
-        }
+        ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
         ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <View style={[styles.emptyIconBg, { backgroundColor: D.card }]}>
-              <Ionicons name="people-outline" size={36} color={D.accent} />
-            </View>
-            <Text style={[styles.emptyTitle, { color: D.text }]}>No professionals yet</Text>
-            <Text style={[styles.emptyText, { color: D.muted }]}>Pull down to refresh or invite others to join</Text>
+          <View style={styles.empty}>
+            <Ionicons name="people-outline" size={48} color={GRAY} />
+            <Text style={styles.emptyTitle}>No professionals found</Text>
+            <Text style={styles.emptyText}>Try changing your filters or search term</Text>
           </View>
         }
-        showsVerticalScrollIndicator={false}
+        ListFooterComponent={
+          filtered.length > 0 ? (
+            <Pressable style={styles.loadMore}>
+              <Text style={styles.loadMoreText}>Load More</Text>
+              <Ionicons name="chevron-down" size={12} color={PRIMARY} />
+            </Pressable>
+          ) : null
+        }
       />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: BG,
-  },
+  container: { flex: 1, backgroundColor: BG },
+
+  // Header
   header: {
+    backgroundColor: CARD,
     paddingHorizontal: 16,
-    paddingBottom: 4,
-    backgroundColor: BG,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-  },
-  headerTitle: {
-    color: DARK,
-    fontSize: 22,
-    fontFamily: 'Inter_700Bold',
-  },
-  headerSubtitle: {
-    color: MUTED,
-    fontSize: 13,
-    fontFamily: 'Inter_400Regular',
-    marginTop: 3,
-  },
-  viewToggle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: CARD,
-    borderWidth: 1,
-    borderColor: BORDER,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 4,
-  },
-  viewToggleMap: {
-    backgroundColor: PRIMARY,
-    borderColor: PRIMARY,
-  },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  headerIconBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: CARD,
-    borderWidth: 1,
-    borderColor: BORDER,
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingBottom: 12,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 3,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    marginBottom: 16,
   },
-  headerIconBtnMap: {
-    backgroundColor: PRIMARY,
-    borderColor: PRIMARY,
+  locationSelector: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 10 },
+  locationCity: { fontSize: 13, color: GRAY, fontFamily: 'Inter_500Medium' },
+  titleRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14, gap: 12 },
+  headerTitle: { fontSize: 22, fontFamily: 'Inter_700Bold', color: DARK, lineHeight: 30 },
+  headerSub: { fontSize: 12, color: GRAY, fontFamily: 'Inter_400Regular', marginTop: 4, maxWidth: 220 },
+  headerBtns: { flexDirection: 'row', gap: 8, alignItems: 'center', paddingTop: 4 },
+  mapBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: PRIMARY_L, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8,
   },
-  mapHeader: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 100,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingBottom: 8,
-    gap: 8,
-  },
-  mapBackBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(28,28,30,0.85)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  mapSearchBox: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(28,28,30,0.85)',
-    borderRadius: 18,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    gap: 6,
-  },
-  mapSearchInput: {
-    flex: 1,
-    color: '#FFF',
-    fontSize: 14,
-    fontFamily: 'Inter_400Regular',
-    padding: 0,
-  },
-  mapFilters: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 99,
-    marginTop: Platform.OS === 'web' ? 67 + 8 + 36 + 12 : 0,
-  },
-  mapFilterChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 16,
-    backgroundColor: 'rgba(28,28,30,0.85)',
-    gap: 4,
-  },
-  mapFilterChipActive: {
-    backgroundColor: '#007AFF',
-  },
-  mapFilterText: {
-    color: '#AAA',
-    fontSize: 11,
-    fontFamily: 'Inter_500Medium',
-  },
-  mapFilterTextActive: {
-    color: '#FFF',
-  },
-  mapFull: {
-    flex: 1,
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    paddingHorizontal: 12,
-    gap: 12,
+  mapBtnText: { fontSize: 13, color: PRIMARY, fontFamily: 'Inter_600SemiBold' },
+  menuBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' },
+  searchBar: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: '#F3F4F6', borderRadius: 20,
+    paddingHorizontal: 12, paddingVertical: 10,
     marginBottom: 12,
   },
-  statBox: {
-    flex: 1,
-    backgroundColor: CARD,
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: BORDER,
-    alignItems: 'center',
-    justifyContent: 'center',
+  searchInput: { flex: 1, fontSize: 13, color: DARK, fontFamily: 'Inter_400Regular', padding: 0 },
+  filterBtn: { width: 30, height: 30, borderRadius: 10, backgroundColor: PRIMARY, alignItems: 'center', justifyContent: 'center' },
+  chipsScroll: { marginBottom: 4 },
+  chips: { gap: 8 },
+  chip: {
+    paddingHorizontal: 14, paddingVertical: 7,
+    borderRadius: 20, backgroundColor: '#F3F4F6',
+    borderWidth: 1, borderColor: '#E5E7EB',
   },
-  statNumber: {
-    fontSize: 28,
-    fontFamily: 'Inter_700Bold',
-    marginBottom: 6,
+  chipActive: { backgroundColor: PRIMARY_L, borderColor: PRIMARY },
+  chipText: { fontSize: 11, color: GRAY, fontFamily: 'Inter_500Medium' },
+  chipTextActive: { color: PRIMARY },
+
+  // Stats
+  statsScroll: { paddingHorizontal: 16, paddingBottom: 16, gap: 12 },
+  statCard: {
+    width: 168, backgroundColor: CARD, borderRadius: 20,
+    padding: 14, marginVertical: 4,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 12, elevation: 2,
+    borderWidth: 1, borderColor: '#F3F4F6', overflow: 'hidden', position: 'relative',
   },
-  statRoleLabel: {
-    fontSize: 12,
-    fontFamily: 'Inter_500Medium',
+  statCorner: { position: 'absolute', top: -20, right: -20, width: 60, height: 60, borderRadius: 30 },
+  statInner: { position: 'relative', zIndex: 1 },
+  statTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  statIcon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  liveChip: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#ECFDF5', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4 },
+  liveText: { fontSize: 10, fontFamily: 'Inter_600SemiBold', color: '#065F46' },
+  statLabel: { fontSize: 12, color: GRAY, fontFamily: 'Inter_500Medium' },
+  statCount: { fontSize: 24, fontFamily: 'Inter_700Bold', color: DARK, marginTop: 2 },
+
+  // Tabs
+  tabs: { paddingHorizontal: 16, gap: 8 },
+  tab: {
+    paddingHorizontal: 18, paddingVertical: 8,
+    borderRadius: 20, backgroundColor: CARD,
+    borderWidth: 1, borderColor: '#E5E7EB',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 2, elevation: 1,
   },
-  searchContainer: {
-    paddingHorizontal: 16,
-    marginBottom: 10,
-  },
-  searchBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: CARD,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderWidth: 1,
-    borderColor: BORDER,
-    gap: 10,
-  },
-  searchInput: {
-    flex: 1,
-    color: DARK,
-    fontSize: 14,
-    fontFamily: 'Inter_400Regular',
-    padding: 0,
-  },
-  mapPreviewBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  tabActive: { backgroundColor: PRIMARY, borderColor: PRIMARY },
+  tabText: { fontSize: 13, color: GRAY, fontFamily: 'Inter_500Medium' },
+  tabTextActive: { color: '#FFF', fontFamily: 'Inter_600SemiBold' },
+
+  // Card
+  card: {
     marginHorizontal: 16,
-    marginBottom: 10,
-    backgroundColor: 'rgba(255,45,85,0.08)',
-    borderRadius: 14,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255,45,85,0.2)',
-  },
-  mapPreviewLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  mapPreviewTitle: {
-    color: '#FF2D55',
-    fontSize: 15,
-    fontFamily: 'Inter_700Bold',
-  },
-  mapPreviewSub: {
-    color: MUTED,
-    fontSize: 12,
-    fontFamily: 'Inter_400Regular',
-    marginTop: 1,
-  },
-  mapPreviewRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  mapPreviewOpen: {
-    color: '#FF2D55',
-    fontSize: 14,
-    fontFamily: 'Inter_600SemiBold',
-  },
-  filtersContainer: {
-    marginBottom: 8,
-  },
-  filtersContent: {
-    paddingHorizontal: 16,
-    gap: 8,
-  },
-  filterChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
     backgroundColor: CARD,
-    borderWidth: 1,
-    borderColor: BORDER,
-    gap: 6,
-  },
-  filterChipActive: {
-    backgroundColor: PRIMARY,
-    borderColor: PRIMARY,
-  },
-  filterText: {
-    color: MUTED,
-    fontSize: 13,
-    fontFamily: 'Inter_500Medium',
-  },
-  filterTextActive: {
-    color: '#FFFFFF',
-  },
-  listContent: {
-    paddingTop: 4,
-  },
-  emptyState: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: 80,
-    gap: 12,
-  },
-  emptyIconBg: {
-    width: 72,
-    height: 72,
     borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
+    padding: 16,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 1,
+    borderWidth: 1, borderColor: '#F3F4F6',
   },
-  emptyTitle: {
-    color: DARK,
-    fontSize: 18,
-    fontFamily: 'Inter_600SemiBold',
+  cardTop: { flexDirection: 'row', gap: 14 },
+  avatarWrap: { position: 'relative', flexShrink: 0 },
+  avatar: { width: 60, height: 60, borderRadius: 30, borderWidth: 2, borderColor: '#FFF' },
+  avatarFallback: { backgroundColor: '#DBEAFE', alignItems: 'center', justifyContent: 'center' },
+  avatarInitials: { fontSize: 18, fontFamily: 'Inter_700Bold', color: PRIMARY },
+  onlineDot: { position: 'absolute', bottom: 1, right: 1, width: 14, height: 14, borderRadius: 7, borderWidth: 2, borderColor: CARD },
+  cardInfo: { flex: 1 },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 4 },
+  cardName: { fontSize: 14, fontFamily: 'Inter_700Bold', color: DARK, flex: 1 },
+  badgeRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
+  roleBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
+  roleBadgeText: { fontSize: 10, fontFamily: 'Inter_600SemiBold' },
+  ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  ratingText: { fontSize: 11, color: GRAY, fontFamily: 'Inter_400Regular' },
+  locationRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  locationText: { fontSize: 11, color: GRAY, fontFamily: 'Inter_400Regular', flex: 1 },
+  distancePill: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: PRIMARY_L, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
+  distanceText: { fontSize: 10, color: PRIMARY, fontFamily: 'Inter_600SemiBold' },
+
+  // Card footer
+  cardFooter: { flexDirection: 'row', gap: 8, marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#F9FAFB' },
+  chatBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5,
+    borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 14,
+    paddingVertical: 9, backgroundColor: CARD,
   },
-  emptyText: {
-    color: MUTED,
-    fontSize: 14,
-    fontFamily: 'Inter_400Regular',
-    textAlign: 'center',
-    paddingHorizontal: 32,
+  chatBtnText: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: '#374151' },
+  callBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5,
+    backgroundColor: PRIMARY, borderRadius: 14, paddingVertical: 9,
+    shadowColor: PRIMARY, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.25, shadowRadius: 6, elevation: 3,
   },
-  skillCatWrap: { paddingVertical: 8 },
-  skillCatRow: { paddingHorizontal: 12, gap: 8 },
-  skillCatTile: {
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    minWidth: 68,
+  callBtnText: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: '#FFF' },
+  chevronBtn: { width: 38, backgroundColor: '#F3F4F6', borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+
+  // Empty + load more
+  empty: { alignItems: 'center', justifyContent: 'center', paddingTop: 60, gap: 10 },
+  emptyTitle: { fontSize: 16, fontFamily: 'Inter_600SemiBold', color: DARK },
+  emptyText: { fontSize: 13, color: GRAY, fontFamily: 'Inter_400Regular', textAlign: 'center', paddingHorizontal: 32 },
+  loadMore: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    marginHorizontal: 16, marginTop: 8, marginBottom: 8,
+    paddingVertical: 12, borderRadius: 24,
+    borderWidth: 1, borderColor: `${PRIMARY}33`,
   },
-  skillCatIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  skillCatLabel: {
-    fontSize: 11,
-    fontFamily: 'Inter_600SemiBold',
-    textAlign: 'center' as const,
-  },
+  loadMoreText: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: PRIMARY },
 });
