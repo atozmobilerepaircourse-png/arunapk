@@ -664,46 +664,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await db.delete(otpTokens).where(eq(otpTokens.phone, cleanPhone));
       await db.insert(otpTokens).values({ phone: cleanPhone, otp, expiresAt });
 
-      console.log(`[OTP] Generated for ${cleanPhone}: ${otp}`);
+      console.log(`[OTP] Generated for ${cleanPhone}: ${otp}. Using Firebase Phone Auth for SMS delivery.`);
 
-      // Send SMS via Twilio
-      const twilioAccountSid = process.env.TWILIO_ACCOUNT_SID;
-      const twilioAuthToken = process.env.TWILIO_AUTH_TOKEN;
-      const twilioPhoneNumber = process.env.TWILIO_PHONE_NUMBER;
-
-      if (twilioAccountSid && twilioAuthToken && twilioPhoneNumber) {
-        try {
-          const formData = new URLSearchParams();
-          formData.append('From', twilioPhoneNumber);
-          formData.append('To', '+91' + cleanPhone);
-          formData.append('Body', `Your MOBI verification code is: ${otp}. Do not share this code. It expires in 5 minutes.`);
-
-          const auth = Buffer.from(`${twilioAccountSid}:${twilioAuthToken}`).toString('base64');
-          const smsRes = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${twilioAccountSid}/Messages.json`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Basic ${auth}`,
-              'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: formData.toString(),
-          });
-
-          const smsData = await smsRes.json();
-          if (smsRes.ok && smsData.sid) {
-            console.log(`[SMS] Sent successfully to +91${cleanPhone}, SID: ${smsData.sid}`);
-            return res.json({ success: true, message: "OTP sent to your phone" });
-          } else {
-            console.warn(`[SMS] Twilio error:`, smsData.message || smsData.error_message);
-            return res.status(500).json({ success: false, message: "Failed to send SMS. Please try again." });
-          }
-        } catch (twilioErr: any) {
-          console.error(`[SMS] Twilio error:`, twilioErr?.message);
-          return res.status(500).json({ success: false, message: "Failed to send SMS. Please try again." });
-        }
-      } else {
-        console.warn('[OTP] Twilio credentials not configured');
-        return res.status(500).json({ success: false, message: "SMS service not configured" });
-      }
+      return res.json({
+        success: true,
+        message: "OTP will be sent via Firebase Phone Auth. Please check your SMS.",
+      });
     } catch (error: any) {
       console.error("[OTP] Send error:", error?.message || error, error?.stack?.split('\n').slice(0,3).join(' '));
       return res.status(500).json({ success: false, message: "Failed to send OTP" });
