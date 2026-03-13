@@ -664,14 +664,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await db.delete(otpTokens).where(eq(otpTokens.phone, cleanPhone));
       await db.insert(otpTokens).values({ phone: cleanPhone, otp, expiresAt });
 
-      console.log(`[OTP] Generated for ${cleanPhone}: ${otp}. Expires at ${new Date(expiresAt).toISOString()}`);
+      console.log(`[OTP] Generated for ${cleanPhone}: ${otp}`);
 
-      // Return OTP for development/web testing
-      // Mobile apps will use Firebase Phone Auth for real SMS delivery
+      // Send SMS via Fast2SMS
+      const fast2smsKey = process.env.FAST2SMS_API_KEY;
+      let smsSent = false;
+      let smsError = '';
+
+      if (fast2smsKey) {
+        try {
+          const smsMessage = `Your MOBI verification code is ${otp}. Valid for 5 minutes. Do not share.`;
+          const smsRes = await fetch(`https://www.fast2sms.com/dev/bulkV2?authorization=${fast2smsKey}&message=${encodeURIComponent(smsMessage)}&route=q&numbers=${cleanPhone}&flash=0`, {
+            method: 'GET',
+            headers: { 'cache-control': 'no-cache' },
+          });
+          const smsData = await smsRes.json() as any;
+          console.log(`[OTP] Fast2SMS response:`, JSON.stringify(smsData));
+          if (smsData.return === true) {
+            smsSent = true;
+          } else {
+            const rawMsg = smsData.message;
+            smsError = Array.isArray(rawMsg) ? rawMsg.join(' ') : (rawMsg || JSON.stringify(smsData));
+            console.error(`[OTP] Fast2SMS failed:`, smsError);
+          }
+        } catch (smsErr: any) {
+          smsError = smsErr?.message || 'SMS send failed';
+          console.error(`[OTP] Fast2SMS error:`, smsError);
+        }
+      } else {
+        console.warn('[OTP] FAST2SMS_API_KEY not set — OTP not sent via SMS');
+        smsError = 'SMS provider not configured';
+      }
+
       return res.json({
         success: true,
-        message: "OTP generated. Firebase Phone Auth will send SMS on mobile devices.",
-        otp: otp, // For development only
+        smsSent,
+        message: smsSent ? `OTP sent to ${cleanPhone}` : `OTP generated but SMS delivery failed: ${smsError}`,
+        ...(process.env.NODE_ENV !== 'production' && { otp }),
       });
     } catch (error: any) {
       console.error("[OTP] Send error:", error?.message || error, error?.stack?.split('\n').slice(0,3).join(' '));

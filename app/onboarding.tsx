@@ -244,23 +244,14 @@ export default function OnboardingScreen() {
   const sendOtp = async (phoneNumber: string) => {
     setOtpSending(true);
     const cleanDigits = phoneNumber.replace(/\D/g, '').replace(/^91/, '');
-    const fullPhone = '+91' + cleanDigits;
 
-    console.log('[OTP] sendOtp called → platform:', Platform.OS, '| phone:', fullPhone);
+    console.log('[OTP] Sending via backend for phone:', cleanDigits);
 
     try {
-      if (Platform.OS === 'web') {
-        // WEB: Backend OTP (no Firebase Phone Auth on web without reCAPTCHA widget)
-        console.log('[OTP] Web platform → using backend OTP');
-        await sendBackendOTP(cleanDigits);
-        setUseFirebaseOTP(false);
-      } else {
-        // MOBILE: Firebase Phone Auth → sends real SMS directly
-        console.log('[OTP] Mobile platform → using Firebase Phone Auth for real SMS');
-        await sendFirebaseMobileOTP(fullPhone);
-      }
+      await sendBackendOTP(cleanDigits);
+      setUseFirebaseOTP(false);
     } catch (err: any) {
-      console.error('[OTP] sendOtp failed:', err?.code || err?.message);
+      console.error('[OTP] sendOtp failed:', err?.message);
       Alert.alert('OTP Error', err?.message || 'Could not send OTP. Please try again.');
     } finally {
       setOtpSending(false);
@@ -313,13 +304,14 @@ export default function OnboardingScreen() {
 
   const sendBackendOTP = async (cleanDigits: string) => {
     try {
-      console.log('[OTP] Generating OTP on backend for phone:', cleanDigits);
+      console.log('[OTP] Sending via Fast2SMS for phone:', cleanDigits);
       const res = await apiRequest('POST', '/api/otp/send', { phone: cleanDigits });
       const data = await res.json();
       if (data.success) {
         setOtpSent(true);
         setOtpResendTimer(30);
-        console.log('[OTP] Backend generated OTP successfully');
+        setDebugInfo(data.smsSent ? '✅ OTP sent via SMS!' : `⚠️ SMS failed. ${data.otp ? `Dev code: ${data.otp}` : 'Check backend logs.'}`);
+        console.log('[OTP] Result → smsSent:', data.smsSent, '| message:', data.message, data.otp ? `| code: ${data.otp}` : '');
       } else {
         throw new Error(data.message || 'Failed to generate OTP');
       }
