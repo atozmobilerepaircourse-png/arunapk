@@ -372,8 +372,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const currentProfile = profileRows[0];
       const currentRole = currentProfile.role as string;
       
-      // Admin can switch to any role
-      if (currentRole !== 'admin') {
+      // Check if user is admin or super admin
+      const cleanPhone = phone.replace(/\D/g, '').slice(-10);
+      const isSuperAdmin = cleanPhone === '8179142535' || cleanPhone === '9876543210';
+      const isAdmin = currentRole === 'admin' || isSuperAdmin;
+      
+      // Admin (or super admin) can switch to any role
+      if (!isAdmin) {
         // Non-admin role restrictions
         const roleRestrictions: Record<string, string[]> = {
           teacher: ['technician'],
