@@ -258,6 +258,7 @@ export default function AdminScreen() {
   const insets = useSafeAreaInsets();
   const { profile, posts, jobs, conversations, deletePost, allProfiles, refreshData } = useApp();
   const [activeTab, setActiveTab] = useState<AdminTab>('dashboard');
+  const [refreshing, setRefreshing] = useState(false);
 
   // Subscription state
   const [subscriptions, setSubscriptions] = useState<SubscriptionSetting[]>([]);
@@ -701,6 +702,27 @@ export default function AdminScreen() {
         { text: 'Delete', style: 'destructive', onPress: () => executeDeleteUser(userId, userName) },
       ]
     );
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await refreshData();
+    } catch (e: any) {
+      console.error('Refresh error:', e);
+      Alert.alert('Refresh Error', e.message || 'Failed to refresh data');
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const handleGoBack = () => {
+    try {
+      router.back();
+    } catch (e: any) {
+      console.error('Navigate back error:', e);
+      router.replace('/(tabs)');
+    }
   };
 
   const handleBlockUser = (userId: string, userName: string, block: boolean) => {
@@ -2031,7 +2053,7 @@ export default function AdminScreen() {
       {/* Header */}
       <View style={{ paddingTop: webTopInset, backgroundColor: PRIMARY }}>
         <View style={{ paddingHorizontal: isMobile ? 12 : 16, paddingVertical: isMobile ? 10 : 14, flexDirection: 'row', alignItems: 'center', gap: isMobile ? 8 : 12 }}>
-          <Pressable onPress={() => router.back()}
+          <Pressable onPress={handleGoBack}
             style={{ width: isMobile ? 34 : 38, height: isMobile ? 34 : 38, borderRadius: isMobile ? 17 : 19, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
             <Ionicons name="arrow-back" size={isMobile ? 18 : 20} color="#FFF" />
           </Pressable>
@@ -2041,9 +2063,13 @@ export default function AdminScreen() {
               {stats.totalUsers} users · {stats.totalPosts} posts
             </Text>
           </View>
-          <Pressable onPress={refreshData}
-            style={{ width: isMobile ? 34 : 38, height: isMobile ? 34 : 38, borderRadius: isMobile ? 17 : 19, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
-            <Ionicons name="refresh-outline" size={isMobile ? 16 : 18} color="#FFF" />
+          <Pressable onPress={handleRefresh} disabled={refreshing}
+            style={{ width: isMobile ? 34 : 38, height: isMobile ? 34 : 38, borderRadius: isMobile ? 17 : 19, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center', opacity: refreshing ? 0.6 : 1 }}>
+            {refreshing ? (
+              <ActivityIndicator size="small" color="#FFF" />
+            ) : (
+              <Ionicons name="refresh-outline" size={isMobile ? 16 : 18} color="#FFF" />
+            )}
           </Pressable>
         </View>
 
