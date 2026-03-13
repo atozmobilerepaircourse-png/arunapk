@@ -36,6 +36,12 @@ async function fetchSecurityStatus(userId: string): Promise<SecurityStatus> {
     });
     if (!res.ok) return { status: 'ok', supportNumber: '+918179142535', whatsappLink: 'https://wa.me/918179142535' };
     const data = await res.json();
+    
+    // Fallback: If backend returns "User not found", still allow admin and customers
+    if (data.message === 'User not found') {
+      return { status: 'ok', supportNumber: '+918179142535', whatsappLink: 'https://wa.me/918179142535' };
+    }
+    
     return {
       status: data.status || 'ok',
       supportNumber: data.supportNumber || '+918179142535',
