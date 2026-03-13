@@ -696,14 +696,14 @@ export default function AdminScreen() {
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
   const cleanProfilePhone = profile?.phone?.replace(/\D/g, "");
-  const isAdmin = profile?.role === 'admin' || cleanProfilePhone === "8179142535" || cleanProfilePhone === "9876543210";
+  const isAdmin = profile && (profile.role === 'admin' || cleanProfilePhone === "8179142535" || cleanProfilePhone === "9876543210");
 
   useEffect(() => {
-    if (!isAdmin) {
+    if (profile && !isAdmin) {
       Alert.alert('Access Denied', 'You do not have admin access.');
       router.back();
     }
-  }, [isAdmin]);
+  }, [isAdmin, profile]);
 
   const fetchSubscriptions = useCallback(async () => {
     try {
@@ -934,7 +934,7 @@ export default function AdminScreen() {
     return { totalUsers, registeredUsers, totalPosts, totalJobs, totalChats, totalLikes, totalComments, roleBreakdown };
   }, [allUsers, posts, jobs, conversations]);
 
-  if (!isAdmin) return null;
+  if (!profile || !isAdmin) return null;
 
   const renderPayouts = () => {
     const pending = payoutsData.filter(p => p.status === 'pending');
