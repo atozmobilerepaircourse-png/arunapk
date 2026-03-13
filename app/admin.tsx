@@ -934,7 +934,35 @@ export default function AdminScreen() {
     return { totalUsers, registeredUsers, totalPosts, totalJobs, totalChats, totalLikes, totalComments, roleBreakdown };
   }, [allUsers, posts, jobs, conversations]);
 
-  if (!profile || !isAdmin) return null;
+  if (!profile) {
+    return (
+      <View style={{ flex: 1, backgroundColor: C.background, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color={C.primary} />
+        <Text style={{ marginTop: 12, color: C.text, fontFamily: 'Inter_500Medium' }}>Loading admin panel...</Text>
+      </View>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <View style={{ flex: 1, backgroundColor: C.background, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32 }}>
+        <Ionicons name="lock-closed" size={64} color={C.error} style={{ marginBottom: 16 }} />
+        <Text style={{ fontSize: 20, fontFamily: 'Inter_700Bold', color: C.text, textAlign: 'center', marginBottom: 8 }}>Access Denied</Text>
+        <Text style={{ fontSize: 14, fontFamily: 'Inter_400Regular', color: C.textSecondary, textAlign: 'center', marginBottom: 24 }}>
+          You don't have permission to access the admin panel.
+        </Text>
+        <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: C.textTertiary, textAlign: 'center' }}>
+          Your phone: {profile.phone}\nYour role: {profile.role}
+        </Text>
+        <Pressable
+          onPress={() => router.back()}
+          style={{ marginTop: 24, paddingHorizontal: 16, paddingVertical: 10, backgroundColor: C.primary, borderRadius: 8 }}
+        >
+          <Text style={{ color: '#fff', fontFamily: 'Inter_600SemiBold' }}>Go Back</Text>
+        </Pressable>
+      </View>
+    );
+  }
 
   const renderPayouts = () => {
     const pending = payoutsData.filter(p => p.status === 'pending');
