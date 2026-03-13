@@ -325,7 +325,7 @@ export default function DirectoryScreen() {
             } : undefined}
           />
         )}
-        ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
+        ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
         ListEmptyComponent={
           <View style={styles.empty}>
             <Ionicons name="people-outline" size={48} color={GRAY} />
@@ -445,44 +445,44 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     backgroundColor: CARD,
     borderRadius: 20,
-    padding: 16,
+    padding: 12,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 1,
     borderWidth: 1, borderColor: '#F3F4F6',
   },
-  cardTop: { flexDirection: 'row', gap: 14 },
+  cardTop: { flexDirection: 'row', gap: 10 },
   avatarWrap: { position: 'relative', flexShrink: 0 },
-  avatar: { width: 60, height: 60, borderRadius: 30, borderWidth: 2, borderColor: '#FFF' },
+  avatar: { width: 48, height: 48, borderRadius: 24, borderWidth: 2, borderColor: '#FFF' },
   avatarFallback: { backgroundColor: '#DBEAFE', alignItems: 'center', justifyContent: 'center' },
-  avatarInitials: { fontSize: 18, fontFamily: 'Inter_700Bold', color: PRIMARY },
-  onlineDot: { position: 'absolute', bottom: 1, right: 1, width: 14, height: 14, borderRadius: 7, borderWidth: 2, borderColor: CARD },
+  avatarInitials: { fontSize: 16, fontFamily: 'Inter_700Bold', color: PRIMARY },
+  onlineDot: { position: 'absolute', bottom: 1, right: 1, width: 12, height: 12, borderRadius: 6, borderWidth: 2, borderColor: CARD },
   cardInfo: { flex: 1 },
-  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 4 },
-  cardName: { fontSize: 14, fontFamily: 'Inter_700Bold', color: DARK, flex: 1 },
-  badgeRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
-  roleBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
-  roleBadgeText: { fontSize: 10, fontFamily: 'Inter_600SemiBold' },
-  ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  ratingText: { fontSize: 11, color: GRAY, fontFamily: 'Inter_400Regular' },
-  locationRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  locationText: { fontSize: 11, color: GRAY, fontFamily: 'Inter_400Regular', flex: 1 },
-  distancePill: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: PRIMARY_L, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
-  distanceText: { fontSize: 10, color: PRIMARY, fontFamily: 'Inter_600SemiBold' },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 2 },
+  cardName: { fontSize: 13, fontFamily: 'Inter_700Bold', color: DARK, flex: 1 },
+  badgeRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
+  roleBadge: { paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4 },
+  roleBadgeText: { fontSize: 9, fontFamily: 'Inter_600SemiBold' },
+  ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  ratingText: { fontSize: 10, color: GRAY, fontFamily: 'Inter_400Regular' },
+  locationRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  locationText: { fontSize: 10, color: GRAY, fontFamily: 'Inter_400Regular', flex: 1 },
+  distancePill: { flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: PRIMARY_L, borderRadius: 4, paddingHorizontal: 5, paddingVertical: 1 },
+  distanceText: { fontSize: 9, color: PRIMARY, fontFamily: 'Inter_600SemiBold' },
 
   // Card footer
-  cardFooter: { flexDirection: 'row', gap: 8, marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#F9FAFB' },
+  cardFooter: { flexDirection: 'row', gap: 6, marginTop: 10, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#F9FAFB' },
   chatBtn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5,
-    borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 14,
-    paddingVertical: 9, backgroundColor: CARD,
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4,
+    borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12,
+    paddingVertical: 6, backgroundColor: CARD,
   },
-  chatBtnText: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: '#374151' },
+  chatBtnText: { fontSize: 11, fontFamily: 'Inter_600SemiBold', color: '#374151' },
   callBtn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5,
-    backgroundColor: PRIMARY, borderRadius: 14, paddingVertical: 9,
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4,
+    backgroundColor: PRIMARY, borderRadius: 12, paddingVertical: 6,
     shadowColor: PRIMARY, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.25, shadowRadius: 6, elevation: 3,
   },
-  callBtnText: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: '#FFF' },
-  chevronBtn: { width: 38, backgroundColor: '#F3F4F6', borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  callBtnText: { fontSize: 11, fontFamily: 'Inter_600SemiBold', color: '#FFF' },
+  chevronBtn: { width: 34, backgroundColor: '#F3F4F6', borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
 
   // Empty + load more
   empty: { alignItems: 'center', justifyContent: 'center', paddingTop: 60, gap: 10 },
