@@ -6061,13 +6061,13 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
       const supportNumber = supportRows[0]?.value || '+918179142535';
       const whatsappLink = whatsappRows[0]?.value || 'https://wa.me/918179142535';
 
-      // CHECK 1: Blocked/Locked
-      if (profile.blocked === 1) {
+      // CHECK 1: Blocked/Locked (but always allow admin phones)
+      const isAdminPhone = profile.phone.replace(/\D/g, '') === '8179142535' || profile.phone.replace(/\D/g, '') === '9876543210';
+      if (profile.blocked === 1 && !isAdminPhone) {
         return res.json({ success: true, status: 'locked', supportNumber, whatsappLink, reason: 'Account blocked by admin' });
       }
 
       // CHECK 2: Subscription expiry (skip admin and customers)
-      const isAdminPhone = profile.phone.replace(/\D/g, '') === '8179142535' || profile.phone.replace(/\D/g, '') === '9876543210';
       if (!isAdminPhone && profile.role !== 'customer' && profile.role !== 'admin') {
         const subRows = await db.select().from(subscriptionSettings).where(eq(subscriptionSettings.role, profile.role));
         const subSetting = subRows[0];
