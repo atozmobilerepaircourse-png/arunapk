@@ -2635,35 +2635,42 @@ export default function AdminScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: C.background }}>
-      {/* Header */}
-      <View style={{ paddingTop: webTopInset, backgroundColor: C.surface, borderBottomWidth: 1, borderBottomColor: C.border }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12 }}>
-          <Pressable onPress={() => router.back()} style={{ marginRight: 12, padding: 4 }}>
-            <Ionicons name="arrow-back" size={24} color={C.text} />
+      {/* Modern Header */}
+      <View style={{ paddingTop: webTopInset, backgroundColor: C.primary, paddingHorizontal: 16, paddingVertical: 16 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14 }}>
+          <Pressable onPress={() => router.back()} style={{ marginRight: 12, width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name="arrow-back" size={20} color="#FFF" />
           </Pressable>
-          <Text style={{ fontSize: 20, fontFamily: 'Inter_700Bold', color: C.text, flex: 1 }}>Admin Panel</Text>
-          <Pressable onPress={refreshData} style={{ padding: 4 }}>
-            <Ionicons name="refresh-outline" size={20} color={C.textSecondary} />
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 24, fontFamily: 'Inter_700Bold', color: '#FFF' }}>Admin Dashboard</Text>
+            <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: 'rgba(255,255,255,0.8)', marginTop: 2 }}>Manage platform & users</Text>
+          </View>
+          <Pressable onPress={refreshData} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name="refresh-outline" size={20} color="#FFF" />
           </Pressable>
         </View>
+        
+        {/* Tab Navigation */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: 12, gap: 6, paddingBottom: 10 }}
+          contentContainerStyle={{ gap: 8, paddingVertical: 8 }}
+          scrollEnabled={true}
         >
           {tabs.map(tab => (
             <Pressable
               key={tab.key}
               onPress={() => setActiveTab(tab.key)}
               style={{
-                flexDirection: 'row', alignItems: 'center', gap: 5,
-                paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20,
-                backgroundColor: activeTab === tab.key ? C.primary : C.surfaceElevated,
-                borderWidth: 1, borderColor: activeTab === tab.key ? C.primary : C.border,
+                flexDirection: 'row', alignItems: 'center', gap: 6,
+                paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12,
+                backgroundColor: activeTab === tab.key ? '#FFF' : 'rgba(255,255,255,0.15)',
+                borderWidth: activeTab === tab.key ? 0 : 1,
+                borderColor: 'rgba(255,255,255,0.3)',
               }}
             >
-              <Ionicons name={tab.icon} size={13} color={activeTab === tab.key ? '#FFF' : C.textSecondary} />
-              <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: activeTab === tab.key ? '#FFF' : C.textSecondary }}>
+              <Ionicons name={tab.icon} size={14} color={activeTab === tab.key ? C.primary : '#FFF'} />
+              <Text style={{ fontSize: 13, fontFamily: 'Inter_600SemiBold', color: activeTab === tab.key ? C.primary : '#FFF' }}>
                 {tab.label}
               </Text>
             </Pressable>
