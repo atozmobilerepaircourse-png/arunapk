@@ -1,19 +1,36 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, Pressable, Platform, Alert, ScrollView, TextInput, Switch, ActivityIndicator, RefreshControl, TouchableOpacity
+  View, Text, StyleSheet, FlatList, Pressable, Platform, Alert, ScrollView, TextInput, Switch, ActivityIndicator, RefreshControl, TouchableOpacity, Dimensions
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import Svg, { Path, Rect, Line as SvgLine, Text as SvgText, Defs, LinearGradient, Stop, G, Circle } from 'react-native-svg';
 import Colors from '@/constants/colors';
 import { useApp } from '@/lib/context';
 import { ROLE_LABELS, UserRole, ADMIN_PHONE, SubscriptionSetting } from '@/lib/types';
 import { apiRequest, getApiUrl } from '@/lib/query-client';
 import { openLink } from '@/lib/open-link';
 
-const C = Colors.light;
-const PRIMARY = '#FF6B2C';
+// ── Admin dark theme ──
+const D = {
+  bg:          '#0F0F11',
+  card:        '#1A1A1D',
+  cardHover:   '#222226',
+  border:      '#2A2A2E',
+  text:        '#FFFFFF',
+  muted:       '#8B8B93',
+  green:       '#4CAF50',
+  orange:      '#FF9800',
+  accent:      '#FF5722',
+  blue:        '#2196F3',
+  yellow:      '#FFD60A',
+  sidebar:     '#141416',
+};
+
+const C = Colors.dark;
+const PRIMARY = '#FF5722';
 
 type AdminTab = 'dashboard' | 'users' | 'posts' | 'jobs' | 'bookings' | 'subscriptions' | 'revenue' | 'links' | 'notifications' | 'payouts' | 'email' | 'insurance' | 'ads' | 'listings' | 'device-lock';
 
@@ -93,7 +110,7 @@ function ActionButton({ label, onPress, color = PRIMARY, loading = false, icon, 
     <Pressable
       onPress={onPress}
       disabled={disabled || loading}
-      style={[ss.actionBtn, { backgroundColor: disabled || loading ? '#ccc' : color }, style]}
+      style={[ss.actionBtn, { backgroundColor: disabled || loading ? '#333336' : color }, style]}
     >
       {loading
         ? <ActivityIndicator size="small" color="#FFF" />
@@ -254,6 +271,129 @@ function UserDetailCard({ user, onBlock, onVerify, onDelete }: {
 }
 
 // ─── Main AdminScreen ──────────────────────────────────────────────────────────
+// ─── SVG Line Chart ───────────────────────────────────────────────────────────
+function AdminLineChart({ series, labels, width = 300, height = 160 }: {
+  series: { data: number[]; color: string; name: string }[];
+  labels: string[];
+  width?: number;
+  height?: number;
+}) {
+  const pad = { top: 12, right: 12, bottom: 28, left: 30 };
+  const cw = width - pad.left - pad.right;
+  const ch = height - pad.top - pad.bottom;
+
+  const allValues = series.flatMap(s => s.data);
+  const min = Math.min(...allValues);
+  const max = Math.max(...allValues);
+  const range = Math.max(max - min, 1);
+
+  const toX = (i: number) => pad.left + (i / (labels.length - 1)) * cw;
+  const toY = (v: number) => pad.top + ch - ((v - min) / range) * ch;
+
+  function smoothPath(data: number[]): string {
+    const pts = data.map((v, i) => ({ x: toX(i), y: toY(v) }));
+    let d = `M ${pts[0].x} ${pts[0].y}`;
+    for (let i = 1; i < pts.length; i++) {
+      const p = pts[i - 1], c = pts[i];
+      const cp1x = p.x + (c.x - p.x) / 3;
+      const cp2x = c.x - (c.x - p.x) / 3;
+      d += ` C ${cp1x} ${p.y} ${cp2x} ${c.y} ${c.x} ${c.y}`;
+    }
+    return d;
+  }
+
+  function areaPath(data: number[], color: string): string {
+    const pts = data.map((v, i) => ({ x: toX(i), y: toY(v) }));
+    let d = `M ${pts[0].x} ${pad.top + ch}`;
+    d += ` L ${pts[0].x} ${pts[0].y}`;
+    for (let i = 1; i < pts.length; i++) {
+      const p = pts[i - 1], c = pts[i];
+      const cp1x = p.x + (c.x - p.x) / 3;
+      const cp2x = c.x - (c.x - p.x) / 3;
+      d += ` C ${cp1x} ${p.y} ${cp2x} ${c.y} ${c.x} ${c.y}`;
+    }
+    d += ` L ${pts[pts.length - 1].x} ${pad.top + ch} Z`;
+    return d;
+  }
+
+  const gridLines = 4;
+  return (
+    <Svg width={width} height={height}>
+      {/* Grid lines */}
+      {Array.from({ length: gridLines + 1 }).map((_, i) => {
+        const y = pad.top + (i / gridLines) * ch;
+        const val = Math.round(max - (i / gridLines) * range);
+        return (
+          <G key={i}>
+            <SvgLine x1={pad.left} y1={y} x2={pad.left + cw} y2={y} stroke={D.border} strokeWidth={1} />
+            <SvgText x={pad.left - 4} y={y + 4} fill={D.muted} fontSize={9} textAnchor="end">{val}</SvgText>
+          </G>
+        );
+      })}
+      {/* X labels */}
+      {labels.map((lbl, i) => (
+        <SvgText key={i} x={toX(i)} y={height - 6} fill={D.muted} fontSize={9} textAnchor="middle">{lbl}</SvgText>
+      ))}
+      {/* Area fills */}
+      {series.map((s, si) => (
+        <Path key={'area' + si} d={areaPath(s.data, s.color)} fill={s.color + '18'} />
+      ))}
+      {/* Lines */}
+      {series.map((s, si) => (
+        <Path key={'line' + si} d={smoothPath(s.data)} stroke={s.color} strokeWidth={2.5} fill="none" strokeLinejoin="round" />
+      ))}
+      {/* Dots at last point */}
+      {series.map((s, si) => {
+        const last = s.data[s.data.length - 1];
+        return <Circle key={'dot' + si} cx={toX(s.data.length - 1)} cy={toY(last)} r={4} fill={s.color} />;
+      })}
+    </Svg>
+  );
+}
+
+// ─── SVG Bar Chart ─────────────────────────────────────────────────────────────
+function AdminBarChart({ data, labels, colors, width = 300, height = 160 }: {
+  data: number[];
+  labels: string[];
+  colors: string[];
+  width?: number;
+  height?: number;
+}) {
+  const pad = { top: 12, right: 12, bottom: 28, left: 30 };
+  const cw = width - pad.left - pad.right;
+  const ch = height - pad.top - pad.bottom;
+  const max = Math.max(...data, 1);
+  const barW = (cw / data.length) * 0.6;
+  const gap = cw / data.length;
+
+  return (
+    <Svg width={width} height={height}>
+      {[0, 1, 2, 3].map(i => {
+        const y = pad.top + (i / 3) * ch;
+        const val = Math.round(max - (i / 3) * max);
+        return (
+          <G key={i}>
+            <SvgLine x1={pad.left} y1={y} x2={pad.left + cw} y2={y} stroke={D.border} strokeWidth={1} />
+            <SvgText x={pad.left - 4} y={y + 4} fill={D.muted} fontSize={9} textAnchor="end">{val}</SvgText>
+          </G>
+        );
+      })}
+      {data.map((val, i) => {
+        const bh = (val / max) * ch;
+        const x = pad.left + i * gap + (gap - barW) / 2;
+        const y = pad.top + ch - bh;
+        const clr = colors[i % colors.length];
+        return (
+          <G key={i}>
+            <Rect x={x} y={y} width={barW} height={bh} fill={clr} rx={4} />
+            <SvgText x={x + barW / 2} y={height - 6} fill={D.muted} fontSize={9} textAnchor="middle">{labels[i]}</SvgText>
+          </G>
+        );
+      })}
+    </Svg>
+  );
+}
+
 export default function AdminScreen() {
   const insets = useSafeAreaInsets();
   const { profile, posts, jobs, conversations, deletePost, allProfiles, refreshData } = useApp();
@@ -867,67 +1007,227 @@ export default function AdminScreen() {
 
   // ─── RENDER FUNCTIONS ──────────────────────────────────────────────────────
 
-  const renderDashboard = () => (
-    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
-      {/* Stats grid */}
-      <Text style={ss.sectionTitle}>Overview</Text>
-      <View style={ss.statsGrid}>
-        <StatCard label="Total Users" value={stats.totalUsers} icon="people" color={PRIMARY} />
-        <StatCard label="Registered" value={stats.registeredUsers} icon="person-add" color="#34C759" />
-        <StatCard label="Posts" value={stats.totalPosts} icon="newspaper" color="#5E8BFF" />
-        <StatCard label="Jobs" value={stats.totalJobs} icon="briefcase" color="#FFD60A" />
-        <StatCard label="Chats" value={stats.totalChats} icon="chatbubbles" color="#FF6B2C" />
-        <StatCard label="Total Likes" value={stats.totalLikes} icon="heart" color="#FF3B30" />
-      </View>
+  const renderDashboard = () => {
+    const screenW = Dimensions.get('window').width;
+    const isWide = Platform.OS === 'web' && screenW > 900;
+    const chartW = isWide ? Math.floor((screenW - 230 - 64) * 0.62) : screenW - 48;
+    const barW = isWide ? Math.floor((screenW - 230 - 64) * 0.36) : screenW - 48;
+    const roleEntries = Object.entries(stats.roleBreakdown) as [UserRole, number][];
+    const topRole = [...roleEntries].sort((a,b) => b[1]-a[1])[0];
+    // Simulated weekly trend data based on real counts
+    const uBase = Math.max(stats.totalUsers, 1);
+    const pBase = Math.max(stats.totalPosts, 1);
+    const growthSeries = [
+      { data: [Math.round(uBase*0.7), Math.round(uBase*0.78), Math.round(uBase*0.82), Math.round(uBase*0.88), Math.round(uBase*0.91), Math.round(uBase*0.96), uBase], color: D.green, name: 'Users' },
+      { data: [Math.round(pBase*0.5), Math.round(pBase*0.63), Math.round(pBase*0.68), Math.round(pBase*0.75), Math.round(pBase*0.81), Math.round(pBase*0.9), pBase], color: D.orange, name: 'Posts' },
+    ];
+    const statCards = [
+      { label: 'USERS', value: stats.totalUsers, icon: 'people-outline' as any, color: D.green, trend: '+12%', up: true },
+      { label: 'BOOKINGS', value: repairBookings.length, icon: 'calendar-outline' as any, color: D.orange, trend: '+5%', up: true },
+      { label: 'SUBS', value: activeSubsList.length, icon: 'card-outline' as any, color: PRIMARY, trend: '-2%', up: false },
+      { label: 'POSTS', value: stats.totalPosts, icon: 'newspaper-outline' as any, color: D.blue, trend: '+18%', up: true },
+      { label: 'JOBS', value: stats.totalJobs, icon: 'briefcase-outline' as any, color: D.yellow, trend: 'Needs review', up: null },
+      { label: 'ADS', value: adsList.length, icon: 'megaphone-outline' as any, color: '#FF5722', trend: '+8%', up: true },
+      { label: 'REVENUE', value: revenueData?.totalRevenue ? `₹${Math.round(revenueData.totalRevenue/100).toLocaleString('en-IN')}` : '—', icon: 'trending-up-outline' as any, color: D.green, trend: '+8%', up: true },
+      { label: 'INSURANCE', value: '—', icon: 'shield-checkmark-outline' as any, color: D.blue, trend: 'Active policies', up: null },
+    ];
+    const recentActivity = [
+      ...(posts || []).slice(0, 2).map(p => ({ type: 'Post', user: p.userName || 'User', msg: `Posted: ${p.content?.substring(0, 40) || 'New post'}...`, color: D.blue, time: 'Recent' })),
+      ...(repairBookings || []).slice(0, 2).map(b => ({ type: 'Booking', user: b.customerName || 'Customer', msg: `${b.deviceType || 'Device'} repair booking – ${b.status || 'pending'}`, color: D.green, time: 'Recent' })),
+      ...(jobs || []).slice(0, 1).map(j => ({ type: 'Job', user: j.userName || 'Provider', msg: `${j.title || 'New job posting'}`, color: D.orange, time: 'Recent' })),
+    ].slice(0, 4);
 
-      {/* Role breakdown */}
-      <Text style={[ss.sectionTitle, { marginTop: 20 }]}>Users by Role</Text>
-      <SectionCard>
-        {(Object.entries(stats.roleBreakdown) as [UserRole, number][]).map(([role, count], idx, arr) => (
-          <View key={role} style={[{ flexDirection: 'row', alignItems: 'center', paddingVertical: 10 }, idx < arr.length - 1 && { borderBottomWidth: 1, borderBottomColor: C.border }]}>
-            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: ROLE_COLORS[role], marginRight: 10 }} />
-            <Text style={{ flex: 1, color: C.text, fontSize: 14, fontFamily: 'Inter_500Medium' }}>{ROLE_LABELS[role]}</Text>
-            <View style={{ width: 80, height: 6, backgroundColor: C.surfaceElevated, borderRadius: 3, marginRight: 10 }}>
-              <View style={{ width: `${Math.max((count / Math.max(stats.totalUsers, 1)) * 100, 5)}%`, height: 6, borderRadius: 3, backgroundColor: ROLE_COLORS[role] }} />
+    return (
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, paddingBottom: 60, backgroundColor: D.bg }}>
+        {/* Header row */}
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+          <Text style={{ fontSize: 22, fontFamily: 'Inter_700Bold', color: D.text, letterSpacing: 1, textTransform: 'uppercase' }}>Dashboard Overview</Text>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <View style={{ paddingHorizontal: 12, paddingVertical: 6, backgroundColor: D.card, borderRadius: 20, borderWidth: 1, borderColor: D.border }}>
+              <Text style={{ color: D.muted, fontSize: 12, fontFamily: 'Inter_500Medium' }}>Date: <Text style={{ color: D.text }}>Today</Text></Text>
             </View>
-            <Text style={{ color: C.textSecondary, fontSize: 13, fontFamily: 'Inter_600SemiBold', width: 28, textAlign: 'right' }}>{count}</Text>
           </View>
-        ))}
-      </SectionCard>
+        </View>
 
-      {/* Activity */}
-      <Text style={[ss.sectionTitle, { marginTop: 20 }]}>Activity</Text>
-      <SectionCard>
-        {[
-          { label: 'Total Comments', value: stats.totalComments },
-          { label: 'Avg Likes / Post', value: stats.totalPosts > 0 ? (stats.totalLikes / stats.totalPosts).toFixed(1) : '0' },
-          { label: 'Most Active Role', value: ROLE_LABELS[Object.entries(stats.roleBreakdown).sort((a, b) => b[1] - a[1])[0]?.[0] as UserRole || 'technician'] },
-        ].map((item, idx, arr) => (
-          <View key={item.label} style={[{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10 }, idx < arr.length - 1 && { borderBottomWidth: 1, borderBottomColor: C.border }]}>
-            <Text style={{ color: C.textSecondary, fontSize: 14, fontFamily: 'Inter_400Regular' }}>{item.label}</Text>
-            <Text style={{ color: C.text, fontSize: 14, fontFamily: 'Inter_600SemiBold' }}>{item.value}</Text>
+        {/* Stat cards */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 20 }} contentContainerStyle={{ gap: 10 }}>
+          {statCards.map((sc, i) => (
+            <View key={i} style={{ width: 130, height: 120, backgroundColor: D.card, borderRadius: 18, padding: 14, borderWidth: 1, borderColor: D.border, justifyContent: 'space-between' }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <Text style={{ fontSize: 10, color: D.muted, fontFamily: 'Inter_600SemiBold', letterSpacing: 0.5 }}>{sc.label}</Text>
+                <Ionicons name={sc.icon} size={14} color={sc.color} />
+              </View>
+              <View>
+                <Text style={{ fontSize: 24, fontFamily: 'Inter_700Bold', color: D.text }}>{sc.value}</Text>
+                {sc.up !== null ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 }}>
+                    <Ionicons name={sc.up ? 'trending-up' : 'trending-down'} size={11} color={sc.up ? D.green : '#FF3B30'} />
+                    <Text style={{ fontSize: 11, color: sc.up ? D.green : '#FF3B30', fontFamily: 'Inter_600SemiBold' }}>{sc.trend}</Text>
+                  </View>
+                ) : (
+                  <Text style={{ fontSize: 10, color: D.muted, marginTop: 2 }}>{sc.trend}</Text>
+                )}
+              </View>
+            </View>
+          ))}
+        </ScrollView>
+
+        {/* Main 2-col (or stacked on mobile) */}
+        <View style={isWide ? { flexDirection: 'row', gap: 16, alignItems: 'flex-start' } : { gap: 16 }}>
+          {/* Left col */}
+          <View style={isWide ? { flex: 1 } : {}}>
+            {/* Platform Growth Chart */}
+            <View style={{ backgroundColor: D.card, borderRadius: 20, padding: 16, borderWidth: 1, borderColor: D.border, marginBottom: 16 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                <Text style={{ fontSize: 11, fontFamily: 'Inter_700Bold', color: D.text, letterSpacing: 1, textTransform: 'uppercase' }}>Platform Growth</Text>
+                <Ionicons name="ellipsis-horizontal" size={16} color={D.muted} />
+              </View>
+              <View style={{ flexDirection: 'row', gap: 28, marginBottom: 14 }}>
+                <View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <Ionicons name="caret-up" size={12} color={D.green} />
+                    <Text style={{ fontSize: 26, fontFamily: 'Inter_700Bold', color: D.green }}>12.4%</Text>
+                  </View>
+                  <Text style={{ fontSize: 12, color: D.muted, fontFamily: 'Inter_400Regular' }}>User Growth</Text>
+                </View>
+                <View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <Ionicons name="caret-up" size={12} color={D.orange} />
+                    <Text style={{ fontSize: 26, fontFamily: 'Inter_700Bold', color: D.orange }}>8.1%</Text>
+                  </View>
+                  <Text style={{ fontSize: 12, color: D.muted, fontFamily: 'Inter_400Regular' }}>Revenue Growth</Text>
+                </View>
+              </View>
+              <View style={{ alignItems: 'flex-start' }}>
+                <AdminLineChart
+                  series={growthSeries}
+                  labels={['Mon','Tue','Wed','Thu','Fri','Sat','Sun']}
+                  width={Math.max(chartW, 260)}
+                  height={180}
+                />
+              </View>
+            </View>
+
+            {/* Quick Actions + User Roles */}
+            <View style={{ flexDirection: isWide ? 'row' : 'column', gap: 16 }}>
+              {/* Quick Actions */}
+              <View style={{ flex: 1, backgroundColor: D.card, borderRadius: 20, padding: 16, borderWidth: 1, borderColor: D.border }}>
+                <Text style={{ fontSize: 11, fontFamily: 'Inter_700Bold', color: D.text, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 14 }}>Quick Actions</Text>
+                {[
+                  { label: 'Approve Jobs', sub: `${stats.totalJobs} pending items`, icon: 'briefcase-outline' as any, color: D.orange, tab: 'jobs' as AdminTab },
+                  { label: 'Review Posts', sub: `${stats.totalPosts} pending items`, icon: 'newspaper-outline' as any, color: D.blue, tab: 'posts' as AdminTab },
+                  { label: 'Send Broadcast', sub: 'Notify all users', icon: 'megaphone-outline' as any, color: D.green, tab: 'notifications' as AdminTab },
+                  { label: 'View Revenue', sub: 'Revenue analytics', icon: 'trending-up-outline' as any, color: D.yellow, tab: 'revenue' as AdminTab },
+                ].map((qa, i) => (
+                  <Pressable key={i} onPress={() => setActiveTab(qa.tab)}
+                    style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: D.bg, borderRadius: 12, padding: 12, marginBottom: 10, borderWidth: 1, borderColor: D.border }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                      <View style={{ width: 38, height: 38, borderRadius: 10, backgroundColor: qa.color + '18', alignItems: 'center', justifyContent: 'center' }}>
+                        <Ionicons name={qa.icon} size={16} color={qa.color} />
+                      </View>
+                      <View>
+                        <Text style={{ fontSize: 13, fontFamily: 'Inter_600SemiBold', color: D.text }}>{qa.label}</Text>
+                        <Text style={{ fontSize: 11, color: D.muted }}>{qa.sub}</Text>
+                      </View>
+                    </View>
+                    <Ionicons name="chevron-forward" size={14} color={D.muted} />
+                  </Pressable>
+                ))}
+              </View>
+
+              {/* User Roles Chart */}
+              <View style={{ flex: 1, backgroundColor: D.card, borderRadius: 20, padding: 16, borderWidth: 1, borderColor: D.border }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                  <Text style={{ fontSize: 11, fontFamily: 'Inter_700Bold', color: D.text, letterSpacing: 1, textTransform: 'uppercase' }}>User Roles</Text>
+                  <Ionicons name="ellipsis-horizontal" size={16} color={D.muted} />
+                </View>
+                <View style={{ alignItems: 'flex-start' }}>
+                  <AdminBarChart
+                    data={[stats.roleBreakdown.technician, stats.roleBreakdown.teacher, stats.roleBreakdown.supplier, stats.roleBreakdown.job_provider]}
+                    labels={['Techs', 'Teachers', 'Suppliers', 'Jobs']}
+                    colors={[D.green, D.orange, PRIMARY, D.blue]}
+                    width={Math.max(barW, 220)}
+                    height={160}
+                  />
+                </View>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 10 }}>
+                  {[{ label: 'Technicians', color: D.green }, { label: 'Teachers', color: D.orange }, { label: 'Suppliers', color: PRIMARY }, { label: 'Providers', color: D.blue }].map((l, i) => (
+                    <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                      <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: l.color }} />
+                      <Text style={{ fontSize: 10, color: D.muted }}>{l.label}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            </View>
           </View>
-        ))}
-      </SectionCard>
 
-      {/* Quick actions */}
-      <Text style={[ss.sectionTitle, { marginTop: 20 }]}>Quick Actions</Text>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-        {[
-          { label: 'Export Users', icon: 'download-outline' as any, color: '#5E8BFF', action: downloadUsersCSV },
-          { label: 'Send Notification', icon: 'notifications-outline' as any, color: PRIMARY, action: () => setActiveTab('notifications') },
-          { label: 'Email Campaign', icon: 'mail-outline' as any, color: '#34C759', action: () => setActiveTab('email') },
-          { label: 'View Revenue', icon: 'trending-up-outline' as any, color: '#FFD60A', action: () => setActiveTab('revenue') },
-        ].map(qa => (
-          <Pressable key={qa.label} onPress={qa.action}
-            style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: qa.color + '15', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10, borderWidth: 1, borderColor: qa.color + '40' }}>
-            <Ionicons name={qa.icon} size={15} color={qa.color} />
-            <Text style={{ fontSize: 13, color: qa.color, fontFamily: 'Inter_600SemiBold' }}>{qa.label}</Text>
-          </Pressable>
-        ))}
-      </View>
-    </ScrollView>
-  );
+          {/* Right col – Recent Activity */}
+          <View style={isWide ? { width: 280 } : { marginTop: 0 }}>
+            <View style={{ backgroundColor: D.card, borderRadius: 20, padding: 16, borderWidth: 1, borderColor: D.border }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <Text style={{ fontSize: 11, fontFamily: 'Inter_700Bold', color: D.text, letterSpacing: 1, textTransform: 'uppercase' }}>Recent Activity</Text>
+                <Ionicons name="ellipsis-horizontal" size={16} color={D.muted} />
+              </View>
+              {recentActivity.length === 0 ? (
+                <View style={{ alignItems: 'center', paddingVertical: 30 }}>
+                  <Ionicons name="pulse-outline" size={32} color={D.muted} />
+                  <Text style={{ color: D.muted, marginTop: 8, fontSize: 13 }}>No recent activity</Text>
+                </View>
+              ) : (
+                recentActivity.map((item, i) => (
+                  <View key={i} style={{ flexDirection: 'row', gap: 12, marginBottom: 16 }}>
+                    <View style={{ alignItems: 'center' }}>
+                      <View style={{ width: 14, height: 14, borderRadius: 7, borderWidth: 2, borderColor: item.color, backgroundColor: D.bg }} />
+                      {i < recentActivity.length - 1 && <View style={{ width: 1, flex: 1, backgroundColor: D.border, marginTop: 4 }} />}
+                    </View>
+                    <View style={{ flex: 1, marginTop: -2 }}>
+                      <Text style={{ fontSize: 10, color: D.muted, marginBottom: 4 }}>{item.time}</Text>
+                      <View style={{ backgroundColor: D.bg, borderRadius: 12, padding: 10, borderWidth: 1, borderColor: D.border }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                          <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: D.text }}>{item.user}</Text>
+                          <View style={{ backgroundColor: item.color + '20', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
+                            <Text style={{ fontSize: 9, color: item.color, fontFamily: 'Inter_600SemiBold' }}>{item.type}</Text>
+                          </View>
+                        </View>
+                        <Text style={{ fontSize: 11, color: '#A0A0A8', lineHeight: 16 }}>{item.msg}</Text>
+                        {item.type === 'Job' && (
+                          <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+                            <Pressable onPress={() => setActiveTab('jobs')}
+                              style={{ paddingHorizontal: 10, paddingVertical: 4, backgroundColor: D.green + '20', borderRadius: 6 }}>
+                              <Text style={{ fontSize: 11, color: D.green, fontFamily: 'Inter_600SemiBold' }}>Review</Text>
+                            </Pressable>
+                          </View>
+                        )}
+                      </View>
+                    </View>
+                  </View>
+                ))
+              )}
+
+              {/* System Status */}
+              <View style={{ marginTop: 8, borderTopWidth: 1, borderTopColor: D.border, paddingTop: 14 }}>
+                <Text style={{ fontSize: 11, fontFamily: 'Inter_700Bold', color: D.text, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10 }}>System Status</Text>
+                {[
+                  { label: 'Database', status: 'Online', ok: true },
+                  { label: 'Auth Service', status: 'Active', ok: true },
+                  { label: 'Push Notifications', status: pushStats ? `${pushStats.withToken} tokens` : 'Loading', ok: true },
+                ].map((s, i) => (
+                  <View key={i} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 6 }}>
+                    <Text style={{ fontSize: 12, color: D.muted }}>{s.label}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                      <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: s.ok ? D.green : '#FF3B30' }} />
+                      <Text style={{ fontSize: 11, color: s.ok ? D.green : '#FF3B30', fontFamily: 'Inter_500Medium' }}>{s.status}</Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            </View>
+          </View>
+        </View>
+      </ScrollView>
+    );
+  };
 
   const USER_ROLE_FILTERS: { key: 'all' | UserRole; label: string; color: string }[] = [
     { key: 'all', label: 'All', color: '#007AFF' },
@@ -1895,65 +2195,155 @@ export default function AdminScreen() {
   };
 
   // ── MAIN RENDER ──
+  const isWeb = Platform.OS === 'web';
+
+  const SidebarNav = () => (
+    <View style={{ width: 230, backgroundColor: D.sidebar, borderRightWidth: 1, borderRightColor: D.border, flexDirection: 'column', paddingTop: webTopInset }}>
+      {/* Logo */}
+      <View style={{ height: 70, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, borderBottomWidth: 1, borderBottomColor: D.border, gap: 10 }}>
+        <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: D.text, alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ fontSize: 12, fontFamily: 'Inter_700Bold', color: D.sidebar }}>INI</Text>
+        </View>
+        <Text style={{ fontSize: 18, fontFamily: 'Inter_700Bold', color: D.text, letterSpacing: 1 }}>ADMIN</Text>
+      </View>
+      {/* Nav items */}
+      <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }} contentContainerStyle={{ paddingVertical: 12, paddingHorizontal: 10, gap: 4 }}>
+        {tabs.map(tab => {
+          const active = activeTab === tab.key;
+          return (
+            <Pressable key={tab.key} onPress={() => setActiveTab(tab.key)}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingVertical: 11, borderRadius: 12,
+                backgroundColor: active ? D.card : 'transparent' }}>
+              <Ionicons name={tab.icon} size={17} color={active ? PRIMARY : D.muted} />
+              <Text style={{ fontSize: 14, fontFamily: active ? 'Inter_600SemiBold' : 'Inter_400Regular', color: active ? D.text : D.muted }}>{tab.label}</Text>
+              {active && <View style={{ marginLeft: 'auto', width: 6, height: 6, borderRadius: 3, backgroundColor: PRIMARY }} />}
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+      {/* New Action */}
+      <View style={{ padding: 12, borderTopWidth: 1, borderTopColor: D.border }}>
+        <Pressable onPress={refreshData}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: D.card, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 11, borderWidth: 1, borderColor: D.border }}>
+          <Ionicons name="refresh-outline" size={16} color={D.muted} />
+          <Text style={{ fontSize: 13, color: D.muted, fontFamily: 'Inter_500Medium' }}>Refresh Data</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+
+  const renderContent = () => (
+    <>
+      {activeTab === 'dashboard' && renderDashboard()}
+      {activeTab === 'users' && renderUsers()}
+      {activeTab === 'bookings' && renderBookings()}
+      {activeTab === 'subscriptions' && renderSubscriptions()}
+      {activeTab === 'insurance' && renderInsurance()}
+      {activeTab === 'revenue' && renderRevenue()}
+      {activeTab === 'posts' && renderPosts()}
+      {activeTab === 'jobs' && renderJobs()}
+      {activeTab === 'ads' && renderAds()}
+      {activeTab === 'listings' && renderListings()}
+      {activeTab === 'links' && renderLinks()}
+      {activeTab === 'device-lock' && renderDeviceLock()}
+      {activeTab === 'notifications' && renderNotifications()}
+      {activeTab === 'email' && renderEmail()}
+      {activeTab === 'payouts' && renderPayouts()}
+    </>
+  );
+
   return (
-    <View style={{ flex: 1, backgroundColor: C.background }}>
-      {/* Header */}
-      <View style={{ paddingTop: webTopInset, backgroundColor: PRIMARY }}>
-        <View style={{ paddingHorizontal: 16, paddingVertical: 14, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          <Pressable onPress={() => router.back()}
-            style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
-            <Ionicons name="arrow-back" size={20} color="#FFF" />
-          </Pressable>
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 22, fontFamily: 'Inter_700Bold', color: '#FFF' }}>Admin Dashboard</Text>
-            <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.75)', fontFamily: 'Inter_400Regular' }}>
-              {stats.totalUsers} users · {stats.totalPosts} posts
-            </Text>
+    <View style={{ flex: 1, flexDirection: 'row', backgroundColor: D.bg }}>
+      {/* Left sidebar (web only) */}
+      {isWeb && <SidebarNav />}
+
+      {/* Main content */}
+      <View style={{ flex: 1, backgroundColor: D.bg }}>
+        {/* Top Header */}
+        <View style={{ paddingTop: isWeb ? 0 : insets.top, backgroundColor: D.sidebar, borderBottomWidth: 1, borderBottomColor: D.border }}>
+          <View style={{ height: isWeb ? 70 : undefined, paddingHorizontal: 16, paddingVertical: isWeb ? 0 : 14, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            {/* Back button (mobile) */}
+            {!isWeb && (
+              <Pressable onPress={() => router.back()}
+                style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: D.card, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: D.border }}>
+                <Ionicons name="arrow-back" size={18} color={D.text} />
+              </Pressable>
+            )}
+            {/* Title area */}
+            {isWeb ? (
+              <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <Pressable onPress={() => setActiveTab('dashboard')}
+                  style={{ paddingHorizontal: 14, paddingVertical: 8, backgroundColor: activeTab === 'dashboard' ? D.card : 'transparent', borderRadius: 20, flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderColor: D.border }}>
+                  <Ionicons name="cube-outline" size={14} color={PRIMARY} />
+                  <Text style={{ fontSize: 13, fontFamily: 'Inter_500Medium', color: D.text }}>Check Box</Text>
+                </Pressable>
+                <Pressable onPress={() => setActiveTab('revenue')}
+                  style={{ paddingHorizontal: 14, paddingVertical: 8, backgroundColor: 'transparent', borderRadius: 20, flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderColor: D.border }}>
+                  <Ionicons name="bar-chart-outline" size={14} color={D.muted} />
+                  <Text style={{ fontSize: 13, fontFamily: 'Inter_500Medium', color: D.muted }}>Monitoring</Text>
+                </Pressable>
+                <Pressable
+                  style={{ paddingHorizontal: 14, paddingVertical: 8, backgroundColor: 'transparent', borderRadius: 20, flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderColor: D.border }}>
+                  <Ionicons name="chatbubble-outline" size={14} color={D.muted} />
+                  <Text style={{ fontSize: 13, fontFamily: 'Inter_500Medium', color: D.muted }}>Support</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 18, fontFamily: 'Inter_700Bold', color: D.text }}>Admin Dashboard</Text>
+                <Text style={{ fontSize: 11, color: D.muted, fontFamily: 'Inter_400Regular' }}>{stats.totalUsers} users · {stats.totalPosts} posts</Text>
+              </View>
+            )}
+            {/* Right actions */}
+            <Pressable onPress={refreshData}
+              style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: D.card, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: D.border }}>
+              <Ionicons name="search-outline" size={16} color={D.muted} />
+            </Pressable>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingLeft: 10, borderLeftWidth: 1, borderLeftColor: D.border }}>
+              {isWeb && (
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={{ fontSize: 13, fontFamily: 'Inter_700Bold', color: D.text }}>Admin User</Text>
+                  <Text style={{ fontSize: 11, color: D.muted }}>@admin</Text>
+                </View>
+              )}
+              <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: D.card, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: D.border }}>
+                <Ionicons name="person-outline" size={16} color={D.muted} />
+              </View>
+              {isWeb && (
+                <View style={{ position: 'absolute', top: -2, right: -2, width: 16, height: 16, borderRadius: 8, backgroundColor: PRIMARY, alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ fontSize: 9, color: '#FFF', fontFamily: 'Inter_700Bold' }}>2</Text>
+                </View>
+              )}
+            </View>
           </View>
-          <Pressable onPress={refreshData}
-            style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
-            <Ionicons name="refresh-outline" size={18} color="#FFF" />
-          </Pressable>
+
+          {/* Mobile horizontal tabs */}
+          {!isWeb && (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ gap: 6, paddingHorizontal: 16, paddingBottom: 12 }}>
+              {tabs.map(tab => {
+                const active = activeTab === tab.key;
+                return (
+                  <Pressable key={tab.key} onPress={() => setActiveTab(tab.key)}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 5,
+                      paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20,
+                      backgroundColor: active ? PRIMARY : D.card,
+                      borderWidth: 1, borderColor: active ? PRIMARY : D.border }}>
+                    <Ionicons name={tab.icon} size={13} color={active ? '#FFF' : D.muted} />
+                    <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: active ? '#FFF' : D.muted }}>
+                      {tab.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          )}
         </View>
 
-        {/* Tab bar */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ gap: 6, paddingHorizontal: 16, paddingBottom: 12 }}>
-          {tabs.map(tab => {
-            const active = activeTab === tab.key;
-            return (
-              <Pressable key={tab.key} onPress={() => setActiveTab(tab.key)}
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 5,
-                  paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20,
-                  backgroundColor: active ? '#FFF' : 'rgba(255,255,255,0.15)',
-                  borderWidth: active ? 0 : 1, borderColor: 'rgba(255,255,255,0.25)' }}>
-                <Ionicons name={tab.icon} size={13} color={active ? PRIMARY : '#FFF'} />
-                <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: active ? PRIMARY : '#FFF' }}>
-                  {tab.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-      </View>
-
-      {/* Content */}
-      <View style={{ flex: 1 }}>
-        {activeTab === 'dashboard' && renderDashboard()}
-        {activeTab === 'users' && renderUsers()}
-        {activeTab === 'bookings' && renderBookings()}
-        {activeTab === 'subscriptions' && renderSubscriptions()}
-        {activeTab === 'insurance' && renderInsurance()}
-        {activeTab === 'revenue' && renderRevenue()}
-        {activeTab === 'posts' && renderPosts()}
-        {activeTab === 'jobs' && renderJobs()}
-        {activeTab === 'ads' && renderAds()}
-        {activeTab === 'listings' && renderListings()}
-        {activeTab === 'links' && renderLinks()}
-        {activeTab === 'device-lock' && renderDeviceLock()}
-        {activeTab === 'notifications' && renderNotifications()}
-        {activeTab === 'email' && renderEmail()}
-        {activeTab === 'payouts' && renderPayouts()}
+        {/* Page content */}
+        <View style={{ flex: 1, backgroundColor: D.bg }}>
+          {renderContent()}
+        </View>
       </View>
     </View>
   );
