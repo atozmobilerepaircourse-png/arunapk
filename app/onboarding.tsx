@@ -243,6 +243,15 @@ export default function OnboardingScreen() {
     setOtpSending(true);
     const cleanDigits = phoneNumber.replace(/\D/g, '').replace(/^91/, '');
     const fullPhone = '+91' + cleanDigits;
+    
+    console.log('[OTP] sendOtp called with:', {
+      input: phoneNumber,
+      cleaned: cleanDigits,
+      fullPhone,
+      platform: Platform.OS,
+      recaptchaReady: !!recaptchaVerifierRef.current,
+    });
+    
     try {
       // PRIMARY: Always use backend OTP first (most reliable, no quota limits)
       console.log('[OTP] Sending backend OTP for:', cleanDigits);
@@ -260,22 +269,51 @@ export default function OnboardingScreen() {
       // FALLBACK: On native, try Firebase if backend fails
       if (Platform.OS !== 'web') {
         try {
+          console.log('[Firebase OTP] Debug Info:', {
+            firebaseAuth: !!firebaseAuth,
+            recaptchaVerifier: !!recaptchaVerifierRef.current,
+            fullPhone,
+            firebaseConfigApiKey: !!firebaseConfig?.apiKey,
+          });
+          
           if (!recaptchaVerifierRef.current) {
             console.error('[Firebase] RecaptchaVerifier not initialized');
             throw new Error('Recaptcha not initialized');
           }
-          console.log('[Firebase OTP] Attempting Firebase Phone Auth');
+          
+          console.log('[Firebase OTP] Calling verifyPhoneNumber with phone:', fullPhone);
           const phoneProvider = new PhoneAuthProvider(firebaseAuth);
+          
           const vId = await phoneProvider.verifyPhoneNumber(fullPhone, recaptchaVerifierRef.current);
+          
+          console.log('[Firebase OTP] Success! Verification ID returned:', vId);
+          console.log('[Firebase OTP] SMS should be sent to', fullPhone);
+          
           setFirebaseVerificationId(vId);
           setUseFirebaseOTP(true);
           setOtpSent(true);
           setOtpResendTimer(30);
-          console.log('[Firebase OTP] Sent successfully via Firebase');
+          
+          Alert.alert('✓ SMS Sent', `Verification code sent to ${fullPhone}. Please check your messages.`);
           return; // Firebase success
         } catch (fbErr: any) {
-          console.error('[Firebase OTP] Failed:', fbErr?.message || fbErr?.code);
-          Alert.alert('Firebase OTP Error', fbErr?.message || 'Could not send OTP via Firebase. Please try again.');
+          console.error('[Firebase OTP] Error Details:', {
+            code: fbErr?.code,
+            message: fbErr?.message,
+            name: fbErr?.name,
+            customData: fbErr?.customData,
+            stack: fbErr?.stack?.split('\n').slice(0, 3).join(' '),
+          });
+          
+          const errorMsg = 
+            fbErr?.code === 'auth/invalid-phone-number' ? `Invalid phone number format. Make sure it includes country code.` :
+            fbErr?.code === 'auth/missing-phone-number' ? `Phone number is required.` :
+            fbErr?.code === 'auth/quota-exceeded' ? `SMS quota exceeded. Please try later.` :
+            fbErr?.code === 'auth/invalid-app-credential' ? `Firebase app is not configured correctly.` :
+            fbErr?.code === 'auth/missing-recaptcha-token' ? `Recaptcha verification failed.` :
+            fbErr?.message || 'Could not send OTP via Firebase. Please try again.';
+            
+          Alert.alert('Firebase OTP Error', errorMsg);
           throw fbErr;
         }
       }

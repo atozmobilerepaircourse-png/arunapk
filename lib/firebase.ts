@@ -12,6 +12,14 @@ const firebaseConfig = {
   messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
 };
 
+console.log('[Firebase] Initializing with config:', {
+  apiKey: firebaseConfig.apiKey ? firebaseConfig.apiKey.substring(0, 10) + '...' : 'MISSING',
+  authDomain: firebaseConfig.authDomain || 'MISSING',
+  projectId: firebaseConfig.projectId || 'MISSING',
+  appId: firebaseConfig.appId ? firebaseConfig.appId.substring(0, 10) + '...' : 'MISSING',
+  messagingSenderId: firebaseConfig.messagingSenderId || 'MISSING',
+});
+
 export const firebaseApp = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 export const firebaseAuth = getAuth(firebaseApp);
 export const firebaseStorage = getStorage(firebaseApp);
