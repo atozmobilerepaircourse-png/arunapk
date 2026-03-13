@@ -229,8 +229,9 @@ export default function AIRepairScreen() {
 
       const decoder = new TextDecoder();
       let fullText = '';
+      let isDone = false;
 
-      while (true) {
+      while (!isDone) {
         const { done, value } = await reader.read();
         if (done) break;
 
@@ -239,29 +240,41 @@ export default function AIRepairScreen() {
 
         for (const line of lines) {
           if (line.startsWith('data: ')) {
-            const data = line.slice(6).trim();
-            if (data === '[DONE]') break;
+            const dataStr = line.slice(6).trim();
+            if (dataStr === '[DONE]') {
+              isDone = true;
+              break;
+            }
+            if (!dataStr) continue;
+            
             try {
-              const parsed = JSON.parse(data);
-              if (parsed.content) {
+              const parsed = JSON.parse(dataStr);
+              if (parsed && typeof parsed.content === 'string') {
                 fullText += parsed.content;
-                setStreamingText(fullText);
+                setStreamingText(prev => prev + parsed.content);
               }
-            } catch {}
+            } catch (parseErr) {
+              console.warn('[AI Chat] JSON parse error:', parseErr);
+            }
           }
         }
       }
 
+      // Ensure fullText is a string before creating message
+      const finalText = String(fullText).trim() || 'Sorry, I could not generate a response. Please try again.';
+      
       const aiMsg: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: fullText || 'Sorry, I could not generate a response. Please try again.',
+        content: finalText,
         timestamp: new Date(),
       };
+      
       setMessages(prev => [aiMsg, ...prev]);
       setStreamingText('');
     } catch (err: any) {
       if (err.name !== 'AbortError') {
+        console.error('[AI Chat] Error:', err);
         Alert.alert('Error', 'Could not reach AI. Check your connection.');
       }
     } finally {
@@ -364,7 +377,18 @@ export default function AIRepairScreen() {
   // ─── Render ─────────────────────────────────────────────────────────────────
 
   const renderChatMessage = useCallback(({ item }: { item: ChatMessage }) => {
+    // Validate message structure
+    if (!item || !item.role || typeof item.content !== 'string') {
+      return null;
+    }
+
     const isUser = item.role === 'user';
+    const contentStr = String(item.content).trim();
+    
+    if (!contentStr) {
+      return null;
+    }
+
     return (
       <View style={[s.msgRow, isUser ? s.msgRowUser : s.msgRowAI]}>
         {!isUser && (
@@ -374,12 +398,12 @@ export default function AIRepairScreen() {
         )}
         <View style={[s.bubble, isUser ? s.bubbleUser : s.bubbleAI]}>
           <Text style={[s.bubbleText, isUser ? s.bubbleTextUser : s.bubbleTextAI]}>
-            {item.content}
+            {contentStr}
           </Text>
           {!isUser && (
             <Pressable
               style={s.shareBtn}
-              onPress={() => shareAsPost(item.content)}
+              onPress={() => shareAsPost(contentStr)}
             >
               <Ionicons name="share-outline" size={12} color={MUTED} />
               <Text style={s.shareBtnText}>Share as Post</Text>
