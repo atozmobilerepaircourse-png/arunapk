@@ -664,11 +664,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await db.delete(otpTokens).where(eq(otpTokens.phone, cleanPhone));
       await db.insert(otpTokens).values({ phone: cleanPhone, otp, expiresAt });
 
-      console.log(`[OTP] Generated for ${cleanPhone}: ${otp}. Using Firebase Phone Auth for SMS delivery.`);
+      console.log(`[OTP] Generated for ${cleanPhone}: ${otp}. Expires at ${new Date(expiresAt).toISOString()}`);
 
+      // Return OTP for development/web testing
+      // Mobile apps will use Firebase Phone Auth for real SMS delivery
       return res.json({
         success: true,
-        message: "OTP will be sent via Firebase Phone Auth. Please check your SMS.",
+        message: "OTP generated. Firebase Phone Auth will send SMS on mobile devices.",
+        otp: otp, // For development only
       });
     } catch (error: any) {
       console.error("[OTP] Send error:", error?.message || error, error?.stack?.split('\n').slice(0,3).join(' '));

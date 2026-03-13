@@ -293,15 +293,22 @@ export default function OnboardingScreen() {
       const res = await apiRequest('POST', '/api/otp/send', { phone: cleanDigits });
       const data = await res.json();
       if (data.success) {
-        console.log('[OTP] Backend confirmed OTP generation. Firebase will send SMS.');
-        throw new Error('Use Firebase for OTP'); // Trigger Firebase fallback
+        console.log('[OTP] Backend confirmed OTP generation. OTP will be sent via Firebase Phone Auth on mobile.');
+        setOtpSent(true);
+        setOtpResendTimer(30);
+        // For development/web: show OTP code if backend returns it
+        if (data.otp) {
+          Alert.alert('🔐 Your OTP Code (Dev)', `${data.otp}\n\nEnter this to verify. SMS will be sent on mobile devices.`, [{ text: 'Got it' }]);
+        } else {
+          Alert.alert('✓ OTP Sent', 'Check your phone for the 6-digit code. It expires in 5 minutes.');
+        }
       } else {
         console.log('[OTP] Backend error:', data.message);
         throw new Error(data.message || 'Failed to send OTP');
       }
     } catch (err: any) {
-      console.log('[OTP] Backend skipped, using Firebase:', err?.message);
-      throw err; // Re-throw to trigger Firebase fallback
+      console.error('[OTP] Backend error:', err?.message);
+      throw err; // Re-throw for sendOtp to handle
     }
   };
 
