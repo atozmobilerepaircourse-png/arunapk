@@ -363,10 +363,10 @@ export default function AIRepairScreen() {
 
   // ─── Render ─────────────────────────────────────────────────────────────────
 
-  const renderChatMessage = ({ item, index }: { item: ChatMessage; index: number }) => {
+  const renderChatMessage = useCallback(({ item }: { item: ChatMessage }) => {
     const isUser = item.role === 'user';
     return (
-      <Animated.View entering={FadeInDown.delay(0).duration(300)} style={[s.msgRow, isUser ? s.msgRowUser : s.msgRowAI]}>
+      <View style={[s.msgRow, isUser ? s.msgRowUser : s.msgRowAI]}>
         {!isUser && (
           <View style={s.aiAvatar}>
             <Ionicons name="hardware-chip" size={16} color={ACCENT} />
@@ -386,9 +386,9 @@ export default function AIRepairScreen() {
             </Pressable>
           )}
         </View>
-      </Animated.View>
+      </View>
     );
-  };
+  }, []);
 
   const renderChat = () => (
     <KeyboardAvoidingView
