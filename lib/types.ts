@@ -1,4 +1,4 @@
-export type UserRole = 'technician' | 'teacher' | 'supplier' | 'job_provider' | 'customer';
+export type UserRole = 'technician' | 'teacher' | 'supplier' | 'job_provider' | 'customer' | 'admin';
 
 export interface UserProfile {
   id: string;
@@ -254,6 +254,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   supplier: 'Supplier',
   job_provider: 'Job Provider',
   customer: 'Customer',
+  admin: 'Admin',
 };
 
 export const CATEGORY_LABELS: Record<PostCategory, string> = {

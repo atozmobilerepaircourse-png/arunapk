@@ -31,6 +31,15 @@ import * as WebBrowser from 'expo-web-browser';
 
 const C = Colors.light;
 
+const SUPER_ADMIN_PHONE = '8179142535';
+
+function getRoleRoute(profile: { role?: string; phone?: string }): string {
+  const cleanPhone = (profile.phone || '').replace(/\D/g, '').replace(/^91/, '').slice(-10);
+  if (cleanPhone === SUPER_ADMIN_PHONE || profile.role === 'admin') return '/admin';
+  if (profile.role === 'customer') return '/(tabs)/customer-home';
+  return '/(tabs)';
+}
+
 const ROLES: { key: UserRole; icon: keyof typeof Ionicons.glyphMap; color: string }[] = [
   { key: 'customer', icon: 'person', color: '#FF375F' },
   { key: 'technician', icon: 'construct', color: '#32D74B' },
@@ -48,8 +57,7 @@ export default function OnboardingScreen() {
   // If user is already onboarded (logged in), redirect immediately
   useEffect(() => {
     if (isOnboarded && profile?.id) {
-      const isCustomer = profile.role === 'customer';
-      router.replace(isCustomer ? '/(tabs)/customer-home' : '/(tabs)');
+      router.replace(getRoleRoute(profile) as any);
     }
   }, [isOnboarded, profile?.id]);
   const [step, setStep] = useState(0);
@@ -384,8 +392,7 @@ export default function OnboardingScreen() {
       await loginWithProfile(p, sessionData.sessionToken || '');
       if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setTimeout(() => {
-        const isCustomer = p.role === 'customer';
-        router.replace(isCustomer ? '/(tabs)/customer-home' : '/(tabs)');
+        router.replace(getRoleRoute(p) as any);
       }, 300);
       return;
     }
@@ -668,8 +675,7 @@ export default function OnboardingScreen() {
           console.log('[GooglePhoneSubmit] Existing user, logging in');
           await loginWithProfile(data.profile, token);
           setTimeout(() => {
-            const isCustomer = data.profile.role === 'customer';
-            router.replace(isCustomer ? '/(tabs)/customer-home' : '/(tabs)');
+            router.replace(getRoleRoute(data.profile) as any);
           }, 100);
           return;
         }
@@ -917,7 +923,7 @@ export default function OnboardingScreen() {
     }
 
     setUploadingSelfie(false);
-    router.replace(isCustomer ? '/(tabs)/customer-home' : '/(tabs)');
+    router.replace(getRoleRoute({ role, phone }) as any);
   };
 
   const renderStep = () => {

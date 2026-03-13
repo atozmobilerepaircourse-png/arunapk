@@ -15,15 +15,15 @@ import { openLink } from '@/lib/open-link';
 const C = Colors.light;
 const PRIMARY = '#FF6B2C';
 
-type AdminTab = 'dashboard' | 'users' | 'posts' | 'jobs' | 'bookings' | 'subscriptions' | 'revenue' | 'links' | 'notifications' | 'payouts' | 'email' | 'insurance' | 'ads' | 'listings';
+type AdminTab = 'dashboard' | 'users' | 'customers' | 'technicians' | 'teachers' | 'suppliers' | 'products' | 'orders' | 'reports' | 'settings' | 'posts' | 'jobs' | 'bookings' | 'subscriptions' | 'revenue' | 'links' | 'notifications' | 'payouts' | 'email' | 'insurance' | 'ads' | 'listings';
 
-const ROLE_COLORS: Record<UserRole | 'admin', string> = {
+const ROLE_COLORS: Record<string, string> = {
   technician: '#34C759',
   teacher: '#FFD60A',
   supplier: '#FF6B2C',
   job_provider: '#5E8BFF',
   customer: '#FF2D55',
-  admin: '#8E8E93',
+  admin: '#AF52DE',
 };
 
 const NOTIF_ROLE_OPTIONS = [
@@ -141,7 +141,7 @@ function UserDetailCard({ user, onBlock, onVerify, onDelete }: {
     }
   };
 
-  const ROLES_LIST: UserRole[] = ['technician', 'teacher', 'supplier', 'customer', 'job_provider'];
+  const ROLES_LIST: UserRole[] = ['admin', 'technician', 'teacher', 'supplier', 'customer', 'job_provider'];
 
   return (
     <View style={[ss.userCard, isBlocked && { borderColor: '#FF3B30', borderWidth: 1.5 }]}>
@@ -770,10 +770,19 @@ export default function AdminScreen() {
   }, [emailSubject, emailBody, emailTargetRole, emailScheduleDate, emailScheduleTime, fetchEmailStats]);
 
   // ── Tabs config ──
-  const tabs: { key: AdminTab; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
-    { key: 'dashboard', label: 'Dashboard', icon: 'grid-outline' },
-    { key: 'users', label: 'Users', icon: 'people-outline' },
-    { key: 'bookings', label: 'Bookings', icon: 'calendar-outline' },
+  const tabs: { key: AdminTab; label: string; icon: keyof typeof Ionicons.glyphMap; group?: string }[] = [
+    // Primary sections
+    { key: 'dashboard', label: 'Dashboard', icon: 'grid-outline', group: 'main' },
+    { key: 'users', label: 'All Users', icon: 'people-outline', group: 'main' },
+    { key: 'customers', label: 'Customers', icon: 'person-outline', group: 'roles' },
+    { key: 'technicians', label: 'Technicians', icon: 'construct-outline', group: 'roles' },
+    { key: 'teachers', label: 'Teachers', icon: 'school-outline', group: 'roles' },
+    { key: 'suppliers', label: 'Suppliers', icon: 'cube-outline', group: 'roles' },
+    { key: 'products', label: 'Products', icon: 'pricetag-outline', group: 'main' },
+    { key: 'orders', label: 'Orders', icon: 'calendar-outline', group: 'main' },
+    { key: 'reports', label: 'Reports', icon: 'bar-chart-outline', group: 'main' },
+    { key: 'settings', label: 'Settings', icon: 'settings-outline', group: 'main' },
+    // Extra existing tabs
     { key: 'subscriptions', label: 'Subscriptions', icon: 'card-outline' },
     { key: 'insurance', label: 'Insurance', icon: 'shield-checkmark-outline' },
     { key: 'revenue', label: 'Revenue', icon: 'trending-up-outline' },
@@ -832,14 +841,37 @@ export default function AdminScreen() {
         ))}
       </SectionCard>
 
+      {/* Role Management Shortcuts */}
+      <Text style={[ss.sectionTitle, { marginTop: 20 }]}>Manage by Role</Text>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
+        {[
+          { label: 'Customers', icon: 'person-outline' as any, color: '#FF2D55', tab: 'customers' as AdminTab, count: stats.roleBreakdown?.customer || 0 },
+          { label: 'Technicians', icon: 'construct-outline' as any, color: '#34C759', tab: 'technicians' as AdminTab, count: stats.roleBreakdown?.technician || 0 },
+          { label: 'Teachers', icon: 'school-outline' as any, color: '#FFD60A', tab: 'teachers' as AdminTab, count: stats.roleBreakdown?.teacher || 0 },
+          { label: 'Suppliers', icon: 'cube-outline' as any, color: '#FF6B2C', tab: 'suppliers' as AdminTab, count: stats.roleBreakdown?.supplier || 0 },
+        ].map(item => (
+          <Pressable key={item.label} onPress={() => setActiveTab(item.tab)}
+            style={{ flex: 1, minWidth: '46%', backgroundColor: item.color + '10', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: item.color + '30', gap: 6 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <View style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: item.color + '20', alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name={item.icon} size={15} color={item.color} />
+              </View>
+              <Text style={{ fontSize: 18, fontFamily: 'Inter_700Bold', color: item.color }}>{item.count}</Text>
+            </View>
+            <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: C.text }}>{item.label}</Text>
+            <Text style={{ fontSize: 10, fontFamily: 'Inter_400Regular', color: item.color }}>Manage →</Text>
+          </Pressable>
+        ))}
+      </View>
+
       {/* Quick actions */}
       <Text style={[ss.sectionTitle, { marginTop: 20 }]}>Quick Actions</Text>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
         {[
           { label: 'Export Users', icon: 'download-outline' as any, color: '#5E8BFF', action: downloadUsersCSV },
-          { label: 'Send Notification', icon: 'notifications-outline' as any, color: PRIMARY, action: () => setActiveTab('notifications') },
+          { label: 'Reports', icon: 'bar-chart-outline' as any, color: PRIMARY, action: () => setActiveTab('reports') },
           { label: 'Email Campaign', icon: 'mail-outline' as any, color: '#34C759', action: () => setActiveTab('email') },
-          { label: 'View Revenue', icon: 'trending-up-outline' as any, color: '#FFD60A', action: () => setActiveTab('revenue') },
+          { label: 'Settings', icon: 'settings-outline' as any, color: '#FFD60A', action: () => setActiveTab('settings') },
         ].map(qa => (
           <Pressable key={qa.label} onPress={qa.action}
             style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: qa.color + '15', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10, borderWidth: 1, borderColor: qa.color + '40' }}>
@@ -853,6 +885,7 @@ export default function AdminScreen() {
 
   const USER_ROLE_FILTERS: { key: 'all' | UserRole; label: string; color: string }[] = [
     { key: 'all', label: 'All', color: '#007AFF' },
+    { key: 'admin', label: 'Admins', color: '#AF52DE' },
     { key: 'technician', label: 'Techs', color: '#34C759' },
     { key: 'teacher', label: 'Teachers', color: '#FFD60A' },
     { key: 'supplier', label: 'Suppliers', color: '#FF6B2C' },
@@ -916,6 +949,166 @@ export default function AdminScreen() {
         }
       />
     </View>
+  );
+
+  // ── Role-filtered user views ──
+  const renderRoleUsers = (role: string, label: string, icon: keyof typeof Ionicons.glyphMap, color: string) => {
+    const roleUsers = (allProfiles || []).filter(p => p.role === role);
+    const searched = userSearchQuery
+      ? roleUsers.filter(p =>
+          (p.name || '').toLowerCase().includes(userSearchQuery.toLowerCase()) ||
+          (p.phone || '').includes(userSearchQuery) ||
+          (p.city || '').toLowerCase().includes(userSearchQuery.toLowerCase())
+        )
+      : roleUsers;
+    return (
+      <View style={{ flex: 1 }}>
+        <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 6, gap: 10 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: color + '15', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: color + '30' }}>
+            <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: color + '25', alignItems: 'center', justifyContent: 'center' }}>
+              <Ionicons name={icon} size={18} color={color} />
+            </View>
+            <View>
+              <Text style={{ fontFamily: 'Inter_700Bold', fontSize: 15, color: C.text }}>{label}s</Text>
+              <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 12, color: C.textSecondary }}>{roleUsers.length} registered</Text>
+            </View>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: C.surface, borderRadius: 12, paddingHorizontal: 12, borderWidth: 1, borderColor: C.border }}>
+            <Ionicons name="search" size={16} color={C.textTertiary} />
+            <TextInput value={userSearchQuery} onChangeText={setUserSearchQuery}
+              placeholder={`Search ${label.toLowerCase()}s...`}
+              placeholderTextColor={C.textTertiary}
+              style={{ flex: 1, color: C.text, paddingVertical: 10, paddingHorizontal: 8, fontFamily: 'Inter_400Regular', fontSize: 14 }} />
+            {userSearchQuery.length > 0 && (
+              <Pressable onPress={() => setUserSearchQuery('')} hitSlop={8}>
+                <Ionicons name="close-circle" size={16} color={C.textTertiary} />
+              </Pressable>
+            )}
+          </View>
+          <Text style={{ color: C.textTertiary, fontSize: 12, fontFamily: 'Inter_400Regular' }}>{searched.length} result{searched.length !== 1 ? 's' : ''}</Text>
+        </View>
+        <FlatList
+          data={searched}
+          keyExtractor={item => item.id}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 40, paddingHorizontal: 16 }}
+          renderItem={({ item }) => (
+            <UserDetailCard user={{ id: item.id, name: item.name || 'Unknown', role: item.role, city: item.city, isRegistered: true, fullProfile: item }}
+              onBlock={handleBlockUser} onVerify={executeVerifyUser} onDelete={executeDeleteUser} />
+          )}
+          ListEmptyComponent={
+            <View style={{ alignItems: 'center', padding: 40 }}>
+              <Ionicons name={icon} size={40} color={C.textTertiary} />
+              <Text style={{ color: C.textTertiary, fontSize: 14, fontFamily: 'Inter_400Regular', marginTop: 8 }}>
+                {userSearchQuery ? `No ${label.toLowerCase()}s match your search` : `No ${label.toLowerCase()}s yet`}
+              </Text>
+            </View>
+          }
+        />
+      </View>
+    );
+  };
+
+  const renderReports = () => {
+    const roleBreakdown = stats.roleBreakdown;
+    const totalUsers = stats.totalUsers || 1;
+    return (
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+        <Text style={ss.sectionTitle}>Platform Overview</Text>
+        <View style={[ss.statsGrid, { marginBottom: 16 }]}>
+          <StatCard label="Total Users" value={stats.totalUsers} icon="people" color={PRIMARY} />
+          <StatCard label="Registered" value={stats.registeredUsers} icon="person-add" color="#34C759" />
+          <StatCard label="Total Posts" value={stats.totalPosts} icon="newspaper" color="#5E8BFF" />
+          <StatCard label="Total Jobs" value={stats.totalJobs} icon="briefcase" color="#FFD60A" />
+          <StatCard label="Total Chats" value={stats.totalChats} icon="chatbubbles" color="#FF6B2C" />
+          <StatCard label="Total Likes" value={stats.totalLikes} icon="heart" color="#FF3B30" />
+        </View>
+
+        <Text style={[ss.sectionTitle, { marginTop: 4 }]}>User Distribution by Role</Text>
+        <SectionCard style={{ marginTop: 10 }}>
+          {Object.entries(roleBreakdown).map(([role, count], idx, arr) => {
+            const pct = Math.round(((count as number) / totalUsers) * 100);
+            const col = ROLE_COLORS[role] || '#8E8E93';
+            return (
+              <View key={role} style={[{ paddingVertical: 12 }, idx < arr.length - 1 && { borderBottomWidth: 1, borderBottomColor: C.border }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                  <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: col, marginRight: 8 }} />
+                  <Text style={{ flex: 1, color: C.text, fontSize: 13, fontFamily: 'Inter_600SemiBold' }}>{ROLE_LABELS[role as UserRole] || role}</Text>
+                  <Text style={{ color: col, fontSize: 13, fontFamily: 'Inter_700Bold' }}>{count as number}</Text>
+                  <Text style={{ color: C.textTertiary, fontSize: 11, fontFamily: 'Inter_400Regular', marginLeft: 6, width: 32, textAlign: 'right' }}>{pct}%</Text>
+                </View>
+                <View style={{ height: 6, backgroundColor: C.surfaceElevated, borderRadius: 3 }}>
+                  <View style={{ width: `${Math.max(pct, 3)}%`, height: 6, borderRadius: 3, backgroundColor: col }} />
+                </View>
+              </View>
+            );
+          })}
+        </SectionCard>
+
+        <Text style={[ss.sectionTitle, { marginTop: 20 }]}>Engagement Metrics</Text>
+        <SectionCard style={{ marginTop: 10 }}>
+          {[
+            { label: 'Total Comments', value: stats.totalComments, icon: 'chatbubble-outline' as any },
+            { label: 'Avg Likes / Post', value: stats.totalPosts > 0 ? (stats.totalLikes / stats.totalPosts).toFixed(1) : '0', icon: 'heart-outline' as any },
+            { label: 'Most Active Role', value: ROLE_LABELS[Object.entries(roleBreakdown).sort((a, b) => (b[1] as number) - (a[1] as number))[0]?.[0] as UserRole] || '-', icon: 'star-outline' as any },
+            { label: 'Registration Rate', value: `${stats.totalUsers > 0 ? Math.round((stats.registeredUsers / stats.totalUsers) * 100) : 0}%`, icon: 'trending-up-outline' as any },
+          ].map((m, idx, arr) => (
+            <View key={m.label} style={[{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12 }, idx < arr.length - 1 && { borderBottomWidth: 1, borderBottomColor: C.border }]}>
+              <View style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: PRIMARY + '15', alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
+                <Ionicons name={m.icon} size={15} color={PRIMARY} />
+              </View>
+              <Text style={{ flex: 1, color: C.textSecondary, fontSize: 13, fontFamily: 'Inter_400Regular' }}>{m.label}</Text>
+              <Text style={{ color: C.text, fontSize: 14, fontFamily: 'Inter_700Bold' }}>{m.value}</Text>
+            </View>
+          ))}
+        </SectionCard>
+      </ScrollView>
+    );
+  };
+
+  const renderSettings = () => (
+    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+      <Text style={ss.sectionTitle}>App Settings</Text>
+
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 12 }}>
+        {[
+          { label: 'Subscriptions', icon: 'card-outline' as any, color: '#5E8BFF', tab: 'subscriptions' as AdminTab },
+          { label: 'Insurance', icon: 'shield-checkmark-outline' as any, color: '#34C759', tab: 'insurance' as AdminTab },
+          { label: 'App Links', icon: 'link-outline' as any, color: '#FF6B2C', tab: 'links' as AdminTab },
+          { label: 'Notifications', icon: 'notifications-outline' as any, color: '#AF52DE', tab: 'notifications' as AdminTab },
+          { label: 'Email Campaigns', icon: 'mail-outline' as any, color: '#FFD60A', tab: 'email' as AdminTab },
+          { label: 'Payouts', icon: 'cash-outline' as any, color: '#34C759', tab: 'payouts' as AdminTab },
+          { label: 'Revenue', icon: 'trending-up-outline' as any, color: '#FF3B30', tab: 'revenue' as AdminTab },
+          { label: 'Ads & Shop', icon: 'megaphone-outline' as any, color: '#FF6B2C', tab: 'ads' as AdminTab },
+        ].map(item => (
+          <Pressable key={item.label} onPress={() => setActiveTab(item.tab)}
+            style={{ flex: 1, minWidth: '46%', backgroundColor: item.color + '10', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: item.color + '30', alignItems: 'center', gap: 8 }}>
+            <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: item.color + '20', alignItems: 'center', justifyContent: 'center' }}>
+              <Ionicons name={item.icon} size={20} color={item.color} />
+            </View>
+            <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: C.text, textAlign: 'center' }}>{item.label}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <Text style={{ fontSize: 11, color: item.color, fontFamily: 'Inter_500Medium' }}>Manage</Text>
+              <Ionicons name="arrow-forward" size={11} color={item.color} />
+            </View>
+          </Pressable>
+        ))}
+      </View>
+
+      <Text style={[ss.sectionTitle, { marginTop: 24 }]}>Admin Info</Text>
+      <SectionCard style={{ marginTop: 10 }}>
+        {[
+          { label: 'Super Admin Phone', value: '8179142535' },
+          { label: 'Admin Role', value: 'Full Access' },
+          { label: 'API Security', value: 'Protected' },
+        ].map((item, idx, arr) => (
+          <View key={item.label} style={[{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10 }, idx < arr.length - 1 && { borderBottomWidth: 1, borderBottomColor: C.border }]}>
+            <Text style={{ color: C.textSecondary, fontSize: 13, fontFamily: 'Inter_400Regular' }}>{item.label}</Text>
+            <Text style={{ color: C.text, fontSize: 13, fontFamily: 'Inter_600SemiBold' }}>{item.value}</Text>
+          </View>
+        ))}
+      </SectionCard>
+    </ScrollView>
   );
 
   const renderBookings = () => (
@@ -1863,6 +2056,14 @@ export default function AdminScreen() {
       <View style={{ flex: 1 }}>
         {activeTab === 'dashboard' && renderDashboard()}
         {activeTab === 'users' && renderUsers()}
+        {activeTab === 'customers' && renderRoleUsers('customer', 'Customer', 'person-outline', '#FF2D55')}
+        {activeTab === 'technicians' && renderRoleUsers('technician', 'Technician', 'construct-outline', '#34C759')}
+        {activeTab === 'teachers' && renderRoleUsers('teacher', 'Teacher', 'school-outline', '#FFD60A')}
+        {activeTab === 'suppliers' && renderRoleUsers('supplier', 'Supplier', 'cube-outline', '#FF6B2C')}
+        {activeTab === 'products' && renderListings()}
+        {activeTab === 'orders' && renderBookings()}
+        {activeTab === 'reports' && renderReports()}
+        {activeTab === 'settings' && renderSettings()}
         {activeTab === 'bookings' && renderBookings()}
         {activeTab === 'subscriptions' && renderSubscriptions()}
         {activeTab === 'insurance' && renderInsurance()}
