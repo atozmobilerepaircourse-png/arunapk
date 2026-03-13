@@ -259,7 +259,7 @@ function UserDetailCard({ user, onBlock, onVerify, onDelete }: {
                   <Text style={{ fontSize: 13, color: user.role === r ? ROLE_COLORS[r] : C.text, fontFamily: user.role === r ? 'Inter_600SemiBold' : 'Inter_400Regular' }}>
                     {ROLE_LABELS[r]}
                   </Text>
-                  {user.role === r && <Ionicons name="checkmark" size={14} color={ROLE_COLORS[r]} style={{ marginLeft: 'auto' }} />}
+                  {user.role === r && <><View style={{ flex: 1 }} /><Ionicons name="checkmark" size={14} color={ROLE_COLORS[r]} /></>}
                 </Pressable>
               ))}
             </View>
@@ -2039,7 +2039,8 @@ export default function AdminScreen() {
                   <Text style={{ fontSize: 11, color: C.textSecondary }}>{camp.sent}/{camp.total}</Text>
                 </View>
               )}
-              <Text style={{ fontSize: 11, color: C.textTertiary, marginLeft: 'auto' }}>
+              <View style={{ flex: 1 }} />
+              <Text style={{ fontSize: 11, color: C.textTertiary }}>
                 {camp.sentAt ? new Date(camp.sentAt).toLocaleDateString() : camp.scheduledAt ? `Sched: ${new Date(camp.scheduledAt).toLocaleDateString()}` : new Date(camp.createdAt).toLocaleDateString()}
               </Text>
             </View>
@@ -2216,7 +2217,7 @@ export default function AdminScreen() {
                 backgroundColor: active ? D.card : 'transparent' }}>
               <Ionicons name={tab.icon} size={17} color={active ? PRIMARY : D.muted} />
               <Text style={{ fontSize: 14, fontFamily: active ? 'Inter_600SemiBold' : 'Inter_400Regular', color: active ? D.text : D.muted }}>{tab.label}</Text>
-              {active && <View style={{ marginLeft: 'auto', width: 6, height: 6, borderRadius: 3, backgroundColor: PRIMARY }} />}
+              {active && <><View style={{ flex: 1 }} /><View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: PRIMARY }} /></>}
             </Pressable>
           );
         })}
