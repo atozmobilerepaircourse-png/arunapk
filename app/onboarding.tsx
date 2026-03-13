@@ -246,9 +246,9 @@ export default function OnboardingScreen() {
     const cleanDigits = phoneNumber.replace(/\D/g, '').replace(/^91/, '');
     const fullPhone = `+91${cleanDigits}`;
 
-    console.log('[Firebase OTP] Sending to:', fullPhone);
+    console.log('[Firebase OTP] Input:', phoneNumber, '| Clean:', cleanDigits, '| Full:', fullPhone, '| Length:', fullPhone.length);
     setOtpError('');
-    setDebugInfo('Sending OTP via Firebase...');
+    setDebugInfo(`Sending OTP to ${fullPhone}...`);
 
     try {
       if (Platform.OS === 'web') {
