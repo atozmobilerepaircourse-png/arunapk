@@ -76,6 +76,9 @@ const buildConfig = {
         const fast2sms = process.env.FAST2SMS_API_KEY || '';
         const bunnyKey = process.env.BUNNY_STREAM_API_KEY || '';
         const bunnyLib = process.env.BUNNY_STREAM_LIBRARY_ID || '';
+        const twilioAccountSid = process.env.TWILIO_ACCOUNT_SID || '';
+        const twilioAuthToken = process.env.TWILIO_AUTH_TOKEN || '';
+        const twilioPhoneNumber = process.env.TWILIO_PHONE_NUMBER || '';
         
         // Use production client ID
         const googleClientId = GOOGLE_PROD_CLIENT_ID;
@@ -96,6 +99,9 @@ const buildConfig = {
         if (fast2sms)           args.push('--update-env-vars', `FAST2SMS_API_KEY=${fast2sms}`);
         if (bunnyKey)           args.push('--update-env-vars', `BUNNY_STREAM_API_KEY=${bunnyKey}`);
         if (bunnyLib)           args.push('--update-env-vars', `BUNNY_STREAM_LIBRARY_ID=${bunnyLib}`);
+        if (twilioAccountSid)   args.push('--update-env-vars', `TWILIO_ACCOUNT_SID=${twilioAccountSid}`);
+        if (twilioAuthToken)    args.push('--update-env-vars', `TWILIO_AUTH_TOKEN=${twilioAuthToken}`);
+        if (twilioPhoneNumber)  args.push('--update-env-vars', `TWILIO_PHONE_NUMBER=${twilioPhoneNumber}`);
         
         return args;
       })(),

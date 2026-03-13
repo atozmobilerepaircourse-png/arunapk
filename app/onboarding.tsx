@@ -289,28 +289,22 @@ export default function OnboardingScreen() {
 
   const sendBackendOTP = async (cleanDigits: string) => {
     try {
-      console.log('[Backend OTP] Calling /api/otp/send with phone:', cleanDigits);
+      console.log('[SMS] Sending OTP to +91' + cleanDigits);
       const res = await apiRequest('POST', '/api/otp/send', { phone: cleanDigits });
-      console.log('[Backend OTP] Response status:', res.status, res.ok);
       const data = await res.json();
-      console.log('[Backend OTP] Response data:', data);
       if (data.success) {
         setUseFirebaseOTP(false);
         setOtpSent(true);
         setOtpResendTimer(30);
-        console.log('[Backend OTP] Sent successfully, OTP:', data.otp);
-        // Show OTP in alert (backend OTP - for testing/development)
-        if (data.otp) {
-          Alert.alert('🔐 Your OTP Code', `Your 6-digit code:\n\n${data.otp}\n\nEnter this to verify your phone number.`, [{ text: 'Got it' }]);
-        } else {
-          Alert.alert('✓ OTP Sent', 'Check your phone for the 6-digit code');
-        }
+        console.log('[SMS] OTP sent successfully');
+        // Real SMS sent - no alert needed
+        Alert.alert('✓ OTP Sent', 'A 6-digit verification code has been sent to your phone. It will expire in 5 minutes.');
       } else {
-        console.log('[Backend OTP] API returned success=false:', data.message);
-        throw new Error(data.message || 'Backend OTP failed');
+        console.log('[SMS] Failed:', data.message);
+        throw new Error(data.message || 'Failed to send OTP');
       }
     } catch (err: any) {
-      console.error('[Backend OTP] Error:', err?.message, err);
+      console.error('[SMS] Error:', err?.message);
       throw err; // Re-throw for fallback handling
     }
   };
