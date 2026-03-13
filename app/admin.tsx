@@ -2723,5 +2723,127 @@ export default function AdminScreen() {
       </View>
     </View>
   );
-
 }
+
+const styles = StyleSheet.create({
+  userCard: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 12,
+  },
+  userCardTop: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    padding: 12,
+    backgroundColor: '#F9FAFB',
+    gap: 12,
+  },
+  userInfo: {
+    flex: 1,
+    gap: 8,
+  },
+  userNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  userName: {
+    fontSize: 15,
+    fontFamily: 'Inter_600SemiBold',
+    color: '#1F2937',
+  },
+  registeredBadge: {
+    backgroundColor: '#D1FAE515',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  registeredText: {
+    fontSize: 11,
+    fontFamily: 'Inter_600SemiBold',
+    color: '#34C759',
+  },
+  userMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  userRoleBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  userRoleText: {
+    fontSize: 12,
+    fontFamily: 'Inter_500Medium',
+  },
+  userCityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  userCity: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontFamily: 'Inter_400Regular',
+  },
+  phoneRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  phoneText: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontFamily: 'Inter_400Regular',
+  },
+  userAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  userAvatarImg: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+  },
+  userAvatarText: {
+    fontSize: 13,
+    fontFamily: 'Inter_600SemiBold',
+  },
+  userDetails: {
+    padding: 12,
+    gap: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+  },
+  detailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  detailLabel: {
+    fontSize: 12,
+    fontFamily: 'Inter_600SemiBold',
+    color: '#6B7280',
+    minWidth: 80,
+  },
+  detailValue: {
+    fontSize: 12,
+    fontFamily: 'Inter_400Regular',
+    color: '#1F2937',
+    flex: 1,
+  },
+  detailPostCount: {
+    fontSize: 13,
+    fontFamily: 'Inter_500Medium',
+    color: '#6B7280',
+    marginTop: 8,
+  },
+});
