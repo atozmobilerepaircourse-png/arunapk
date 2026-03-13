@@ -1238,70 +1238,119 @@ export default function AdminScreen() {
 
   const renderDashboard = () => (
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.dashboardContent}>
+      {/* Key Metrics */}
       <View style={styles.statsGrid}>
         <View style={[styles.statCard, { borderLeftColor: C.primary }]}>
-          <Ionicons name="people" size={24} color={C.primary} />
-          <Text style={styles.statNumber}>{stats.totalUsers}</Text>
-          <Text style={styles.statLabel}>Total Users</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%' }}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.statLabel}>Total Users</Text>
+              <Text style={styles.statNumber}>{stats.totalUsers}</Text>
+            </View>
+            <View style={[styles.statIcon, { backgroundColor: C.primary + '15' }]}>
+              <Ionicons name="people" size={22} color={C.primary} />
+            </View>
+          </View>
         </View>
         <View style={[styles.statCard, { borderLeftColor: '#34C759' }]}>
-          <Ionicons name="person-add" size={24} color="#34C759" />
-          <Text style={styles.statNumber}>{stats.registeredUsers}</Text>
-          <Text style={styles.statLabel}>Registered</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%' }}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.statLabel}>Registered</Text>
+              <Text style={styles.statNumber}>{stats.registeredUsers}</Text>
+            </View>
+            <View style={[styles.statIcon, { backgroundColor: '#34C75915' }]}>
+              <Ionicons name="person-add" size={22} color="#34C759" />
+            </View>
+          </View>
         </View>
         <View style={[styles.statCard, { borderLeftColor: '#5E8BFF' }]}>
-          <Ionicons name="newspaper" size={24} color="#5E8BFF" />
-          <Text style={styles.statNumber}>{stats.totalPosts}</Text>
-          <Text style={styles.statLabel}>Total Posts</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%' }}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.statLabel}>Total Posts</Text>
+              <Text style={styles.statNumber}>{stats.totalPosts}</Text>
+            </View>
+            <View style={[styles.statIcon, { backgroundColor: '#5E8BFF15' }]}>
+              <Ionicons name="newspaper" size={22} color="#5E8BFF" />
+            </View>
+          </View>
         </View>
         <View style={[styles.statCard, { borderLeftColor: '#FFD60A' }]}>
-          <Ionicons name="briefcase" size={24} color="#FFD60A" />
-          <Text style={styles.statNumber}>{stats.totalJobs}</Text>
-          <Text style={styles.statLabel}>Job Listings</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%' }}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.statLabel}>Job Listings</Text>
+              <Text style={styles.statNumber}>{stats.totalJobs}</Text>
+            </View>
+            <View style={[styles.statIcon, { backgroundColor: '#FFD60A15' }]}>
+              <Ionicons name="briefcase" size={22} color="#FFD60A" />
+            </View>
+          </View>
         </View>
         <View style={[styles.statCard, { borderLeftColor: '#FF6B2C' }]}>
-          <Ionicons name="chatbubbles" size={24} color="#FF6B2C" />
-          <Text style={styles.statNumber}>{stats.totalChats}</Text>
-          <Text style={styles.statLabel}>Conversations</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%' }}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.statLabel}>Conversations</Text>
+              <Text style={styles.statNumber}>{stats.totalChats}</Text>
+            </View>
+            <View style={[styles.statIcon, { backgroundColor: '#FF6B2C15' }]}>
+              <Ionicons name="chatbubbles" size={22} color="#FF6B2C" />
+            </View>
+          </View>
         </View>
         <View style={[styles.statCard, { borderLeftColor: '#FF3B30' }]}>
-          <Ionicons name="heart" size={24} color="#FF3B30" />
-          <Text style={styles.statNumber}>{stats.totalLikes}</Text>
-          <Text style={styles.statLabel}>Total Likes</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%' }}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.statLabel}>Total Likes</Text>
+              <Text style={styles.statNumber}>{stats.totalLikes}</Text>
+            </View>
+            <View style={[styles.statIcon, { backgroundColor: '#FF3B3015' }]}>
+              <Ionicons name="heart" size={22} color="#FF3B30" />
+            </View>
+          </View>
         </View>
       </View>
 
+      {/* Users by Role */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Users by Role</Text>
-        {(Object.entries(stats.roleBreakdown) as [UserRole, number][]).map(([role, count]) => (
-          <View key={role} style={styles.roleRow}>
-            <View style={styles.roleRowLeft}>
-              <View style={[styles.roleDot, { backgroundColor: ROLE_COLORS[role] }]} />
-              <Text style={styles.roleLabelText}>{ROLE_LABELS[role]}</Text>
+        <View style={{ backgroundColor: C.surfaceElevated, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: C.border }}>
+          {(Object.entries(stats.roleBreakdown) as [UserRole, number][]).map(([role, count], idx) => (
+            <View key={role} style={[styles.roleRow, idx < Object.keys(stats.roleBreakdown).length - 1 && { borderBottomWidth: 1, borderBottomColor: C.border, paddingBottom: 12, marginBottom: 12 }]}>
+              <View style={styles.roleRowLeft}>
+                <View style={[styles.roleDot, { backgroundColor: ROLE_COLORS[role] }]} />
+                <Text style={styles.roleLabelText}>{ROLE_LABELS[role]}</Text>
+              </View>
+              <View style={styles.roleBarContainer}>
+                <View style={[styles.roleBar, { width: `${Math.max((count / Math.max(stats.totalUsers, 1)) * 100, 8)}%`, backgroundColor: ROLE_COLORS[role] }]} />
+              </View>
+              <Text style={styles.roleCount}>{count}</Text>
             </View>
-            <View style={styles.roleBarContainer}>
-              <View style={[styles.roleBar, { width: `${Math.max((count / Math.max(stats.totalUsers, 1)) * 100, 8)}%`, backgroundColor: ROLE_COLORS[role] }]} />
-            </View>
-            <Text style={styles.roleCount}>{count}</Text>
-          </View>
-        ))}
+          ))}
+        </View>
       </View>
 
+      {/* Activity Summary */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Activity Summary</Text>
-        <View style={styles.activityRow}>
-          <Text style={styles.activityLabel}>Comments</Text>
-          <Text style={styles.activityValue}>{stats.totalComments}</Text>
-        </View>
-        <View style={styles.activityRow}>
-          <Text style={styles.activityLabel}>Avg Likes/Post</Text>
-          <Text style={styles.activityValue}>{stats.totalPosts > 0 ? (stats.totalLikes / stats.totalPosts).toFixed(1) : '0'}</Text>
-        </View>
-        <View style={styles.activityRow}>
-          <Text style={styles.activityLabel}>Most Active Role</Text>
-          <Text style={styles.activityValue}>
-            {ROLE_LABELS[Object.entries(stats.roleBreakdown).sort((a, b) => b[1] - a[1])[0]?.[0] as UserRole || 'technician']}
-          </Text>
+        <View style={{ backgroundColor: C.surfaceElevated, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: C.border }}>
+          <View style={styles.activityRow}>
+            <View>
+              <Text style={styles.activityLabel}>Comments</Text>
+            </View>
+            <Text style={styles.activityValue}>{stats.totalComments}</Text>
+          </View>
+          <View style={[styles.activityRow, { borderTopWidth: 1, borderTopColor: C.border, paddingTop: 12, marginTop: 12 }]}>
+            <View>
+              <Text style={styles.activityLabel}>Avg Likes/Post</Text>
+            </View>
+            <Text style={styles.activityValue}>{stats.totalPosts > 0 ? (stats.totalLikes / stats.totalPosts).toFixed(1) : '0'}</Text>
+          </View>
+          <View style={[styles.activityRow, { borderTopWidth: 1, borderTopColor: C.border, paddingTop: 12, marginTop: 12 }]}>
+            <View>
+              <Text style={styles.activityLabel}>Most Active Role</Text>
+            </View>
+            <Text style={styles.activityValue}>
+              {ROLE_LABELS[Object.entries(stats.roleBreakdown).sort((a, b) => b[1] - a[1])[0]?.[0] as UserRole || 'technician']}
+            </Text>
+          </View>
         </View>
       </View>
     </ScrollView>
