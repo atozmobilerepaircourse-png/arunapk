@@ -346,6 +346,7 @@ export default function AdminScreen() {
   const [technicianSearch, setTechnicianSearch] = useState('');
 
   const webTopInset = Platform.OS === 'web' ? 67 : insets.top;
+  const isMobile = Platform.OS !== 'web' || (typeof window !== 'undefined' && window.innerWidth < 768);
 
   // ── Admin check ──
   const cleanProfilePhone = (profile?.phone || '').replace(/\D/g, '');
@@ -789,7 +790,7 @@ export default function AdminScreen() {
   // ─── RENDER FUNCTIONS ──────────────────────────────────────────────────────
 
   const renderDashboard = () => (
-    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: isMobile ? 12 : 16, paddingBottom: 40 }}>
       {/* Stats grid */}
       <Text style={ss.sectionTitle}>Overview</Text>
       <View style={ss.statsGrid}>
@@ -1820,36 +1821,36 @@ export default function AdminScreen() {
     <View style={{ flex: 1, backgroundColor: C.background }}>
       {/* Header */}
       <View style={{ paddingTop: webTopInset, backgroundColor: PRIMARY }}>
-        <View style={{ paddingHorizontal: 16, paddingVertical: 14, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <View style={{ paddingHorizontal: isMobile ? 12 : 16, paddingVertical: isMobile ? 10 : 14, flexDirection: 'row', alignItems: 'center', gap: isMobile ? 8 : 12 }}>
           <Pressable onPress={() => router.back()}
-            style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
-            <Ionicons name="arrow-back" size={20} color="#FFF" />
+            style={{ width: isMobile ? 34 : 38, height: isMobile ? 34 : 38, borderRadius: isMobile ? 17 : 19, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name="arrow-back" size={isMobile ? 18 : 20} color="#FFF" />
           </Pressable>
           <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 22, fontFamily: 'Inter_700Bold', color: '#FFF' }}>Admin Dashboard</Text>
-            <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.75)', fontFamily: 'Inter_400Regular' }}>
+            <Text style={{ fontSize: isMobile ? 18 : 22, fontFamily: 'Inter_700Bold', color: '#FFF' }}>Admin</Text>
+            <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.75)', fontFamily: 'Inter_400Regular' }}>
               {stats.totalUsers} users · {stats.totalPosts} posts
             </Text>
           </View>
           <Pressable onPress={refreshData}
-            style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
-            <Ionicons name="refresh-outline" size={18} color="#FFF" />
+            style={{ width: isMobile ? 34 : 38, height: isMobile ? 34 : 38, borderRadius: isMobile ? 17 : 19, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name="refresh-outline" size={isMobile ? 16 : 18} color="#FFF" />
           </Pressable>
         </View>
 
         {/* Tab bar */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ gap: 6, paddingHorizontal: 16, paddingBottom: 12 }}>
+          contentContainerStyle={{ gap: isMobile ? 4 : 6, paddingHorizontal: isMobile ? 12 : 16, paddingBottom: isMobile ? 10 : 12 }}>
           {tabs.map(tab => {
             const active = activeTab === tab.key;
             return (
               <Pressable key={tab.key} onPress={() => setActiveTab(tab.key)}
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 5,
-                  paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20,
+                style={{ flexDirection: 'row', alignItems: 'center', gap: isMobile ? 3 : 5,
+                  paddingHorizontal: isMobile ? 8 : 12, paddingVertical: isMobile ? 6 : 8, borderRadius: 20,
                   backgroundColor: active ? '#FFF' : 'rgba(255,255,255,0.15)',
                   borderWidth: active ? 0 : 1, borderColor: 'rgba(255,255,255,0.25)' }}>
-                <Ionicons name={tab.icon} size={13} color={active ? PRIMARY : '#FFF'} />
-                <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: active ? PRIMARY : '#FFF' }}>
+                <Ionicons name={tab.icon} size={isMobile ? 11 : 13} color={active ? PRIMARY : '#FFF'} />
+                <Text style={{ fontSize: isMobile ? 10 : 12, fontFamily: 'Inter_600SemiBold', color: active ? PRIMARY : '#FFF' }}>
                   {tab.label}
                 </Text>
               </Pressable>
@@ -1880,58 +1881,60 @@ export default function AdminScreen() {
 }
 
 // ─── STYLES ───────────────────────────────────────────────────────────────────
+const isMobileSS = Platform.OS !== 'web' || (typeof window !== 'undefined' && window.innerWidth < 768);
+
 const ss = StyleSheet.create({
   // Stats
-  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: isMobileSS ? 8 : 10 },
   statCard: {
-    flex: 1, minWidth: '45%', backgroundColor: C.surface, borderRadius: 14,
-    padding: 14, borderWidth: 1, borderColor: C.border,
-    alignItems: 'flex-start', gap: 6,
+    flex: 1, minWidth: '45%', backgroundColor: C.surface, borderRadius: 12,
+    padding: isMobileSS ? 10 : 14, borderWidth: 1, borderColor: C.border,
+    alignItems: 'flex-start', gap: 5,
   },
-  statIconBox: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
-  statValue: { fontSize: 24, fontFamily: 'Inter_700Bold', color: C.text },
-  statLabel: { fontSize: 11, fontFamily: 'Inter_500Medium', color: C.textSecondary },
+  statIconBox: { width: isMobileSS ? 36 : 44, height: isMobileSS ? 36 : 44, borderRadius: isMobileSS ? 18 : 22, alignItems: 'center', justifyContent: 'center' },
+  statValue: { fontSize: isMobileSS ? 18 : 24, fontFamily: 'Inter_700Bold', color: C.text },
+  statLabel: { fontSize: 10, fontFamily: 'Inter_500Medium', color: C.textSecondary },
 
   // Sections
   sectionCard: {
-    backgroundColor: C.surface, borderRadius: 14, padding: 14,
+    backgroundColor: C.surface, borderRadius: 12, padding: isMobileSS ? 11 : 14,
     borderWidth: 1, borderColor: C.border,
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1,
   },
-  sectionTitle: { fontSize: 15, fontFamily: 'Inter_700Bold', color: C.text },
-  sectionSubtitle: { fontSize: 13, fontFamily: 'Inter_400Regular', color: C.textSecondary, marginBottom: 16, lineHeight: 18 },
-  cardTitle: { fontSize: 15, fontFamily: 'Inter_700Bold', color: C.text },
+  sectionTitle: { fontSize: isMobileSS ? 13 : 15, fontFamily: 'Inter_700Bold', color: C.text },
+  sectionSubtitle: { fontSize: isMobileSS ? 11 : 13, fontFamily: 'Inter_400Regular', color: C.textSecondary, marginBottom: 16, lineHeight: 18 },
+  cardTitle: { fontSize: isMobileSS ? 13 : 15, fontFamily: 'Inter_700Bold', color: C.text },
 
   // Input
-  inputLabel: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: C.textSecondary, marginBottom: 6 },
+  inputLabel: { fontSize: 11, fontFamily: 'Inter_600SemiBold', color: C.textSecondary, marginBottom: 5 },
   input: {
     backgroundColor: C.surfaceElevated, color: C.text, borderRadius: 10,
-    paddingHorizontal: 14, paddingVertical: 11, fontSize: 14,
+    paddingHorizontal: isMobileSS ? 12 : 14, paddingVertical: isMobileSS ? 9 : 11, fontSize: isMobileSS ? 13 : 14,
     fontFamily: 'Inter_400Regular', borderWidth: 1, borderColor: C.border,
   },
 
   // Action button
   actionBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    borderRadius: 12, paddingVertical: 13, paddingHorizontal: 16,
+    borderRadius: 12, paddingVertical: isMobileSS ? 11 : 13, paddingHorizontal: isMobileSS ? 14 : 16,
   },
-  actionBtnText: { fontSize: 15, fontFamily: 'Inter_700Bold', color: '#FFF' },
+  actionBtnText: { fontSize: isMobileSS ? 13 : 15, fontFamily: 'Inter_700Bold', color: '#FFF' },
 
   // User card
   userCard: {
-    backgroundColor: C.surface, borderRadius: 14, marginBottom: 10,
+    backgroundColor: C.surface, borderRadius: 12, marginBottom: 8,
     borderWidth: 1, borderColor: C.border, overflow: 'hidden',
   },
-  userCardTop: { flexDirection: 'row', alignItems: 'center', padding: 12, gap: 10 },
-  userAvatar: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-  userAvatarImg: { width: 40, height: 40, borderRadius: 20 },
-  userAvatarText: { fontSize: 14, fontFamily: 'Inter_700Bold' },
+  userCardTop: { flexDirection: 'row', alignItems: 'center', padding: isMobileSS ? 10 : 12, gap: 8 },
+  userAvatar: { width: isMobileSS ? 36 : 40, height: isMobileSS ? 36 : 40, borderRadius: isMobileSS ? 18 : 20, alignItems: 'center', justifyContent: 'center' },
+  userAvatarImg: { width: isMobileSS ? 36 : 40, height: isMobileSS ? 36 : 40, borderRadius: isMobileSS ? 18 : 20 },
+  userAvatarText: { fontSize: isMobileSS ? 12 : 14, fontFamily: 'Inter_700Bold' },
   userCardInfo: { flex: 1, minWidth: 0 },
-  userName: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: C.text },
-  userCity: { fontSize: 11, color: C.textTertiary, fontFamily: 'Inter_400Regular' },
-  roleBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6 },
-  roleBadgeText: { fontSize: 11, fontFamily: 'Inter_600SemiBold' },
-  userCardExpanded: { paddingHorizontal: 12, paddingBottom: 12, borderTopWidth: 1, borderTopColor: C.border },
+  userName: { fontSize: isMobileSS ? 12 : 14, fontFamily: 'Inter_600SemiBold', color: C.text },
+  userCity: { fontSize: 10, color: C.textTertiary, fontFamily: 'Inter_400Regular' },
+  roleBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
+  roleBadgeText: { fontSize: 10, fontFamily: 'Inter_600SemiBold' },
+  userCardExpanded: { paddingHorizontal: isMobileSS ? 10 : 12, paddingBottom: isMobileSS ? 10 : 12, borderTopWidth: 1, borderTopColor: C.border },
   userInfoRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 4 },
-  userInfoText: { fontSize: 13, color: C.textSecondary, fontFamily: 'Inter_400Regular' },
+  userInfoText: { fontSize: isMobileSS ? 12 : 13, color: C.textSecondary, fontFamily: 'Inter_400Regular' },
 });
