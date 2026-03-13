@@ -188,15 +188,25 @@ export default function AIRepairScreen() {
       timestamp: new Date(),
     };
 
-    setMessages(prev => [userMsg, ...prev]);
+    // Add message and keep last 20 messages in memory
+    setMessages(prev => {
+      const updated = [userMsg, ...prev];
+      return updated.slice(0, 20);
+    });
     setInputText('');
     setIsStreaming(true);
     setStreamingText('');
 
-    const history = [...messages, userMsg].reverse().map(m => ({
+    // Include full conversation history (up to 20 recent messages) with system prompt
+    const fullHistory = [...messages, userMsg].reverse().map(m => ({
       role: m.role,
       content: m.content,
     }));
+    
+    const history = [
+      { role: 'system' as const, content: 'You are an expert mobile phone hardware repair technician with 20+ years of experience. Help diagnose and repair mobile phone hardware issues. Be specific about components, tools, and repair steps.' },
+      ...fullHistory,
+    ];
 
     try {
       const url = new URL('/api/ai/repair/chat', getApiUrl());
@@ -387,6 +397,23 @@ export default function AIRepairScreen() {
       keyboardVerticalOffset={0}
     >
       <View style={{ flex: 1 }}>
+        {/* Header with conversation count and clear button */}
+        {messages.length > 0 && (
+          <View style={s.chatHeader}>
+            <View style={s.chatHeaderLeft}>
+              <Ionicons name="chatbubbles" size={16} color={ACCENT} />
+              <Text style={s.chatHeaderText}>Conversation ({messages.length} messages)</Text>
+            </View>
+            <Pressable style={s.clearBtn} onPress={() => {
+              setMessages([]);
+              setInputText('');
+              setStreamingText('');
+            }}>
+              <Ionicons name="close-circle-outline" size={16} color={MUTED} />
+              <Text style={s.clearBtnText}>Clear</Text>
+            </Pressable>
+          </View>
+        )}
         {messages.length === 0 && !isStreaming ? (
           <ScrollView
             style={{ flex: 1 }}
@@ -776,6 +803,16 @@ const s = StyleSheet.create({
   typingDots: { marginTop: 4 },
   shareBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6, paddingTop: 6, borderTopWidth: 1, borderTopColor: BORDER },
   shareBtnText: { fontSize: 11, color: MUTED, fontFamily: 'Inter_400Regular' },
+  
+  chatHeader: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 12, paddingVertical: 10,
+    backgroundColor: CARD, borderBottomWidth: 1, borderBottomColor: BORDER,
+  },
+  chatHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  chatHeaderText: { fontSize: 12, fontFamily: 'Inter_500Medium', color: MUTED },
+  clearBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: SURFACE + '80' },
+  clearBtnText: { fontSize: 11, color: MUTED, fontFamily: 'Inter_400Regular' },
 
   quickContainer: { padding: 16, paddingBottom: 32 },
   welcomeBox: { alignItems: 'center', marginBottom: 28, paddingTop: 16 },
