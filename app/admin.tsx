@@ -251,7 +251,7 @@ function UserDetailCard({ user, onBlock, onVerify, onDelete }: { user: any; onBl
               </Text>
               <View style={{ flexDirection: 'row', gap: 8 }}>
                 <Pressable
-                  style={{ flex: 1, alignItems: 'center', paddingVertical: 9, borderRadius: 8, backgroundColor: C.card, borderWidth: 1, borderColor: C.border }}
+                  style={{ flex: 1, alignItems: 'center', paddingVertical: 9, borderRadius: 8, backgroundColor: C.surface, borderWidth: 1, borderColor: C.border }}
                   onPress={() => setConfirmDelete(false)}
                 >
                   <Text style={{ color: C.text, fontSize: 13, fontFamily: 'Inter_600SemiBold' }}>Cancel</Text>
@@ -505,7 +505,7 @@ export default function AdminScreen() {
   };
 
   const renderAds = () => {
-    const inputStyle = { borderWidth: 1, borderColor: C.border, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: C.text, backgroundColor: C.card, marginTop: 6 };
+    const inputStyle = { borderWidth: 1, borderColor: C.border, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: C.text, backgroundColor: C.surface, marginTop: 6 };
     return (
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 80 }} showsVerticalScrollIndicator={false}>
         <Text style={{ fontSize: 20, fontWeight: '700', color: C.text, marginBottom: 4 }}>Ads Manager</Text>
@@ -525,7 +525,7 @@ export default function AdminScreen() {
         </View>
 
         {/* Create New Ad */}
-        <View style={{ backgroundColor: C.card, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: C.border, marginBottom: 20 }}>
+        <View style={{ backgroundColor: C.surface, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: C.border, marginBottom: 20 }}>
           <Text style={{ fontSize: 16, fontWeight: '700', color: C.text, marginBottom: 12 }}>Create New Ad</Text>
           <Text style={{ fontSize: 12, color: C.textSecondary }}>Title *</Text>
           <TextInput style={inputStyle} value={newAdTitle} onChangeText={setNewAdTitle} placeholder="Ad title" placeholderTextColor={C.textTertiary} />
@@ -554,7 +554,7 @@ export default function AdminScreen() {
           </View>
         ) : (
           adsList.map(ad => (
-            <View key={ad.id} style={{ backgroundColor: C.card, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: ad.isActive ? C.primary + '44' : C.border, marginBottom: 12 }}>
+            <View key={ad.id} style={{ backgroundColor: C.surface, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: ad.isActive ? C.primary + '44' : C.border, marginBottom: 12 }}>
               <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
                 {ad.imageUrl ? (
                   <View style={{ width: 70, height: 50, borderRadius: 10, overflow: 'hidden', backgroundColor: C.surface }}>
@@ -606,7 +606,7 @@ export default function AdminScreen() {
         <View style={{ padding: 16, paddingBottom: 8 }}>
           <Text style={{ fontSize: 20, fontWeight: '700', color: C.text, marginBottom: 4 }}>All Listings</Text>
           <Text style={{ fontSize: 13, color: C.textSecondary, marginBottom: 12 }}>Delete inappropriate or spam product listings.</Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: C.card, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1, borderColor: C.border }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: C.surface, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1, borderColor: C.border }}>
             <Ionicons name="search" size={16} color={C.textTertiary} />
             <TextInput
               style={{ flex: 1, color: C.text, fontSize: 14 }}
@@ -631,7 +631,7 @@ export default function AdminScreen() {
               </View>
             }
             renderItem={({ item }) => (
-              <View style={{ backgroundColor: C.card, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: C.border, marginBottom: 10, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <View style={{ backgroundColor: C.surface, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: C.border, marginBottom: 10, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                 <View style={{ flex: 1 }}>
                   <Text style={{ color: C.text, fontWeight: '700', fontSize: 14 }} numberOfLines={1}>{item.title}</Text>
                   <Text style={{ color: C.textSecondary, fontSize: 12, marginTop: 2 }}>By {item.userName} · {item.category || 'general'}</Text>
@@ -941,7 +941,7 @@ export default function AdminScreen() {
     const completed = payoutsData.filter(p => p.status !== 'pending');
     const formatINR = (v: number) => `₹${Math.round((v || 0) / 100).toLocaleString('en-IN')}`;
     const renderCard = (p: any) => (
-      <View key={p.id} style={{ backgroundColor: C.card, borderRadius: 14, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: C.border }}>
+      <View key={p.id} style={{ backgroundColor: C.surface, borderRadius: 14, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: C.border }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
           <Text style={{ color: C.text, fontFamily: 'Inter_700Bold', fontSize: 15 }}>{p.teacherName || 'Unknown Teacher'}</Text>
           <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, backgroundColor: p.status === 'paid' ? '#34C75920' : p.status === 'rejected' ? '#FF3B3020' : '#FFD60A20' }}>
@@ -951,9 +951,9 @@ export default function AdminScreen() {
         <Text style={{ color: C.textSecondary, fontSize: 13, fontFamily: 'Inter_400Regular', marginBottom: 2 }}>Amount: <Text style={{ color: C.text, fontFamily: 'Inter_600SemiBold' }}>{formatINR(Math.round((p.amount || 0) / 100))}</Text></Text>
         {p.upiId ? <Text style={{ color: C.textSecondary, fontSize: 12, marginBottom: 2 }}>UPI: {p.upiId}</Text> : null}
         {p.bankDetails ? <Text style={{ color: C.textSecondary, fontSize: 12, marginBottom: 2 }}>Bank: {p.bankDetails}</Text> : null}
-        {p.notes ? <Text style={{ color: C.textMuted, fontSize: 12, fontStyle: 'italic', marginBottom: 4 }}>Note: {p.notes}</Text> : null}
-        {p.adminNotes ? <Text style={{ color: C.textMuted, fontSize: 12, marginBottom: 4 }}>Admin notes: {p.adminNotes}</Text> : null}
-        <Text style={{ color: C.textMuted, fontSize: 11, marginBottom: 8 }}>Requested: {new Date(p.requestedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</Text>
+        {p.notes ? <Text style={{ color: C.textTertiary, fontSize: 12, fontStyle: 'italic', marginBottom: 4 }}>Note: {p.notes}</Text> : null}
+        {p.adminNotes ? <Text style={{ color: C.textTertiary, fontSize: 12, marginBottom: 4 }}>Admin notes: {p.adminNotes}</Text> : null}
+        <Text style={{ color: C.textTertiary, fontSize: 11, marginBottom: 8 }}>Requested: {new Date(p.requestedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</Text>
         {p.status === 'pending' && (
           <View style={{ flexDirection: 'row', gap: 8 }}>
             <Pressable
@@ -982,12 +982,12 @@ export default function AdminScreen() {
       </View>
     );
     return (
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 12, paddingBottom: 40 }} refreshControl={<RefreshControl refreshing={payoutsLoading} onRefresh={fetchPayouts} tintColor={C.textMuted} />}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 12, paddingBottom: 40 }} refreshControl={<RefreshControl refreshing={payoutsLoading} onRefresh={fetchPayouts} tintColor={C.textTertiary} />}>
         {payoutsLoading && payoutsData.length === 0 ? (
-          <ActivityIndicator color={C.textMuted} style={{ marginTop: 40 }} />
+          <ActivityIndicator color={C.textTertiary} style={{ marginTop: 40 }} />
         ) : payoutsData.length === 0 ? (
           <View style={styles.emptyState}>
-            <Ionicons name="cash-outline" size={36} color={C.textMuted} />
+            <Ionicons name="cash-outline" size={36} color={C.textTertiary} />
             <Text style={styles.emptyText}>No payout requests yet</Text>
           </View>
         ) : (
@@ -1319,19 +1319,19 @@ export default function AdminScreen() {
   const renderUsers = () => (
     <View style={{ flex: 1 }}>
       <View style={{ paddingHorizontal: 12, paddingTop: 10, paddingBottom: 4, gap: 8 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: C.card, borderRadius: 12, paddingHorizontal: 12, borderWidth: 1, borderColor: C.border }}>
-          <Ionicons name="search" size={16} color={C.textMuted} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: C.surface, borderRadius: 12, paddingHorizontal: 12, borderWidth: 1, borderColor: C.border }}>
+          <Ionicons name="search" size={16} color={C.textTertiary} />
           <TextInput
             value={userSearchQuery}
             onChangeText={setUserSearchQuery}
             placeholder="Search by name, phone, city..."
-            placeholderTextColor={C.textMuted}
+            placeholderTextColor={C.textTertiary}
             style={{ flex: 1, color: C.text, paddingVertical: 10, paddingHorizontal: 8, fontFamily: 'Inter_400Regular', fontSize: 14 }}
             clearButtonMode="while-editing"
           />
           {userSearchQuery.length > 0 && (
             <Pressable onPress={() => setUserSearchQuery('')} hitSlop={8}>
-              <Ionicons name="close-circle" size={16} color={C.textMuted} />
+              <Ionicons name="close-circle" size={16} color={C.textTertiary} />
             </Pressable>
           )}
         </View>
@@ -1342,15 +1342,15 @@ export default function AdminScreen() {
               <Pressable
                 key={f.key}
                 onPress={() => setUserRoleFilter(f.key)}
-                style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, backgroundColor: active ? f.color : C.card, borderWidth: 1, borderColor: active ? f.color : C.border }}
+                style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, backgroundColor: active ? f.color : C.surface, borderWidth: 1, borderColor: active ? f.color : C.border }}
               >
-                <Text style={{ color: active ? '#fff' : C.textMuted, fontSize: 12, fontFamily: 'Inter_600SemiBold' }}>{f.label}</Text>
+                <Text style={{ color: active ? '#fff' : C.textTertiary, fontSize: 12, fontFamily: 'Inter_600SemiBold' }}>{f.label}</Text>
               </Pressable>
             );
           })}
         </ScrollView>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Text style={{ color: C.textMuted, fontSize: 12, fontFamily: 'Inter_400Regular' }}>
+          <Text style={{ color: C.textTertiary, fontSize: 12, fontFamily: 'Inter_400Regular' }}>
             {filteredUsers.length} user{filteredUsers.length !== 1 ? 's' : ''}
             {userRoleFilter !== 'all' ? ` · ${USER_ROLE_FILTERS.find(f => f.key === userRoleFilter)?.label}` : ''}
             {userSearchQuery ? ` · "${userSearchQuery}"` : ''}
@@ -2116,7 +2116,7 @@ export default function AdminScreen() {
                 <Text style={{ fontSize: 10, fontFamily: 'Inter_400Regular', color: C.textTertiary, marginTop: 2 }}>Registered</Text>
               </View>
               <View style={{ flex: 1, alignItems: 'center', backgroundColor: C.surfaceElevated, borderRadius: 10, padding: 12 }}>
-                <Text style={{ fontSize: 22, fontFamily: 'Inter_700Bold', color: C.textPrimary }}>{pushStats.total}</Text>
+                <Text style={{ fontSize: 22, fontFamily: 'Inter_700Bold', color: C.text }}>{pushStats.total}</Text>
                 <Text style={{ fontSize: 10, fontFamily: 'Inter_400Regular', color: C.textTertiary, marginTop: 2 }}>Total Users</Text>
               </View>
               <View style={{ flex: 1, alignItems: 'center', backgroundColor: C.surfaceElevated, borderRadius: 10, padding: 12 }}>
@@ -2137,7 +2137,7 @@ export default function AdminScreen() {
                         <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: opt?.color || C.textTertiary }} />
                         <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: C.textSecondary }}>{opt?.label || role}</Text>
                       </View>
-                      <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: C.textPrimary }}>{count}</Text>
+                      <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: C.text }}>{count}</Text>
                     </View>
                   );
                 })}
@@ -2194,7 +2194,7 @@ export default function AdminScreen() {
               placeholderTextColor={C.textTertiary}
               style={{
                 backgroundColor: C.surfaceElevated,
-                color: C.textPrimary,
+                color: C.text,
                 borderRadius: 10,
                 paddingHorizontal: 14,
                 paddingVertical: 10,
@@ -2216,7 +2216,7 @@ export default function AdminScreen() {
               numberOfLines={4}
               style={{
                 backgroundColor: C.surfaceElevated,
-                color: C.textPrimary,
+                color: C.text,
                 borderRadius: 10,
                 paddingHorizontal: 14,
                 paddingVertical: 10,
@@ -2307,7 +2307,7 @@ export default function AdminScreen() {
               numberOfLines={4}
               style={{
                 backgroundColor: C.surfaceElevated,
-                color: C.textPrimary,
+                color: C.text,
                 borderRadius: 10,
                 paddingHorizontal: 14,
                 paddingVertical: 10,
@@ -2456,7 +2456,7 @@ export default function AdminScreen() {
               onChangeText={setEmailSubject}
               placeholder="e.g. Exciting Update from Mobi!"
               placeholderTextColor={C.textTertiary}
-              style={{ backgroundColor: C.surfaceElevated, color: C.textPrimary, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, fontSize: 14, fontFamily: 'Inter_400Regular', borderWidth: 1, borderColor: C.border }}
+              style={{ backgroundColor: C.surfaceElevated, color: C.text, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, fontSize: 14, fontFamily: 'Inter_400Regular', borderWidth: 1, borderColor: C.border }}
             />
           </View>
 
@@ -2469,7 +2469,7 @@ export default function AdminScreen() {
               placeholderTextColor={C.textTertiary}
               multiline
               numberOfLines={6}
-              style={{ backgroundColor: C.surfaceElevated, color: C.textPrimary, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, fontSize: 14, fontFamily: 'Inter_400Regular', borderWidth: 1, borderColor: C.border, minHeight: 130, textAlignVertical: 'top' }}
+              style={{ backgroundColor: C.surfaceElevated, color: C.text, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, fontSize: 14, fontFamily: 'Inter_400Regular', borderWidth: 1, borderColor: C.border, minHeight: 130, textAlignVertical: 'top' }}
             />
           </View>
 
@@ -2483,14 +2483,14 @@ export default function AdminScreen() {
                 onChangeText={setEmailScheduleDate}
                 placeholder="YYYY-MM-DD"
                 placeholderTextColor={C.textTertiary}
-                style={{ flex: 1, backgroundColor: C.surfaceElevated, color: C.textPrimary, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: 13, fontFamily: 'Inter_400Regular', borderWidth: 1, borderColor: C.border }}
+                style={{ flex: 1, backgroundColor: C.surfaceElevated, color: C.text, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: 13, fontFamily: 'Inter_400Regular', borderWidth: 1, borderColor: C.border }}
               />
               <TextInput
                 value={emailScheduleTime}
                 onChangeText={setEmailScheduleTime}
                 placeholder="HH:MM"
                 placeholderTextColor={C.textTertiary}
-                style={{ width: 90, backgroundColor: C.surfaceElevated, color: C.textPrimary, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: 13, fontFamily: 'Inter_400Regular', borderWidth: 1, borderColor: C.border }}
+                style={{ width: 90, backgroundColor: C.surfaceElevated, color: C.text, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: 13, fontFamily: 'Inter_400Regular', borderWidth: 1, borderColor: C.border }}
               />
             </View>
             <Text style={{ fontSize: 11, color: C.textTertiary, fontFamily: 'Inter_400Regular', marginTop: 6 }}>
@@ -2546,7 +2546,7 @@ export default function AdminScreen() {
           <View key={camp.id} style={[styles.subCard, { marginBottom: 10, borderLeftColor: CAMPAIGN_STATUS_COLOR[camp.status] || '#888', borderLeftWidth: 3 }]}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <View style={{ flex: 1, marginRight: 8 }}>
-                <Text style={{ fontSize: 14, fontFamily: 'Inter_600SemiBold', color: C.textPrimary }} numberOfLines={1}>{camp.subject}</Text>
+                <Text style={{ fontSize: 14, fontFamily: 'Inter_600SemiBold', color: C.text }} numberOfLines={1}>{camp.subject}</Text>
                 <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: C.textSecondary, marginTop: 2 }} numberOfLines={2}>{camp.message}</Text>
               </View>
               <View style={{ alignItems: 'flex-end', gap: 4 }}>
@@ -2582,6 +2582,118 @@ export default function AdminScreen() {
         ))
       )}
     </ScrollView>
+  );
+
+  return (
+    <View style={{ flex: 1, backgroundColor: C.background }}>
+      {/* Header */}
+      <View style={{ paddingTop: webTopInset, backgroundColor: C.surface, borderBottomWidth: 1, borderBottomColor: C.border }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12 }}>
+          <Pressable onPress={() => router.back()} style={{ marginRight: 12, padding: 4 }}>
+            <Ionicons name="arrow-back" size={24} color={C.text} />
+          </Pressable>
+          <Text style={{ fontSize: 20, fontFamily: 'Inter_700Bold', color: C.text, flex: 1 }}>Admin Panel</Text>
+          <Pressable onPress={refreshData} style={{ padding: 4 }}>
+            <Ionicons name="refresh-outline" size={20} color={C.textSecondary} />
+          </Pressable>
+        </View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: 12, gap: 6, paddingBottom: 10 }}
+        >
+          {tabs.map(tab => (
+            <Pressable
+              key={tab.key}
+              onPress={() => setActiveTab(tab.key)}
+              style={{
+                flexDirection: 'row', alignItems: 'center', gap: 5,
+                paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20,
+                backgroundColor: activeTab === tab.key ? C.primary : C.surfaceElevated,
+                borderWidth: 1, borderColor: activeTab === tab.key ? C.primary : C.border,
+              }}
+            >
+              <Ionicons name={tab.icon} size={13} color={activeTab === tab.key ? '#FFF' : C.textSecondary} />
+              <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: activeTab === tab.key ? '#FFF' : C.textSecondary }}>
+                {tab.label}
+              </Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+      </View>
+
+      {/* Content */}
+      <View style={{ flex: 1 }}>
+        {activeTab === 'dashboard' && renderDashboard()}
+        {activeTab === 'users' && renderUsers()}
+        {activeTab === 'bookings' && (
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
+            refreshControl={<RefreshControl refreshing={false} onRefresh={fetchRepairBookings} tintColor={C.textTertiary} />}
+          >
+            {repairBookings.length === 0 ? (
+              <View style={{ alignItems: 'center', padding: 40 }}>
+                <Ionicons name="calendar-outline" size={40} color={C.textTertiary} />
+                <Text style={{ color: C.textTertiary, fontSize: 14, fontFamily: 'Inter_400Regular', marginTop: 8 }}>No repair bookings yet</Text>
+              </View>
+            ) : (
+              repairBookings.map((b: any) => (
+                <View key={b.id} style={{ backgroundColor: C.surfaceElevated, borderRadius: 12, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: C.border }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <Text style={{ fontFamily: 'Inter_600SemiBold', color: C.text, fontSize: 15 }}>{b.customerName || 'Customer'}</Text>
+                    <View style={{
+                      backgroundColor: b.status === 'completed' ? '#34C75920' : b.status === 'pending' ? '#FFD60A20' : '#FF6B2C20',
+                      paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12,
+                    }}>
+                      <Text style={{
+                        fontSize: 11, fontFamily: 'Inter_600SemiBold',
+                        color: b.status === 'completed' ? '#34C759' : b.status === 'pending' ? '#FFD60A' : '#FF6B2C',
+                        textTransform: 'capitalize',
+                      }}>{b.status}</Text>
+                    </View>
+                  </View>
+                  <Text style={{ color: C.textSecondary, fontSize: 13, fontFamily: 'Inter_400Regular' }}>{b.deviceType} — {b.issue}</Text>
+                  <Text style={{ color: C.textTertiary, fontSize: 12, fontFamily: 'Inter_400Regular', marginTop: 4 }}>
+                    {b.phone} · {b.createdAt ? new Date(b.createdAt).toLocaleDateString('en-IN') : ''}
+                  </Text>
+                </View>
+              ))
+            )}
+          </ScrollView>
+        )}
+        {activeTab === 'subscriptions' && renderSubscriptions()}
+        {activeTab === 'insurance' && renderInsurance()}
+        {activeTab === 'revenue' && renderRevenue()}
+        {activeTab === 'posts' && renderPosts()}
+        {activeTab === 'jobs' && (
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+            {(jobs || []).length === 0 ? (
+              <View style={{ alignItems: 'center', padding: 40 }}>
+                <Ionicons name="briefcase-outline" size={40} color={C.textTertiary} />
+                <Text style={{ color: C.textTertiary, fontSize: 14, fontFamily: 'Inter_400Regular', marginTop: 8 }}>No jobs posted yet</Text>
+              </View>
+            ) : (
+              (jobs || []).map((job: any) => (
+                <View key={job.id} style={{ backgroundColor: C.surfaceElevated, borderRadius: 12, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: C.border }}>
+                  <Text style={{ fontFamily: 'Inter_600SemiBold', color: C.text, fontSize: 15 }}>{job.title}</Text>
+                  {job.description ? <Text style={{ color: C.textSecondary, fontSize: 13, fontFamily: 'Inter_400Regular', marginTop: 4 }}>{job.description}</Text> : null}
+                  <Text style={{ color: C.textTertiary, fontSize: 12, fontFamily: 'Inter_400Regular', marginTop: 4 }}>
+                    {job.location ? `${job.location} · ` : ''}{job.createdAt ? new Date(job.createdAt).toLocaleDateString('en-IN') : ''}
+                  </Text>
+                </View>
+              ))
+            )}
+          </ScrollView>
+        )}
+        {activeTab === 'ads' && renderAds()}
+        {activeTab === 'listings' && renderListings()}
+        {activeTab === 'links' && renderLinks()}
+        {activeTab === 'notifications' && renderNotifications()}
+        {activeTab === 'email' && renderEmail()}
+        {activeTab === 'payouts' && renderPayouts()}
+      </View>
+    </View>
   );
 
 }
