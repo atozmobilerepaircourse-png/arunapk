@@ -94,6 +94,7 @@ export default function OnboardingScreen() {
   const [emailSendingWelcome, setEmailSendingWelcome] = useState(false);
   const [otpError, setOtpError] = useState('');
   const [debugInfo, setDebugInfo] = useState('');
+  const [otpRateLimitTimer, setOtpRateLimitTimer] = useState(0);
 
   // Email Link (passwordless) auth state
   const [emailLinkMode, setEmailLinkMode] = useState(false);
@@ -241,6 +242,18 @@ export default function OnboardingScreen() {
     return () => clearInterval(interval);
   }, [otpResendTimer]);
 
+  // Rate limit cooldown timer
+  useEffect(() => {
+    if (otpRateLimitTimer <= 0) return;
+    const interval = setInterval(() => {
+      setOtpRateLimitTimer(t => {
+        if (t <= 1) { clearInterval(interval); return 0; }
+        return t - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [otpRateLimitTimer]);
+
   // Cleanup reCAPTCHA on component unmount or when leaving OTP screen
   useEffect(() => {
     return () => {
@@ -311,16 +324,24 @@ export default function OnboardingScreen() {
       Alert.alert('✓ OTP Sent', `Verification code sent to ${fullPhone}.\n\nCheck your SMS.`);
     } catch (err: any) {
       console.error('[Firebase OTP] Failed | code:', err?.code, '| msg:', err?.message);
-      const msg =
-        err?.code === 'auth/invalid-phone-number'  ? 'Invalid phone number. Use a valid 10-digit number.' :
-        err?.code === 'auth/quota-exceeded'         ? 'SMS quota exceeded. Try again later.' :
-        err?.code === 'auth/too-many-requests'      ? 'Too many attempts. Wait a few minutes.' :
-        err?.code === 'auth/captcha-check-failed'   ? 'reCAPTCHA failed. Please try again.' :
-        err?.code === 'auth/network-request-failed' ? 'Network error. Check your connection.' :
-        err?.message || 'Could not send OTP. Please try again.';
-      setOtpError(msg);
-      setDebugInfo(`❌ ${err?.code || 'error'}`);
-      Alert.alert('OTP Error', msg);
+      
+      // Handle rate limiting
+      if (err?.code === 'auth/too-many-requests') {
+        setOtpRateLimitTimer(300); // 5 minute cooldown
+        setOtpError('Too many attempts. Please wait 5 minutes before trying again.');
+        setDebugInfo('⏱️ Rate limited by Firebase. Retry in 5 minutes.');
+        Alert.alert('Too Many Attempts', 'You\'ve tried too many times. Please wait 5 minutes before requesting another OTP.\n\nThis is a security feature to protect your account.');
+      } else {
+        const msg =
+          err?.code === 'auth/invalid-phone-number'  ? 'Invalid phone number. Use a valid 10-digit number.' :
+          err?.code === 'auth/quota-exceeded'         ? 'SMS quota exceeded. Try again later.' :
+          err?.code === 'auth/captcha-check-failed'   ? 'reCAPTCHA failed. Please try again.' :
+          err?.code === 'auth/network-request-failed' ? 'Network error. Check your connection.' :
+          err?.message || 'Could not send OTP. Please try again.';
+        setOtpError(msg);
+        setDebugInfo(`❌ ${err?.code || 'error'}`);
+        Alert.alert('OTP Error', msg);
+      }
     } finally {
       setOtpSending(false);
     }
@@ -1120,7 +1141,9 @@ export default function OnboardingScreen() {
               autoFocus
             />
             <View style={styles.otpActions}>
-              {otpResendTimer > 0 ? (
+              {otpRateLimitTimer > 0 ? (
+                <Text style={[styles.otpHint, { color: '#FF3B30' }]}>Wait {otpRateLimitTimer}s ({Math.ceil(otpRateLimitTimer / 60)}m) before retrying</Text>
+              ) : otpResendTimer > 0 ? (
                 <Text style={styles.otpHint}>Resend OTP in {otpResendTimer}s</Text>
               ) : (
                 <Pressable
