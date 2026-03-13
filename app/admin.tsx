@@ -698,13 +698,12 @@ export default function AdminScreen() {
   const cleanProfilePhone = profile?.phone?.replace(/\D/g, "") || "";
   const isAdmin = profile?.role === 'admin' || cleanProfilePhone === "8179142535" || cleanProfilePhone === "9876543210";
 
-  // Only check admin access after profile is loaded
   useEffect(() => {
-    if (profile && !isAdmin) {
+    if (!isAdmin) {
       Alert.alert('Access Denied', 'You do not have admin access.');
       router.back();
     }
-  }, [isAdmin, profile]);
+  }, [isAdmin]);
 
   const fetchSubscriptions = useCallback(async () => {
     try {
@@ -934,17 +933,6 @@ export default function AdminScreen() {
     };
     return { totalUsers, registeredUsers, totalPosts, totalJobs, totalChats, totalLikes, totalComments, roleBreakdown };
   }, [allUsers, posts, jobs, conversations]);
-
-  if (!isAdmin) return null;
-
-  if (!profile) {
-    return (
-      <View style={{ flex: 1, backgroundColor: C.background, alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator size="large" color={C.primary} />
-        <Text style={{ marginTop: 12, color: C.textSecondary, fontFamily: 'Inter_400Regular' }}>Loading...</Text>
-      </View>
-    );
-  }
 
   const renderPayouts = () => {
     const pending = payoutsData.filter(p => p.status === 'pending');
