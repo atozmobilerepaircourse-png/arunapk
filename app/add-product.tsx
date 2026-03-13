@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TextInput, Pressable, Platform,
-  ScrollView, Alert, ActivityIndicator,
+  ScrollView, Alert, ActivityIndicator, Switch,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,7 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import { fetch as expoFetch } from 'expo/fetch';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import Colors from '@/constants/colors';
 import { useApp } from '@/lib/context';
 import { apiRequest, getApiUrl } from '@/lib/query-client';
@@ -22,21 +22,45 @@ const MAX_VIDEO_SIZE_BYTES = MAX_VIDEO_SIZE_MB * 1024 * 1024;
 export default function AddProductScreen() {
   const insets = useSafeAreaInsets();
   const { profile } = useApp();
+  const params = useLocalSearchParams<{ productId?: string }>();
   const isTeacher = profile?.role === 'teacher';
   const categories = isTeacher ? TEACHER_CATEGORIES : SUPPLIER_CATEGORIES;
+  const isEditMode = !!params.productId;
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
   const [category, setCategory] = useState<ProductCategory>(categories[0].key);
   const [images, setImages] = useState<string[]>([]);
+  const [inStock, setInStock] = useState(true);
   const [videoUri, setVideoUri] = useState<string | null>(null);
   const [videoFileName, setVideoFileName] = useState<string>('');
   const [deliveryInfo, setDeliveryInfo] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loadingEdit, setLoadingEdit] = useState(isEditMode);
   const [uploadProgress, setUploadProgress] = useState('');
 
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
+
+  useEffect(() => {
+    if (isEditMode && params.productId) {
+      setLoadingEdit(true);
+      apiRequest('GET', `/api/products/${params.productId}`)
+        .then(r => r.json())
+        .then(data => {
+          setTitle(data.title || '');
+          setDescription(data.description || '');
+          setPrice(data.price || '');
+          setCategory(data.category || categories[0].key);
+          setDeliveryInfo(data.deliveryInfo || '');
+          setInStock(data.inStock !== 0);
+          const imgs = (() => { try { return JSON.parse(data.images || '[]'); } catch { return []; } })();
+          setImages(imgs);
+        })
+        .catch(() => Alert.alert('Error', 'Failed to load product'))
+        .finally(() => setLoadingEdit(false));
+    }
+  }, [params.productId]);
 
   const pickImages = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -167,6 +191,7 @@ export default function AddProductScreen() {
 
       setUploadProgress('Publishing...');
       const res = await apiRequest('POST', '/api/products', {
+        id: isEditMode ? params.productId : undefined,
         userId: profile.id,
         userName: profile.name,
         userRole: profile.role,
@@ -179,7 +204,7 @@ export default function AddProductScreen() {
         videoUrl: uploadedVideoUrl,
         city: profile.city,
         state: profile.state,
-        inStock: 1,
+        inStock: inStock ? 1 : 0,
         deliveryInfo: deliveryInfo.trim(),
         contactPhone: profile.phone,
       });
@@ -217,7 +242,9 @@ export default function AddProductScreen() {
         <Pressable onPress={() => router.back()} hitSlop={12}>
           <Ionicons name="close" size={28} color={C.text} />
         </Pressable>
-        <Text style={styles.topBarTitle}>{isTeacher ? 'Add Content' : 'Add Product'}</Text>
+        <Text style={styles.topBarTitle}>
+          {isEditMode ? 'Edit' : 'Add'} {isTeacher ? 'Content' : 'Product'}
+        </Text>
         <Pressable
           style={[styles.publishBtn, (!title.trim() || !price.trim() || isSubmitting) && styles.publishBtnDisabled]}
           onPress={handleSubmit}
@@ -231,6 +258,12 @@ export default function AddProductScreen() {
         </Pressable>
       </View>
 
+      {loadingEdit ? (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator size="large" color={C.primary} />
+          <Text style={{ color: C.textSecondary, marginTop: 12, fontFamily: 'Inter_400Regular' }}>Loading product...</Text>
+        </View>
+      ) : (
       <ScrollView style={styles.form} contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
         <Text style={styles.sectionLabel}>Title *</Text>
         <TextInput
@@ -332,6 +365,23 @@ export default function AddProductScreen() {
           onChangeText={setDeliveryInfo}
         />
 
+        {!isTeacher && (
+          <View style={styles.stockRow}>
+            <View>
+              <Text style={[styles.sectionLabel, { marginTop: 0, marginBottom: 2 }]}>In Stock</Text>
+              <Text style={{ color: C.textTertiary, fontSize: 12, fontFamily: 'Inter_400Regular' }}>
+                {inStock ? 'Product is available' : 'Product is out of stock'}
+              </Text>
+            </View>
+            <Switch
+              value={inStock}
+              onValueChange={setInStock}
+              trackColor={{ false: C.border, true: C.primary }}
+              thumbColor="#FFF"
+            />
+          </View>
+        )}
+
         <View style={styles.locationInfo}>
           <Ionicons name="location-outline" size={16} color={C.textTertiary} />
           <Text style={styles.locationText}>Location: {profile?.city}, {profile?.state}</Text>
@@ -344,6 +394,7 @@ export default function AddProductScreen() {
           </View>
         ) : null}
       </ScrollView>
+      )}
     </View>
   );
 }
@@ -403,6 +454,11 @@ const styles = StyleSheet.create({
   },
   videoInfo: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, marginRight: 10 },
   videoFileName: { color: C.text, fontSize: 14, fontFamily: 'Inter_400Regular', flex: 1 },
+  stockRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: C.surface, borderRadius: 12, padding: 14, marginTop: 20,
+    borderWidth: 1, borderColor: C.border,
+  },
   locationInfo: {
     flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 20,
     backgroundColor: C.surface, padding: 14, borderRadius: 12,

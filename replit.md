@@ -216,3 +216,46 @@ Builds run on Expo's cloud servers (10-25 min). Download from https://expo.dev d
 ### Profile (app/(tabs)/profile.tsx) — SKILLS LINK
 - Added "Skills & Services" button to Technician Tools section
 - Routes to `/skills-services` screen
+
+## Marketplace & Supplier System Redesign (March 13, 2026)
+
+### Admin Panel (app/admin.tsx) — USER MANAGEMENT FIXES
+- Delete user: confirmation dialog + success alert, fully functional for all roles
+- Verify/unverify: fixed to read `verified` param from request body (backend `/api/profiles/:id/verify`)
+- Block/unblock: works correctly for all roles
+- Back button: `handleGoBack` with fallback to `/(tabs)` - no crashes
+- Refresh: spinner + error handling
+
+### Marketplace (app/(tabs)/marketplace.tsx) — COMPLETE DARK REDESIGN
+- Full dark T theme product grid (2-column), category chips, search/sort
+- Add-to-cart badges with quantity indicators, pull-to-refresh, empty states
+
+### Supplier Dashboard (app/(tabs)/products.tsx) — REBUILT
+- Stat cards: products count, orders, pending orders, revenue
+- Products list with Edit (navigates to add-product) and Delete (confirm dialog)
+- Orders tab with status badges (pending/confirmed/shipped/delivered)
+- Pull-to-refresh on both tabs
+
+### Product Detail (app/product-detail.tsx) — REDESIGNED
+- Image carousel with dot indicators, floating action bar
+- Cart quantity control (add/remove/update), share button
+- Supplier info card with contact/chat buttons
+
+### Cart (app/cart.tsx) — REBUILT (Dark Theme)
+- FlatList with item rows: image, title, supplier, price, qty control
+- Remove individual items or clear all (with confirmation)
+- Order summary card with delivery charge logic (free over ₹999)
+- Fixed checkout bar at bottom with grand total
+
+### Checkout (app/checkout.tsx) — REBUILT (Dark Theme)
+- Delivery details form: name, phone, address, city, pincode, notes
+- Payment method selector: COD vs Online (radio buttons)
+- Order summary with per-item breakdown
+- Places one order per cart item to respective supplier via `/api/orders`
+- Clears cart and shows success alert after placement
+
+### Add Product (app/add-product.tsx) — EDIT MODE + STOCK TOGGLE
+- Edit mode: loads existing product data when `?productId=` param is present
+- Shows loading spinner during edit data fetch
+- In-Stock toggle: suppliers can mark products as in/out of stock
+- Backend `/api/products` POST handles both create and update (when id is provided)
