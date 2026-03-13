@@ -432,7 +432,6 @@ export default function OnboardingScreen() {
 
   const checkPhone = async () => {
     const cleanPhone = phone.replace(/\D/g, '');
-    console.log('[Phone] Cleaned phone:', cleanPhone, 'length:', cleanPhone.length);
     if (cleanPhone.length !== 10) {
       Alert.alert('Invalid Number', 'Please enter a valid 10-digit mobile number.');
       return;
@@ -440,15 +439,22 @@ export default function OnboardingScreen() {
 
     setChecking(true);
     try {
+      // On web: skip check-phone, go straight to OTP
+      if (Platform.OS === 'web') {
+        console.log('[Phone] Web platform, skipping check, sending OTP directly for:', cleanPhone);
+        setExistingProfile(null);
+        await sendOtp(cleanPhone);
+        setStep(1);
+        return;
+      }
+
+      // On native: check phone first
       const baseUrl = getApiUrl();
-      console.log('[checkPhone] Starting check for:', cleanPhone, 'via:', baseUrl);
+      console.log('[checkPhone] Checking phone for:', cleanPhone, 'via:', baseUrl);
       const res = await apiRequest('POST', '/api/auth/check-phone', { phone: cleanPhone });
-      console.log('[checkPhone] Response status:', res.status);
       const data = await res.json();
-      console.log('[checkPhone] Response data:', data);
 
       if (data.success) {
-        console.log('[checkPhone] Phone verified, exists:', data.exists);
         if (data.exists && data.profile) {
           const serverProfile: UserProfile = {
             id: data.profile.id,
@@ -471,24 +477,18 @@ export default function OnboardingScreen() {
             createdAt: data.profile.createdAt || Date.now(),
           };
           setExistingProfile(serverProfile);
-          console.log('[checkPhone] Existing user found, sending OTP');
-          if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          await sendOtp(cleanPhone);
-          setStep(1);
         } else {
-          console.log('[checkPhone] New user, sending OTP');
           setExistingProfile(null);
-          if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          await sendOtp(cleanPhone);
-          setStep(1);
         }
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        await sendOtp(cleanPhone);
+        setStep(1);
       } else {
-        console.log('[checkPhone] API returned error:', data.message);
         Alert.alert('Error', data.message || 'Verification failed. Please try again.');
       }
     } catch (error: any) {
-      console.error('[checkPhone] Exception:', error?.message, error);
-      Alert.alert('Connection Error', `${error?.message || 'Could not connect to server. Please check your internet and try again.'}`);
+      console.error('[checkPhone] Error:', error?.message);
+      Alert.alert('Connection Error', `Could not connect. Try again.`);
     } finally {
       setChecking(false);
     }
