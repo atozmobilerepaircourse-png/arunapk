@@ -19,10 +19,9 @@ function NativeTabLayout() {
   const isSupplier = profile?.role === 'supplier';
 
   const getRoleTab = () => {
-    if (navigationMode === 'marketplace') return { name: 'marketplace', icon: 'bag', label: 'Marketplace' };
     if (isTeacher) return { name: 'content', icon: 'book', label: 'Content' };
     if (isSupplier) return { name: 'products', icon: 'cube', label: 'Products' };
-    return { name: 'marketplace', icon: 'bag', label: 'Marketplace' };
+    return { name: 'directory', icon: 'person.2', label: 'Directory' };
   };
 
   const roleTab = getRoleTab();
@@ -41,10 +40,6 @@ function NativeTabLayout() {
         <NativeTabs.Trigger name="create">
           <Icon sf={{ default: "plus.circle", selected: "plus.circle.fill" }} />
           <Label>Post</Label>
-        </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="marketplace">
-          <Icon sf={{ default: "bag", selected: "bag.fill" }} />
-          <Label>Marketplace</Label>
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="profile">
           <Icon sf={{ default: "person", selected: "person.fill" }} />
@@ -84,8 +79,8 @@ function NativeTabLayout() {
       <NativeTabs.Trigger name="customer-home" hidden />
       <NativeTabs.Trigger name="jobs" hidden />
       <NativeTabs.Trigger name="technician-jobs" hidden />
-      <NativeTabs.Trigger name={isTeacher ? 'content' : 'marketplace'} hidden={!isTeacher} />
-      <NativeTabs.Trigger name={isSupplier ? 'products' : 'marketplace'} hidden={!isSupplier} />
+      <NativeTabs.Trigger name="content" hidden={!isTeacher} />
+      <NativeTabs.Trigger name="products" hidden={!isSupplier} />
     </NativeTabs>
   );
 }
@@ -194,20 +189,6 @@ function ClassicTabLayout() {
           href: '/create',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? "add-circle" : "add-circle-outline"} size={24} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="marketplace"
-        options={{
-          title: "Marketplace",
-          href: navigationMode === 'marketplace' || (!isTeacher && !isSupplier) ? '/marketplace' : null,
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? "bag" : "bag-outline"}
-              size={22}
-              color={color}
-            />
           ),
         }}
       />
