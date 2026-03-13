@@ -934,21 +934,13 @@ export default function AdminScreen() {
     return { totalUsers, registeredUsers, totalPosts, totalJobs, totalChats, totalLikes, totalComments, roleBreakdown };
   }, [allUsers, posts, jobs, conversations]);
 
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    // Wait for data to load before rendering
-    const timer = setTimeout(() => setIsLoading(false), 500);
-    return () => clearTimeout(timer);
-  }, []);
-
   if (!isAdmin) return null;
 
-  if (isLoading || !allProfiles || !profile) {
+  if (!profile) {
     return (
       <View style={{ flex: 1, backgroundColor: C.background, alignItems: 'center', justifyContent: 'center' }}>
         <ActivityIndicator size="large" color={C.primary} />
-        <Text style={{ marginTop: 12, color: C.textSecondary, fontFamily: 'Inter_400Regular' }}>Loading admin panel...</Text>
+        <Text style={{ marginTop: 12, color: C.textSecondary, fontFamily: 'Inter_400Regular' }}>Loading...</Text>
       </View>
     );
   }
