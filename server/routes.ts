@@ -6271,9 +6271,12 @@ Be concise, practical, and specific. Only answer mobile hardware repair question
       res.write('data: [DONE]\n\n');
       res.end();
     } catch (error: any) {
-      console.error('[AI Repair Chat]', error.message);
+      console.error('[AI Repair Chat] Error:', error?.message, '| code:', error?.code, '| status:', error?.status, '| type:', error?.type);
       if (!res.headersSent) {
-        res.status(500).json({ error: 'AI service unavailable' });
+        const userMsg = error?.code === 'insufficient_quota' ? 'OpenAI quota exceeded. Please check your plan.' :
+                        error?.status === 401 ? 'Invalid OpenAI API key.' :
+                        error?.message || 'AI service unavailable';
+        res.status(500).json({ error: userMsg });
       }
     }
   });
@@ -6344,8 +6347,11 @@ Be specific about component locations and names. If image quality is poor or not
       const analysis = response.choices[0]?.message?.content || 'Analysis failed';
       res.json({ analysis });
     } catch (error: any) {
-      console.error('[AI Motherboard Analyze]', error.message);
-      res.status(500).json({ error: 'Image analysis failed. Please try again.' });
+      console.error('[AI Motherboard Analyze] Error:', error?.message, '| code:', error?.code, '| status:', error?.status);
+      const userMsg = error?.code === 'insufficient_quota' ? 'OpenAI quota exceeded. Please check your plan.' :
+                      error?.status === 401 ? 'Invalid OpenAI API key.' :
+                      error?.message || 'Image analysis failed. Please try again.';
+      res.status(500).json({ error: userMsg });
     }
   });
 

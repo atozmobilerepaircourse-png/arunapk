@@ -94,6 +94,8 @@ const buildConfig = {
         if (googleRedirectUri)  args.push('--update-env-vars', `GOOGLE_REDIRECT_URI=${googleRedirectUri}`);
         if (bunnyKey)           args.push('--update-env-vars', `BUNNY_STREAM_API_KEY=${bunnyKey}`);
         if (bunnyLib)           args.push('--update-env-vars', `BUNNY_STREAM_LIBRARY_ID=${bunnyLib}`);
+        const openaiKey = process.env.OPENAI_API_KEY || '';
+        if (openaiKey)          args.push('--update-env-vars', `OPENAI_API_KEY=${openaiKey}`);
         
         return args;
       })(),
