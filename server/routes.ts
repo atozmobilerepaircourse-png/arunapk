@@ -6201,6 +6201,137 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
     });
   });
 
+  // ─── AI Repair Assistant ─────────────────────────────────────────────────────
+
+  app.post("/api/ai/repair/chat", async (req, res) => {
+    try {
+      const { messages } = req.body;
+      const openai = new OpenAI({
+        apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+        baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+      });
+
+      const systemPrompt = `You are an expert mobile phone hardware repair technician AI with 20+ years of experience. You specialize ONLY in diagnosing and repairing mobile phone hardware issues.
+
+Your expertise:
+- No power / Dead device diagnosis
+- Charging IC, USB port, charging circuit issues
+- Battery problems (not charging, fast drain, swollen)
+- Display and touchscreen faults (LCD, OLED, digitizer)
+- Backlight circuit failures
+- Network/RF IC problems (no signal, no network)
+- Audio IC issues (no sound, mic not working)
+- Motherboard short circuits and damaged traces
+- Water damage assessment and repair
+- Component-level repair (soldering, hot air, reballing)
+
+Response format:
+🔍 POSSIBLE CAUSE: [Hardware root cause]
+🛠️ REPAIR STEPS: [Numbered step-by-step guide]
+⚠️ SAFETY PRECAUTIONS: [Important warnings]
+🔧 TOOLS NEEDED: [Required tools]
+
+Be concise, practical, and specific. Only answer mobile hardware repair questions.`;
+
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+
+      const stream = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [{ role: 'system', content: systemPrompt }, ...messages],
+        stream: true,
+        max_tokens: 800,
+        temperature: 0.4,
+      });
+
+      for await (const chunk of stream) {
+        const content = chunk.choices[0]?.delta?.content;
+        if (content) {
+          res.write(`data: ${JSON.stringify({ content })}\n\n`);
+        }
+      }
+      res.write('data: [DONE]\n\n');
+      res.end();
+    } catch (error: any) {
+      console.error('[AI Repair Chat]', error.message);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'AI service unavailable' });
+      }
+    }
+  });
+
+  app.post("/api/ai/repair/analyze", async (req, res) => {
+    try {
+      const { imageBase64, mimeType = 'image/jpeg' } = req.body;
+
+      if (!imageBase64) {
+        return res.status(400).json({ error: 'No image provided' });
+      }
+
+      const openai = new OpenAI({
+        apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+        baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+      });
+
+      const response = await openai.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: `You are an expert mobile phone motherboard repair specialist. Analyze this image and provide a structured diagnosis.
+
+Respond in this EXACT format:
+
+📋 OVERVIEW
+[What you can see - board type, visible components, condition]
+
+🔴 POSSIBLE FAULTY COMPONENTS
+[List specific ICs, capacitors, or components that appear damaged, corroded, burned, or missing]
+
+❓ POSSIBLE CAUSE
+[Why these components may have failed - water damage, power surge, physical damage, etc.]
+
+🛠️ REPAIR STEPS
+1. [First step]
+2. [Second step]
+3. [Continue...]
+
+🔧 TOOLS REQUIRED
+[List specific tools: hot air station, soldering iron, multimeter, etc.]
+
+⚡ DIFFICULTY LEVEL
+[Beginner / Intermediate / Advanced / Expert - with brief explanation]
+
+Be specific about component locations and names. If image quality is poor or not a motherboard, state that clearly.`,
+              },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: `data:${mimeType};base64,${imageBase64}`,
+                  detail: 'high',
+                },
+              },
+            ],
+          },
+        ],
+        max_tokens: 1000,
+      });
+
+      const analysis = response.choices[0]?.message?.content || 'Analysis failed';
+      res.json({ analysis });
+    } catch (error: any) {
+      console.error('[AI Motherboard Analyze]', error.message);
+      res.status(500).json({ error: 'Image analysis failed. Please try again.' });
+    }
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────────
+
   const httpServer = createServer(app);
   return httpServer;
 }

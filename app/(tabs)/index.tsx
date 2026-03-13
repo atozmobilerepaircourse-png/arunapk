@@ -211,8 +211,16 @@ export default function FeedScreen() {
         </View>
 
         <View style={styles.headerActions}>
+          {/* AI Repair Assistant */}
+          <HeaderButton delay={0} onPress={() => router.push('/ai-repair')}>
+            <View style={styles.aiBtnHeader}>
+              <Ionicons name="hardware-chip" size={14} color="#FFF" />
+              <Text style={styles.aiBtnHeaderText}>AI</Text>
+            </View>
+          </HeaderButton>
+
           {/* Schematics */}
-          <HeaderButton delay={0} onPress={() => {
+          <HeaderButton delay={100} onPress={() => {
             if (schematicsUrl) {
               if (isTech && profile?.subscriptionEnd && profile.subscriptionEnd < Date.now()) {
                 Alert.alert('Subscription Required', 'Subscribe to access Schematics.');
@@ -558,5 +566,25 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'Inter_400Regular',
     textAlign: 'center',
+  },
+  aiBtnHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#7C3AED',
+    paddingHorizontal: 9,
+    paddingVertical: 6,
+    borderRadius: 10,
+    shadowColor: '#7C3AED',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.5,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  aiBtnHeaderText: {
+    fontSize: 11,
+    color: '#FFF',
+    fontFamily: 'Inter_700Bold',
+    letterSpacing: 0.5,
   },
 });

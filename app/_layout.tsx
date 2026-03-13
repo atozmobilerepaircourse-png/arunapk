@@ -60,6 +60,7 @@ function SecuredApp() {
         <Stack.Screen name="repair-services" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="repair-booking" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="insurance" options={{ animation: 'slide_from_bottom' }} />
+        <Stack.Screen name="ai-repair" options={{ animation: 'slide_from_bottom' }} />
       </Stack>
       <FloatingUploadBanner />
     </SecurityProvider>
