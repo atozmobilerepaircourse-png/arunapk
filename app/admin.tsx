@@ -15,7 +15,7 @@ import { openLink } from '@/lib/open-link';
 const C = Colors.light;
 const PRIMARY = '#FF6B2C';
 
-type AdminTab = 'dashboard' | 'users' | 'posts' | 'jobs' | 'bookings' | 'subscriptions' | 'revenue' | 'links' | 'notifications' | 'payouts' | 'email' | 'insurance' | 'ads' | 'listings' | 'device-lock';
+type AdminTab = 'dashboard' | 'users' | 'posts' | 'jobs' | 'bookings' | 'subscriptions' | 'revenue' | 'links' | 'notifications' | 'payouts' | 'email' | 'insurance' | 'ads' | 'listings';
 
 const ROLE_COLORS: Record<UserRole | 'admin', string> = {
   technician: '#34C759',
@@ -344,14 +344,6 @@ export default function AdminScreen() {
   const [repairFilter, setRepairFilter] = useState<'all' | 'pending' | 'assigned' | 'completed' | 'cancelled'>('all');
   const [assigningBooking, setAssigningBooking] = useState<any>(null);
   const [technicianSearch, setTechnicianSearch] = useState('');
-
-  // Device lock
-  const [deviceLockEnabled, setDeviceLockEnabled] = useState(false);
-  const [deviceLockPrice, setDeviceLockPrice] = useState('100');
-  const [deviceSettingsLoading, setDeviceSettingsLoading] = useState(false);
-  const [lockNotifications, setLockNotifications] = useState<any[]>([]);
-  const [lockNotifLoading, setLockNotifLoading] = useState(false);
-  const [unlockingUserId, setUnlockingUserId] = useState<string | null>(null);
 
   const webTopInset = Platform.OS === 'web' ? 67 : insets.top;
 
@@ -706,76 +698,6 @@ export default function AdminScreen() {
 
   const downloadUsersCSV = () => openLink(`${getApiUrl()}/api/admin/export-users`, 'Export');
 
-  // ── Device Lock Functions ──
-  const fetchDeviceSettings = useCallback(async () => {
-    setDeviceSettingsLoading(true);
-    try {
-      const res = await apiRequest('GET', '/api/app-settings');
-      const data = await res.json();
-      setDeviceLockEnabled(data.device_lock_enabled === 'true');
-      setDeviceLockPrice(data.device_lock_price || '100');
-    } catch (err) { console.warn('device settings:', err); }
-    finally { setDeviceSettingsLoading(false); }
-  }, []);
-
-  const saveDeviceSetting = async (key: string, value: string) => {
-    try {
-      await apiRequest('PUT', `/api/app-settings/${key}`, { value });
-    } catch (err) {
-      Alert.alert('Error', 'Failed to save setting');
-    }
-  };
-
-  const toggleDeviceLock = async (enabled: boolean) => {
-    setDeviceLockEnabled(enabled);
-    await saveDeviceSetting('device_lock_enabled', enabled ? 'true' : 'false');
-  };
-
-  const resetUserDevice = (userId: string, userName: string) => {
-    Alert.alert('Reset Device', `Reset device lock for ${userName}? They will be able to login from any device again with 2 free changes.`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Reset', style: 'destructive', onPress: async () => {
-          try {
-            await apiRequest('POST', '/api/admin/reset-device', { userId });
-            Alert.alert('Success', `Device reset for ${userName}`);
-            await fetchLockNotifications();
-          } catch (err) { Alert.alert('Error', 'Failed to reset device'); }
-        }},
-    ]);
-  };
-
-  const fetchLockNotifications = useCallback(async () => {
-    try {
-      setLockNotifLoading(true);
-      const res = await apiRequest('GET', '/api/admin/lock-notifications');
-      const data = await res.json();
-      setLockNotifications(data.notifications || []);
-    } catch (e) { console.warn('lock notifications:', e); }
-    finally { setLockNotifLoading(false); }
-  }, []);
-
-  const unlockUser = useCallback(async (userId: string, userName: string) => {
-    Alert.alert('Unlock User', `Unlock ${userName}'s account and reset device binding?`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Unlock', onPress: async () => {
-          try {
-            setUnlockingUserId(userId);
-            const res = await apiRequest('POST', '/api/admin/unlock-user', { userId });
-            const data = await res.json();
-            if (data.success) {
-              Alert.alert('Success', `${userName} has been unlocked.`);
-              await fetchLockNotifications();
-            } else { Alert.alert('Error', data.message || 'Failed to unlock user.'); }
-          } catch (e: any) { Alert.alert('Error', 'Failed to unlock user.'); }
-          finally { setUnlockingUserId(null); }
-        }},
-    ]);
-  }, []);
-
-  useEffect(() => {
-    if (activeTab === 'device-lock') { fetchDeviceSettings(); fetchLockNotifications(); }
-  }, [activeTab, fetchDeviceSettings, fetchLockNotifications]);
-
   const saveLink = async (key: string, value: string) => {
     try {
       await apiRequest('PUT', `/api/app-settings/${key}`, { value });
@@ -859,7 +781,6 @@ export default function AdminScreen() {
     { key: 'ads', label: 'Ads & Shop', icon: 'megaphone-outline' },
     { key: 'listings', label: 'Listings', icon: 'cube-outline' },
     { key: 'links', label: 'Links', icon: 'link-outline' },
-    { key: 'device-lock', label: 'Locks', icon: 'lock-closed-outline' },
     { key: 'notifications', label: 'Notify', icon: 'notifications-outline' },
     { key: 'email', label: 'Email', icon: 'mail-outline' },
     { key: 'payouts', label: 'Payouts', icon: 'cash-outline' },
@@ -1950,7 +1871,6 @@ export default function AdminScreen() {
         {activeTab === 'ads' && renderAds()}
         {activeTab === 'listings' && renderListings()}
         {activeTab === 'links' && renderLinks()}
-        {activeTab === 'device-lock' && renderDeviceLock()}
         {activeTab === 'notifications' && renderNotifications()}
         {activeTab === 'email' && renderEmail()}
         {activeTab === 'payouts' && renderPayouts()}
