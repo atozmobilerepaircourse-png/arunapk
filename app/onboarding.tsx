@@ -266,43 +266,31 @@ export default function OnboardingScreen() {
   };
 
   const sendFirebaseMobileOTP = async (fullPhone: string) => {
-    console.log('[Firebase] Starting mobile OTP flow for:', fullPhone);
-    console.log('[Firebase] recaptchaVerifierRef ready:', !!recaptchaVerifierRef.current);
-    console.log('[Firebase] firebaseAuth initialized:', !!firebaseAuth);
-    console.log('[Firebase] config projectId:', firebaseConfig?.projectId);
-
     if (!recaptchaVerifierRef.current) {
-      console.error('[Firebase] RecaptchaVerifier not initialized — cannot send OTP');
+      console.error('[Firebase] RecaptchaVerifier not initialized');
       throw new Error('App not ready. Please wait a moment and try again.');
     }
 
     const phoneProvider = new PhoneAuthProvider(firebaseAuth);
 
     try {
-      console.log('[Firebase] Calling phoneProvider.verifyPhoneNumber with:', fullPhone);
       const verificationId = await phoneProvider.verifyPhoneNumber(fullPhone, recaptchaVerifierRef.current);
-
-      console.log('[Firebase] ✅ verifyPhoneNumber success — verificationId received:', verificationId ? 'YES' : 'NO');
-      console.log('[Firebase] SMS should now be delivered to', fullPhone);
+      console.log('[Firebase] OTP sent successfully to', fullPhone);
 
       setFirebaseVerificationId(verificationId);
       setUseFirebaseOTP(true);
       setOtpSent(true);
       setOtpResendTimer(30);
-      Alert.alert('✓ OTP Sent', `A 6-digit code has been sent to ${fullPhone}. Please check your SMS.`);
+      Alert.alert('✓ OTP Sent', `Verification code sent to ${fullPhone}.\n\nPlease check your SMS.`);
     } catch (err: any) {
-      console.error('[Firebase] verifyPhoneNumber FAILED:', {
-        code: err?.code,
-        message: err?.message,
-        name: err?.name,
-      });
+      console.error('[Firebase] Error:', err?.code);
 
       const msg =
         err?.code === 'auth/invalid-phone-number'     ? 'Invalid phone number. Please enter a valid 10-digit number.' :
         err?.code === 'auth/quota-exceeded'           ? 'SMS quota exceeded. Please try again later.' :
         err?.code === 'auth/invalid-app-credential'   ? 'Firebase is not configured correctly. Contact support.' :
-        err?.code === 'auth/missing-recaptcha-token'  ? 'Recaptcha check failed. Please try again.' :
-        err?.code === 'auth/too-many-requests'        ? 'Too many attempts. Please wait a few minutes and try again.' :
+        err?.code === 'auth/missing-recaptcha-token'  ? 'Recaptcha verification failed. Please try again.' :
+        err?.code === 'auth/too-many-requests'        ? 'Too many OTP attempts. Please wait a few minutes.' :
         err?.message || 'Could not send OTP. Please try again.';
 
       throw new Error(msg);
@@ -311,24 +299,18 @@ export default function OnboardingScreen() {
 
   const sendBackendOTP = async (cleanDigits: string) => {
     try {
-      console.log('[BackendOTP] Calling /api/otp/send for phone:', cleanDigits);
+      console.log('[OTP] Generating OTP on backend for phone:', cleanDigits);
       const res = await apiRequest('POST', '/api/otp/send', { phone: cleanDigits });
       const data = await res.json();
       if (data.success) {
         setOtpSent(true);
         setOtpResendTimer(30);
-        // Web development: show OTP in alert since no SMS provider is configured for web
-        if (data.otp) {
-          Alert.alert('🔐 OTP Code', `Your code: ${data.otp}\n\nEnter this to verify your phone.`, [{ text: 'Got it' }]);
-        } else {
-          Alert.alert('✓ OTP Sent', 'Check your phone for the 6-digit code.');
-        }
-        console.log('[BackendOTP] Success, otpSent set to true');
+        console.log('[OTP] Backend generated OTP successfully');
       } else {
         throw new Error(data.message || 'Failed to generate OTP');
       }
     } catch (err: any) {
-      console.error('[BackendOTP] Error:', err?.message);
+      console.error('[OTP] Backend error:', err?.message);
       throw err;
     }
   };
@@ -338,9 +320,10 @@ export default function OnboardingScreen() {
       Alert.alert('Verification Failed', sessionData.message || 'Invalid OTP. Please try again.');
       return;
     }
-    // Existing user - log them in and redirect to home
+
+    // EXISTING USER - Log in directly
     if (sessionData.isNewUser === false && sessionData.profile) {
-      // Fix skills field - DB returns string, app expects array
+      console.log('[Auth] Existing user:', sessionData.profile.name);
       const p = {
         ...sessionData.profile,
         skills: Array.isArray(sessionData.profile.skills)
@@ -348,24 +331,27 @@ export default function OnboardingScreen() {
           : (() => { try { return JSON.parse(sessionData.profile.skills || '[]'); } catch { return []; } })(),
       };
       await loginWithProfile(p, sessionData.sessionToken || '');
+      if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setTimeout(() => {
         const isCustomer = p.role === 'customer';
         router.replace(isCustomer ? '/(tabs)/customer-home' : '/(tabs)');
-      }, 200);
+      }, 300);
       return;
     }
-    // New user - continue with onboarding
-    const token = sessionData.sessionToken || '';
-    setSessionToken(token);
-    if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+    // NEW USER - Continue to registration
+    console.log('[Auth] New user, starting registration...');
+    setSessionToken(sessionData.sessionToken || '');
+    setPhone(cleanPhone);
     setIsNewUser(true);
+    if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setStep(s => s + 1);
   };
 
   const verifyOtp = async () => {
     const cleanPhone = phone.replace(/\D/g, '').replace(/^91/, '');
     if (otpCode.length < 6) {
-      Alert.alert('Invalid OTP', 'Please enter the 6-digit OTP.');
+      Alert.alert('Invalid OTP', 'Please enter the 6-digit code.');
       return;
     }
     setOtpVerifying(true);
@@ -373,39 +359,36 @@ export default function OnboardingScreen() {
       const deviceId = await getDeviceId();
 
       if (useFirebaseOTP) {
+        // Firebase Phone Auth verification
         try {
-          let idToken = '';
-          if (Platform.OS === 'web') {
-            if (!webConfirmationRef.current) throw new Error('No Firebase confirmation result');
-            const result = await webConfirmationRef.current.confirm(otpCode);
-            idToken = await result.user.getIdToken();
-          } else {
-            const credential = PhoneAuthProvider.credential(firebaseVerificationId, otpCode);
-            const userCredential = await signInWithCredential(firebaseAuth, credential);
-            idToken = await userCredential.user.getIdToken();
-          }
+          const credential = PhoneAuthProvider.credential(firebaseVerificationId, otpCode);
+          const userCredential = await signInWithCredential(firebaseAuth, credential);
+          const idToken = await userCredential.user.getIdToken();
+          
+          console.log('[Firebase] OTP verified, exchanging for session...');
           const res = await apiRequest('POST', '/api/auth/firebase-phone', { idToken, deviceId });
           const data = await res.json();
           await handleOtpVerified(data, cleanPhone, deviceId);
           return;
         } catch (fbErr: any) {
-          console.error('[Firebase OTP] Verify error:', fbErr?.message);
+          console.error('[Firebase] Verification error:', fbErr?.code);
           const msg =
             fbErr?.code === 'auth/invalid-verification-code' ? 'Wrong OTP. Please check and try again.' :
             fbErr?.code === 'auth/code-expired' ? 'OTP expired. Please request a new one.' :
             fbErr?.message?.includes('TOO_SHORT') ? 'Please enter all 6 digits.' :
-            'Could not verify OTP. Please try again.';
+            fbErr?.message || 'Verification failed. Please try again.';
           Alert.alert('Verification Failed', msg);
           setOtpVerifying(false);
           return;
         }
       }
 
+      // Fallback: backend OTP verification (web platform)
       const res = await apiRequest('POST', '/api/otp/verify', { phone: cleanPhone, otp: otpCode, deviceId });
       const data = await res.json();
       await handleOtpVerified(data, cleanPhone, deviceId);
-    } catch (e) {
-      Alert.alert('Error', 'Could not verify OTP. Please try again.');
+    } catch (e: any) {
+      Alert.alert('Error', e?.message || 'Could not verify OTP. Please try again.');
     } finally {
       setOtpVerifying(false);
     }
