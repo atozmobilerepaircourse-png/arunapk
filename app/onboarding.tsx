@@ -241,6 +241,16 @@ export default function OnboardingScreen() {
     return () => clearInterval(interval);
   }, [otpResendTimer]);
 
+  // Cleanup reCAPTCHA on component unmount or when leaving OTP screen
+  useEffect(() => {
+    return () => {
+      if (webRecaptchaRef.current) {
+        try { webRecaptchaRef.current.clear(); } catch {}
+        webRecaptchaRef.current = null;
+      }
+    };
+  }, []);
+
   const sendOtp = async (phoneNumber: string) => {
     setOtpSending(true);
     const cleanDigits = phoneNumber.replace(/\D/g, '').replace(/^91/, '');
@@ -254,10 +264,21 @@ export default function OnboardingScreen() {
       if (Platform.OS === 'web') {
         // Web: Use Firebase RecaptchaVerifier (invisible)
         const { RecaptchaVerifier } = await import('firebase/auth');
+        
+        // Clear old verifier to prevent "already rendered" error
         if (webRecaptchaRef.current) {
-          try { webRecaptchaRef.current.clear(); } catch {}
+          try { 
+            webRecaptchaRef.current.clear(); 
+          } catch (e) {
+            console.log('[reCAPTCHA] Clear error (expected):', e);
+          }
           webRecaptchaRef.current = null;
         }
+
+        // Wait a moment for DOM to be ready
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        // Create new verifier
         webRecaptchaRef.current = new RecaptchaVerifier(firebaseAuth, 'recaptcha-container', {
           size: 'invisible',
           callback: () => {},
