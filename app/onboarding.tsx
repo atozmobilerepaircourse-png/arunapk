@@ -275,8 +275,14 @@ export default function OnboardingScreen() {
           webRecaptchaRef.current = null;
         }
 
+        // Clear the DOM container completely to remove old reCAPTCHA instances
+        const container = document.getElementById('recaptcha-container');
+        if (container) {
+          container.innerHTML = '';
+        }
+
         // Wait a moment for DOM to be ready
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, 150));
 
         // Create new verifier
         webRecaptchaRef.current = new RecaptchaVerifier(firebaseAuth, 'recaptcha-container', {
