@@ -92,6 +92,8 @@ export default function OnboardingScreen() {
   const [isNewUser, setIsNewUser] = useState(false);
   const [newUserEmail, setNewUserEmail] = useState('');
   const [emailSendingWelcome, setEmailSendingWelcome] = useState(false);
+  const [otpError, setOtpError] = useState('');
+  const [debugInfo, setDebugInfo] = useState('');
 
   // Email Link (passwordless) auth state
   const [emailLinkMode, setEmailLinkMode] = useState(false);
@@ -266,24 +268,50 @@ export default function OnboardingScreen() {
   };
 
   const sendFirebaseMobileOTP = async (fullPhone: string) => {
+    console.log('[Firebase] sendFirebaseMobileOTP called | ref:', !!recaptchaVerifierRef.current, '| phone:', fullPhone);
+    setOtpError('');
+    setDebugInfo('Initializing Firebase Phone Auth...');
+
+    // Wait up to 5 seconds for RecaptchaVerifier to initialize
+    let waitCount = 0;
+    while (!recaptchaVerifierRef.current && waitCount < 50) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+      waitCount++;
+    }
+
+    console.log('[Firebase] RecaptchaVerifier check | waitCount:', waitCount, '| ready:', !!recaptchaVerifierRef.current);
+
     if (!recaptchaVerifierRef.current) {
-      console.error('[Firebase] RecaptchaVerifier not initialized');
-      throw new Error('App not ready. Please wait a moment and try again.');
+      const errMsg = 'RecaptchaVerifier not ready. Please wait and try again.';
+      console.error('[Firebase]', errMsg);
+      setOtpError(errMsg);
+      setDebugInfo('❌ Recaptcha not initialized');
+      throw new Error(errMsg);
     }
 
     const phoneProvider = new PhoneAuthProvider(firebaseAuth);
+    console.log('[Firebase] PhoneAuthProvider created');
 
     try {
+      setDebugInfo('Sending OTP via Firebase...');
+      console.log('[Firebase] Calling verifyPhoneNumber');
       const verificationId = await phoneProvider.verifyPhoneNumber(fullPhone, recaptchaVerifierRef.current);
-      console.log('[Firebase] OTP sent successfully to', fullPhone);
+      console.log('[Firebase] OTP sent successfully | verificationId:', verificationId?.substring(0, 20));
 
       setFirebaseVerificationId(verificationId);
       setUseFirebaseOTP(true);
       setOtpSent(true);
       setOtpResendTimer(30);
+      setDebugInfo('✅ OTP sent successfully');
       Alert.alert('✓ OTP Sent', `Verification code sent to ${fullPhone}.\n\nPlease check your SMS.`);
     } catch (err: any) {
-      console.error('[Firebase] Error:', err?.code);
+      const fullError = {
+        code: err?.code,
+        message: err?.message,
+        name: err?.name,
+        stack: err?.stack?.substring(0, 200)
+      };
+      console.error('[Firebase] Full error object:', JSON.stringify(fullError, null, 2));
 
       const msg =
         err?.code === 'auth/invalid-phone-number'     ? 'Invalid phone number. Please enter a valid 10-digit number.' :
@@ -293,6 +321,9 @@ export default function OnboardingScreen() {
         err?.code === 'auth/too-many-requests'        ? 'Too many OTP attempts. Please wait a few minutes.' :
         err?.message || 'Could not send OTP. Please try again.';
 
+      setOtpError(`${err?.code || 'ERROR'}: ${msg}`);
+      setDebugInfo(`❌ ${err?.code || 'Error'}`);
+      console.error('[Firebase] Final error:', msg);
       throw new Error(msg);
     }
   };
@@ -1052,6 +1083,25 @@ export default function OnboardingScreen() {
                 }
               </Text>
             </View>
+            
+            {/* Debug Info Panel */}
+            {debugInfo && (
+              <View style={{ backgroundColor: 'rgba(255,123,71,0.08)', borderRadius: 8, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(255,123,71,0.2)' }}>
+                <Text style={{ fontSize: 12, color: C.textSecondary, fontFamily: 'Inter_500Medium' }}>
+                  {debugInfo}
+                </Text>
+              </View>
+            )}
+
+            {/* Error Panel */}
+            {otpError && (
+              <View style={{ backgroundColor: 'rgba(255,59,95,0.08)', borderRadius: 8, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(255,59,95,0.3)' }}>
+                <Text style={{ fontSize: 12, color: '#FF3B5F', fontFamily: 'Inter_500Medium' }}>
+                  ⚠️ {otpError}
+                </Text>
+              </View>
+            )}
+            
             <Text style={styles.fieldLabel}>Enter OTP</Text>
             <TextInput
               style={[styles.input, { textAlign: 'center', fontSize: 22, letterSpacing: 8, fontFamily: 'Inter_700Bold' }]}
