@@ -244,26 +244,44 @@ export default function OnboardingScreen() {
     const cleanDigits = phoneNumber.replace(/\D/g, '').replace(/^91/, '');
     const fullPhone = '+91' + cleanDigits;
     try {
-      if (Platform.OS === 'web') {
-        // Web: Use backend OTP directly (no Firebase reCAPTCHA issues)
-        console.log('[OTP] Web platform - using backend OTP');
+      // PRIMARY: Always use backend OTP first (most reliable, no quota limits)
+      console.log('[OTP] Sending backend OTP for:', cleanDigits);
+      try {
         await sendBackendOTP(cleanDigits);
-      } else {
-        // Native: Use Firebase Phone Auth
-        if (!recaptchaVerifierRef.current) {
-          throw new Error('Recaptcha not initialized');
+        setUseFirebaseOTP(false);
+        return; // Success
+      } catch (backendErr: any) {
+        console.warn('[OTP] Backend OTP failed, trying Firebase on native:', backendErr?.message);
+        if (Platform.OS === 'web') {
+          throw backendErr; // On web, only backend OTP
         }
-        const phoneProvider = new PhoneAuthProvider(firebaseAuth);
-        const vId = await phoneProvider.verifyPhoneNumber(fullPhone, recaptchaVerifierRef.current);
-        setFirebaseVerificationId(vId);
-        setUseFirebaseOTP(true);
-        setOtpSent(true);
-        setOtpResendTimer(30);
-        console.log('[Firebase OTP] Sent via Firebase on native');
+      }
+
+      // FALLBACK: On native, try Firebase if backend fails
+      if (Platform.OS !== 'web') {
+        try {
+          if (!recaptchaVerifierRef.current) {
+            console.error('[Firebase] RecaptchaVerifier not initialized');
+            throw new Error('Recaptcha not initialized');
+          }
+          console.log('[Firebase OTP] Attempting Firebase Phone Auth');
+          const phoneProvider = new PhoneAuthProvider(firebaseAuth);
+          const vId = await phoneProvider.verifyPhoneNumber(fullPhone, recaptchaVerifierRef.current);
+          setFirebaseVerificationId(vId);
+          setUseFirebaseOTP(true);
+          setOtpSent(true);
+          setOtpResendTimer(30);
+          console.log('[Firebase OTP] Sent successfully via Firebase');
+          return; // Firebase success
+        } catch (fbErr: any) {
+          console.error('[Firebase OTP] Failed:', fbErr?.message || fbErr?.code);
+          Alert.alert('Firebase OTP Error', fbErr?.message || 'Could not send OTP via Firebase. Please try again.');
+          throw fbErr;
+        }
       }
     } catch (err: any) {
-      console.error('[OTP] Error:', err?.message);
-      Alert.alert('OTP Error', 'Could not send OTP. Please try again.');
+      console.error('[OTP] All methods failed:', err?.message);
+      Alert.alert('OTP Error', `Could not send OTP: ${err?.message}`);
     } finally {
       setOtpSending(false);
     }
@@ -281,19 +299,19 @@ export default function OnboardingScreen() {
         setOtpSent(true);
         setOtpResendTimer(30);
         console.log('[Backend OTP] Sent successfully, OTP:', data.otp);
-        // Show OTP in alert for testing (development mode)
+        // Show OTP in alert (backend OTP - for testing/development)
         if (data.otp) {
           Alert.alert('🔐 Your OTP Code', `Your 6-digit code:\n\n${data.otp}\n\nEnter this to verify your phone number.`, [{ text: 'Got it' }]);
         } else {
-          Alert.alert('OTP Sent', 'Check your phone for the 6-digit OTP code');
+          Alert.alert('✓ OTP Sent', 'Check your phone for the 6-digit code');
         }
       } else {
         console.log('[Backend OTP] API returned success=false:', data.message);
-        Alert.alert('OTP Error', data.message || 'Could not send OTP');
+        throw new Error(data.message || 'Backend OTP failed');
       }
     } catch (err: any) {
       console.error('[Backend OTP] Error:', err?.message, err);
-      Alert.alert('OTP Error', `Could not send OTP: ${err?.message}`);
+      throw err; // Re-throw for fallback handling
     }
   };
 
