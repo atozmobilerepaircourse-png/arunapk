@@ -47,7 +47,9 @@ async function fetchSecurityStatus(userId: string): Promise<SecurityStatus> {
   }
 }
 
-function LockedOverlay({ supportNumber, whatsappLink, reason }: { supportNumber: string; whatsappLink: string; reason?: string }) {
+function LockedOverlay({ supportNumber, whatsappLink, reason, recheckSecurity }: { supportNumber: string; whatsappLink: string; reason?: string; recheckSecurity?: () => void }) {
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
   const openWhatsApp = () => {
     const msg = encodeURIComponent('Hello, my Mobi account has been locked. Please help me unlock it.');
     const link = `${whatsappLink}?text=${msg}`;
@@ -56,6 +58,13 @@ function LockedOverlay({ supportNumber, whatsappLink, reason }: { supportNumber:
 
   const callSupport = () => {
     Linking.openURL(`tel:${supportNumber}`);
+  };
+
+  const handleRefresh = async () => {
+    if (!recheckSecurity) return;
+    setIsRefreshing(true);
+    await recheckSecurity();
+    setIsRefreshing(false);
   };
 
   return (
@@ -78,6 +87,16 @@ function LockedOverlay({ supportNumber, whatsappLink, reason }: { supportNumber:
         <TouchableOpacity style={styles.callBtn} onPress={callSupport}>
           <Ionicons name="call" size={20} color="#007AFF" />
           <Text style={styles.callBtnText}>Call Support</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.callBtn, { backgroundColor: '#F2F2F7', marginTop: 8, borderColor: '#007AFF' }]} 
+          onPress={handleRefresh}
+          disabled={isRefreshing}
+        >
+          <Ionicons name="refresh" size={20} color={isRefreshing ? '#ccc' : '#007AFF'} />
+          <Text style={[styles.callBtnText, { color: isRefreshing ? '#ccc' : '#007AFF' }]}>
+            {isRefreshing ? 'Checking...' : 'Refresh Status'}
+          </Text>
         </TouchableOpacity>
         <Text style={styles.phoneText}>{supportNumber}</Text>
       </View>
@@ -157,6 +176,7 @@ export function SecurityProvider({ children, userId }: { children: ReactNode; us
           supportNumber={securityStatus.supportNumber}
           whatsappLink={securityStatus.whatsappLink}
           reason={securityStatus.reason}
+          recheckSecurity={recheckSecurity}
         />
       )}
       {showExpired && (
