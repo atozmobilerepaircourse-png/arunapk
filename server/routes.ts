@@ -373,8 +373,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const currentRole = currentProfile.role as string;
       
       // Check if user is admin or super admin
+      // Super admin privileges ONLY for phone-based login (8179142535), NOT for email-based login
+      const isEmailBasedLogin = phone.startsWith('email:');
       const cleanPhone = phone.replace(/\D/g, '').slice(-10);
-      const isSuperAdmin = cleanPhone === '8179142535' || cleanPhone === '9876543210';
+      const isSuperAdmin = !isEmailBasedLogin && (cleanPhone === '8179142535' || cleanPhone === '9876543210');
       const isAdmin = currentRole === 'admin' || isSuperAdmin;
       
       // Admin (or super admin) can switch to any role

@@ -33,9 +33,12 @@ const C = Colors.light;
 
 const SUPER_ADMIN_PHONE = '8179142535';
 
-function getRoleRoute(profile: { role?: string; phone?: string }): string {
+function getRoleRoute(profile: { role?: string; phone?: string; email?: string }): string {
   const cleanPhone = (profile.phone || '').replace(/\D/g, '').replace(/^91/, '').slice(-10);
-  if (cleanPhone === SUPER_ADMIN_PHONE || profile.role === 'admin') return '/admin';
+  // Super admin (phone 8179142535) OR regular admin role goes to admin panel
+  if (profile.role === 'admin') return '/admin';
+  // Only phone-based login with super admin number bypasses role, email logins follow their role
+  if (cleanPhone === SUPER_ADMIN_PHONE && !profile.phone?.startsWith('email:')) return '/admin';
   if (profile.role === 'customer') return '/(tabs)/customer-home';
   return '/(tabs)';
 }
