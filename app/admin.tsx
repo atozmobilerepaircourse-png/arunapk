@@ -695,15 +695,16 @@ export default function AdminScreen() {
 
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
-  const cleanProfilePhone = profile?.phone?.replace(/\D/g, "");
+  const cleanProfilePhone = profile?.phone?.replace(/\D/g, "") || "";
   const isAdmin = profile?.role === 'admin' || cleanProfilePhone === "8179142535" || cleanProfilePhone === "9876543210";
 
+  // Only check admin access after profile is loaded
   useEffect(() => {
-    if (!isAdmin) {
+    if (profile && !isAdmin) {
       Alert.alert('Access Denied', 'You do not have admin access.');
       router.back();
     }
-  }, [isAdmin]);
+  }, [isAdmin, profile]);
 
   const fetchSubscriptions = useCallback(async () => {
     try {
