@@ -4,7 +4,7 @@ import {
   Platform, Alert, ActivityIndicator, Modal, FlatList,
 } from 'react-native';
 import { FirebaseRecaptchaVerifierModal } from 'expo-firebase-recaptcha';
-import { PhoneAuthProvider, signInWithCredential } from 'firebase/auth';
+import { PhoneAuthProvider, signInWithCredential, signInWithPhoneNumber } from 'firebase/auth';
 import { firebaseAuth, firebaseConfig } from '@/lib/firebase';
 import { Image } from 'expo-image';
 import { StatusBar } from 'expo-status-bar';
@@ -244,61 +244,58 @@ export default function OnboardingScreen() {
   const sendOtp = async (phoneNumber: string) => {
     setOtpSending(true);
     const cleanDigits = phoneNumber.replace(/\D/g, '').replace(/^91/, '');
+    const fullPhone = `+91${cleanDigits}`;
 
-    console.log('[OTP] Sending via backend for phone:', cleanDigits);
-
-    try {
-      await sendBackendOTP(cleanDigits);
-      setUseFirebaseOTP(false);
-    } catch (err: any) {
-      console.error('[OTP] sendOtp failed:', err?.message);
-      Alert.alert('OTP Error', err?.message || 'Could not send OTP. Please try again.');
-    } finally {
-      setOtpSending(false);
-    }
-  };
-
-  const sendFirebaseMobileOTP = async (fullPhone: string) => {
-    console.log('[Firebase] sendFirebaseMobileOTP | phone:', fullPhone);
+    console.log('[Firebase OTP] Sending to:', fullPhone);
     setOtpError('');
-    setDebugInfo('Sending OTP...');
+    setDebugInfo('Sending OTP via Firebase...');
 
     try {
-      // Bypass expo-firebase-recaptcha WebView (it hangs forever because its invisible reCAPTCHA
-      // never fires onLoad). Setting appVerificationDisabledForTesting skips reCAPTCHA entirely.
-      firebaseAuth.settings.appVerificationDisabledForTesting = true;
+      if (Platform.OS === 'web') {
+        // Web: Use Firebase RecaptchaVerifier (invisible)
+        const { RecaptchaVerifier } = await import('firebase/auth');
+        if (webRecaptchaRef.current) {
+          try { webRecaptchaRef.current.clear(); } catch {}
+          webRecaptchaRef.current = null;
+        }
+        webRecaptchaRef.current = new RecaptchaVerifier(firebaseAuth, 'recaptcha-container', {
+          size: 'invisible',
+          callback: () => {},
+          'expired-callback': () => {
+            setOtpError('reCAPTCHA expired. Please try again.');
+          },
+        });
+        const confirmation = await signInWithPhoneNumber(firebaseAuth, fullPhone, webRecaptchaRef.current);
+        webConfirmationRef.current = confirmation;
+      } else {
+        // Native: Use FirebaseRecaptchaVerifierModal
+        if (!recaptchaVerifierRef.current) {
+          throw new Error('reCAPTCHA not ready. Please try again.');
+        }
+        const confirmation = await signInWithPhoneNumber(firebaseAuth, fullPhone, recaptchaVerifierRef.current);
+        webConfirmationRef.current = confirmation;
+      }
 
-      // Mock ApplicationVerifier — required by the API signature but bypassed by the setting above
-      const mockVerifier = {
-        type: 'recaptcha' as const,
-        verify: async () => 'test-token-bypass',
-      };
-
-      const phoneProvider = new PhoneAuthProvider(firebaseAuth);
-      console.log('[Firebase] Calling verifyPhoneNumber with mock verifier...');
-
-      const verificationId = await phoneProvider.verifyPhoneNumber(fullPhone, mockVerifier);
-      console.log('[Firebase] verifyPhoneNumber SUCCESS | id:', verificationId?.substring(0, 20));
-
-      setFirebaseVerificationId(verificationId);
       setUseFirebaseOTP(true);
       setOtpSent(true);
       setOtpResendTimer(30);
-      setDebugInfo('✅ OTP sent! Check your SMS.');
+      setDebugInfo('✅ OTP sent via Firebase!');
+      console.log('[Firebase OTP] Sent successfully to:', fullPhone);
       Alert.alert('✓ OTP Sent', `Verification code sent to ${fullPhone}.\n\nCheck your SMS.`);
     } catch (err: any) {
-      console.error('[Firebase] verifyPhoneNumber FAILED | code:', err?.code, '| msg:', err?.message);
-
+      console.error('[Firebase OTP] Failed | code:', err?.code, '| msg:', err?.message);
       const msg =
-        err?.code === 'auth/invalid-phone-number'   ? 'Invalid phone number. Use a valid 10-digit number.' :
-        err?.code === 'auth/quota-exceeded'          ? 'SMS quota exceeded. Try again later.' :
-        err?.code === 'auth/too-many-requests'       ? 'Too many attempts. Wait a few minutes.' :
-        err?.code === 'auth/captcha-check-failed'    ? 'reCAPTCHA failed. Try again.' :
+        err?.code === 'auth/invalid-phone-number'  ? 'Invalid phone number. Use a valid 10-digit number.' :
+        err?.code === 'auth/quota-exceeded'         ? 'SMS quota exceeded. Try again later.' :
+        err?.code === 'auth/too-many-requests'      ? 'Too many attempts. Wait a few minutes.' :
+        err?.code === 'auth/captcha-check-failed'   ? 'reCAPTCHA failed. Please try again.' :
+        err?.code === 'auth/network-request-failed' ? 'Network error. Check your connection.' :
         err?.message || 'Could not send OTP. Please try again.';
-
-      setOtpError(`[${err?.code || 'ERROR'}] ${msg}`);
-      setDebugInfo(`❌ Failed: ${err?.code || 'unknown error'}`);
-      throw new Error(msg);
+      setOtpError(msg);
+      setDebugInfo(`❌ ${err?.code || 'error'}`);
+      Alert.alert('OTP Error', msg);
+    } finally {
+      setOtpSending(false);
     }
   };
 
@@ -364,24 +361,25 @@ export default function OnboardingScreen() {
     try {
       const deviceId = await getDeviceId();
 
-      if (useFirebaseOTP) {
-        // Firebase Phone Auth verification
+      if (useFirebaseOTP && webConfirmationRef.current) {
+        // Firebase Phone Auth verification via confirmationResult
         try {
-          const credential = PhoneAuthProvider.credential(firebaseVerificationId, otpCode);
-          const userCredential = await signInWithCredential(firebaseAuth, credential);
+          console.log('[Firebase OTP] Confirming code...');
+          const userCredential = await webConfirmationRef.current.confirm(otpCode);
           const idToken = await userCredential.user.getIdToken();
-          
-          console.log('[Firebase] OTP verified, exchanging for session...');
+
+          console.log('[Firebase OTP] Verified, exchanging for session...');
           const res = await apiRequest('POST', '/api/auth/firebase-phone', { idToken, deviceId });
           const data = await res.json();
           await handleOtpVerified(data, cleanPhone, deviceId);
           return;
         } catch (fbErr: any) {
-          console.error('[Firebase] Verification error:', fbErr?.code);
+          console.error('[Firebase OTP] Confirm error:', fbErr?.code);
           const msg =
             fbErr?.code === 'auth/invalid-verification-code' ? 'Wrong OTP. Please check and try again.' :
-            fbErr?.code === 'auth/code-expired' ? 'OTP expired. Please request a new one.' :
-            fbErr?.message?.includes('TOO_SHORT') ? 'Please enter all 6 digits.' :
+            fbErr?.code === 'auth/code-expired'               ? 'OTP expired. Please request a new one.' :
+            fbErr?.code === 'auth/too-many-requests'          ? 'Too many attempts. Wait a few minutes.' :
+            fbErr?.message?.includes('TOO_SHORT')             ? 'Please enter all 6 digits.' :
             fbErr?.message || 'Verification failed. Please try again.';
           Alert.alert('Verification Failed', msg);
           setOtpVerifying(false);
@@ -1676,7 +1674,9 @@ export default function OnboardingScreen() {
         <FirebaseRecaptchaVerifierModal
           ref={recaptchaVerifierRef}
           firebaseConfig={firebaseConfig}
-          attemptInvisibleVerification={true}
+          attemptInvisibleVerification={false}
+          title="Phone Verification"
+          cancelLabel="Cancel"
         />
       )}
       {Platform.OS === 'web' && (
