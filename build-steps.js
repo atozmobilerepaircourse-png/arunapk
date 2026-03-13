@@ -196,6 +196,7 @@ console.log('server_dist/index.js is now fully bundled (26MB) with all npm packa
               'BUNNY_STREAM_API_KEY',
               'BUNNY_STREAM_LIBRARY_ID',
               'GCP_SA_KEY',
+              'OPENAI_API_KEY',
             ];
             
             // Also ensure NODE_ENV=production

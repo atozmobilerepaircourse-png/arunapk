@@ -6203,13 +6203,29 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
 
   // ─── AI Repair Assistant ─────────────────────────────────────────────────────
 
+  function createOpenAIClient() {
+    const apiKey = process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+    const baseURL = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
+    const isLocalModelfarm = baseURL && baseURL.includes('localhost');
+    if (!apiKey || apiKey === '_DUMMY_API_KEY_') {
+      throw new Error('OpenAI API key not configured. Please set OPENAI_API_KEY.');
+    }
+    return new OpenAI({
+      apiKey,
+      ...(isLocalModelfarm && process.env.OPENAI_API_KEY ? {} : isLocalModelfarm ? { baseURL } : {}),
+    });
+  }
+
   app.post("/api/ai/repair/chat", async (req, res) => {
     try {
       const { messages } = req.body;
-      const openai = new OpenAI({
-        apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-        baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-      });
+      let openai: OpenAI;
+      try {
+        openai = createOpenAIClient();
+      } catch (keyErr: any) {
+        console.error('[AI Chat] Config error:', keyErr.message);
+        return res.status(503).json({ error: keyErr.message });
+      }
 
       const systemPrompt = `You are an expert mobile phone hardware repair technician AI with 20+ years of experience. You specialize ONLY in diagnosing and repairing mobile phone hardware issues.
 
@@ -6270,10 +6286,13 @@ Be concise, practical, and specific. Only answer mobile hardware repair question
         return res.status(400).json({ error: 'No image provided' });
       }
 
-      const openai = new OpenAI({
-        apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-        baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-      });
+      let openai: OpenAI;
+      try {
+        openai = createOpenAIClient();
+      } catch (keyErr: any) {
+        console.error('[AI Analyze] Config error:', keyErr.message);
+        return res.status(503).json({ error: keyErr.message });
+      }
 
       const response = await openai.chat.completions.create({
         model: 'gpt-4o',

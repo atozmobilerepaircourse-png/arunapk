@@ -209,7 +209,10 @@ export default function AIRepairScreen() {
         signal: abortRef.current.signal,
       });
 
-      if (!response.ok) throw new Error('AI service error');
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'AI service error');
+      }
 
       const reader = response.body?.getReader();
       if (!reader) throw new Error('No reader');
