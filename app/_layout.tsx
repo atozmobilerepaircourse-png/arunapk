@@ -18,6 +18,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { queryClient } from "@/lib/query-client";
 import { AppProvider, useApp } from "@/lib/context";
+import { CartProvider } from "@/lib/cart-context";
 import { SecurityProvider } from "@/lib/security";
 import { requestNotificationPermission, cleanupSounds } from "@/lib/notifications";
 import { FloatingUploadBanner } from "@/components/FloatingUploadBanner";
@@ -40,6 +41,9 @@ function SecuredApp() {
         <Stack.Screen name="user-profile" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="add-product" options={{ animation: 'slide_from_bottom' }} />
         <Stack.Screen name="product-detail" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="cart" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="checkout" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="supplier-store" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="my-orders" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="seller-orders" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="create-course" options={{ animation: 'slide_from_bottom' }} />
@@ -114,12 +118,14 @@ export default function RootLayout() {
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <AppProvider>
-          <GestureHandlerRootView style={{ flex: 1 }}>
-            <KeyboardProvider>
-              <StatusBar style="dark" />
-              <SecuredApp />
-            </KeyboardProvider>
-          </GestureHandlerRootView>
+          <CartProvider>
+            <GestureHandlerRootView style={{ flex: 1 }}>
+              <KeyboardProvider>
+                <StatusBar style="dark" />
+                <SecuredApp />
+              </KeyboardProvider>
+            </GestureHandlerRootView>
+          </CartProvider>
         </AppProvider>
       </QueryClientProvider>
     </ErrorBoundary>

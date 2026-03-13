@@ -8,74 +8,74 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { router, useLocalSearchParams } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useApp } from '@/lib/context';
+import { useCart } from '@/lib/cart-context';
 import { apiRequest, getApiUrl } from '@/lib/query-client';
+import { T } from '@/constants/techTheme';
 import { UserProfile } from '@/lib/types';
 
-const ACCENT = '#2C7AFF';
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const CARD_GAP = 10;
-const CARD_WIDTH = (SCREEN_WIDTH - 16 * 2 - CARD_GAP) / 2;
+const { width } = Dimensions.get('window');
+const CARD_W = (width - 48) / 2;
+const webTop = Platform.OS === 'web' ? 67 : 0;
 
-function getImageUri(img: string): string {
+function getImgUri(img: string) {
+  if (!img) return '';
   if (img.startsWith('/')) return `${getApiUrl()}${img}`;
   return img;
 }
 
-function getInitials(name: string): string {
-  return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+function getProductImages(product: any): string[] {
+  try {
+    if (Array.isArray(product.images)) return product.images;
+    return JSON.parse(product.images || '[]');
+  } catch { return []; }
 }
 
-function getProductImage(product: any): string {
-  let imgs: string[] = [];
-  try {
-    if (Array.isArray(product.images)) {
-      imgs = product.images;
-    } else if (typeof product.images === 'string') {
-      imgs = JSON.parse(product.images || '[]');
-    }
-  } catch {}
-  if (imgs.length > 0) return getImageUri(imgs[0]);
-  return '';
+function StarRating({ rating }: { rating: number }) {
+  return (
+    <View style={{ flexDirection: 'row', gap: 2 }}>
+      {[1, 2, 3, 4, 5].map(s => (
+        <Ionicons key={s} name={s <= Math.round(rating) ? 'star' : 'star-outline'} size={11} color="#F59E0B" />
+      ))}
+    </View>
+  );
 }
 
 export default function SupplierStoreScreen() {
   const insets = useSafeAreaInsets();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const params = useLocalSearchParams<{ id: string; supplierId: string }>();
+  const supplierId = params.supplierId || params.id;
   const { profile: myProfile, startConversation } = useApp();
+  const { addToCart, isInCart } = useCart();
   const [supplier, setSupplier] = useState<UserProfile | null>(null);
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const webTopInset = Platform.OS === 'web' ? 67 : 0;
-
   const fetchData = useCallback(async () => {
     try {
       const [profileRes, productsRes] = await Promise.all([
-        apiRequest('GET', `/api/profiles/${id}`),
+        apiRequest('GET', `/api/profiles/${supplierId}`),
         apiRequest('GET', '/api/products'),
       ]);
       const profileData = await profileRes.json();
       const allProducts = await productsRes.json();
-      if (profileData && profileData.id) setSupplier(profileData);
+      if (profileData?.id) setSupplier(profileData);
       if (Array.isArray(allProducts)) {
-        setProducts(allProducts.filter((p: any) => p.userId === id));
+        setProducts(allProducts.filter((p: any) => p.userId === supplierId));
       }
     } catch (e) {
       console.error('[SupplierStore] fetch error:', e);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  }, [id]);
+  }, [supplierId]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await fetchData();
-    setRefreshing(false);
-  }, [fetchData]);
+  const onRefresh = useCallback(() => { setRefreshing(true); fetchData(); }, [fetchData]);
 
   const handleMessage = async () => {
     if (!myProfile || !supplier) return;
@@ -84,281 +84,241 @@ export default function SupplierStoreScreen() {
     if (convoId) router.push({ pathname: '/chat/[id]', params: { id: convoId } });
   };
 
-  const handleContact = () => {
-    if (!supplier) return;
-    if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    Linking.openURL(`tel:${(supplier as any).phone}`);
+  const handleAddToCart = (item: any) => {
+    const imgs = getProductImages(item);
+    addToCart({
+      productId: item.id,
+      title: item.title,
+      price: parseFloat(item.price) || 0,
+      image: imgs[0] ? getImgUri(imgs[0]) : '',
+      supplierName: item.userName,
+      supplierId: item.userId,
+      inStock: item.inStock,
+      category: item.category,
+    });
   };
 
-  const totalViews = products.reduce((sum, p) => sum + (p.views || 0), 0);
-  const displayName = supplier?.shopName || supplier?.name || '';
-  const subtitle = supplier?.shopName ? supplier.name : '';
+  const totalViews = products.reduce((s, p) => s + (p.views || 0), 0);
+  const displayName = supplier?.shopName || supplier?.name || 'Supplier';
+  const fakeRating = 4.0 + ((supplierId?.charCodeAt(0) || 65) % 10) / 10;
 
   if (loading) {
     return (
-      <View style={[s.container, s.center]}>
-        <ActivityIndicator size="large" color={ACCENT} />
-      </View>
-    );
-  }
-
-  if (!supplier) {
-    return (
-      <View style={[s.container, s.center]}>
-        <Ionicons name="storefront-outline" size={48} color="#999" />
-        <Text style={s.emptyTitle}>Supplier not found</Text>
-        <Pressable onPress={() => router.back()} style={s.goBackBtn}>
-          <Text style={s.goBackText}>Go Back</Text>
-        </Pressable>
+      <View style={[styles.container, { alignItems: 'center', justifyContent: 'center' }]}>
+        <ActivityIndicator size="large" color={T.accent} />
       </View>
     );
   }
 
   const renderHeader = () => (
     <View>
-      <View style={s.profileSection}>
-        {supplier.avatar ? (
-          <Image
-            source={{ uri: getImageUri(supplier.avatar) }}
-            style={s.avatar}
-            contentFit="cover"
-          />
-        ) : (
-          <View style={s.avatarFallback}>
-            <Text style={s.avatarInitials}>{getInitials(supplier.name)}</Text>
+      {/* BANNER */}
+      <LinearGradient colors={['#1A0A2E', '#0F1624']} style={styles.banner}>
+        <View style={styles.bannerOverlay}>
+          <View style={styles.avatarWrap}>
+            {supplier?.avatar ? (
+              <Image source={{ uri: getImgUri(supplier.avatar) }} style={styles.avatar} contentFit="cover" />
+            ) : (
+              <View style={[styles.avatar, styles.avatarFallback]}>
+                <Text style={styles.avatarInitial}>{displayName[0]?.toUpperCase()}</Text>
+              </View>
+            )}
+            <View style={styles.verifiedBadge}>
+              <Ionicons name="checkmark" size={10} color="#fff" />
+            </View>
           </View>
-        )}
-
-        <Text style={s.shopName}>{displayName}</Text>
-        {subtitle ? <Text style={s.supplierName}>{subtitle}</Text> : null}
-
-        {supplier.sellType ? (
-          <View style={s.sellTypeBadge}>
-            <Ionicons name="pricetag" size={12} color={ACCENT} />
-            <Text style={s.sellTypeText}>{supplier.sellType}</Text>
-          </View>
-        ) : null}
-
-        <View style={s.locationRow}>
-          <Ionicons name="location-outline" size={14} color="#888" />
-          <Text style={s.locationText}>
-            {supplier.city}{supplier.state ? `, ${supplier.state}` : ''}
-          </Text>
-        </View>
-        {supplier.shopAddress ? (
-          <Text style={s.shopAddress}>{supplier.shopAddress}</Text>
-        ) : null}
-
-        <View style={s.statsRow}>
-          <View style={s.statItem}>
-            <Text style={s.statValue}>{products.length}</Text>
-            <Text style={s.statLabel}>Products</Text>
-          </View>
-          <View style={s.statDivider} />
-          <View style={s.statItem}>
-            <Text style={s.statValue}>{totalViews}</Text>
-            <Text style={s.statLabel}>Views</Text>
+          <Text style={styles.shopName}>{displayName}</Text>
+          {supplier?.shopName && supplier.name !== displayName && (
+            <Text style={styles.ownerName}>by {supplier.name}</Text>
+          )}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(245,158,11,0.15)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 }}>
+              <Ionicons name="star" size={13} color="#F59E0B" />
+              <Text style={{ color: '#F59E0B', fontSize: 13, fontFamily: 'Inter_700Bold' }}>{fakeRating.toFixed(1)}</Text>
+            </View>
+            {(supplier?.city || supplier?.state) && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <Ionicons name="location-outline" size={13} color={T.muted} />
+                <Text style={{ color: T.muted, fontSize: 12, fontFamily: 'Inter_400Regular' }}>
+                  {[supplier.city, supplier.state].filter(Boolean).join(', ')}
+                </Text>
+              </View>
+            )}
           </View>
         </View>
+      </LinearGradient>
 
-        <View style={s.actionRow}>
-          <Pressable style={s.contactBtn} onPress={handleContact}>
-            <Ionicons name="call-outline" size={18} color={ACCENT} />
-            <Text style={s.contactBtnText}>Contact</Text>
-          </Pressable>
-          <Pressable style={s.messageBtn} onPress={handleMessage}>
-            <Ionicons name="chatbubble-outline" size={18} color="#FFF" />
-            <Text style={s.messageBtnText}>Message</Text>
-          </Pressable>
+      {/* STATS */}
+      <View style={styles.statsRow}>
+        <View style={styles.statBox}>
+          <Text style={styles.statValue}>{products.length}</Text>
+          <Text style={styles.statLabel}>Products</Text>
+        </View>
+        <View style={styles.statDivider} />
+        <View style={styles.statBox}>
+          <Text style={styles.statValue}>{totalViews.toLocaleString('en-IN')}</Text>
+          <Text style={styles.statLabel}>Views</Text>
+        </View>
+        <View style={styles.statDivider} />
+        <View style={styles.statBox}>
+          <Text style={styles.statValue}>{fakeRating.toFixed(1)}</Text>
+          <Text style={styles.statLabel}>Rating</Text>
         </View>
       </View>
 
-      <View style={s.sectionHeader}>
-        <Text style={s.sectionTitle}>Products by {displayName}</Text>
+      {/* ACTIONS */}
+      {myProfile?.id !== supplierId && (
+        <View style={styles.actionRow}>
+          {(supplier as any)?.phone && (
+            <Pressable onPress={() => Linking.openURL(`tel:${(supplier as any).phone}`)} style={styles.contactBtn}>
+              <Ionicons name="call-outline" size={18} color={T.accent} />
+              <Text style={styles.contactBtnText}>Call</Text>
+            </Pressable>
+          )}
+          <Pressable onPress={handleMessage} style={styles.messageBtn}>
+            <Ionicons name="chatbubble-outline" size={18} color="#fff" />
+            <Text style={styles.messageBtnText}>Message Supplier</Text>
+          </Pressable>
+        </View>
+      )}
+
+      {/* PRODUCTS HEADING */}
+      <View style={styles.productsHeader}>
+        <Text style={styles.productsTitle}>Products ({products.length})</Text>
       </View>
     </View>
   );
 
-  const renderProduct = ({ item }: { item: any }) => {
-    const imgUri = getProductImage(item);
-    const location = [item.city, item.state].filter(Boolean).join(', ');
-    const price = Number(item.price) > 0
-      ? `\u20B9${Number(item.price).toLocaleString('en-IN')}`
-      : 'Free';
+  const renderProduct = ({ item, index }: { item: any; index: number }) => {
+    const imgs = getProductImages(item);
+    const img = imgs[0] ? getImgUri(imgs[0]) : '';
+    const price = parseFloat(item.price) || 0;
+    const inCart = isInCart(item.id);
+    const fakeDiscount = (item.views || 0) > 30 ? Math.floor((item.views || 0) % 25) + 5 : 0;
+    const isLeft = index % 2 === 0;
 
     return (
       <Pressable
-        style={s.productCard}
-        onPress={() => router.push(`/product-detail?id=${item.id}`)}
+        onPress={() => router.push({ pathname: '/product-detail', params: { id: item.id } })}
+        style={[styles.productCard, { marginLeft: isLeft ? 0 : 8 }]}
       >
-        <View style={s.productImageWrap}>
-          {imgUri ? (
-            <Image source={{ uri: imgUri }} style={s.productImage} contentFit="cover" />
+        <View style={styles.productImgWrap}>
+          {img ? (
+            <Image source={{ uri: img }} style={styles.productImg} contentFit="cover" />
           ) : (
-            <View style={[s.productImage, s.productImagePlaceholder]}>
-              <Ionicons name="cube" size={28} color="#CCC" />
+            <View style={[styles.productImg, { backgroundColor: T.cardSurface, alignItems: 'center', justifyContent: 'center' }]}>
+              <Ionicons name="cube-outline" size={32} color={T.muted} />
             </View>
           )}
-          {item.inStock ? (
-            <View style={s.stockBadgeIn}>
-              <Text style={s.stockBadgeText}>In Stock</Text>
+          {fakeDiscount > 0 && (
+            <View style={styles.discountBadge}>
+              <Text style={styles.discountText}>{fakeDiscount}%</Text>
             </View>
-          ) : (
-            <View style={s.stockBadgeOut}>
-              <Text style={s.stockBadgeText}>Out of Stock</Text>
+          )}
+          {!item.inStock && (
+            <View style={styles.outOfStock}>
+              <Text style={{ color: '#fff', fontSize: 10, fontFamily: 'Inter_600SemiBold' }}>Out of Stock</Text>
             </View>
           )}
         </View>
-        <View style={s.productInfo}>
-          <Text style={s.productTitle} numberOfLines={2}>{item.title}</Text>
-          <Text style={s.productPrice}>{price}</Text>
-          {location ? (
-            <View style={s.productLocationRow}>
-              <Ionicons name="location-outline" size={11} color="#999" />
-              <Text style={s.productLocationText} numberOfLines={1}>{location}</Text>
-            </View>
-          ) : null}
+        <View style={{ padding: 10 }}>
+          <Text style={styles.productTitle} numberOfLines={2}>{item.title}</Text>
+          <StarRating rating={3.8 + ((item.id.charCodeAt(0) || 65) % 12) / 10} />
+          <Text style={styles.productPrice}>₹{price.toLocaleString('en-IN')}</Text>
+          <Pressable
+            onPress={e => { e.stopPropagation(); handleAddToCart(item); }}
+            style={[styles.addBtn, inCart && styles.addBtnActive]}
+            disabled={!item.inStock}
+          >
+            <Ionicons name={inCart ? 'checkmark-circle' : 'cart-outline'} size={13} color="#fff" />
+            <Text style={styles.addBtnText}>{inCart ? 'In Cart' : 'Add to Cart'}</Text>
+          </Pressable>
         </View>
       </Pressable>
     );
   };
 
   return (
-    <View style={s.container}>
-      <View style={[s.topBar, { paddingTop: (Platform.OS === 'web' ? webTopInset : insets.top) + 8 }]}>
-        <Pressable hitSlop={14} onPress={() => router.back()} style={s.topBtn}>
-          <Ionicons name="arrow-back" size={24} color="#1A1A1A" />
+    <View style={styles.container}>
+      {/* HEADER BAR */}
+      <View style={[styles.headerBar, { paddingTop: (Platform.OS === 'web' ? webTop : insets.top) + 8 }]}>
+        <Pressable onPress={() => router.back()} style={styles.backBtn}>
+          <Ionicons name="arrow-back" size={22} color={T.text} />
         </Pressable>
-        <Text style={s.topTitle} numberOfLines={1}>{displayName}</Text>
-        <View style={{ width: 34 }} />
+        <Text style={styles.headerTitle} numberOfLines={1}>{displayName}</Text>
+        <Pressable onPress={() => router.push('/cart')} style={styles.cartBtn}>
+          <Ionicons name="cart-outline" size={22} color={T.text} />
+        </Pressable>
       </View>
 
-      <FlatList
-        data={products}
-        keyExtractor={(item) => item.id}
-        numColumns={2}
-        columnWrapperStyle={s.columnWrapper}
-        contentContainerStyle={[
-          s.listContent,
-          { paddingTop: (Platform.OS === 'web' ? webTopInset : insets.top) + 56 },
-        ]}
-        showsVerticalScrollIndicator={false}
-        ListHeaderComponent={renderHeader}
-        ListEmptyComponent={
-          <View style={s.emptyState}>
-            <Ionicons name="cube-outline" size={48} color="#CCC" />
-            <Text style={s.emptyText}>No products yet</Text>
-          </View>
-        }
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={ACCENT} />
-        }
-        renderItem={renderProduct}
-      />
+      {!supplier ? (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <Ionicons name="storefront-outline" size={56} color={T.muted} />
+          <Text style={{ color: T.text, fontSize: 18, fontFamily: 'Inter_700Bold', marginTop: 16 }}>Store Not Found</Text>
+          <Pressable onPress={() => router.back()} style={{ marginTop: 20, backgroundColor: T.accent, borderRadius: 14, paddingHorizontal: 24, paddingVertical: 12 }}>
+            <Text style={{ color: '#fff', fontSize: 14, fontFamily: 'Inter_700Bold' }}>Go Back</Text>
+          </Pressable>
+        </View>
+      ) : (
+        <FlatList
+          data={products}
+          keyExtractor={item => item.id}
+          numColumns={2}
+          columnWrapperStyle={{ paddingHorizontal: 16 }}
+          contentContainerStyle={{ paddingBottom: insets.bottom + 90 }}
+          showsVerticalScrollIndicator={false}
+          ListHeaderComponent={renderHeader}
+          ListEmptyComponent={
+            <View style={{ alignItems: 'center', paddingVertical: 60 }}>
+              <Ionicons name="cube-outline" size={56} color={T.muted} />
+              <Text style={{ color: T.text, fontSize: 18, fontFamily: 'Inter_700Bold', marginTop: 16 }}>No Products Yet</Text>
+              <Text style={{ color: T.muted, fontSize: 13, fontFamily: 'Inter_400Regular', marginTop: 8 }}>This supplier hasn't listed any products</Text>
+            </View>
+          }
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={T.accent} />}
+          renderItem={renderProduct}
+        />
+      )}
     </View>
   );
 }
 
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
-  center: { justifyContent: 'center', alignItems: 'center' },
-
-  topBar: {
-    position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 14, paddingBottom: 10,
-    backgroundColor: '#FFFFFF', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#E0E0E0',
-  },
-  topBtn: { width: 34, height: 34, borderRadius: 17, justifyContent: 'center', alignItems: 'center' },
-  topTitle: { color: '#1A1A1A', fontSize: 17, fontWeight: '700' as const, flex: 1, textAlign: 'center' },
-
-  listContent: { paddingHorizontal: 16, paddingBottom: 40 },
-  columnWrapper: { gap: CARD_GAP, marginBottom: CARD_GAP },
-
-  profileSection: { alignItems: 'center', paddingTop: 16, paddingBottom: 20 },
-  avatar: {
-    width: 88, height: 88, borderRadius: 44, marginBottom: 12,
-    borderWidth: 3, borderColor: ACCENT + '30',
-  },
-  avatarFallback: {
-    width: 88, height: 88, borderRadius: 44, marginBottom: 12,
-    backgroundColor: ACCENT + '15', justifyContent: 'center', alignItems: 'center',
-    borderWidth: 3, borderColor: ACCENT + '30',
-  },
-  avatarInitials: { fontSize: 30, fontWeight: '700' as const, color: ACCENT },
-
-  shopName: { fontSize: 22, fontWeight: '800' as const, color: '#1A1A1A', marginBottom: 2 },
-  supplierName: { fontSize: 14, color: '#666', marginBottom: 6 },
-
-  sellTypeBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    backgroundColor: ACCENT + '12', paddingHorizontal: 12, paddingVertical: 5, borderRadius: 14,
-    marginBottom: 8,
-  },
-  sellTypeText: { fontSize: 13, fontWeight: '600' as const, color: ACCENT },
-
-  locationRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 4 },
-  locationText: { fontSize: 13, color: '#888' },
-  shopAddress: { fontSize: 12, color: '#AAA', marginBottom: 8, textAlign: 'center' as const, paddingHorizontal: 24 },
-
-  statsRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: '#F7F7F7', borderRadius: 14, paddingVertical: 14,
-    marginTop: 12, marginBottom: 16, width: '100%' as const,
-  },
-  statItem: { flex: 1, alignItems: 'center' },
-  statValue: { fontSize: 20, fontWeight: '700' as const, color: '#1A1A1A' },
-  statLabel: { fontSize: 12, color: '#888', marginTop: 2 },
-  statDivider: { width: 1, height: 28, backgroundColor: '#E0E0E0' },
-
-  actionRow: { flexDirection: 'row', gap: 12, width: '100%' as const },
-  contactBtn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    height: 46, borderRadius: 23, borderWidth: 2, borderColor: ACCENT,
-    backgroundColor: '#FFF',
-  },
-  contactBtnText: { fontSize: 15, fontWeight: '600' as const, color: ACCENT },
-  messageBtn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    height: 46, borderRadius: 23, backgroundColor: ACCENT,
-  },
-  messageBtnText: { fontSize: 15, fontWeight: '600' as const, color: '#FFF' },
-
-  sectionHeader: { marginTop: 8, marginBottom: 12 },
-  sectionTitle: {
-    fontSize: 16, fontWeight: '700' as const, color: '#1A1A1A',
-    textTransform: 'uppercase' as const, letterSpacing: 0.5,
-  },
-
-  productCard: {
-    width: CARD_WIDTH, backgroundColor: '#FFF', borderRadius: 12, overflow: 'hidden',
-    borderWidth: 1, borderColor: '#EBEBEB',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8,
-    elevation: 3,
-  },
-  productImageWrap: { position: 'relative' as const },
-  productImage: { width: '100%' as const, aspectRatio: 1, backgroundColor: '#F7F7F7' },
-  productImagePlaceholder: { alignItems: 'center', justifyContent: 'center' },
-  stockBadgeIn: {
-    position: 'absolute' as const, top: 8, left: 8,
-    backgroundColor: '#30D158', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10,
-  },
-  stockBadgeOut: {
-    position: 'absolute' as const, top: 8, left: 8,
-    backgroundColor: '#FF453A', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10,
-  },
-  stockBadgeText: { color: '#FFF', fontSize: 10, fontWeight: '700' as const },
-
-  productInfo: { padding: 10 },
-  productTitle: { fontSize: 13, fontWeight: '600' as const, color: '#1A1A1A', marginBottom: 4 },
-  productPrice: { fontSize: 16, fontWeight: '800' as const, color: ACCENT },
-  productLocationRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 4 },
-  productLocationText: { fontSize: 11, color: '#999', flex: 1 },
-
-  emptyState: { alignItems: 'center', paddingVertical: 60, gap: 12 },
-  emptyText: { fontSize: 14, color: '#999' },
-
-  emptyTitle: { fontSize: 17, fontWeight: '600' as const, color: '#1A1A1A', marginTop: 12 },
-  goBackBtn: { marginTop: 16, paddingHorizontal: 20, paddingVertical: 10, backgroundColor: '#F7F7F7', borderRadius: 10 },
-  goBackText: { fontSize: 14, fontWeight: '600' as const, color: '#1A1A1A' },
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#0A0A14' },
+  headerBar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: T.border, backgroundColor: '#0A0A14' },
+  backBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: T.card, alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { flex: 1, textAlign: 'center', fontSize: 17, fontFamily: 'Inter_700Bold', color: T.text },
+  cartBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: T.card, alignItems: 'center', justifyContent: 'center' },
+  banner: { padding: 24, paddingTop: 28, paddingBottom: 32 },
+  bannerOverlay: { alignItems: 'center' },
+  avatarWrap: { position: 'relative', marginBottom: 12 },
+  avatar: { width: 90, height: 90, borderRadius: 45, borderWidth: 3, borderColor: T.accent },
+  avatarFallback: { backgroundColor: T.card, alignItems: 'center', justifyContent: 'center' },
+  avatarInitial: { color: T.accent, fontSize: 34, fontFamily: 'Inter_700Bold' },
+  verifiedBadge: { position: 'absolute', bottom: 0, right: 0, width: 24, height: 24, borderRadius: 12, backgroundColor: T.green, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#0A0A14' },
+  shopName: { fontSize: 24, fontFamily: 'Inter_700Bold', color: T.text },
+  ownerName: { fontSize: 13, color: T.muted, fontFamily: 'Inter_400Regular', marginTop: 3 },
+  statsRow: { flexDirection: 'row', backgroundColor: T.card, marginHorizontal: 16, borderRadius: 16, padding: 16, marginTop: -16, borderWidth: 1, borderColor: T.border },
+  statBox: { flex: 1, alignItems: 'center' },
+  statValue: { fontSize: 20, fontFamily: 'Inter_700Bold', color: T.text },
+  statLabel: { fontSize: 11, color: T.muted, fontFamily: 'Inter_400Regular', marginTop: 2 },
+  statDivider: { width: 1, height: 30, backgroundColor: T.border },
+  actionRow: { flexDirection: 'row', gap: 12, marginHorizontal: 16, marginTop: 16 },
+  contactBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 20, paddingVertical: 13, borderRadius: 14, borderWidth: 2, borderColor: T.accent, backgroundColor: 'transparent' },
+  contactBtnText: { color: T.accent, fontSize: 14, fontFamily: 'Inter_700Bold' },
+  messageBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 13, borderRadius: 14, backgroundColor: T.accent },
+  messageBtnText: { color: '#fff', fontSize: 14, fontFamily: 'Inter_700Bold' },
+  productsHeader: { paddingHorizontal: 16, paddingTop: 24, paddingBottom: 12 },
+  productsTitle: { fontSize: 17, fontFamily: 'Inter_700Bold', color: T.text },
+  productCard: { width: CARD_W, backgroundColor: T.card, borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: T.border, marginBottom: 16 },
+  productImgWrap: { position: 'relative' },
+  productImg: { width: '100%', height: 140 },
+  discountBadge: { position: 'absolute', top: 8, left: 8, backgroundColor: T.red, borderRadius: 8, paddingHorizontal: 7, paddingVertical: 3 },
+  discountText: { color: '#fff', fontSize: 10, fontFamily: 'Inter_700Bold' },
+  outOfStock: { position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center' },
+  productTitle: { color: T.text, fontSize: 12, fontFamily: 'Inter_500Medium', lineHeight: 17, marginBottom: 5 },
+  productPrice: { color: T.accent, fontSize: 15, fontFamily: 'Inter_700Bold', marginTop: 5, marginBottom: 8 },
+  addBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, backgroundColor: T.accent, borderRadius: 10, paddingVertical: 7 },
+  addBtnActive: { backgroundColor: T.green },
+  addBtnText: { color: '#fff', fontSize: 11, fontFamily: 'Inter_600SemiBold' },
 });

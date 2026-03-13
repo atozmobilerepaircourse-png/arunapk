@@ -21,7 +21,7 @@ function NativeTabLayout() {
   const getRoleTab = () => {
     if (isTeacher) return { name: 'content', icon: 'book', label: 'Content' };
     if (isSupplier) return { name: 'products', icon: 'cube', label: 'Products' };
-    return { name: 'directory', icon: 'person.2', label: 'Directory' };
+    return { name: 'marketplace', icon: 'bag', label: 'Shop' };
   };
 
   const roleTab = getRoleTab();
@@ -50,6 +50,7 @@ function NativeTabLayout() {
         <NativeTabs.Trigger name="jobs" hidden />
         <NativeTabs.Trigger name="content" hidden />
         <NativeTabs.Trigger name="products" hidden />
+        <NativeTabs.Trigger name="marketplace" hidden />
       </NativeTabs>
     );
   }
@@ -81,6 +82,7 @@ function NativeTabLayout() {
       <NativeTabs.Trigger name="technician-jobs" hidden />
       <NativeTabs.Trigger name="content" hidden={!isTeacher} />
       <NativeTabs.Trigger name="products" hidden={!isSupplier} />
+      <NativeTabs.Trigger name="marketplace" hidden={isTeacher || isSupplier} />
     </NativeTabs>
   );
 }
@@ -214,6 +216,20 @@ function ClassicTabLayout() {
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? "cube" : "cube-outline"}
+              size={22}
+              color={color}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="marketplace"
+        options={{
+          title: "Shop",
+          href: !isCustomer && !isTeacher && !isSupplier && navigationMode === 'default' ? '/marketplace' : null,
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? "bag" : "bag-outline"}
               size={22}
               color={color}
             />

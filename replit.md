@@ -1,7 +1,7 @@
 # Mobi (AtoZ Mobile Repair)
 
 ## Project Overview
-Mobile-first social networking and directory platform for repair professionals in India.
+Mobile-first social networking, directory, and marketplace platform for repair professionals in India.
 - **Frontend**: Expo/React Native (Firebase Hosting: `https://mobile-repair-app-276b6.web.app`)
 - **Backend**: Express/TypeScript (Google Cloud Run: `https://repair-backend-3siuld7gbq-el.a.run.app`)
 - **Database**: Neon.tech PostgreSQL
