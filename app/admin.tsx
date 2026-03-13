@@ -15,7 +15,7 @@ import { openLink } from '@/lib/open-link';
 const C = Colors.light;
 const PRIMARY = '#FF6B2C';
 
-type AdminTab = 'dashboard' | 'users' | 'posts' | 'jobs' | 'bookings' | 'subscriptions' | 'revenue' | 'links' | 'notifications' | 'payouts' | 'email' | 'insurance' | 'ads' | 'listings';
+type AdminTab = 'dashboard' | 'users' | 'posts' | 'jobs' | 'bookings' | 'subscriptions' | 'revenue' | 'links' | 'notifications' | 'payouts' | 'email' | 'insurance' | 'ads' | 'listings' | 'device-lock';
 
 const ROLE_COLORS: Record<UserRole | 'admin', string> = {
   technician: '#34C759',
@@ -344,6 +344,14 @@ export default function AdminScreen() {
   const [repairFilter, setRepairFilter] = useState<'all' | 'pending' | 'assigned' | 'completed' | 'cancelled'>('all');
   const [assigningBooking, setAssigningBooking] = useState<any>(null);
   const [technicianSearch, setTechnicianSearch] = useState('');
+
+  // Device lock
+  const [deviceLockEnabled, setDeviceLockEnabled] = useState(false);
+  const [deviceLockPrice, setDeviceLockPrice] = useState('100');
+  const [deviceSettingsLoading, setDeviceSettingsLoading] = useState(false);
+  const [lockNotifications, setLockNotifications] = useState<any[]>([]);
+  const [lockNotifLoading, setLockNotifLoading] = useState(false);
+  const [unlockingUserId, setUnlockingUserId] = useState<string | null>(null);
 
   const webTopInset = Platform.OS === 'web' ? 67 : insets.top;
 
@@ -698,6 +706,76 @@ export default function AdminScreen() {
 
   const downloadUsersCSV = () => openLink(`${getApiUrl()}/api/admin/export-users`, 'Export');
 
+  // ── Device Lock Functions ──
+  const fetchDeviceSettings = useCallback(async () => {
+    setDeviceSettingsLoading(true);
+    try {
+      const res = await apiRequest('GET', '/api/app-settings');
+      const data = await res.json();
+      setDeviceLockEnabled(data.device_lock_enabled === 'true');
+      setDeviceLockPrice(data.device_lock_price || '100');
+    } catch (err) { console.warn('device settings:', err); }
+    finally { setDeviceSettingsLoading(false); }
+  }, []);
+
+  const saveDeviceSetting = async (key: string, value: string) => {
+    try {
+      await apiRequest('PUT', `/api/app-settings/${key}`, { value });
+    } catch (err) {
+      Alert.alert('Error', 'Failed to save setting');
+    }
+  };
+
+  const toggleDeviceLock = async (enabled: boolean) => {
+    setDeviceLockEnabled(enabled);
+    await saveDeviceSetting('device_lock_enabled', enabled ? 'true' : 'false');
+  };
+
+  const resetUserDevice = (userId: string, userName: string) => {
+    Alert.alert('Reset Device', `Reset device lock for ${userName}? They will be able to login from any device again with 2 free changes.`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Reset', style: 'destructive', onPress: async () => {
+          try {
+            await apiRequest('POST', '/api/admin/reset-device', { userId });
+            Alert.alert('Success', `Device reset for ${userName}`);
+            await fetchLockNotifications();
+          } catch (err) { Alert.alert('Error', 'Failed to reset device'); }
+        }},
+    ]);
+  };
+
+  const fetchLockNotifications = useCallback(async () => {
+    try {
+      setLockNotifLoading(true);
+      const res = await apiRequest('GET', '/api/admin/lock-notifications');
+      const data = await res.json();
+      setLockNotifications(data.notifications || []);
+    } catch (e) { console.warn('lock notifications:', e); }
+    finally { setLockNotifLoading(false); }
+  }, []);
+
+  const unlockUser = useCallback(async (userId: string, userName: string) => {
+    Alert.alert('Unlock User', `Unlock ${userName}'s account and reset device binding?`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Unlock', onPress: async () => {
+          try {
+            setUnlockingUserId(userId);
+            const res = await apiRequest('POST', '/api/admin/unlock-user', { userId });
+            const data = await res.json();
+            if (data.success) {
+              Alert.alert('Success', `${userName} has been unlocked.`);
+              await fetchLockNotifications();
+            } else { Alert.alert('Error', data.message || 'Failed to unlock user.'); }
+          } catch (e: any) { Alert.alert('Error', 'Failed to unlock user.'); }
+          finally { setUnlockingUserId(null); }
+        }},
+    ]);
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'device-lock') { fetchDeviceSettings(); fetchLockNotifications(); }
+  }, [activeTab, fetchDeviceSettings, fetchLockNotifications]);
+
   const saveLink = async (key: string, value: string) => {
     try {
       await apiRequest('PUT', `/api/app-settings/${key}`, { value });
@@ -781,6 +859,7 @@ export default function AdminScreen() {
     { key: 'ads', label: 'Ads & Shop', icon: 'megaphone-outline' },
     { key: 'listings', label: 'Listings', icon: 'cube-outline' },
     { key: 'links', label: 'Links', icon: 'link-outline' },
+    { key: 'device-lock', label: 'Locks', icon: 'lock-closed-outline' },
     { key: 'notifications', label: 'Notify', icon: 'notifications-outline' },
     { key: 'email', label: 'Email', icon: 'mail-outline' },
     { key: 'payouts', label: 'Payouts', icon: 'cash-outline' },
@@ -1670,6 +1749,74 @@ export default function AdminScreen() {
     </ScrollView>
   );
 
+  const renderDeviceLock = () => (
+    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+      <SectionCard style={{ marginBottom: 14 }}>
+        <Text style={ss.cardTitle}>Device Lock Settings</Text>
+        <View style={{ marginTop: 14, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <View>
+            <Text style={{ fontSize: 14, fontFamily: 'Inter_600SemiBold', color: C.text }}>Enable Device Lock</Text>
+            <Text style={{ fontSize: 11, color: C.textTertiary, marginTop: 2 }}>Allow users to lock accounts to one device</Text>
+          </View>
+          <Switch value={deviceLockEnabled} onValueChange={toggleDeviceLock}
+            trackColor={{ false: C.surfaceElevated, true: PRIMARY + '60' }}
+            thumbColor={deviceLockEnabled ? PRIMARY : C.textTertiary} />
+        </View>
+        {deviceLockEnabled && (
+          <View style={{ marginTop: 14, borderTopWidth: 1, borderTopColor: C.border, paddingTop: 12 }}>
+            <InputField label="Lock Price (₹)" value={deviceLockPrice} onChangeText={setDeviceLockPrice} keyboardType="numeric" placeholder="100" />
+          </View>
+        )}
+      </SectionCard>
+
+      <Text style={[ss.sectionTitle, { marginBottom: 12 }]}>Locked Users ({lockNotifications.length})</Text>
+      {lockNotifLoading ? (
+        <View style={{ alignItems: 'center', paddingTop: 20 }}><ActivityIndicator size="large" color={PRIMARY} /></View>
+      ) : lockNotifications.length === 0 ? (
+        <View style={{ alignItems: 'center', padding: 40 }}>
+          <Ionicons name="lock-open-outline" size={40} color={C.textTertiary} />
+          <Text style={{ color: C.textTertiary, fontSize: 14, marginTop: 8 }}>No locked accounts</Text>
+        </View>
+      ) : (
+        lockNotifications.map((notif: any) => (
+          <SectionCard key={notif.userId} style={{ marginBottom: 10 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <View>
+                <Text style={{ color: C.text, fontSize: 14, fontFamily: 'Inter_600SemiBold' }}>{notif.userName || 'Unknown User'}</Text>
+                <Text style={{ color: C.textSecondary, fontSize: 11, marginTop: 2 }}>{notif.phone}</Text>
+              </View>
+              <View style={{ backgroundColor: '#FF3B3020', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 }}>
+                <Text style={{ color: '#FF3B30', fontSize: 11, fontFamily: 'Inter_600SemiBold' }}>LOCKED</Text>
+              </View>
+            </View>
+            {notif.lockedDevice && (
+              <View style={{ backgroundColor: C.surfaceElevated, borderRadius: 8, padding: 10, marginBottom: 10 }}>
+                <Text style={{ fontSize: 11, color: C.textSecondary }}>{notif.lockedDevice}</Text>
+              </View>
+            )}
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <Pressable
+                style={{ flex: 1, backgroundColor: PRIMARY, borderRadius: 10, paddingVertical: 10, alignItems: 'center' }}
+                disabled={unlockingUserId === notif.userId}
+                onPress={() => unlockUser(notif.userId, notif.userName)}>
+                {unlockingUserId === notif.userId ? (
+                  <ActivityIndicator size="small" color="#FFF" />
+                ) : (
+                  <Text style={{ color: '#FFF', fontFamily: 'Inter_700Bold', fontSize: 13 }}>Unlock Account</Text>
+                )}
+              </Pressable>
+              <Pressable
+                style={{ flex: 1, backgroundColor: '#34C75915', borderRadius: 10, paddingVertical: 10, alignItems: 'center', borderWidth: 1, borderColor: '#34C75940' }}
+                onPress={() => resetUserDevice(notif.userId, notif.userName)}>
+                <Text style={{ color: '#34C759', fontFamily: 'Inter_700Bold', fontSize: 13 }}>Reset Device</Text>
+              </Pressable>
+            </View>
+          </SectionCard>
+        ))
+      )}
+    </ScrollView>
+  );
+
   const renderPayouts = () => {
     const pending = payoutsData.filter(p => p.status === 'pending');
     const completed = payoutsData.filter(p => p.status !== 'pending');
@@ -1803,6 +1950,7 @@ export default function AdminScreen() {
         {activeTab === 'ads' && renderAds()}
         {activeTab === 'listings' && renderListings()}
         {activeTab === 'links' && renderLinks()}
+        {activeTab === 'device-lock' && renderDeviceLock()}
         {activeTab === 'notifications' && renderNotifications()}
         {activeTab === 'email' && renderEmail()}
         {activeTab === 'payouts' && renderPayouts()}
