@@ -834,7 +834,7 @@ export default function AdminScreen() {
 
       {/* Quick actions */}
       <Text style={[ss.sectionTitle, { marginTop: 20 }]}>Quick Actions</Text>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+      <View style={{ flexDirection: isMobile ? 'column' : 'row', flexWrap: 'wrap', gap: 10 }}>
         {[
           { label: 'Export Users', icon: 'download-outline' as any, color: '#5E8BFF', action: downloadUsersCSV },
           { label: 'Send Notification', icon: 'notifications-outline' as any, color: PRIMARY, action: () => setActiveTab('notifications') },
