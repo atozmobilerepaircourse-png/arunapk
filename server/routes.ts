@@ -737,7 +737,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await db.delete(otpTokens).where(eq(otpTokens.phone, cleanPhone));
 
       const allProfilesList = await db.select().from(profiles);
-      const existingProfile = allProfilesList.find(p => p.phone.replace(/\D/g, "") === cleanPhone);
+      // Prioritize admin role if multiple profiles exist
+      let existingProfile = allProfilesList.find(p => p.phone.replace(/\D/g, "") === cleanPhone && p.role === 'admin');
+      if (!existingProfile) {
+        existingProfile = allProfilesList.find(p => p.phone.replace(/\D/g, "") === cleanPhone);
+      }
 
       if (existingProfile && existingProfile.blocked === 1) {
         return res.json({
@@ -801,7 +805,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`[Firebase Phone] Verified phone: ${cleanPhone}`);
 
       const allProfilesList = await db.select().from(profiles);
-      const existingProfile = allProfilesList.find(p => p.phone.replace(/\D/g, "") === cleanPhone);
+      // Prioritize admin role if multiple profiles exist
+      let existingProfile = allProfilesList.find(p => p.phone.replace(/\D/g, "") === cleanPhone && p.role === 'admin');
+      if (!existingProfile) {
+        existingProfile = allProfilesList.find(p => p.phone.replace(/\D/g, "") === cleanPhone);
+      }
 
       if (existingProfile && existingProfile.blocked === 1) {
         return res.json({ success: false, message: "Your account has been blocked. Please contact admin for support." });
@@ -4865,7 +4873,11 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
 
       const cleanPhone = phone.replace(/\D/g, "");
       const allProfilesList = await db.select().from(profiles);
-      const existingProfile = allProfilesList.find(p => p.phone.replace(/\D/g, "") === cleanPhone);
+      // Prioritize admin role if multiple profiles exist
+      let existingProfile = allProfilesList.find(p => p.phone.replace(/\D/g, "") === cleanPhone && p.role === 'admin');
+      if (!existingProfile) {
+        existingProfile = allProfilesList.find(p => p.phone.replace(/\D/g, "") === cleanPhone);
+      }
       
       if (!existingProfile) {
         return res.status(404).json({ success: false, message: "Profile not found" });
