@@ -48,26 +48,21 @@ const CONDITIONS = ['Like New', 'Good', 'Fair', 'Used'];
 const C = Colors.light;
 
 // ── Role switching rules ──────────────────────────────────────
-// Teacher ↔ Technician, Supplier ↔ Technician
-// Admin (ADMIN_PHONE) can switch to any role
+// ONLY ADMIN (ADMIN_PHONE) can switch ANY user's role
+// Non-admin users CANNOT switch roles
 function getAllowedRoles(currentRole: UserRole, userPhone?: string): UserRole[] {
-  // Admin phone can switch to any role (check last 10 digits to handle +91 prefix)
+  // ONLY Admin phone (8179142535) can switch roles
   const cleanPhone = userPhone?.replace(/\D/g, '') || '';
   const last10 = cleanPhone.slice(-10);
   const isAdminPhone = last10 === '8179142535' || last10 === '9876543210';
+  
+  // Only admin can switch roles - all other users get empty list
   if (currentRole === 'admin' || isAdminPhone) {
     return ['teacher', 'technician', 'supplier', 'customer', 'job_provider'];
   }
   
-  const roleMap: Record<UserRole, UserRole[]> = {
-    teacher: ['technician'],
-    technician: ['teacher', 'supplier'],
-    supplier: ['technician'],
-    job_provider: [],
-    customer: [],
-    admin: [],
-  };
-  return roleMap[currentRole] || [];
+  // Non-admin users CANNOT switch roles
+  return [];
 }
 
 type ListingItem = {
