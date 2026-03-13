@@ -683,8 +683,24 @@ export default function AdminScreen() {
     try {
       const res = await apiRequest('POST', '/api/admin/delete-user', { userId });
       const data = await res.json();
-      if (data.success) await refreshData();
-    } catch (e: any) { console.error('delete user error:', e); }
+      if (data.success) {
+        Alert.alert('Success', `${userName} has been deleted.`);
+        await refreshData();
+      } else {
+        Alert.alert('Error', data.message || 'Failed to delete user.');
+      }
+    } catch (e: any) { 
+      Alert.alert('Error', e.message || 'Failed to delete user.');
+    }
+  };
+
+  const handleDeleteUser = (userId: string, userName: string) => {
+    Alert.alert('Delete User', `Permanently delete ${userName}? This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: () => executeDeleteUser(userId, userName) },
+      ]
+    );
   };
 
   const handleBlockUser = (userId: string, userName: string, block: boolean) => {
@@ -937,7 +953,7 @@ export default function AdminScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: Platform.OS === 'web' ? 34 : 40, paddingHorizontal: 16 }}
         renderItem={({ item }) => (
-          <UserDetailCard user={item} onBlock={handleBlockUser} onVerify={executeVerifyUser} onDelete={executeDeleteUser} />
+          <UserDetailCard user={item} onBlock={handleBlockUser} onVerify={executeVerifyUser} onDelete={handleDeleteUser} />
         )}
         ListEmptyComponent={
           <View style={{ alignItems: 'center', padding: 40 }}>
@@ -994,7 +1010,7 @@ export default function AdminScreen() {
           contentContainerStyle={{ paddingBottom: 40, paddingHorizontal: 16 }}
           renderItem={({ item }) => (
             <UserDetailCard user={{ id: item.id, name: item.name || 'Unknown', role: item.role, city: item.city, isRegistered: true, fullProfile: item }}
-              onBlock={handleBlockUser} onVerify={executeVerifyUser} onDelete={executeDeleteUser} />
+              onBlock={handleBlockUser} onVerify={executeVerifyUser} onDelete={handleDeleteUser} />
           )}
           ListEmptyComponent={
             <View style={{ alignItems: 'center', padding: 40 }}>

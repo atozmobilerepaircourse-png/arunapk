@@ -3434,8 +3434,12 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
 
   app.patch("/api/profiles/:id/verify", async (req, res) => {
     try {
-      await db.update(profiles).set({ verified: 1 } as any).where(eq(profiles.id, req.params.id));
-      return res.json({ success: true });
+      const { verified } = req.body;
+      if (verified === undefined) {
+        return res.status(400).json({ success: false, message: "verified parameter required" });
+      }
+      await db.update(profiles).set({ verified: verified ? 1 : 0 } as any).where(eq(profiles.id, req.params.id));
+      return res.json({ success: true, message: `User ${verified ? 'verified' : 'unverified'}.` });
     } catch (error) {
       console.error("[Profiles] Verify error:", error);
       return res.status(500).json({ success: false, message: "Failed to verify profile" });
