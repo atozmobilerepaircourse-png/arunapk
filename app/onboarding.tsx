@@ -432,6 +432,7 @@ export default function OnboardingScreen() {
 
   const checkPhone = async () => {
     const cleanPhone = phone.replace(/\D/g, '');
+    console.log('[Phone] Cleaned phone:', cleanPhone, 'length:', cleanPhone.length);
     if (cleanPhone.length !== 10) {
       Alert.alert('Invalid Number', 'Please enter a valid 10-digit mobile number.');
       return;
@@ -440,11 +441,14 @@ export default function OnboardingScreen() {
     setChecking(true);
     try {
       const baseUrl = getApiUrl();
-      console.log('[OTP] Sending to:', cleanPhone, 'via:', baseUrl);
+      console.log('[checkPhone] Starting check for:', cleanPhone, 'via:', baseUrl);
       const res = await apiRequest('POST', '/api/auth/check-phone', { phone: cleanPhone });
+      console.log('[checkPhone] Response status:', res.status);
       const data = await res.json();
+      console.log('[checkPhone] Response data:', data);
 
       if (data.success) {
+        console.log('[checkPhone] Phone verified, exists:', data.exists);
         if (data.exists && data.profile) {
           const serverProfile: UserProfile = {
             id: data.profile.id,
@@ -467,20 +471,24 @@ export default function OnboardingScreen() {
             createdAt: data.profile.createdAt || Date.now(),
           };
           setExistingProfile(serverProfile);
+          console.log('[checkPhone] Existing user found, sending OTP');
           if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           await sendOtp(cleanPhone);
           setStep(1);
         } else {
+          console.log('[checkPhone] New user, sending OTP');
           setExistingProfile(null);
           if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           await sendOtp(cleanPhone);
           setStep(1);
         }
       } else {
+        console.log('[checkPhone] API returned error:', data.message);
         Alert.alert('Error', data.message || 'Verification failed. Please try again.');
       }
-    } catch (error) {
-      Alert.alert('Connection Error', 'Could not connect to server. Please check your internet and try again.');
+    } catch (error: any) {
+      console.error('[checkPhone] Exception:', error?.message, error);
+      Alert.alert('Connection Error', `${error?.message || 'Could not connect to server. Please check your internet and try again.'}`);
     } finally {
       setChecking(false);
     }
@@ -1019,7 +1027,10 @@ export default function OnboardingScreen() {
               </View>
               <Text style={styles.stepTitle}>Verify Your Number</Text>
               <Text style={styles.stepSubtitle}>
-                Firebase sent a 6-digit OTP via SMS to +91 {phone.replace(/\D/g, '').replace(/^91/, '')}
+                {Platform.OS === 'web' 
+                  ? `Sent a 6-digit OTP to +91${phone.replace(/\D/g, '').slice(-10)}`
+                  : `Firebase sent a 6-digit OTP via SMS to +91${phone.replace(/\D/g, '').replace(/^91/, '')}`
+                }
               </Text>
             </View>
             <Text style={styles.fieldLabel}>Enter OTP</Text>
