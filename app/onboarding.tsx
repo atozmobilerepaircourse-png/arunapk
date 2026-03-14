@@ -3,8 +3,13 @@ import {
   View, Text, StyleSheet, TextInput, Pressable, ScrollView,
   Platform, Alert, ActivityIndicator, Modal, FlatList,
 } from 'react-native';
-import { FirebaseRecaptchaVerifierModal } from 'expo-firebase-recaptcha';
 import { PhoneAuthProvider, signInWithCredential, signInWithPhoneNumber } from 'firebase/auth';
+
+// Native ApplicationVerifier stub — Firebase uses APNs/SafetyNet on native, not reCAPTCHA
+class NativeApplicationVerifier {
+  readonly type = 'recaptcha' as const;
+  async verify(): Promise<string> { return ''; }
+}
 import { firebaseAuth, firebaseConfig } from '@/lib/firebase';
 import { Image } from 'expo-image';
 import { StatusBar } from 'expo-status-bar';
@@ -188,7 +193,7 @@ export default function OnboardingScreen() {
   }, [params.email]);
 
   const pendingGoogleTokenRef = useRef<string | null>(null);
-  const recaptchaVerifierRef = useRef<FirebaseRecaptchaVerifierModal>(null);
+  const recaptchaVerifierRef = useRef<NativeApplicationVerifier | null>(new NativeApplicationVerifier());
   const [firebaseVerificationId, setFirebaseVerificationId] = useState('');
   const webRecaptchaRef = useRef<any>(null);
   const webConfirmationRef = useRef<any>(null);
@@ -326,11 +331,9 @@ export default function OnboardingScreen() {
         const confirmation = await signInWithPhoneNumber(firebaseAuth, fullPhone, webRecaptchaRef.current);
         webConfirmationRef.current = confirmation;
       } else {
-        // Native: Use FirebaseRecaptchaVerifierModal
-        if (!recaptchaVerifierRef.current) {
-          throw new Error('reCAPTCHA not ready. Please try again.');
-        }
-        const confirmation = await signInWithPhoneNumber(firebaseAuth, fullPhone, recaptchaVerifierRef.current);
+        // Native: Firebase uses APNs (iOS) / SafetyNet (Android) — no modal needed
+        const verifier = recaptchaVerifierRef.current ?? new NativeApplicationVerifier();
+        const confirmation = await signInWithPhoneNumber(firebaseAuth, fullPhone, verifier as any);
         webConfirmationRef.current = confirmation;
       }
 
@@ -1736,15 +1739,7 @@ export default function OnboardingScreen() {
   return (
     <View style={[styles.container, isPhoneScreen && { backgroundColor: '#0A0A14' }]}>
       <StatusBar style={isPhoneScreen ? 'light' : 'dark'} />
-      {Platform.OS !== 'web' && (
-        <FirebaseRecaptchaVerifierModal
-          ref={recaptchaVerifierRef}
-          firebaseConfig={firebaseConfig}
-          attemptInvisibleVerification={false}
-          title="Phone Verification"
-          cancelLabel="Cancel"
-        />
-      )}
+      {/* Native Firebase phone auth uses APNs/SafetyNet — no reCAPTCHA modal needed */}
       {Platform.OS === 'web' && (
         <View nativeID="recaptcha-container" style={{ position: 'absolute', bottom: 0 }} />
       )}
