@@ -664,34 +664,48 @@ export default function AdminScreen() {
   const executeBlockUser = async (userId: string, userName: string, block: boolean) => {
     try {
       const res = await apiRequest('POST', '/api/admin/block-user', { userId, blocked: block });
+      if (!res.ok) throw new Error('API error');
       const data = await res.json();
       if (data.success) {
         Alert.alert('Success', `${userName} has been ${block ? 'blocked' : 'unblocked'}.`);
-        await refreshData();
-      } else { Alert.alert('Error', data.message || 'Failed'); }
-    } catch (e: any) { Alert.alert('Error', 'Failed to update user.'); }
+        refreshData().catch(e => console.log('Refresh failed:', e));
+      } else { 
+        Alert.alert('Error', data.message || 'Failed to block user'); 
+      }
+    } catch (e: any) { 
+      Alert.alert('Error', 'Failed to block user. Check your connection.'); 
+    }
   };
 
   const executeVerifyUser = async (userId: string, userName: string, verify: boolean) => {
     try {
       const res = await apiRequest('PATCH', `/api/profiles/${userId}/verify`, { verified: verify ? 1 : 0 });
+      if (!res.ok) throw new Error('API error');
       const data = await res.json();
-      if (data.success) { await refreshData(); Alert.alert('Success', `${userName} ${verify ? 'verified' : 'unverified'}.`); }
-    } catch (e: any) { Alert.alert('Error', e.message || 'Failed to verify user.'); }
+      if (data.success) { 
+        Alert.alert('Success', `${userName} ${verify ? 'verified' : 'unverified'}.`);
+        refreshData().catch(e => console.log('Refresh failed:', e));
+      } else {
+        Alert.alert('Error', data.message || 'Failed to verify user');
+      }
+    } catch (e: any) { 
+      Alert.alert('Error', e.message || 'Failed to verify user. Check your connection.'); 
+    }
   };
 
   const executeDeleteUser = async (userId: string, userName: string) => {
     try {
       const res = await apiRequest('POST', '/api/admin/delete-user', { userId });
+      if (!res.ok) throw new Error('API error');
       const data = await res.json();
       if (data.success) {
         Alert.alert('Success', `${userName} has been deleted.`);
-        await refreshData();
+        refreshData().catch(e => console.log('Refresh failed:', e));
       } else {
-        Alert.alert('Error', data.message || 'Failed to delete user.');
+        Alert.alert('Error', data.message || 'Failed to delete user');
       }
     } catch (e: any) { 
-      Alert.alert('Error', e.message || 'Failed to delete user.');
+      Alert.alert('Error', e.message || 'Failed to delete user. Check your connection.'); 
     }
   };
 
