@@ -6061,6 +6061,132 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
     }
   });
 
+  // Bunny Stream Live – create a live stream channel and return RTMP credentials
+  app.post("/api/teacher/bunny-live/start", async (req, res) => {
+    try {
+      const { teacherId, teacherName, teacherAvatar, title, description } = req.body;
+      if (!teacherId || !title) {
+        return res.status(400).json({ success: false, message: "teacherId and title required" });
+      }
+      if (!bunnyStreamAvailable) {
+        return res.status(503).json({ success: false, message: "Bunny Stream not configured" });
+      }
+
+      const firestore = getFirestore();
+
+      // End any existing live sessions for this teacher
+      const existing = await firestore.collection("teacher_live_sessions")
+        .where("teacherId", "==", teacherId)
+        .where("isLive", "==", true)
+        .get();
+      for (const doc of existing.docs) {
+        // Also delete the Bunny live stream if it has a bunnyStreamId
+        const docData = doc.data();
+        if (docData.bunnyStreamId) {
+          try {
+            await fetch(
+              `https://video.bunnycdn.com/library/${BUNNY_STREAM_LIBRARY_ID}/live-streams/${docData.bunnyStreamId}`,
+              { method: 'DELETE', headers: { AccessKey: BUNNY_STREAM_API_KEY } }
+            );
+          } catch (delErr) {
+            console.warn("[BunnyLive] Failed to delete old stream:", delErr);
+          }
+        }
+        await doc.ref.update({ isLive: false, endedAt: Date.now() });
+      }
+
+      // Create a Bunny Stream live channel
+      const createRes = await fetch(
+        `https://video.bunnycdn.com/library/${BUNNY_STREAM_LIBRARY_ID}/live-streams`,
+        {
+          method: 'POST',
+          headers: {
+            'AccessKey': BUNNY_STREAM_API_KEY,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ name: title, record: false }),
+        }
+      );
+
+      if (!createRes.ok) {
+        const errTxt = await createRes.text();
+        console.error(`[BunnyLive] Create live stream failed: ${createRes.status} ${errTxt}`);
+        return res.status(502).json({ success: false, message: "Failed to create Bunny live stream" });
+      }
+
+      const bunnyData: any = await createRes.json();
+      const streamKey  = bunnyData.streamKey || bunnyData.StreamKey || bunnyData.id;
+      const bunnyId    = bunnyData.guid || bunnyData.id || streamKey;
+      const rtmpUrl    = `rtmp://live.bunnynet.com/live/${streamKey}`;
+      const embedUrl   = `https://iframe.mediadelivery.net/live/${BUNNY_STREAM_LIBRARY_ID}/${streamKey}`;
+
+      const sessionId  = randomUUID();
+      const sessionData = {
+        id: sessionId,
+        teacherId,
+        teacherName: teacherName || "",
+        teacherAvatar: teacherAvatar || "",
+        title,
+        description: description || "",
+        platform: "bunny",
+        link: embedUrl,
+        streamKey,
+        bunnyStreamId: bunnyId,
+        rtmpUrl,
+        isLive: true,
+        startedAt: Date.now(),
+        viewerCount: 0,
+      };
+
+      await firestore.collection("teacher_live_sessions").doc(sessionId).set(sessionData);
+
+      // Notify all users
+      await notifyAllUsers({
+        title: `🎥 ${teacherName} is LIVE now!`,
+        body: title,
+        data: { type: 'teacher_live', sessionId, link: embedUrl, platform: 'bunny' },
+      }, teacherId);
+
+      console.log(`[BunnyLive] ${teacherName} started: ${title}, streamKey=${streamKey}`);
+      return res.json({ success: true, session: sessionData, rtmpUrl, streamKey, embedUrl });
+    } catch (error: any) {
+      console.error("[BunnyLive] Start error:", error?.message || error);
+      return res.status(500).json({ success: false, message: "Failed to start Bunny live stream" });
+    }
+  });
+
+  // Bunny Stream Live – end a live stream and clean up Bunny channel
+  app.post("/api/teacher/bunny-live/end", async (req, res) => {
+    try {
+      const { teacherId, sessionId } = req.body;
+      if (!teacherId) return res.status(400).json({ success: false, message: "teacherId required" });
+      const firestore = getFirestore();
+
+      const query = sessionId
+        ? [await firestore.collection("teacher_live_sessions").doc(sessionId).get()].filter(d => d.exists).map(d => ({ ref: d.ref, data: d.data() }))
+        : (await firestore.collection("teacher_live_sessions")
+            .where("teacherId", "==", teacherId)
+            .where("isLive", "==", true)
+            .get()).docs.map(d => ({ ref: d.ref, data: d.data() }));
+
+      for (const { ref, data } of query) {
+        if (data?.bunnyStreamId) {
+          try {
+            await fetch(
+              `https://video.bunnycdn.com/library/${BUNNY_STREAM_LIBRARY_ID}/live-streams/${data.bunnyStreamId}`,
+              { method: 'DELETE', headers: { AccessKey: BUNNY_STREAM_API_KEY } }
+            );
+          } catch {}
+        }
+        await ref.update({ isLive: false, endedAt: Date.now() });
+      }
+      return res.json({ success: true });
+    } catch (error) {
+      console.error("[BunnyLive] End error:", error);
+      return res.status(500).json({ success: false, message: "Failed to end live stream" });
+    }
+  });
+
   app.post("/api/teacher/live-session/upload-image", upload.single("image"), async (req, res) => {
     try {
       if (!req.file) {
