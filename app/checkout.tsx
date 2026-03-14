@@ -48,49 +48,64 @@ export default function CheckoutScreen() {
   };
 
   const placeOrder = async () => {
-    if (!validate()) return;
-    if (!profile) { Alert.alert('Error', 'Please log in'); return; }
+    console.log('[Checkout] Place order clicked');
+    if (!name || !phone || !address || !city || !pincode) {
+      Alert.alert('Missing Info', 'Please fill all fields');
+      return;
+    }
+    if (phone.length < 10 || pincode.length !== 6) {
+      Alert.alert('Invalid', 'Check phone (10 digits) and pincode (6 digits)');
+      return;
+    }
 
     setPlacing(true);
     try {
-      const shippingAddress = `${address}, ${city} - ${pincode}`;
+      console.log('[Checkout] Starting orders for ' + items.length + ' items');
+      const addr = `${address}, ${city} - ${pincode}`;
       
-      for (const item of items) {
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        console.log('[Checkout] Creating order ' + (i+1) + ' for product ' + item.productId);
+        
         const res = await apiRequest('POST', '/api/orders', {
           productId: item.productId,
           productTitle: item.title,
           productPrice: item.price.toString(),
           productImage: item.image,
           productCategory: item.category,
-          buyerId: profile.id,
+          buyerId: profile?.id || '',
           buyerName: name,
           buyerPhone: phone,
           buyerCity: city,
-          buyerState: profile.state || '',
+          buyerState: profile?.state || '',
           sellerId: item.supplierId,
           sellerName: item.supplierName,
           sellerRole: 'supplier',
           quantity: item.quantity,
           totalAmount: (item.price * item.quantity).toString(),
-          shippingAddress,
+          shippingAddress: addr,
           buyerNotes: notes,
           status: 'pending',
         });
-        
+
         if (!res.ok) {
-          const err = await res.json();
-          throw new Error(err.message || 'Order failed');
+          throw new Error('Order ' + (i+1) + ' failed');
         }
+        console.log('[Checkout] Order ' + (i+1) + ' created successfully');
       }
 
+      console.log('[Checkout] All orders created, clearing cart');
       clearCart();
-      Alert.alert('Success!', 'Order placed. Supplier will contact you.', [
-        { text: 'OK', onPress: () => router.replace('/(tabs)/marketplace' as any) }
+      
+      Alert.alert('Order Placed!', 'Supplier will contact you.', [
+        { text: 'OK', onPress: () => router.push('/(tabs)/marketplace' as any) }
       ]);
-    } catch (e: any) {
-      Alert.alert('Error', e.message || 'Failed to place order');
+    } catch (err: any) {
+      console.error('[Checkout] Error:', err);
+      Alert.alert('Failed', err?.message || 'Could not place order');
     } finally {
       setPlacing(false);
+      console.log('[Checkout] Done');
     }
   };
 

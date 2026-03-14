@@ -72,14 +72,7 @@ export default function CartScreen() {
   const topInset = Platform.OS === 'web' ? webTop : insets.top;
 
   const handleClear = () => {
-    Alert.alert(
-      'Clear Cart',
-      'Remove all items?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Clear', style: 'destructive', onPress: clearCart }
-      ]
-    );
+    clearCart();
   };
 
   const deliveryCharge = totalPrice > 999 ? 0 : 49;
