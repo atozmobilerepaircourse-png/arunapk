@@ -11,10 +11,11 @@ import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import Colors from '@/constants/colors';
 import { useApp } from '@/lib/context';
-import { apiRequest } from '@/lib/query-client';
+import { apiRequest, getApiUrl } from '@/lib/query-client';
 
 const C = Colors.light;
 const PRIMARY = '#FF6B2C';
+const GREEN = '#10B981';
 const { width } = Dimensions.get('window');
 const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
@@ -33,10 +34,16 @@ interface Product {
 interface Order {
   id: string;
   productTitle: string;
+  productImage?: string;
   buyerName: string;
+  buyerPhone?: string;
+  quantity: number;
   totalAmount: string;
   status: string;
   createdAt: number;
+  deliveryAddress?: string;
+  city?: string;
+  sellerNotes?: string;
 }
 
 function StatCard({ label, value, icon, color }: { label: string; value: string | number; icon: any; color: string }) {
@@ -95,6 +102,26 @@ function ProductRow({ product, onEdit, onDelete }: { product: Product; onEdit: (
   );
 }
 
+const STATUS_COLOR: Record<string, string> = {
+  confirmed: '#007AFF',
+  shipped:   '#FF9F0A',
+  delivered: '#34C759',
+  completed: '#34C759',
+  cancelled: '#FF3B30',
+  rejected:  '#FF3B30',
+  pending:   '#FF9F0A',
+};
+
+const STATUS_LABEL: Record<string, string> = {
+  confirmed: 'Confirmed',
+  shipped:   'Shipped',
+  delivered: 'Delivered',
+  completed: 'Completed',
+  cancelled: 'Cancelled',
+  rejected:  'Rejected',
+  pending:   'Pending',
+};
+
 export default function SupplierProductsScreen() {
   const insets = useSafeAreaInsets();
   const { profile } = useApp();
@@ -103,6 +130,8 @@ export default function SupplierProductsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<'products' | 'orders'>('products');
+  const [orderTab, setOrderTab] = useState<'confirmed' | 'old'>('confirmed');
+  const [deliveringId, setDeliveringId] = useState<string | null>(null);
 
   const topInset = Platform.OS === 'web' ? webTopInset : insets.top;
 
@@ -126,7 +155,6 @@ export default function SupplierProductsScreen() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  // Refetch when tab comes into focus (new products added)
   useFocusEffect(
     useCallback(() => {
       loadData();
@@ -156,17 +184,31 @@ export default function SupplierProductsScreen() {
     ]);
   };
 
+  const markDelivered = async (order: Order) => {
+    setDeliveringId(order.id);
+    try {
+      const res = await apiRequest('PATCH', `/api/orders/${order.id}/status`, { status: 'delivered' });
+      if (!res.ok) throw new Error('Failed');
+      if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: 'delivered' } : o));
+      setOrderTab('old');
+    } catch {
+      Alert.alert('Error', 'Could not mark as delivered. Please try again.');
+    } finally {
+      setDeliveringId(null);
+    }
+  };
+
+  const confirmedOrders = orders.filter(o => o.status === 'confirmed');
+  const oldOrders = orders.filter(o => ['delivered', 'completed', 'shipped', 'cancelled', 'rejected'].includes(o.status));
   const pendingOrders = orders.filter(o => o.status === 'pending');
+
   const totalRevenue = orders
-    .filter(o => o.status === 'completed')
+    .filter(o => ['delivered', 'completed'].includes(o.status))
     .reduce((s, o) => s + (parseFloat(o.totalAmount) || 0), 0);
 
-  const getStatusColor = (status: string) => {
-    if (status === 'completed') return '#34C759';
-    if (status === 'cancelled') return '#FF3B30';
-    if (status === 'processing') return '#FF9F0A';
-    return '#007AFF';
-  };
+  const getDate = (ts: number) =>
+    new Date(ts).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' });
 
   if (loading) {
     return (
@@ -175,6 +217,103 @@ export default function SupplierProductsScreen() {
       </View>
     );
   }
+
+  const renderConfirmedOrder = ({ item }: { item: Order }) => {
+    const isDelivering = deliveringId === item.id;
+    const imgUri = item.productImage
+      ? (item.productImage.startsWith('/') ? `${getApiUrl()}${item.productImage}` : item.productImage)
+      : null;
+
+    return (
+      <View style={styles.orderCard}>
+        <View style={styles.ocTop}>
+          {imgUri ? (
+            <Image source={{ uri: imgUri }} style={styles.ocImg} contentFit="cover" />
+          ) : (
+            <View style={[styles.ocImg, styles.ocImgPlaceholder]}>
+              <Ionicons name="cube-outline" size={22} color={C.textTertiary} />
+            </View>
+          )}
+          <View style={styles.ocInfo}>
+            <Text style={styles.ocTitle} numberOfLines={2}>{item.productTitle}</Text>
+            <Text style={styles.ocBuyer}>{item.buyerName}</Text>
+            {item.buyerPhone ? (
+              <Text style={styles.ocPhone}>{item.buyerPhone}</Text>
+            ) : null}
+            <View style={styles.ocMeta}>
+              <Text style={styles.ocQty}>Qty: {item.quantity || 1}</Text>
+              <Text style={styles.ocDate}>{getDate(item.createdAt)}</Text>
+            </View>
+          </View>
+          <View style={styles.ocRight}>
+            <View style={[styles.statusPill, { backgroundColor: STATUS_COLOR['confirmed'] + '20' }]}>
+              <Text style={[styles.statusPillTxt, { color: STATUS_COLOR['confirmed'] }]}>Confirmed</Text>
+            </View>
+            <Text style={styles.ocAmount}>₹{(parseFloat(item.totalAmount) || 0).toLocaleString('en-IN')}</Text>
+          </View>
+        </View>
+
+        {item.deliveryAddress ? (
+          <View style={styles.addressRow}>
+            <Ionicons name="location-outline" size={13} color={C.textTertiary} />
+            <Text style={styles.addressTxt} numberOfLines={1}>
+              {[item.deliveryAddress, item.city].filter(Boolean).join(', ')}
+            </Text>
+          </View>
+        ) : null}
+
+        <Pressable
+          style={[styles.deliverBtn, isDelivering && { opacity: 0.7 }]}
+          onPress={() => markDelivered(item)}
+          disabled={isDelivering}
+        >
+          {isDelivering ? (
+            <ActivityIndicator size="small" color="#FFF" />
+          ) : (
+            <>
+              <Ionicons name="checkmark-circle" size={18} color="#FFF" />
+              <Text style={styles.deliverBtnTxt}>Mark as Delivered</Text>
+            </>
+          )}
+        </Pressable>
+      </View>
+    );
+  };
+
+  const renderOldOrder = ({ item }: { item: Order }) => {
+    const color = STATUS_COLOR[item.status] || '#9CA3AF';
+    const imgUri = item.productImage
+      ? (item.productImage.startsWith('/') ? `${getApiUrl()}${item.productImage}` : item.productImage)
+      : null;
+
+    return (
+      <View style={[styles.orderCard, styles.oldCard]}>
+        <View style={styles.ocTop}>
+          {imgUri ? (
+            <Image source={{ uri: imgUri }} style={styles.ocImg} contentFit="cover" />
+          ) : (
+            <View style={[styles.ocImg, styles.ocImgPlaceholder]}>
+              <Ionicons name="cube-outline" size={20} color={C.textTertiary} />
+            </View>
+          )}
+          <View style={styles.ocInfo}>
+            <Text style={styles.ocTitle} numberOfLines={2}>{item.productTitle}</Text>
+            <Text style={styles.ocBuyer}>{item.buyerName}</Text>
+            <View style={styles.ocMeta}>
+              <Text style={styles.ocQty}>Qty: {item.quantity || 1}</Text>
+              <Text style={styles.ocDate}>{getDate(item.createdAt)}</Text>
+            </View>
+          </View>
+          <View style={styles.ocRight}>
+            <View style={[styles.statusPill, { backgroundColor: color + '20' }]}>
+              <Text style={[styles.statusPillTxt, { color }]}>{STATUS_LABEL[item.status] || item.status}</Text>
+            </View>
+            <Text style={styles.ocAmount}>₹{(parseFloat(item.totalAmount) || 0).toLocaleString('en-IN')}</Text>
+          </View>
+        </View>
+      </View>
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -194,16 +333,15 @@ export default function SupplierProductsScreen() {
           </Pressable>
         </View>
 
-        {/* Stats */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 12, marginHorizontal: -16 }} contentContainerStyle={{ paddingHorizontal: 16, gap: 10 }}>
           <StatCard label="Products" value={products.length} icon="cube-outline" color={PRIMARY} />
           <StatCard label="Total Orders" value={orders.length} icon="receipt-outline" color="#007AFF" />
-          <StatCard label="Pending" value={pendingOrders.length} icon="time-outline" color="#FF9F0A" />
+          <StatCard label="Confirmed" value={confirmedOrders.length} icon="checkmark-circle-outline" color={GREEN} />
           <StatCard label="Revenue" value={`₹${Math.round(totalRevenue).toLocaleString('en-IN')}`} icon="cash-outline" color="#34C759" />
         </ScrollView>
       </View>
 
-      {/* Tabs */}
+      {/* Main Tabs */}
       <View style={styles.tabRow}>
         <Pressable
           onPress={() => setActiveTab('products')}
@@ -220,17 +358,17 @@ export default function SupplierProductsScreen() {
         >
           <Ionicons name="receipt-outline" size={15} color={activeTab === 'orders' ? PRIMARY : C.textTertiary} />
           <Text style={[styles.tabTxt, activeTab === 'orders' && styles.tabTxtActive]}>
-            Orders ({orders.length})
+            Orders ({orders.filter(o => o.status !== 'pending').length})
           </Text>
-          {pendingOrders.length > 0 && (
+          {confirmedOrders.length > 0 && (
             <View style={styles.tabBadge}>
-              <Text style={styles.tabBadgeTxt}>{pendingOrders.length}</Text>
+              <Text style={styles.tabBadgeTxt}>{confirmedOrders.length}</Text>
             </View>
           )}
         </Pressable>
       </View>
 
-      {/* Content */}
+      {/* Products List */}
       {activeTab === 'products' ? (
         <FlatList
           data={products}
@@ -258,47 +396,81 @@ export default function SupplierProductsScreen() {
           )}
         />
       ) : (
-        <FlatList
-          data={orders.filter(o => !['pending'].includes(o.status))}
-          keyExtractor={i => i.id}
-          contentContainerStyle={styles.list}
-          showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={PRIMARY} />}
-          ListEmptyComponent={
-            <View style={styles.empty}>
-              <Ionicons name="receipt-outline" size={52} color={C.textTertiary} />
-              <Text style={styles.emptyTitle}>No confirmed orders</Text>
-              <Text style={styles.emptySub}>Confirmed orders will appear here</Text>
-            </View>
-          }
-          renderItem={({ item }) => (
+        <View style={{ flex: 1 }}>
+          {/* Order Sub-tabs */}
+          <View style={styles.subTabRow}>
             <Pressable
-              style={({ pressed }) => [styles.orderCard, pressed && { opacity: 0.85 }]}
-              onPress={() => router.push({ pathname: '/order-detail', params: { id: item.id } } as any)}
+              onPress={() => setOrderTab('confirmed')}
+              style={[styles.subTab, orderTab === 'confirmed' && styles.subTabActive]}
             >
-              <View style={styles.orderHeader}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.orderProduct} numberOfLines={1}>{item.productTitle}</Text>
-                  <Text style={styles.orderBuyer}>{item.buyerName}</Text>
-                </View>
-                <View style={{ alignItems: 'flex-end', gap: 4 }}>
-                  <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) + '20' }]}>
-                    <Text style={[styles.statusTxt, { color: getStatusColor(item.status) }]}>
-                      {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
-                    </Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={14} color={C.textTertiary} />
-                </View>
-              </View>
-              <View style={styles.orderFooter}>
-                <Text style={styles.orderAmount}>₹{(parseFloat(item.totalAmount) || 0).toLocaleString('en-IN')}</Text>
-                <Text style={styles.orderDate}>
-                  {new Date(item.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                </Text>
-              </View>
+              <Ionicons
+                name="checkmark-circle-outline"
+                size={14}
+                color={orderTab === 'confirmed' ? GREEN : C.textTertiary}
+              />
+              <Text style={[styles.subTabTxt, orderTab === 'confirmed' && styles.subTabTxtActive]}>
+                Confirmed ({confirmedOrders.length})
+              </Text>
             </Pressable>
+            <Pressable
+              onPress={() => setOrderTab('old')}
+              style={[styles.subTab, orderTab === 'old' && styles.subTabActive]}
+            >
+              <Ionicons
+                name="time-outline"
+                size={14}
+                color={orderTab === 'old' ? PRIMARY : C.textTertiary}
+              />
+              <Text style={[styles.subTabTxt, orderTab === 'old' && { color: PRIMARY, fontFamily: 'Inter_600SemiBold' }]}>
+                Old Orders ({oldOrders.length})
+              </Text>
+            </Pressable>
+          </View>
+
+          {/* Confirmed Orders List */}
+          {orderTab === 'confirmed' ? (
+            <FlatList
+              data={confirmedOrders}
+              keyExtractor={i => i.id}
+              contentContainerStyle={styles.list}
+              showsVerticalScrollIndicator={false}
+              refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={GREEN} />}
+              ListEmptyComponent={
+                <View style={styles.empty}>
+                  <Ionicons name="checkmark-circle-outline" size={52} color={C.textTertiary} />
+                  <Text style={styles.emptyTitle}>No Confirmed Orders</Text>
+                  <Text style={styles.emptySub}>Accepted orders will appear here ready for delivery</Text>
+                </View>
+              }
+              renderItem={renderConfirmedOrder}
+            />
+          ) : (
+            /* Old Orders List */
+            <FlatList
+              data={oldOrders}
+              keyExtractor={i => i.id}
+              contentContainerStyle={styles.list}
+              showsVerticalScrollIndicator={false}
+              refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={PRIMARY} />}
+              ListHeaderComponent={
+                oldOrders.length > 0 ? (
+                  <View style={styles.oldHeader}>
+                    <Ionicons name="archive-outline" size={15} color={C.textTertiary} />
+                    <Text style={styles.oldHeaderTxt}>Order History — {oldOrders.length} orders</Text>
+                  </View>
+                ) : null
+              }
+              ListEmptyComponent={
+                <View style={styles.empty}>
+                  <Ionicons name="time-outline" size={52} color={C.textTertiary} />
+                  <Text style={styles.emptyTitle}>No Past Orders</Text>
+                  <Text style={styles.emptySub}>Delivered and completed orders will appear here</Text>
+                </View>
+              }
+              renderItem={renderOldOrder}
+            />
           )}
-        />
+        </View>
       )}
     </View>
   );
@@ -320,9 +492,14 @@ const styles = StyleSheet.create({
   tab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, borderBottomWidth: 2, borderBottomColor: 'transparent' },
   tabActive: { borderBottomColor: PRIMARY },
   tabTxt: { fontSize: 13, fontFamily: 'Inter_500Medium', color: C.textTertiary },
-  tabTxtActive: { color: PRIMARY },
-  tabBadge: { backgroundColor: PRIMARY, borderRadius: 9, minWidth: 18, height: 18, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
+  tabTxtActive: { color: PRIMARY, fontFamily: 'Inter_600SemiBold' },
+  tabBadge: { backgroundColor: GREEN, borderRadius: 9, minWidth: 18, height: 18, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
   tabBadgeTxt: { color: '#FFF', fontSize: 10, fontFamily: 'Inter_700Bold' },
+  subTabRow: { flexDirection: 'row', backgroundColor: C.surface, borderBottomWidth: 1, borderBottomColor: C.border, paddingHorizontal: 16, gap: 0 },
+  subTab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingVertical: 10, borderBottomWidth: 2, borderBottomColor: 'transparent' },
+  subTabActive: { borderBottomColor: GREEN },
+  subTabTxt: { fontSize: 13, fontFamily: 'Inter_500Medium', color: C.textTertiary },
+  subTabTxtActive: { color: GREEN, fontFamily: 'Inter_600SemiBold' },
   list: { padding: 16, paddingBottom: Platform.OS === 'web' ? 100 : 80, gap: 12 },
   productRow: { flexDirection: 'row', backgroundColor: C.surface, borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: C.border, alignItems: 'center' },
   productImgWrap: { width: 80, height: 80 },
@@ -339,20 +516,31 @@ const styles = StyleSheet.create({
   productStatTxt: { fontSize: 10, color: C.textTertiary, fontFamily: 'Inter_400Regular' },
   productActions: { paddingRight: 10, gap: 8 },
   actionBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: C.surfaceElevated, alignItems: 'center', justifyContent: 'center' },
-  orderCard: { backgroundColor: C.surface, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: C.border },
-  orderHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-  orderProduct: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: C.text },
-  orderBuyer: { fontSize: 12, color: C.textSecondary, fontFamily: 'Inter_400Regular', marginTop: 2 },
-  statusBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
-  statusTxt: { fontSize: 11, fontFamily: 'Inter_600SemiBold', textTransform: 'capitalize' },
-  orderFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: C.border },
-  orderAmount: { fontSize: 16, fontFamily: 'Inter_700Bold', color: '#34C759' },
-  orderDate: { fontSize: 11, color: C.textTertiary, fontFamily: 'Inter_400Regular' },
+  orderCard: { backgroundColor: C.surface, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: C.border },
+  oldCard: { opacity: 0.9 },
+  ocTop: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
+  ocImg: { width: 60, height: 60, borderRadius: 10, backgroundColor: C.surfaceElevated },
+  ocImgPlaceholder: { alignItems: 'center', justifyContent: 'center' },
+  ocInfo: { flex: 1 },
+  ocTitle: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: C.text, lineHeight: 19 },
+  ocBuyer: { fontSize: 12, color: C.textSecondary, fontFamily: 'Inter_400Regular', marginTop: 3 },
+  ocPhone: { fontSize: 12, color: '#007AFF', fontFamily: 'Inter_400Regular', marginTop: 1 },
+  ocMeta: { flexDirection: 'row', gap: 10, marginTop: 5 },
+  ocQty: { fontSize: 11, color: C.textTertiary, fontFamily: 'Inter_400Regular' },
+  ocDate: { fontSize: 11, color: C.textTertiary, fontFamily: 'Inter_400Regular' },
+  ocRight: { alignItems: 'flex-end', gap: 6 },
+  statusPill: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
+  statusPillTxt: { fontSize: 11, fontFamily: 'Inter_600SemiBold' },
+  ocAmount: { fontSize: 15, fontFamily: 'Inter_700Bold', color: GREEN },
+  addressRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: C.border },
+  addressTxt: { fontSize: 12, color: C.textTertiary, fontFamily: 'Inter_400Regular', flex: 1 },
+  deliverBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: GREEN, borderRadius: 10, paddingVertical: 11, marginTop: 12 },
+  deliverBtnTxt: { color: '#FFF', fontFamily: 'Inter_700Bold', fontSize: 14 },
+  oldHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },
+  oldHeaderTxt: { fontSize: 12, color: C.textTertiary, fontFamily: 'Inter_400Regular' },
   empty: { alignItems: 'center', paddingTop: 60, paddingHorizontal: 40 },
   emptyTitle: { fontSize: 18, fontFamily: 'Inter_700Bold', color: C.text, marginTop: 16 },
   emptySub: { fontSize: 14, color: C.textTertiary, fontFamily: 'Inter_400Regular', textAlign: 'center', marginTop: 8 },
   emptyBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: PRIMARY, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 12, marginTop: 20 },
-  newBadge: { marginTop: 10, backgroundColor: '#FEF3C7', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 },
-  newBadgeTxt: { fontSize: 12, color: '#92400E', fontFamily: 'Inter_600SemiBold' },
   emptyBtnTxt: { color: '#FFF', fontFamily: 'Inter_600SemiBold', fontSize: 14 },
 });
