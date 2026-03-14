@@ -109,32 +109,30 @@ export default function RootLayout() {
     if (Platform.OS === 'web') return;
 
     let subscription: any = null;
-    const initScreenCapture = async () => {
+    
+    const setup = async () => {
       try {
         await ScreenCapture.preventScreenCaptureAsync();
-        subscription = await ScreenCapture.addScreenshotListener(() => {
+        subscription = ScreenCapture.addScreenshotListener(() => {
           Alert.alert(
             'Screenshot Detected',
             'Screenshots are not allowed in Mobi for privacy protection.'
           );
         });
       } catch (e) {
-        console.warn('[ScreenCapture] Failed to initialize:', e);
+        console.warn('[ScreenCapture] Init failed:', e);
       }
     };
 
-    initScreenCapture();
+    setup().catch(() => {});
 
     return () => {
-      const cleanup = async () => {
-        try {
-          if (subscription) subscription.remove();
-          await ScreenCapture.allowScreenCaptureAsync();
-        } catch (e) {
-          console.warn('[ScreenCapture] Cleanup failed:', e);
-        }
-      };
-      cleanup().catch(() => {});
+      try {
+        if (subscription?.remove) subscription.remove();
+        ScreenCapture.allowScreenCaptureAsync().catch(() => {});
+      } catch (e) {
+        console.warn('[ScreenCapture] Cleanup failed:', e);
+      }
     };
   }, []);
 
