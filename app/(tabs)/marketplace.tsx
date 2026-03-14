@@ -1,359 +1,496 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
-  View, Text, StyleSheet, TextInput, Pressable, FlatList,
-  ActivityIndicator, Dimensions, RefreshControl, Platform, Animated, ScrollView,
+  View, Text, StyleSheet, Pressable, TextInput, FlatList, ScrollView,
+  Platform, ActivityIndicator, RefreshControl, Modal, Switch,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import { router } from 'expo-router';
+import { useQuery } from '@tanstack/react-query';
 import { useApp } from '@/lib/context';
 import { useCart } from '@/lib/cart-context';
-import { apiRequest } from '@/lib/query-client';
-import { T } from '@/constants/techTheme';
+import { getApiUrl } from '@/lib/query-client';
 
-const { width } = Dimensions.get('window');
-const CARD_W = (width - 48) / 2;
-const webTop = Platform.OS === 'web' ? 67 : 0;
+// ─── MarketHub Design Tokens ─────────────────────────────────────────────────
+const MH = {
+  primary: '#1B4D3E',
+  primaryMid: '#2D6A4F',
+  primaryLight: '#D1FAE5',
+  accent: '#10B981',
+  bg: '#F9FAFB',
+  surface: '#FFFFFF',
+  border: '#E5E7EB',
+  text: '#111827',
+  textSub: '#4B5563',
+  textMuted: '#9CA3AF',
+  sale: '#DC2626',
+  new: '#2563EB',
+  star: '#F59E0B',
+  outOfStock: '#6B7280',
+  radius: 12,
+};
 
 const CATEGORIES = [
-  { id: 'all', label: 'All', icon: 'apps-outline' as const },
-  { id: 'spare-parts', label: 'Spare Parts', icon: 'construct-outline' as const },
-  { id: 'tools', label: 'Tools', icon: 'hammer-outline' as const },
-  { id: 'equipment', label: 'Equipment', icon: 'hardware-chip-outline' as const },
-  { id: 'accessories', label: 'Accessories', icon: 'flash-outline' as const },
-  { id: 'materials', label: 'Materials', icon: 'layers-outline' as const },
-  { id: 'software', label: 'Software', icon: 'code-slash-outline' as const },
+  { key: 'all', label: 'All Results' },
+  { key: 'spare_part', label: 'Spare Parts' },
+  { key: 'tool', label: 'Tools' },
+  { key: 'component', label: 'Components' },
+  { key: 'accessory', label: 'Accessories' },
+  { key: 'other', label: 'Other' },
 ];
 
-interface Product {
-  id: string;
-  title: string;
-  price: string;
-  images: string;
-  userName: string;
-  userId: string;
-  userAvatar: string;
-  category: string;
-  views: number;
-  likes: string;
-  inStock: number;
-  description: string;
-  city: string;
-  state: string;
-  createdAt: number;
-}
+const SORT_OPTIONS = [
+  { key: 'recommended', label: 'Recommended' },
+  { key: 'price_asc', label: 'Price: Low to High' },
+  { key: 'price_desc', label: 'Price: High to Low' },
+  { key: 'newest', label: 'Newest Arrivals' },
+];
 
-function ProductCard({ product, onPress, onAddToCart }: { product: Product; onPress: () => void; onAddToCart: () => void }) {
-  const { isInCart, getQuantity } = useCart();
-  const imgs = (() => { try { return JSON.parse(product.images); } catch { return []; } })();
-  const img = imgs[0] || '';
-  const price = parseFloat(product.price) || 0;
-  const inCart = isInCart(product.id);
-  const qty = getQuantity(product.id);
-  const scaleAnim = useRef(new Animated.Value(1)).current;
-
-  const handlePress = () => {
-    Animated.sequence([
-      Animated.timing(scaleAnim, { toValue: 0.96, duration: 80, useNativeDriver: true }),
-      Animated.timing(scaleAnim, { toValue: 1, duration: 80, useNativeDriver: true }),
-    ]).start();
-    onPress();
-  };
-
+function Stars({ rating }: { rating: number }) {
   return (
-    <Animated.View style={{ transform: [{ scale: scaleAnim }], width: CARD_W }}>
-      <Pressable onPress={handlePress} style={styles.card}>
-        <View style={styles.cardImgWrap}>
-          {img ? (
-            <Image source={{ uri: img }} style={styles.cardImg} contentFit="cover" />
-          ) : (
-            <View style={[styles.cardImg, styles.noImg]}>
-              <Ionicons name="cube-outline" size={32} color={T.muted} />
-            </View>
-          )}
-          {product.inStock === 0 && (
-            <View style={styles.outOfStock}>
-              <Text style={styles.outOfStockTxt}>Out of Stock</Text>
-            </View>
-          )}
-          {inCart && (
-            <View style={styles.cartBadge}>
-              <Text style={styles.cartBadgeTxt}>{qty}</Text>
-            </View>
-          )}
-        </View>
-        <View style={styles.cardBody}>
-          <Text style={styles.cardTitle} numberOfLines={2}>{product.title}</Text>
-          <Text style={styles.cardSeller} numberOfLines={1}>
-            <Ionicons name="storefront-outline" size={10} color={T.muted} /> {product.userName}
-          </Text>
-          <View style={styles.cardFooter}>
-            <Text style={styles.cardPrice}>₹{price.toLocaleString('en-IN')}</Text>
-            {product.inStock > 0 && (
-              <Pressable
-                onPress={(e) => { e.stopPropagation(); onAddToCart(); }}
-                style={[styles.addBtn, inCart && styles.addBtnActive]}
-              >
-                <Ionicons name={inCart ? 'checkmark' : 'add'} size={14} color="#FFF" />
-              </Pressable>
-            )}
-          </View>
-        </View>
-      </Pressable>
-    </Animated.View>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 1 }}>
+      {[1,2,3,4,5].map(i => (
+        <Ionicons key={i} name={i <= Math.round(rating) ? 'star' : 'star-outline'} size={10} color={MH.star} />
+      ))}
+    </View>
   );
 }
 
-function CategoryChip({ category, selected, onPress }: { category: typeof CATEGORIES[0]; selected: boolean; onPress: () => void }) {
+function ProductCard({ product, onAdd, onPress }: {
+  product: any; onAdd: () => void; onPress: () => void;
+}) {
+  const images = (() => { try { return JSON.parse(product.images || '[]'); } catch { return []; } })();
+  const img = images[0];
+  const isOut = product.inStock === 0;
+  const price = parseFloat(product.price || '0');
+  const isNew = Date.now() - (product.createdAt || 0) < 7 * 86400000;
+
   return (
-    <Pressable onPress={onPress} style={[styles.chip, selected && styles.chipActive]}>
-      <Ionicons name={category.icon} size={13} color={selected ? '#FFF' : T.muted} />
-      <Text style={[styles.chipLabel, selected && styles.chipLabelActive]}>{category.label}</Text>
+    <Pressable onPress={onPress} style={styles.card}>
+      {/* Badge */}
+      {isOut ? (
+        <View style={[styles.badge, { backgroundColor: MH.outOfStock }]}>
+          <Text style={styles.badgeTxt}>OUT OF STOCK</Text>
+        </View>
+      ) : isNew ? (
+        <View style={[styles.badge, { backgroundColor: MH.new }]}>
+          <Text style={styles.badgeTxt}>NEW</Text>
+        </View>
+      ) : null}
+
+      {/* Wishlist */}
+      <View style={styles.heartBtn}>
+        <Ionicons name="heart-outline" size={15} color={MH.textMuted} />
+      </View>
+
+      {/* Image */}
+      <View style={styles.cardImgWrap}>
+        {img ? (
+          <Image source={{ uri: img }} style={styles.cardImg} contentFit="contain" />
+        ) : (
+          <View style={[styles.cardImg, styles.cardImgEmpty]}>
+            <Ionicons name="cube-outline" size={32} color={MH.textMuted} />
+          </View>
+        )}
+      </View>
+
+      {/* Info */}
+      <View style={styles.cardBody}>
+        <Stars rating={4.5} />
+        <Text style={styles.cardTitle} numberOfLines={2}>{product.title}</Text>
+        <Text style={styles.cardSeller} numberOfLines={1}>{product.userName} · {product.city || 'India'}</Text>
+        <View style={styles.cardFooter}>
+          <Text style={styles.cardPrice}>₹{price.toLocaleString('en-IN')}</Text>
+          {!isOut ? (
+            <Pressable
+              onPress={(e) => { e.stopPropagation?.(); onAdd(); }}
+              style={styles.addBtn}
+            >
+              <Ionicons name="add" size={18} color="#FFF" />
+            </Pressable>
+          ) : (
+            <View style={styles.addBtnOut}>
+              <Ionicons name="notifications-outline" size={14} color={MH.textMuted} />
+            </View>
+          )}
+        </View>
+      </View>
     </Pressable>
   );
 }
 
-export default function MarketplaceScreen() {
+export default function MarketplaceTab() {
   const insets = useSafeAreaInsets();
   const { profile } = useApp();
-  const { addToCart, items: cartItems } = useCart();
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const { items, addToCart, updateQuantity, totalItems } = useCart();
+  const topInset = Platform.OS === 'web' ? 67 : insets.top;
+  const bottomInset = Platform.OS === 'web' ? 34 : insets.bottom;
+
   const [search, setSearch] = useState('');
-  const [activeCategory, setActiveCategory] = useState('all');
-  const [sortBy, setSortBy] = useState<'newest' | 'priceAsc' | 'priceDesc'>('newest');
-  const totalCartItems = cartItems.reduce((s, i) => s + i.quantity, 0);
+  const [category, setCategory] = useState('all');
+  const [sortBy, setSortBy] = useState('recommended');
+  const [showSort, setShowSort] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const [onlyInStock, setOnlyInStock] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const fetchProducts = useCallback(async () => {
-    try {
-      const res = await apiRequest('GET', '/api/products');
-      const data = await res.json();
-      if (Array.isArray(data)) setProducts(data);
-    } catch (e) {
-      console.error('[Marketplace] fetch error:', e);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const { data: rawProducts = [], isLoading, refetch } = useQuery<any[]>({
+    queryKey: ['/api/products'],
+    queryFn: async () => {
+      const r = await fetch(new URL('/api/products', getApiUrl()).toString());
+      return r.json();
+    },
+  });
 
-  useEffect(() => { fetchProducts(); }, []);
-
-  const onRefresh = async () => {
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await fetchProducts();
+    await refetch();
     setRefreshing(false);
-  };
+  }, [refetch]);
 
-  const handleAddToCart = (product: Product) => {
-    if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const imgs = (() => { try { return JSON.parse(product.images); } catch { return []; } })();
-    addToCart({
-      productId: product.id,
-      title: product.title,
-      price: parseFloat(product.price) || 0,
-      image: imgs[0] || '',
-      supplierName: product.userName,
-      supplierId: product.userId,
-      inStock: product.inStock,
-      category: product.category,
-    });
-  };
+  const products = useMemo(() => {
+    let list = [...rawProducts];
+    if (category !== 'all') list = list.filter(p => p.category === category);
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter(p =>
+        p.title?.toLowerCase().includes(q) ||
+        p.userName?.toLowerCase().includes(q) ||
+        p.description?.toLowerCase().includes(q)
+      );
+    }
+    if (onlyInStock) list = list.filter(p => p.inStock !== 0);
+    if (sortBy === 'price_asc') list.sort((a, b) => parseFloat(a.price) - parseFloat(b.price));
+    else if (sortBy === 'price_desc') list.sort((a, b) => parseFloat(b.price) - parseFloat(a.price));
+    else if (sortBy === 'newest') list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    return list;
+  }, [rawProducts, category, search, sortBy, onlyInStock]);
 
-  const filtered = products
-    .filter(p => {
-      const matchCat = activeCategory === 'all' || p.category === activeCategory;
-      const q = search.toLowerCase().trim();
-      const matchSearch = !q || p.title.toLowerCase().includes(q) || (p.userName || '').toLowerCase().includes(q) || (p.description || '').toLowerCase().includes(q);
-      return matchCat && matchSearch;
-    })
-    .sort((a, b) => {
-      if (sortBy === 'priceAsc') return parseFloat(a.price) - parseFloat(b.price);
-      if (sortBy === 'priceDesc') return parseFloat(b.price) - parseFloat(a.price);
-      return b.createdAt - a.createdAt;
-    });
+  const handleAdd = useCallback((product: any) => {
+    if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const images = (() => { try { return JSON.parse(product.images || '[]'); } catch { return []; } })();
+    const existing = items.find(i => i.productId === product.id);
+    if (existing) {
+      updateQuantity(product.id, existing.quantity + 1);
+    } else {
+      addToCart({
+        productId: product.id,
+        title: product.title,
+        price: parseFloat(product.price || '0'),
+        image: images[0] || '',
+        supplierName: product.userName,
+        supplierId: product.userId,
+        category: product.category,
+        inStock: product.inStock ?? 1,
+      });
+    }
+  }, [items, addToCart, updateQuantity]);
 
-  const topInset = Platform.OS === 'web' ? webTop : insets.top;
+  const isSupplier = profile?.role === 'supplier';
+  const isTeacher = profile?.role === 'teacher';
+
+  // Supplier / Teacher see their own dashboard instead
+  if (isSupplier || isTeacher) {
+    return (
+      <View style={[styles.container, { alignItems: 'center', justifyContent: 'center', paddingTop: topInset }]}>
+        <View style={styles.roleCard}>
+          <View style={styles.roleIcon}>
+            <Ionicons name="storefront" size={32} color="#FFF" />
+          </View>
+          <Text style={styles.roleTitle}>{isSupplier ? 'Supplier Dashboard' : 'Content Dashboard'}</Text>
+          <Text style={styles.roleSub}>Manage your products and orders from the Products tab</Text>
+          <Pressable onPress={() => router.push('/(tabs)/products' as any)} style={styles.roleBtn}>
+            <Text style={styles.roleBtnTxt}>Go to Dashboard</Text>
+            <Ionicons name="arrow-forward" size={16} color="#FFF" />
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
-      {/* Header */}
+      {/* ── Header ── */}
       <View style={[styles.header, { paddingTop: topInset + 8 }]}>
         <View style={styles.headerRow}>
-          <View>
-            <Text style={styles.headerTitle}>Marketplace</Text>
-            <Text style={styles.headerSub}>{products.length} products available</Text>
+          <View style={styles.logoRow}>
+            <View style={styles.logoBox}>
+              <Ionicons name="storefront" size={18} color="#FFF" />
+            </View>
+            <View>
+              <Text style={styles.headerTitle}>MarketHub</Text>
+              <Text style={styles.headerSub}>{isLoading ? 'Loading...' : `${rawProducts.length} products`}</Text>
+            </View>
           </View>
           <Pressable onPress={() => router.push('/cart' as any)} style={styles.cartBtn}>
-            <Ionicons name="bag-outline" size={22} color={T.text} />
-            {totalCartItems > 0 && (
-              <View style={styles.cartCount}>
-                <Text style={styles.cartCountTxt}>{totalCartItems > 9 ? '9+' : totalCartItems}</Text>
+            <Ionicons name="bag-outline" size={22} color={MH.primary} />
+            {totalItems > 0 && (
+              <View style={styles.cartBadge}>
+                <Text style={styles.cartBadgeTxt}>{totalItems > 9 ? '9+' : totalItems}</Text>
               </View>
             )}
           </Pressable>
         </View>
 
         {/* Search */}
-        <View style={styles.searchRow}>
-          <Ionicons name="search-outline" size={16} color={T.muted} style={{ marginLeft: 12 }} />
+        <View style={styles.searchBar}>
+          <Ionicons name="search-outline" size={17} color={MH.textMuted} style={{ marginRight: 8 }} />
           <TextInput
-            style={styles.searchInput}
-            placeholder="Search products, suppliers..."
-            placeholderTextColor={T.placeholder}
             value={search}
             onChangeText={setSearch}
+            placeholder="Search products, suppliers..."
+            placeholderTextColor={MH.textMuted}
+            style={styles.searchInput}
             returnKeyType="search"
           />
           {search.length > 0 && (
-            <Pressable onPress={() => setSearch('')} style={{ marginRight: 10 }}>
-              <Ionicons name="close-circle" size={16} color={T.muted} />
+            <Pressable onPress={() => setSearch('')}>
+              <Ionicons name="close-circle" size={17} color={MH.textMuted} />
             </Pressable>
           )}
         </View>
       </View>
 
-      {/* Category chips */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.chipsRow}
-        style={styles.chipsScroll}
-      >
-        {CATEGORIES.map(cat => (
-          <CategoryChip
-            key={cat.id}
-            category={cat}
-            selected={activeCategory === cat.id}
-            onPress={() => {
-              if (Platform.OS !== 'web') Haptics.selectionAsync();
-              setActiveCategory(cat.id);
-            }}
-          />
-        ))}
-      </ScrollView>
-
-      {/* Sort row */}
-      <View style={styles.sortRow}>
-        <Text style={styles.resultsCount}>{filtered.length} results</Text>
-        <View style={styles.sortBtns}>
-          {([['newest', 'New'], ['priceAsc', '↑ Price'], ['priceDesc', '↓ Price']] as const).map(([key, label]) => (
+      {/* ── Categories ── */}
+      <View style={styles.catBar}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.catScroll}>
+          {CATEGORIES.map(c => (
             <Pressable
-              key={key}
-              onPress={() => setSortBy(key)}
-              style={[styles.sortBtn, sortBy === key && styles.sortBtnActive]}
+              key={c.key}
+              onPress={() => setCategory(c.key)}
+              style={[styles.catChip, category === c.key && styles.catChipOn]}
             >
-              <Text style={[styles.sortBtnTxt, sortBy === key && styles.sortBtnTxtActive]}>{label}</Text>
+              <Text style={[styles.catLabel, category === c.key && styles.catLabelOn]}>{c.label}</Text>
             </Pressable>
           ))}
+        </ScrollView>
+      </View>
+
+      {/* ── Results Bar ── */}
+      <View style={styles.resultsBar}>
+        <Text style={styles.resultsTxt}>
+          {isLoading ? '...' : `${products.length} result${products.length !== 1 ? 's' : ''}`}
+          {search ? ` for "${search}"` : ''}
+        </Text>
+        <View style={styles.resultsActions}>
+          <Pressable onPress={() => setShowFilters(true)} style={styles.filterBtn}>
+            <Ionicons name="options-outline" size={15} color={MH.textSub} />
+            <Text style={styles.filterTxt}>Filters</Text>
+          </Pressable>
+          <Pressable onPress={() => setShowSort(true)} style={styles.sortBtn}>
+            <Text style={styles.sortTxt}>Sort</Text>
+            <Ionicons name="chevron-down" size={13} color={MH.textSub} />
+          </Pressable>
         </View>
       </View>
 
-      {/* Products grid */}
-      {loading ? (
-        <View style={styles.loader}>
-          <ActivityIndicator size="large" color={T.accent} />
+      {/* ── Grid ── */}
+      {isLoading ? (
+        <View style={styles.loading}>
+          <ActivityIndicator size="large" color={MH.primary} />
           <Text style={styles.loadingTxt}>Loading products...</Text>
         </View>
       ) : (
         <FlatList
-          data={filtered}
-          keyExtractor={i => i.id}
+          data={products}
+          keyExtractor={p => p.id}
           numColumns={2}
-          contentContainerStyle={styles.grid}
           columnWrapperStyle={styles.row}
+          contentContainerStyle={[styles.grid, { paddingBottom: bottomInset + 90 }]}
           showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={T.accent} />}
-          ListHeaderComponent={
-            <Pressable
-              onPress={() => router.push('/shop' as any)}
-              style={styles.shopBanner}
-            >
-              <View style={styles.shopBannerIcon}>
-                <Ionicons name="storefront" size={28} color="#FFF" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.shopBannerTitle}>MarketHub Store</Text>
-                <Text style={styles.shopBannerSub}>Browse full catalog · Search · Filter</Text>
-              </View>
-              <View style={styles.shopBannerArrow}>
-                <Ionicons name="arrow-forward" size={18} color="#FFF" />
-              </View>
-            </Pressable>
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={MH.primary} colors={[MH.primary]} />
           }
           ListEmptyComponent={
             <View style={styles.empty}>
-              <Ionicons name="cube-outline" size={56} color={T.muted} />
+              <View style={styles.emptyIcon}>
+                <Ionicons name="search-outline" size={36} color={MH.textMuted} />
+              </View>
               <Text style={styles.emptyTitle}>No products found</Text>
               <Text style={styles.emptySub}>
-                {search ? 'Try a different search term' : 'Check back later for new products'}
+                {search ? `No results for "${search}"` : 'No products in this category yet'}
               </Text>
+              {search ? (
+                <Pressable onPress={() => setSearch('')} style={styles.clearBtn}>
+                  <Text style={styles.clearBtnTxt}>Clear Search</Text>
+                </Pressable>
+              ) : (
+                <Text style={styles.emptyHint}>Products from suppliers will appear here</Text>
+              )}
             </View>
           }
           renderItem={({ item }) => (
             <ProductCard
               product={item}
-              onPress={() => router.push({ pathname: '/product-detail', params: { id: item.id } } as any)}
-              onAddToCart={() => handleAddToCart(item)}
+              onAdd={() => handleAdd(item)}
+              onPress={() => router.push({ pathname: '/product-detail', params: { productId: item.id } } as any)}
             />
           )}
         />
       )}
+
+      {/* ── Cart Bar ── */}
+      {totalItems > 0 && (
+        <Pressable
+          onPress={() => router.push('/cart' as any)}
+          style={[styles.cartBar, { paddingBottom: Math.max(bottomInset, 16) }]}
+        >
+          <View style={styles.cartBarBadge}>
+            <Text style={styles.cartBarBadgeTxt}>{totalItems}</Text>
+          </View>
+          <Text style={styles.cartBarTxt}>{totalItems} {totalItems === 1 ? 'item' : 'items'} in cart</Text>
+          <View style={{ flex: 1 }} />
+          <Text style={styles.cartBarAction}>View Cart</Text>
+          <Ionicons name="arrow-forward" size={16} color="#FFF" />
+        </Pressable>
+      )}
+
+      {/* ── Sort Sheet ── */}
+      <Modal visible={showSort} transparent animationType="slide" onRequestClose={() => setShowSort(false)}>
+        <Pressable style={styles.overlay} onPress={() => setShowSort(false)}>
+          <View style={[styles.sheet, { paddingBottom: bottomInset + 16 }]}>
+            <View style={styles.sheetHandle} />
+            <Text style={styles.sheetTitle}>Sort By</Text>
+            {SORT_OPTIONS.map(opt => (
+              <Pressable
+                key={opt.key}
+                onPress={() => { setSortBy(opt.key); setShowSort(false); }}
+                style={styles.sheetRow}
+              >
+                <Text style={[styles.sheetRowTxt, sortBy === opt.key && { color: MH.primary, fontFamily: 'Inter_600SemiBold' }]}>
+                  {opt.label}
+                </Text>
+                {sortBy === opt.key && <Ionicons name="checkmark" size={18} color={MH.primary} />}
+              </Pressable>
+            ))}
+          </View>
+        </Pressable>
+      </Modal>
+
+      {/* ── Filters Sheet ── */}
+      <Modal visible={showFilters} transparent animationType="slide" onRequestClose={() => setShowFilters(false)}>
+        <Pressable style={styles.overlay} onPress={() => setShowFilters(false)}>
+          <View style={[styles.sheet, { paddingBottom: bottomInset + 16 }]}>
+            <View style={styles.sheetHandle} />
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <Text style={styles.sheetTitle}>Filters</Text>
+              <Pressable onPress={() => { setOnlyInStock(false); }}>
+                <Text style={{ color: MH.primary, fontFamily: 'Inter_500Medium', fontSize: 14 }}>Reset</Text>
+              </Pressable>
+            </View>
+            <Text style={styles.filterSection}>Availability</Text>
+            <View style={styles.filterToggleRow}>
+              <Text style={styles.filterToggleLabel}>In Stock Only</Text>
+              <Switch value={onlyInStock} onValueChange={setOnlyInStock} trackColor={{ false: MH.border, true: MH.primary }} thumbColor="#FFF" />
+            </View>
+            <Text style={styles.filterSection}>Delivery</Text>
+            <View style={styles.filterToggleRow}>
+              <Text style={styles.filterToggleLabel}>Free Delivery</Text>
+              <Switch value={false} onValueChange={() => {}} trackColor={{ false: MH.border, true: MH.primary }} thumbColor="#FFF" />
+            </View>
+            <Pressable onPress={() => setShowFilters(false)} style={styles.applyBtn}>
+              <Text style={styles.applyBtnTxt}>Apply Filters</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: T.bg },
-  header: { backgroundColor: T.bgElevated, paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: T.border },
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  headerTitle: { fontSize: 24, fontFamily: 'Inter_700Bold', color: T.text },
-  headerSub: { fontSize: 12, color: T.muted, fontFamily: 'Inter_400Regular', marginTop: 2 },
-  cartBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: T.card, alignItems: 'center', justifyContent: 'center' },
-  cartCount: { position: 'absolute', top: -4, right: -4, backgroundColor: T.accent, borderRadius: 9, minWidth: 18, height: 18, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
-  cartCountTxt: { color: '#FFF', fontSize: 10, fontFamily: 'Inter_700Bold' },
-  searchRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: T.card, borderRadius: 12, borderWidth: 1, borderColor: T.border },
-  searchInput: { flex: 1, height: 42, color: T.text, fontFamily: 'Inter_400Regular', fontSize: 14, paddingHorizontal: 10 },
-  chipsScroll: { backgroundColor: T.bgElevated, flexGrow: 0 },
-  chipsRow: { paddingHorizontal: 16, paddingVertical: 10, gap: 8 },
-  chip: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, backgroundColor: T.card, borderWidth: 1, borderColor: T.border },
-  chipActive: { backgroundColor: T.accent, borderColor: T.accent },
-  chipLabel: { fontSize: 12, fontFamily: 'Inter_500Medium', color: T.muted },
-  chipLabelActive: { color: '#FFF' },
-  sortRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 8, backgroundColor: T.bg },
-  resultsCount: { fontSize: 12, color: T.muted, fontFamily: 'Inter_400Regular' },
-  sortBtns: { flexDirection: 'row', gap: 6 },
-  sortBtn: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: T.border },
-  sortBtnActive: { backgroundColor: T.accentMuted, borderColor: T.accent },
-  sortBtnTxt: { fontSize: 11, color: T.muted, fontFamily: 'Inter_500Medium' },
-  sortBtnTxtActive: { color: T.accent },
-  grid: { padding: 16, paddingBottom: Platform.OS === 'web' ? 100 : 80 },
-  row: { gap: 16, marginBottom: 16 },
-  card: { backgroundColor: T.card, borderRadius: 14, overflow: 'hidden', borderWidth: 1, borderColor: T.border },
-  cardImgWrap: { position: 'relative' },
-  cardImg: { width: '100%', height: CARD_W * 0.8, backgroundColor: T.cardSurface },
-  noImg: { alignItems: 'center', justifyContent: 'center' },
-  outOfStock: { position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.65)', alignItems: 'center', justifyContent: 'center' },
-  outOfStockTxt: { color: '#FFF', fontSize: 11, fontFamily: 'Inter_600SemiBold' },
-  cartBadge: { position: 'absolute', top: 6, right: 6, backgroundColor: T.accent, width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  container: { flex: 1, backgroundColor: MH.bg },
+
+  // Header
+  header: { backgroundColor: MH.surface, paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: MH.border },
+  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  logoRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  logoBox: { width: 36, height: 36, borderRadius: 10, backgroundColor: MH.primary, alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { fontSize: 18, fontFamily: 'Inter_700Bold', color: MH.primary },
+  headerSub: { fontSize: 11, color: MH.textMuted, fontFamily: 'Inter_400Regular' },
+  cartBtn: { position: 'relative', width: 42, height: 42, alignItems: 'center', justifyContent: 'center' },
+  cartBadge: { position: 'absolute', top: 4, right: 4, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: MH.sale, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
   cartBadgeTxt: { color: '#FFF', fontSize: 10, fontFamily: 'Inter_700Bold' },
-  cardBody: { padding: 10 },
-  cardTitle: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: T.text, lineHeight: 18 },
-  cardSeller: { fontSize: 11, color: T.muted, fontFamily: 'Inter_400Regular', marginTop: 4 },
-  cardFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 },
-  cardPrice: { fontSize: 15, fontFamily: 'Inter_700Bold', color: T.accent },
-  addBtn: { width: 28, height: 28, borderRadius: 14, backgroundColor: T.accent, alignItems: 'center', justifyContent: 'center' },
-  addBtnActive: { backgroundColor: T.green },
-  loader: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
-  loadingTxt: { color: T.muted, fontFamily: 'Inter_400Regular', fontSize: 14 },
-  empty: { alignItems: 'center', paddingTop: 80, paddingHorizontal: 40 },
-  emptyTitle: { fontSize: 18, fontFamily: 'Inter_700Bold', color: T.text, marginTop: 16 },
-  emptySub: { fontSize: 14, color: T.muted, fontFamily: 'Inter_400Regular', textAlign: 'center', marginTop: 8 },
-  shopBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1B4D3E', borderRadius: 16, padding: 16, marginBottom: 16, gap: 12 },
-  shopBannerIcon: { width: 52, height: 52, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' },
-  shopBannerTitle: { color: '#FFF', fontFamily: 'Inter_700Bold', fontSize: 16 },
-  shopBannerSub: { color: 'rgba(255,255,255,0.75)', fontFamily: 'Inter_400Regular', fontSize: 12, marginTop: 2 },
-  shopBannerArrow: { width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
+
+  // Search
+  searchBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: MH.bg, borderRadius: MH.radius, borderWidth: 1, borderColor: MH.border, paddingHorizontal: 12, paddingVertical: 10 },
+  searchInput: { flex: 1, fontSize: 14, color: MH.text, fontFamily: 'Inter_400Regular', padding: 0 },
+
+  // Categories
+  catBar: { backgroundColor: MH.surface, borderBottomWidth: 1, borderBottomColor: MH.border },
+  catScroll: { paddingHorizontal: 16, paddingVertical: 10, gap: 8 },
+  catChip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, borderWidth: 1, borderColor: MH.border, backgroundColor: MH.surface },
+  catChipOn: { backgroundColor: MH.primary, borderColor: MH.primary },
+  catLabel: { fontSize: 13, fontFamily: 'Inter_500Medium', color: MH.textSub },
+  catLabelOn: { color: '#FFF', fontFamily: 'Inter_600SemiBold' },
+
+  // Results
+  resultsBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 10, backgroundColor: MH.surface, borderBottomWidth: 1, borderBottomColor: MH.border },
+  resultsTxt: { fontSize: 13, color: MH.textMuted, fontFamily: 'Inter_400Regular', flex: 1 },
+  resultsActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  filterBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: MH.border },
+  filterTxt: { fontSize: 13, color: MH.textSub, fontFamily: 'Inter_500Medium' },
+  sortBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: MH.border },
+  sortTxt: { fontSize: 13, color: MH.textSub, fontFamily: 'Inter_500Medium' },
+
+  // Grid
+  grid: { padding: 12, gap: 10 },
+  row: { gap: 10, justifyContent: 'space-between' },
+
+  // Product Card
+  card: { flex: 1, maxWidth: '49%', backgroundColor: MH.surface, borderRadius: MH.radius, overflow: 'hidden', borderWidth: 1, borderColor: MH.border, ...({ shadowColor: '#000', shadowOpacity: 0.05, shadowOffset: { width: 0, height: 2 }, shadowRadius: 8, elevation: 2 } as any) },
+  badge: { position: 'absolute', top: 8, left: 8, paddingHorizontal: 6, paddingVertical: 3, borderRadius: 4, zIndex: 2 },
+  badgeTxt: { color: '#FFF', fontSize: 8, fontFamily: 'Inter_700Bold', letterSpacing: 0.3 },
+  heartBtn: { position: 'absolute', top: 8, right: 8, zIndex: 2, width: 26, height: 26, borderRadius: 13, backgroundColor: 'rgba(255,255,255,0.9)', alignItems: 'center', justifyContent: 'center' },
+  cardImgWrap: { width: '100%', height: 120, backgroundColor: MH.bg, alignItems: 'center', justifyContent: 'center' },
+  cardImg: { width: '100%', height: '100%' },
+  cardImgEmpty: { alignItems: 'center', justifyContent: 'center' },
+  cardBody: { padding: 10, gap: 3 },
+  cardTitle: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: MH.text, lineHeight: 18, marginTop: 2 },
+  cardSeller: { fontSize: 11, color: MH.textMuted, fontFamily: 'Inter_400Regular' },
+  cardFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 },
+  cardPrice: { fontSize: 15, fontFamily: 'Inter_700Bold', color: MH.text },
+  addBtn: { width: 30, height: 30, borderRadius: 15, backgroundColor: MH.primary, alignItems: 'center', justifyContent: 'center' },
+  addBtnOut: { width: 30, height: 30, borderRadius: 15, backgroundColor: MH.bg, borderWidth: 1, borderColor: MH.border, alignItems: 'center', justifyContent: 'center' },
+
+  // States
+  loading: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
+  loadingTxt: { color: MH.textMuted, fontFamily: 'Inter_400Regular', fontSize: 14 },
+  empty: { alignItems: 'center', paddingTop: 60, paddingHorizontal: 40 },
+  emptyIcon: { width: 72, height: 72, borderRadius: 36, backgroundColor: MH.primaryLight, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
+  emptyTitle: { fontSize: 18, fontFamily: 'Inter_700Bold', color: MH.text },
+  emptySub: { fontSize: 14, color: MH.textMuted, textAlign: 'center', marginTop: 8, lineHeight: 20, fontFamily: 'Inter_400Regular' },
+  emptyHint: { fontSize: 12, color: MH.textMuted, textAlign: 'center', marginTop: 8, fontFamily: 'Inter_400Regular' },
+  clearBtn: { marginTop: 16, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: MH.primary },
+  clearBtnTxt: { color: MH.primary, fontFamily: 'Inter_600SemiBold', fontSize: 14 },
+
+  // Cart Bar
+  cartBar: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: MH.primary, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 14, gap: 10 },
+  cartBarBadge: { width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
+  cartBarBadgeTxt: { color: '#FFF', fontSize: 13, fontFamily: 'Inter_700Bold' },
+  cartBarTxt: { color: '#FFF', fontSize: 14, fontFamily: 'Inter_500Medium' },
+  cartBarAction: { color: '#FFF', fontSize: 14, fontFamily: 'Inter_700Bold' },
+
+  // Modals
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+  sheet: { backgroundColor: MH.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, paddingTop: 12 },
+  sheetHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: MH.border, alignSelf: 'center', marginBottom: 16 },
+  sheetTitle: { fontSize: 18, fontFamily: 'Inter_700Bold', color: MH.text, marginBottom: 4 },
+  sheetRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: MH.bg },
+  sheetRowTxt: { fontSize: 15, fontFamily: 'Inter_400Regular', color: MH.textSub },
+  filterSection: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: MH.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 16, marginBottom: 10 },
+  filterToggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  filterToggleLabel: { fontSize: 14, color: MH.text, fontFamily: 'Inter_400Regular' },
+  applyBtn: { backgroundColor: MH.primary, borderRadius: MH.radius, paddingVertical: 14, alignItems: 'center', marginTop: 20 },
+  applyBtnTxt: { color: '#FFF', fontFamily: 'Inter_700Bold', fontSize: 16 },
+
+  // Role card
+  roleCard: { backgroundColor: MH.surface, borderRadius: 20, padding: 28, alignItems: 'center', marginHorizontal: 32, borderWidth: 1, borderColor: MH.border },
+  roleIcon: { width: 72, height: 72, borderRadius: 20, backgroundColor: MH.primary, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
+  roleTitle: { fontSize: 20, fontFamily: 'Inter_700Bold', color: MH.text, textAlign: 'center' },
+  roleSub: { fontSize: 14, color: MH.textMuted, textAlign: 'center', marginTop: 8, lineHeight: 20, fontFamily: 'Inter_400Regular' },
+  roleBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: MH.primary, paddingHorizontal: 24, paddingVertical: 14, borderRadius: 14, marginTop: 20 },
+  roleBtnTxt: { color: '#FFF', fontFamily: 'Inter_700Bold', fontSize: 16 },
 });
