@@ -92,13 +92,15 @@ export default function OrderDetailScreen() {
     try {
       const body: any = { status };
       if (sellerNotes) body.sellerNotes = sellerNotes;
-      await apiRequest('PATCH', `/api/orders/${id}/status`, body);
+      const res = await apiRequest('PATCH', `/api/orders/${id}/status`, body);
+      if (!res.ok) throw new Error('Update failed');
       if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       await fetchOrder();
-    } catch {
+      setTimeout(() => router.back(), 500);
+    } catch (err: any) {
       Alert.alert('Error', 'Failed to update order');
+      setUpdating(false);
     }
-    setUpdating(false);
   };
 
   const handleAction = (status: string, needsNote = false) => {
@@ -108,16 +110,7 @@ export default function OrderDetailScreen() {
       setNoteModal(true);
       return;
     }
-    const labels: Record<string, string> = {
-      confirmed: 'Confirm this order?',
-      shipped:   'Mark as shipped?',
-      delivered: 'Mark as delivered?',
-      rejected:  'Reject this order?',
-    };
-    Alert.alert('Update Order', labels[status] || 'Update status?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Yes', onPress: () => updateStatus(status) },
-    ]);
+    updateStatus(status);
   };
 
   const callCustomer = () => {
