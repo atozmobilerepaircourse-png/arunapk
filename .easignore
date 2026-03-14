@@ -5,3 +5,9 @@ server_dist
 .expo
 .git
 *.log
+design-ref
+attached_assets
+uxpilot-shop-design
+.eas-tmp
+.local
+**/*.html
