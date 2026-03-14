@@ -7,10 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import Animated, {
-  FadeInDown, ScaleIn, useSharedValue, useAnimatedStyle,
-  withTiming, withDelay, withSequence, Easing,
-} from 'react-native-reanimated';
+import Animated, { FadeInDown, ScaleIn } from 'react-native-reanimated';
 import { useCart } from '@/lib/cart-context';
 import { useApp } from '@/lib/context';
 import { apiRequest } from '@/lib/query-client';
@@ -104,21 +101,21 @@ export default function CheckoutScreen() {
   if (success) {
     return (
       <View style={[styles.container, { alignItems: 'center', justifyContent: 'center', backgroundColor: '#F0FDF4' }]}>
-        <Animated.View entering={ScaleIn.springify()} style={styles.successBadge}>
-          <Animated.View entering={FadeInDown.delay(200)} style={styles.checkmark}>
+        <Animated.View entering={ScaleIn} style={styles.successBadge}>
+          <View style={styles.checkmark}>
             <Text style={{ fontSize: 60 }}>✓</Text>
-          </Animated.View>
+          </View>
         </Animated.View>
         
-        <Animated.Text entering={FadeInDown.delay(400)} style={styles.successTitle}>
+        <Animated.Text entering={FadeInDown.delay(200)} style={styles.successTitle}>
           Congratulations!
         </Animated.Text>
         
-        <Animated.Text entering={FadeInDown.delay(600)} style={styles.successSub}>
+        <Animated.Text entering={FadeInDown.delay(400)} style={styles.successSub}>
           Your order was placed successfully
         </Animated.Text>
         
-        <Animated.View entering={FadeInDown.delay(800)} style={styles.successDetails}>
+        <Animated.View entering={FadeInDown.delay(600)} style={styles.successDetails}>
           <View style={styles.detailRow}>
             <Ionicons name="call" size={16} color={T.accent} />
             <Text style={styles.detailText}>Supplier will contact you</Text>
