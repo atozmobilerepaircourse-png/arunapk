@@ -1781,7 +1781,7 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
           title, description: description || "", price: price || "0", category: category || "other",
           images: JSON.stringify(images || []), city: city || "", state: state || "",
           inStock: inStock ?? 1, deliveryInfo: deliveryInfo || "", contactPhone: contactPhone || "",
-          videoUrl: videoUrl || "",
+          videoUrl: videoUrl || "", createdAt: Date.now(),
         });
       }
       return res.json({ success: true, id: productId });
