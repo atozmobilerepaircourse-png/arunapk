@@ -269,6 +269,21 @@ Builds run on Expo's cloud servers (10-25 min). Download from https://expo.dev d
   1. Marketplace tab → "MarketHub Store" green banner at top → `/shop`
   2. Product detail → tap "Shop" button next to supplier → `/shop?supplierId=xxx`
 
+## PRODUCT VISIBILITY FIX (March 14, 2026)
+
+**Issue:** Products weren't showing in the Shop after being published.
+
+**Solution:** 
+- Added cache invalidation in `add-product.tsx` → invalidates React Query cache after publishing
+- Added `useFocusEffect` in `marketplace.tsx` → auto-refetches products when Shop tab comes into focus
+- Result: New products now appear immediately when user navigates to Shop tab
+
+**How it works:**
+1. Supplier adds product → publishes → cache invalidated
+2. Supplier clicks OK → goes back to Products tab
+3. Supplier taps "Shop" tab → marketplace auto-refetches
+4. New product appears instantly ✓
+
 ## THEME UPDATE (March 14, 2026) - ALL WHITE/LIGHT
 
 All customer-facing screens now use the **light MarketHub theme**:

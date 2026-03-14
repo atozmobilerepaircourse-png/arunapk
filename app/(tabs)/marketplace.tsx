@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -151,6 +152,13 @@ export default function MarketplaceTab() {
     await refetch();
     setRefreshing(false);
   }, [refetch]);
+
+  // Refetch products whenever this tab is focused (new products added by supplier)
+  useFocusEffect(
+    useCallback(() => {
+      refetch();
+    }, [refetch])
+  );
 
   const products = useMemo(() => {
     let list = [...rawProducts];
