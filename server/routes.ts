@@ -87,10 +87,15 @@ if (bunnyStreamAvailable) {
 }
 
 async function uploadToStorage(buffer: Buffer, filename: string): Promise<string> {
+  // Always use local storage as primary fallback for reliability
+  const localFilename = filename.replace(/^(images|videos)\//, "");
+  const filePath = path.join(uploadsDir, localFilename);
+  fs.writeFileSync(filePath, buffer);
+  
   if (bunnyAvailable) {
     try {
       const url = `${BUNNY_STORAGE_ENDPOINT}/${BUNNY_STORAGE_ZONE_NAME}/${filename}`;
-      console.log(`[Bunny] Uploading to: ${url}`);
+      console.log(`[Bunny] Attempting upload to: ${url}`);
       const response = await Promise.race([
         fetch(url, {
           method: 'PUT',
@@ -102,7 +107,7 @@ async function uploadToStorage(buffer: Buffer, filename: string): Promise<string
           body: buffer,
           duplex: 'half',
         } as any),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Bunny upload timeout')), 15000))
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Bunny upload timeout')), 10000))
       ]) as any;
       
       if (!response.ok) {
@@ -114,18 +119,18 @@ async function uploadToStorage(buffer: Buffer, filename: string): Promise<string
       console.log(`[Bunny] Returning CDN URL: ${cdnUrl}`);
       return cdnUrl;
     } catch (error: any) {
-      console.error("[Bunny] Upload failed:", error?.message || error);
-      // Still return Bunny CDN URL to try again later
-      console.log(`[Bunny] Returning CDN URL despite error (may retry): ${BUNNY_CDN_URL}/${filename}`);
-      return `${BUNNY_CDN_URL}/${filename}`;
+      console.error("[Bunny] Upload failed, using local fallback:", error?.message || error);
     }
+  } else {
+    console.log('[Bunny] Not configured, using local storage');
   }
-  console.log('[Bunny] Not available, using local storage');
-  const localFilename = filename.replace(/^(images|videos)\//, "");
-  const filePath = path.join(uploadsDir, localFilename);
-  fs.writeFileSync(filePath, buffer);
-  const localUrl = `${process.env.REPLIT_DEV_DOMAIN ? 'https://' + process.env.REPLIT_DEV_DOMAIN : 'http://localhost:5000'}/uploads/${localFilename}`;
-  console.log(`[Local] Saved and returning: ${localUrl}`);
+  
+  // Local storage fallback — always works
+  const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
+  const host = process.env.REPLIT_DEV_DOMAIN ? process.env.REPLIT_DEV_DOMAIN : 
+               process.env.REPLIT_DOMAINS?.split(',')[0] || 'localhost:5000';
+  const localUrl = `${protocol}://${host}/uploads/${localFilename}`;
+  console.log(`[Local] Saved: ${filePath}, returning: ${localUrl}`);
   return localUrl;
 }
 
