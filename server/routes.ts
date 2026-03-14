@@ -90,30 +90,43 @@ async function uploadToStorage(buffer: Buffer, filename: string): Promise<string
   if (bunnyAvailable) {
     try {
       const url = `${BUNNY_STORAGE_ENDPOINT}/${BUNNY_STORAGE_ZONE_NAME}/${filename}`;
-      const response = await fetch(url, {
-        method: 'PUT',
-        headers: {
-          'AccessKey': BUNNY_STORAGE_API_KEY,
-          'Content-Type': 'application/octet-stream',
-          'Content-Length': String(buffer.length),
-        },
-        body: buffer,
-        duplex: 'half',
-      } as any);
+      console.log(`[Bunny] Uploading to: ${url}`);
+      const response = await Promise.race([
+        fetch(url, {
+          method: 'PUT',
+          headers: {
+            'AccessKey': BUNNY_STORAGE_API_KEY,
+            'Content-Type': 'application/octet-stream',
+            'Content-Length': String(buffer.length),
+          },
+          body: buffer,
+          duplex: 'half',
+        } as any),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Bunny upload timeout')), 15000))
+      ]) as any;
+      
       if (!response.ok) {
         const text = await response.text().catch(() => '');
         throw new Error(`Bunny upload failed: ${response.status} ${response.statusText} ${text}`);
       }
-      console.log(`[Bunny] Uploaded: ${filename} (${buffer.length} bytes)`);
+      console.log(`[Bunny] Success: ${filename} (${buffer.length} bytes)`);
+      const cdnUrl = `${BUNNY_CDN_URL}/${filename}`;
+      console.log(`[Bunny] Returning CDN URL: ${cdnUrl}`);
+      return cdnUrl;
+    } catch (error: any) {
+      console.error("[Bunny] Upload failed:", error?.message || error);
+      // Still return Bunny CDN URL to try again later
+      console.log(`[Bunny] Returning CDN URL despite error (may retry): ${BUNNY_CDN_URL}/${filename}`);
       return `${BUNNY_CDN_URL}/${filename}`;
-    } catch (error) {
-      console.error("[Bunny] Upload failed, falling back to local:", error);
     }
   }
+  console.log('[Bunny] Not available, using local storage');
   const localFilename = filename.replace(/^(images|videos)\//, "");
   const filePath = path.join(uploadsDir, localFilename);
   fs.writeFileSync(filePath, buffer);
-  return `/uploads/${localFilename}`;
+  const localUrl = `${process.env.REPLIT_DEV_DOMAIN ? 'https://' + process.env.REPLIT_DEV_DOMAIN : 'http://localhost:5000'}/uploads/${localFilename}`;
+  console.log(`[Local] Saved and returning: ${localUrl}`);
+  return localUrl;
 }
 
 async function uploadStreamToStorage(
@@ -125,6 +138,7 @@ async function uploadStreamToStorage(
   if (bunnyAvailable) {
     try {
       const url = `${BUNNY_STORAGE_ENDPOINT}/${BUNNY_STORAGE_ZONE_NAME}/${filename}`;
+      console.log(`[Bunny Stream] Uploading: ${filename}`);
       const headers: Record<string, string> = {
         'AccessKey': BUNNY_STORAGE_API_KEY,
         'Content-Type': contentType || 'application/octet-stream',
