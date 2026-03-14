@@ -25,8 +25,7 @@ echo "Build runs on Expo cloud — takes about 10-20 minutes."
 echo "Monitor progress at: https://expo.dev/accounts/$USER/projects/mobi/builds"
 echo ""
 
-mkdir -p /home/runner/.eas-tmp
-TMPDIR=/home/runner/.eas-tmp $EAS build -p android --profile preview --non-interactive
+TMPDIR=/tmp/eas-build $EAS build -p android --profile preview --non-interactive
 
 echo ""
 echo "APK build submitted! Download link available at:"
