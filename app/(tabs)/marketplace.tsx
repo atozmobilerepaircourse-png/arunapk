@@ -413,8 +413,8 @@ const styles = StyleSheet.create({
   logoBox: { width: 36, height: 36, borderRadius: 10, backgroundColor: MH.primary, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { fontSize: 18, fontFamily: 'Inter_700Bold', color: MH.primary },
   headerSub: { fontSize: 11, color: MH.textMuted, fontFamily: 'Inter_400Regular' },
-  cartBtn: { position: 'relative', width: 42, height: 42, alignItems: 'center', justifyContent: 'center' },
-  cartBadge: { position: 'absolute', top: 4, right: 4, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: MH.sale, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
+  cartBtn: { position: 'relative', width: 44, height: 44, borderRadius: 22, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: MH.border },
+  cartBadge: { position: 'absolute', top: -4, right: -4, minWidth: 20, height: 20, borderRadius: 10, backgroundColor: MH.sale, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
   cartBadgeTxt: { color: '#FFF', fontSize: 10, fontFamily: 'Inter_700Bold' },
 
   // Search
