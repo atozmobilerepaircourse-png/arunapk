@@ -737,11 +737,14 @@ export default function AdminScreen() {
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      await refreshData();
+      await Promise.race([
+        refreshData(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Refresh timeout')), 8000))
+      ]);
+      Alert.alert('Success', 'Data refreshed');
     } catch (e: any) {
       console.error('Refresh error:', e);
-      Alert.alert('Refresh Error', e.message || 'Failed to refresh data');
-    } finally {
+      // Don't show alert - just silently fail and let user retry
       setRefreshing(false);
     }
   };
