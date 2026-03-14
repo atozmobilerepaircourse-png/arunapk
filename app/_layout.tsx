@@ -6,7 +6,7 @@ import { Platform, Alert } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { StatusBar } from "expo-status-bar";
-import * as ScreenCapture from "expo-screen-capture";
+// import * as ScreenCapture from "expo-screen-capture"; // Disabled for stability
 import {
   useFonts,
   Inter_400Regular,
@@ -105,36 +105,11 @@ export default function RootLayout() {
     };
   }, []);
 
-  useEffect(() => {
-    if (Platform.OS === 'web') return;
-
-    let subscription: any = null;
-    
-    const setup = async () => {
-      try {
-        await ScreenCapture.preventScreenCaptureAsync();
-        subscription = ScreenCapture.addScreenshotListener(() => {
-          Alert.alert(
-            'Screenshot Detected',
-            'Screenshots are not allowed in Mobi for privacy protection.'
-          );
-        });
-      } catch (e) {
-        console.warn('[ScreenCapture] Init failed:', e);
-      }
-    };
-
-    setup().catch(() => {});
-
-    return () => {
-      try {
-        if (subscription?.remove) subscription.remove();
-        ScreenCapture.allowScreenCaptureAsync().catch(() => {});
-      } catch (e) {
-        console.warn('[ScreenCapture] Cleanup failed:', e);
-      }
-    };
-  }, []);
+  // ScreenCapture disabled - can cause crashes on some Android devices
+  // useEffect(() => {
+  //   if (Platform.OS === 'web') return;
+  //   // Feature disabled for stability
+  // }, []);
 
   if (!fontsLoaded && !fontError && !fontTimeout) return null;
 
