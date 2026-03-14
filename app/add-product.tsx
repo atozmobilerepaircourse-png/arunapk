@@ -10,6 +10,7 @@ import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import { fetch as expoFetch } from 'expo/fetch';
 import { router, useLocalSearchParams } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
 import Colors from '@/constants/colors';
 import { useApp } from '@/lib/context';
 import { apiRequest, getApiUrl } from '@/lib/query-client';
@@ -22,6 +23,7 @@ const MAX_VIDEO_SIZE_BYTES = MAX_VIDEO_SIZE_MB * 1024 * 1024;
 export default function AddProductScreen() {
   const insets = useSafeAreaInsets();
   const { profile } = useApp();
+  const queryClient = useQueryClient();
   const params = useLocalSearchParams<{ productId?: string }>();
   const isTeacher = profile?.role === 'teacher';
   const categories = isTeacher ? TEACHER_CATEGORIES : SUPPLIER_CATEGORIES;
@@ -214,6 +216,9 @@ export default function AddProductScreen() {
         Alert.alert('Error', data.message || 'Failed to publish. Please try again.');
         return;
       }
+
+      // Invalidate products cache so marketplace refreshes with new product
+      await queryClient.invalidateQueries({ queryKey: ['/api/products'] });
 
       if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
