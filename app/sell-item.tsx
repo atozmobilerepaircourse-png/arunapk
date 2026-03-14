@@ -61,8 +61,10 @@ export default function SellItemScreen() {
   const validateAndUploadImage = async (uri: string, index: number) => {
     try {
       setUploadingIdx(index);
-      const uploadUrl = new URL('/api/upload', getApiUrl()).toString();
+      const baseUrl = getApiUrl();
+      const uploadUrl = new URL('/api/upload', baseUrl).toString();
       const formData = new FormData();
+      
       if (Platform.OS === 'web') {
         const response = await window.fetch(uri);
         const blob = await response.blob();
@@ -77,11 +79,37 @@ export default function SellItemScreen() {
         if (!data.success || !data.url) throw new Error(data.message || 'Upload failed');
         return data.url;
       } else {
-        formData.append('image', { uri, name: `sell-${index}.jpg`, type: 'image/jpeg' } as any);
-        const res = await expoFetch(uploadUrl, { method: 'POST', body: formData });
-        const data = await res.json();
-        if (!data.success || !data.url) throw new Error(data.message || 'Upload failed');
-        return data.url;
+        try {
+          // Try FormData first
+          formData.append('image', { uri, name: `sell-${index}.jpg`, type: 'image/jpeg' } as any);
+          const res = await expoFetch(uploadUrl, { method: 'POST', body: formData, timeout: 30000 });
+          const data = await res.json();
+          if (!data.success || !data.url) throw new Error(data.message || 'Upload failed');
+          return data.url;
+        } catch (formDataError: any) {
+          // Fallback to base64
+          console.log('[Sell] FormData failed, trying base64:', formDataError?.message);
+          const response = await expoFetch(uri);
+          const blob = await response.blob();
+          const sizeInMB = blob.size / (1024 * 1024);
+          if (sizeInMB > 5) {
+            Alert.alert('File too large', 'Image must be under 5MB');
+            return null;
+          }
+          const arrayBuffer = await blob.arrayBuffer();
+          const base64 = Buffer.from(arrayBuffer).toString('base64');
+          
+          const base64Url = new URL('/api/upload-base64', baseUrl).toString();
+          const res = await expoFetch(base64Url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ base64, mimeType: 'image/jpeg' }),
+            timeout: 30000,
+          });
+          const data = await res.json();
+          if (!data.success || !data.url) throw new Error(data.message || 'Base64 upload failed');
+          return data.url;
+        }
       }
     } catch (e: any) {
       Alert.alert('Upload failed', (e.message || String(e)).slice(0, 100));
@@ -93,6 +121,15 @@ export default function SellItemScreen() {
 
   const pickImages = async () => {
     try {
+      // Request permissions on Android/iOS
+      if (Platform.OS !== 'web') {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permission needed', 'Please grant permission to access your photos.');
+          return;
+        }
+      }
+      
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
         allowsMultipleSelection: true,
@@ -104,8 +141,8 @@ export default function SellItemScreen() {
         setImages(prev => [...prev, ...newUris].slice(0, 5));
         if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
-    } catch (e) {
-      Alert.alert('Error', 'Could not pick images');
+    } catch (e: any) {
+      Alert.alert('Error', 'Could not pick images: ' + (e.message || 'Unknown error'));
     }
   };
 

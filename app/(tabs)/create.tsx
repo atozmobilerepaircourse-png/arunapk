@@ -38,17 +38,30 @@ export default function CreatePostScreen() {
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
   const pickImages = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsMultipleSelection: true,
-      quality: 0.7,
-      selectionLimit: 4,
-    });
+    try {
+      // Request permissions on Android/iOS
+      if (Platform.OS !== 'web') {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permission needed', 'Please grant permission to access your photos.');
+          return;
+        }
+      }
+      
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsMultipleSelection: true,
+        quality: 0.7,
+        selectionLimit: 4,
+      });
 
-    if (!result.canceled && result.assets) {
-      const newUris = result.assets.map(a => a.uri);
-      setImages(prev => [...prev, ...newUris].slice(0, 4));
-      if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      if (!result.canceled && result.assets) {
+        const newUris = result.assets.map(a => a.uri);
+        setImages(prev => [...prev, ...newUris].slice(0, 4));
+        if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }
+    } catch (e: any) {
+      Alert.alert('Error', 'Could not access photos: ' + (e.message || 'Unknown error'));
     }
   };
 
@@ -68,14 +81,27 @@ export default function CreatePostScreen() {
   };
 
   const pickVideo = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['videos'],
-      allowsMultipleSelection: false,
-    });
+    try {
+      // Request permissions on Android/iOS
+      if (Platform.OS !== 'web') {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permission needed', 'Please grant permission to access your videos.');
+          return;
+        }
+      }
+      
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['videos'],
+        allowsMultipleSelection: false,
+      });
 
-    if (!result.canceled && result.assets && result.assets.length > 0) {
-      setVideo(result.assets[0].uri);
-      if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setVideo(result.assets[0].uri);
+        if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }
+    } catch (e: any) {
+      Alert.alert('Error', 'Could not access videos: ' + (e.message || 'Unknown error'));
     }
   };
 
@@ -100,23 +126,44 @@ export default function CreatePostScreen() {
         const uploadRes = await window.fetch(uploadUrl, { method: 'POST', body: formData });
         const data = await uploadRes.json();
         if (data.success && data.url) return new URL(data.url, baseUrl).toString();
-        return null;
+        throw new Error(data.message || 'Upload failed');
       } else {
+        // Try FormData first
         const uploadUrl = new URL('/api/upload', baseUrl).toString();
-        const formData = new FormData();
-        formData.append('image', {
-          uri: uri,
-          name: 'photo.jpg',
-          type: 'image/jpeg',
-        } as any);
-        const uploadRes = await expoFetch(uploadUrl, { method: 'POST', body: formData });
-        const data = await uploadRes.json();
-        if (data.success && data.url) return new URL(data.url, baseUrl).toString();
-        return null;
+        try {
+          const formData = new FormData();
+          formData.append('image', {
+            uri: uri,
+            name: 'photo.jpg',
+            type: 'image/jpeg',
+          } as any);
+          const uploadRes = await expoFetch(uploadUrl, { method: 'POST', body: formData, timeout: 30000 });
+          const data = await uploadRes.json();
+          if (data.success && data.url) return new URL(data.url, baseUrl).toString();
+          throw new Error(data.message || 'Upload failed');
+        } catch (formDataError: any) {
+          // Fallback to base64
+          console.log('[Upload] FormData failed, trying base64:', formDataError?.message);
+          const response = await expoFetch(uri);
+          const blob = await response.blob();
+          const arrayBuffer = await blob.arrayBuffer();
+          const base64 = Buffer.from(arrayBuffer).toString('base64');
+          
+          const base64Url = new URL('/api/upload-base64', baseUrl).toString();
+          const uploadRes = await expoFetch(base64Url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ base64, mimeType: 'image/jpeg' }),
+            timeout: 30000,
+          });
+          const data = await uploadRes.json();
+          if (data.success && data.url) return new URL(data.url, baseUrl).toString();
+          throw new Error(data.message || 'Base64 upload failed');
+        }
       }
-    } catch (e) {
-      console.error('[Upload] Failed:', e);
-      Alert.alert('Upload Error', 'Could not upload image. Please check your connection and try again.');
+    } catch (e: any) {
+      console.error('[Upload] Failed:', e?.message || e);
+      Alert.alert('Upload Error', `Could not upload image: ${(e?.message || String(e)).slice(0, 80)}`);
       return null;
     }
   }, []);
