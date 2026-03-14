@@ -18,14 +18,14 @@ import { PostCategory } from '@/lib/types';
 import PostCard from '@/components/PostCard';
 import { apiRequest } from '@/lib/query-client';
 
-// ─── UX Pilot exact tokens ───────────────────────────────────────────────────
-const BG        = '#121212';
-const CARD      = '#1E1E1E';
-const SURFACE   = '#2A2A2A';
-const BORDER    = '#374151';
-const TEXT      = '#F3F4F6';
+// ─── MarketHub Light Theme ───────────────────────────────────────────────────
+const BG        = '#F9FAFB';
+const CARD      = '#FFFFFF';
+const SURFACE   = '#FFFFFF';
+const BORDER    = '#E5E7EB';
+const TEXT      = '#111827';
 const MUTED     = '#9CA3AF';
-const PRIMARY   = '#4F46E5';
+const PRIMARY   = '#1B4D3E';
 const BLUE      = '#3B82F6';
 const GREEN     = '#10B981';
 const AMBER     = '#F59E0B';

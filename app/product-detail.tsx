@@ -8,11 +8,18 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { router, useLocalSearchParams } from 'expo-router';
-import { T } from '@/constants/techTheme';
 import { useApp } from '@/lib/context';
 import { useCart } from '@/lib/cart-context';
 import { apiRequest } from '@/lib/query-client';
 import { Product } from '@/lib/types';
+
+// ─── MarketHub Light Theme ───────────────────────────────────────────────────
+const T = {
+  bg: '#F9FAFB', card: '#FFFFFF', cardSurface: '#F3F4F6', bgElevated: '#FFFFFF',
+  border: '#E5E7EB', text: '#111827', muted: '#9CA3AF', textSub: '#4B5563',
+  accent: '#1B4D3E', accentMuted: '#D1FAE5', green: '#10B981', red: '#EF4444',
+  greenMuted: '#DBEAFE', redMuted: '#FEE2E2',
+};
 
 const { width, height } = Dimensions.get('window');
 const IMG_H = width * 0.85;

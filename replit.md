@@ -254,7 +254,7 @@ Builds run on Expo's cloud servers (10-25 min). Download from https://expo.dev d
 - Places one order per cart item to respective supplier via `/api/orders`
 - Clears cart and shows success alert after placement
 
-### MarketHub Shop (app/shop.tsx) — NEW SCREEN (March 13, 2026)
+### MarketHub Shop (app/(tabs)/marketplace.tsx) — UNIFIED WHITE THEME (March 14, 2026)
 - Dedicated full-catalog shop screen following MarketHub design (from ZIP)
 - Light white theme: bg=#F9FAFB, primary=#1B4D3E, cards=white
 - Top header with logo icon, back button, cart badge
@@ -268,6 +268,23 @@ Builds run on Expo's cloud servers (10-25 min). Download from https://expo.dev d
 - Entry points:
   1. Marketplace tab → "MarketHub Store" green banner at top → `/shop`
   2. Product detail → tap "Shop" button next to supplier → `/shop?supplierId=xxx`
+
+## THEME UPDATE (March 14, 2026) - ALL WHITE/LIGHT
+
+All customer-facing screens now use the **light MarketHub theme**:
+- **Home feed** (index.tsx) — light bg with white cards
+- **Shop tab** (marketplace.tsx) — MarketHub catalog, white theme
+- **Product detail** (product-detail.tsx) — light bg, white cards
+- **Cart** (cart.tsx) — light bg, white cards
+- **Checkout** (checkout.tsx) — light bg, white cards
+
+**Colors:** bg=#F9FAFB, card=#FFFFFF, primary=#1B4D3E, border=#E5E7EB, text=#111827
+
+**Supplier Shop Feature:**
+- In Shop tab: tap product → "Shop" button next to supplier → see ONLY that supplier's products
+- Header shows supplier name + back button when viewing supplier shop
+- Filter by category/price/availability within supplier shop
+- Click back button or shop tab to return to full marketplace
 
 ### Add Product (app/add-product.tsx) — EDIT MODE + STOCK TOGGLE
 - Edit mode: loads existing product data when `?productId=` param is present

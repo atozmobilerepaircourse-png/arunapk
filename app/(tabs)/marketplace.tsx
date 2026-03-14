@@ -7,7 +7,7 @@ import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { useApp } from '@/lib/context';
 import { useCart } from '@/lib/cart-context';
@@ -122,11 +122,13 @@ function ProductCard({ product, onAdd, onPress }: {
 }
 
 export default function MarketplaceTab() {
+  const params = useLocalSearchParams<{ supplierId?: string; supplierName?: string }>();
   const insets = useSafeAreaInsets();
   const { profile } = useApp();
   const { items, addToCart, updateQuantity, totalItems } = useCart();
   const topInset = Platform.OS === 'web' ? 67 : insets.top;
   const bottomInset = Platform.OS === 'web' ? 34 : insets.bottom;
+  const viewingSupplier = params.supplierId !== undefined;
 
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('all');
@@ -152,6 +154,7 @@ export default function MarketplaceTab() {
 
   const products = useMemo(() => {
     let list = [...rawProducts];
+    if (viewingSupplier) list = list.filter(p => p.userId === params.supplierId);
     if (category !== 'all') list = list.filter(p => p.category === category);
     if (search.trim()) {
       const q = search.toLowerCase();
@@ -166,7 +169,7 @@ export default function MarketplaceTab() {
     else if (sortBy === 'price_desc') list.sort((a, b) => parseFloat(b.price) - parseFloat(a.price));
     else if (sortBy === 'newest') list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
     return list;
-  }, [rawProducts, category, search, sortBy, onlyInStock]);
+  }, [rawProducts, category, search, sortBy, onlyInStock, viewingSupplier, params.supplierId]);
 
   const handleAdd = useCallback((product: any) => {
     if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -216,12 +219,12 @@ export default function MarketplaceTab() {
       <View style={[styles.header, { paddingTop: topInset + 8 }]}>
         <View style={styles.headerRow}>
           <View style={styles.logoRow}>
-            <View style={styles.logoBox}>
-              <Ionicons name="storefront" size={18} color="#FFF" />
-            </View>
+            <Pressable onPress={() => viewingSupplier && router.back()} style={styles.logoBox}>
+              <Ionicons name={viewingSupplier ? "arrow-back" : "storefront"} size={18} color="#FFF" />
+            </Pressable>
             <View>
-              <Text style={styles.headerTitle}>MarketHub</Text>
-              <Text style={styles.headerSub}>{isLoading ? 'Loading...' : `${rawProducts.length} products`}</Text>
+              <Text style={styles.headerTitle}>{viewingSupplier ? params.supplierName : 'MarketHub'}</Text>
+              <Text style={styles.headerSub}>{isLoading ? 'Loading...' : `${products.length} products`}</Text>
             </View>
           </View>
           <Pressable onPress={() => router.push('/cart' as any)} style={styles.cartBtn}>
