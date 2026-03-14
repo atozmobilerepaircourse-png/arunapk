@@ -131,8 +131,15 @@ function OrderCard({
   const label = item.status.charAt(0).toUpperCase() + item.status.slice(1);
   const date = new Date(item.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' });
 
+  const isPending = item.status === 'pending';
+  const handlePress = () => {
+    if (isPending) {
+      router.push({ pathname: '/order-detail', params: { id: item.id } } as any);
+    }
+  };
+
   return (
-    <View style={styles.orderCard}>
+    <Pressable onPress={handlePress} style={styles.orderCard}>
       {/* Card Top */}
       <View style={styles.cardTop}>
         {imgUri ? (
@@ -225,7 +232,7 @@ function OrderCard({
           )}
         </Pressable>
       )}
-    </View>
+    </Pressable>
   );
 }
 
