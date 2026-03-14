@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, Pressable, Platform,
   Alert, RefreshControl, ActivityIndicator, Dimensions, ScrollView,
@@ -16,7 +16,8 @@ import { apiRequest, getApiUrl } from '@/lib/query-client';
 const C = Colors.light;
 const PRIMARY = '#FF6B2C';
 const GREEN = '#10B981';
-const { width } = Dimensions.get('window');
+const BLUE = '#007AFF';
+const ORANGE = '#FF9F0A';
 const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
 interface Product {
@@ -28,7 +29,6 @@ interface Product {
   inStock: number;
   views: number;
   createdAt: number;
-  description: string;
 }
 
 interface Order {
@@ -46,6 +46,16 @@ interface Order {
   sellerNotes?: string;
 }
 
+type OrderTab = 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'old';
+
+const ORDER_TABS: { key: OrderTab; label: string; statuses: string[]; color: string; icon: any }[] = [
+  { key: 'pending',   label: 'Pending',   statuses: ['pending'],             color: ORANGE, icon: 'time-outline' },
+  { key: 'confirmed', label: 'Confirmed', statuses: ['confirmed'],            color: BLUE,   icon: 'checkmark-circle-outline' },
+  { key: 'shipped',   label: 'Shipped',   statuses: ['shipped'],              color: '#8B5CF6', icon: 'cube-outline' },
+  { key: 'delivered', label: 'Delivered', statuses: ['delivered'],            color: GREEN,  icon: 'checkmark-done-outline' },
+  { key: 'old',       label: 'Old Orders',statuses: ['completed','cancelled','rejected'], color: '#9CA3AF', icon: 'archive-outline' },
+];
+
 function StatCard({ label, value, icon, color }: { label: string; value: string | number; icon: any; color: string }) {
   return (
     <View style={[styles.statCard, { borderLeftColor: color }]}>
@@ -62,26 +72,25 @@ function ProductRow({ product, onEdit, onDelete }: { product: Product; onEdit: (
   const imgs = (() => { try { return JSON.parse(product.images); } catch { return []; } })();
   const img = imgs[0] || '';
   const price = parseFloat(product.price) || 0;
-
   return (
     <View style={styles.productRow}>
       <View style={styles.productImgWrap}>
         {img ? (
           <Image source={{ uri: img }} style={styles.productImg} contentFit="cover" />
         ) : (
-          <View style={[styles.productImg, styles.productImgPlaceholder]}>
+          <View style={[styles.productImg, styles.imgPlaceholder]}>
             <Ionicons name="cube-outline" size={22} color={C.textTertiary} />
           </View>
         )}
       </View>
       <View style={styles.productInfo}>
         <Text style={styles.productTitle} numberOfLines={1}>{product.title}</Text>
-        <Text style={styles.productCategory}>{product.category}</Text>
+        <Text style={styles.productCat}>{product.category}</Text>
         <View style={styles.productMeta}>
           <Text style={styles.productPrice}>₹{price.toLocaleString('en-IN')}</Text>
           <View style={[styles.stockBadge, { backgroundColor: product.inStock > 0 ? '#34C75918' : '#FF3B3018' }]}>
             <Text style={[styles.stockTxt, { color: product.inStock > 0 ? '#34C759' : '#FF3B30' }]}>
-              {product.inStock > 0 ? 'In Stock' : 'Out of Stock'}
+              {product.inStock > 0 ? 'In Stock' : 'Out'}
             </Text>
           </View>
         </View>
@@ -95,32 +104,130 @@ function ProductRow({ product, onEdit, onDelete }: { product: Product; onEdit: (
           <Ionicons name="create-outline" size={18} color={PRIMARY} />
         </Pressable>
         <Pressable onPress={onDelete} style={styles.actionBtn}>
-          <Ionicons name="trash-outline" size={18} color='#FF3B30' />
+          <Ionicons name="trash-outline" size={18} color="#FF3B30" />
         </Pressable>
       </View>
     </View>
   );
 }
 
-const STATUS_COLOR: Record<string, string> = {
-  confirmed: '#007AFF',
-  shipped:   '#FF9F0A',
-  delivered: '#34C759',
-  completed: '#34C759',
-  cancelled: '#FF3B30',
-  rejected:  '#FF3B30',
-  pending:   '#FF9F0A',
-};
+function OrderCard({
+  item, onAction, loadingId,
+}: {
+  item: Order;
+  onAction: (id: string, status: string) => void;
+  loadingId: string | null;
+}) {
+  const isLoading = loadingId === item.id;
+  const imgUri = item.productImage
+    ? (item.productImage.startsWith('/') ? `${getApiUrl()}${item.productImage}` : item.productImage)
+    : null;
 
-const STATUS_LABEL: Record<string, string> = {
-  confirmed: 'Confirmed',
-  shipped:   'Shipped',
-  delivered: 'Delivered',
-  completed: 'Completed',
-  cancelled: 'Cancelled',
-  rejected:  'Rejected',
-  pending:   'Pending',
-};
+  const statusColors: Record<string, string> = {
+    pending: ORANGE, confirmed: BLUE, shipped: '#8B5CF6', delivered: GREEN,
+    completed: GREEN, cancelled: '#FF3B30', rejected: '#FF3B30',
+  };
+  const sc = statusColors[item.status] || '#9CA3AF';
+  const label = item.status.charAt(0).toUpperCase() + item.status.slice(1);
+  const date = new Date(item.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' });
+
+  return (
+    <View style={styles.orderCard}>
+      {/* Card Top */}
+      <View style={styles.cardTop}>
+        {imgUri ? (
+          <Image source={{ uri: imgUri }} style={styles.cardImg} contentFit="cover" />
+        ) : (
+          <View style={[styles.cardImg, styles.imgPlaceholder]}>
+            <Ionicons name="cube-outline" size={20} color={C.textTertiary} />
+          </View>
+        )}
+        <View style={styles.cardInfo}>
+          <Text style={styles.cardTitle} numberOfLines={2}>{item.productTitle}</Text>
+          <Text style={styles.cardBuyer}>{item.buyerName}</Text>
+          {item.buyerPhone ? <Text style={styles.cardPhone}>{item.buyerPhone}</Text> : null}
+          <View style={styles.cardMeta}>
+            <Text style={styles.cardMetaTxt}>Qty: {item.quantity || 1}</Text>
+            <Text style={styles.cardMetaTxt}>·</Text>
+            <Text style={styles.cardMetaTxt}>{date}</Text>
+          </View>
+        </View>
+        <View style={styles.cardRight}>
+          <View style={[styles.statusPill, { backgroundColor: sc + '20' }]}>
+            <Text style={[styles.statusPillTxt, { color: sc }]}>{label}</Text>
+          </View>
+          <Text style={styles.cardAmount}>₹{(parseFloat(item.totalAmount) || 0).toLocaleString('en-IN')}</Text>
+        </View>
+      </View>
+
+      {/* Address */}
+      {(item.deliveryAddress || item.city) ? (
+        <View style={styles.addressRow}>
+          <Ionicons name="location-outline" size={12} color={C.textTertiary} />
+          <Text style={styles.addressTxt} numberOfLines={1}>
+            {[item.deliveryAddress, item.city].filter(Boolean).join(', ')}
+          </Text>
+        </View>
+      ) : null}
+
+      {/* Action Buttons */}
+      {item.status === 'pending' && (
+        <View style={styles.btnRow}>
+          <Pressable
+            style={[styles.btn, styles.btnReject, isLoading && { opacity: 0.6 }]}
+            onPress={() => onAction(item.id, 'rejected')}
+            disabled={isLoading}
+          >
+            <Ionicons name="close-circle-outline" size={16} color="#FF3B30" />
+            <Text style={styles.btnRejectTxt}>Reject</Text>
+          </Pressable>
+          <Pressable
+            style={[styles.btn, styles.btnConfirm, isLoading && { opacity: 0.6 }]}
+            onPress={() => onAction(item.id, 'confirmed')}
+            disabled={isLoading}
+          >
+            {isLoading ? <ActivityIndicator size="small" color="#FFF" /> : (
+              <>
+                <Ionicons name="checkmark-circle-outline" size={16} color="#FFF" />
+                <Text style={styles.btnTxt}>Confirm Order</Text>
+              </>
+            )}
+          </Pressable>
+        </View>
+      )}
+
+      {item.status === 'confirmed' && (
+        <Pressable
+          style={[styles.btn, styles.btnShip, isLoading && { opacity: 0.6 }]}
+          onPress={() => onAction(item.id, 'shipped')}
+          disabled={isLoading}
+        >
+          {isLoading ? <ActivityIndicator size="small" color="#FFF" /> : (
+            <>
+              <Ionicons name="cube-outline" size={16} color="#FFF" />
+              <Text style={styles.btnTxt}>Mark as Shipped</Text>
+            </>
+          )}
+        </Pressable>
+      )}
+
+      {item.status === 'shipped' && (
+        <Pressable
+          style={[styles.btn, styles.btnDeliver, isLoading && { opacity: 0.6 }]}
+          onPress={() => onAction(item.id, 'delivered')}
+          disabled={isLoading}
+        >
+          {isLoading ? <ActivityIndicator size="small" color="#FFF" /> : (
+            <>
+              <Ionicons name="checkmark-done-circle-outline" size={16} color="#FFF" />
+              <Text style={styles.btnTxt}>Mark as Delivered</Text>
+            </>
+          )}
+        </Pressable>
+      )}
+    </View>
+  );
+}
 
 export default function SupplierProductsScreen() {
   const insets = useSafeAreaInsets();
@@ -130,8 +237,8 @@ export default function SupplierProductsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<'products' | 'orders'>('products');
-  const [orderTab, setOrderTab] = useState<'confirmed' | 'old'>('confirmed');
-  const [deliveringId, setDeliveringId] = useState<string | null>(null);
+  const [orderTab, setOrderTab] = useState<OrderTab>('pending');
+  const [loadingId, setLoadingId] = useState<string | null>(null);
 
   const topInset = Platform.OS === 'web' ? webTopInset : insets.top;
 
@@ -153,13 +260,7 @@ export default function SupplierProductsScreen() {
     }
   }, [profile?.id]);
 
-  useEffect(() => { loadData(); }, [loadData]);
-
-  useFocusEffect(
-    useCallback(() => {
-      loadData();
-    }, [loadData])
-  );
+  useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -167,8 +268,26 @@ export default function SupplierProductsScreen() {
     setRefreshing(false);
   };
 
+  const handleStatusChange = async (orderId: string, newStatus: string) => {
+    setLoadingId(orderId);
+    try {
+      const res = await apiRequest('PATCH', `/api/orders/${orderId}/status`, { status: newStatus });
+      if (!res.ok) throw new Error('Failed');
+      if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
+      const nextTab: Record<string, OrderTab> = {
+        confirmed: 'confirmed', shipped: 'shipped', delivered: 'delivered', rejected: 'old',
+      };
+      if (nextTab[newStatus]) setOrderTab(nextTab[newStatus]);
+    } catch {
+      Alert.alert('Error', 'Could not update order. Please try again.');
+    } finally {
+      setLoadingId(null);
+    }
+  };
+
   const handleDelete = (product: Product) => {
-    Alert.alert('Delete Product', `Delete "${product.title}"? This cannot be undone.`, [
+    Alert.alert('Delete Product', `Delete "${product.title}"?`, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete', style: 'destructive', onPress: async () => {
@@ -184,31 +303,15 @@ export default function SupplierProductsScreen() {
     ]);
   };
 
-  const markDelivered = async (order: Order) => {
-    setDeliveringId(order.id);
-    try {
-      const res = await apiRequest('PATCH', `/api/orders/${order.id}/status`, { status: 'delivered' });
-      if (!res.ok) throw new Error('Failed');
-      if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: 'delivered' } : o));
-      setOrderTab('old');
-    } catch {
-      Alert.alert('Error', 'Could not mark as delivered. Please try again.');
-    } finally {
-      setDeliveringId(null);
-    }
+  const countFor = (statuses: string[]) => orders.filter(o => statuses.includes(o.status)).length;
+  const ordersForTab = (tab: OrderTab) => {
+    const def = ORDER_TABS.find(t => t.key === tab);
+    return def ? orders.filter(o => def.statuses.includes(o.status)) : [];
   };
-
-  const confirmedOrders = orders.filter(o => o.status === 'confirmed');
-  const oldOrders = orders.filter(o => ['delivered', 'completed', 'shipped', 'cancelled', 'rejected'].includes(o.status));
-  const pendingOrders = orders.filter(o => o.status === 'pending');
 
   const totalRevenue = orders
     .filter(o => ['delivered', 'completed'].includes(o.status))
     .reduce((s, o) => s + (parseFloat(o.totalAmount) || 0), 0);
-
-  const getDate = (ts: number) =>
-    new Date(ts).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' });
 
   if (loading) {
     return (
@@ -218,102 +321,8 @@ export default function SupplierProductsScreen() {
     );
   }
 
-  const renderConfirmedOrder = ({ item }: { item: Order }) => {
-    const isDelivering = deliveringId === item.id;
-    const imgUri = item.productImage
-      ? (item.productImage.startsWith('/') ? `${getApiUrl()}${item.productImage}` : item.productImage)
-      : null;
-
-    return (
-      <View style={styles.orderCard}>
-        <View style={styles.ocTop}>
-          {imgUri ? (
-            <Image source={{ uri: imgUri }} style={styles.ocImg} contentFit="cover" />
-          ) : (
-            <View style={[styles.ocImg, styles.ocImgPlaceholder]}>
-              <Ionicons name="cube-outline" size={22} color={C.textTertiary} />
-            </View>
-          )}
-          <View style={styles.ocInfo}>
-            <Text style={styles.ocTitle} numberOfLines={2}>{item.productTitle}</Text>
-            <Text style={styles.ocBuyer}>{item.buyerName}</Text>
-            {item.buyerPhone ? (
-              <Text style={styles.ocPhone}>{item.buyerPhone}</Text>
-            ) : null}
-            <View style={styles.ocMeta}>
-              <Text style={styles.ocQty}>Qty: {item.quantity || 1}</Text>
-              <Text style={styles.ocDate}>{getDate(item.createdAt)}</Text>
-            </View>
-          </View>
-          <View style={styles.ocRight}>
-            <View style={[styles.statusPill, { backgroundColor: STATUS_COLOR['confirmed'] + '20' }]}>
-              <Text style={[styles.statusPillTxt, { color: STATUS_COLOR['confirmed'] }]}>Confirmed</Text>
-            </View>
-            <Text style={styles.ocAmount}>₹{(parseFloat(item.totalAmount) || 0).toLocaleString('en-IN')}</Text>
-          </View>
-        </View>
-
-        {item.deliveryAddress ? (
-          <View style={styles.addressRow}>
-            <Ionicons name="location-outline" size={13} color={C.textTertiary} />
-            <Text style={styles.addressTxt} numberOfLines={1}>
-              {[item.deliveryAddress, item.city].filter(Boolean).join(', ')}
-            </Text>
-          </View>
-        ) : null}
-
-        <Pressable
-          style={[styles.deliverBtn, isDelivering && { opacity: 0.7 }]}
-          onPress={() => markDelivered(item)}
-          disabled={isDelivering}
-        >
-          {isDelivering ? (
-            <ActivityIndicator size="small" color="#FFF" />
-          ) : (
-            <>
-              <Ionicons name="checkmark-circle" size={18} color="#FFF" />
-              <Text style={styles.deliverBtnTxt}>Mark as Delivered</Text>
-            </>
-          )}
-        </Pressable>
-      </View>
-    );
-  };
-
-  const renderOldOrder = ({ item }: { item: Order }) => {
-    const color = STATUS_COLOR[item.status] || '#9CA3AF';
-    const imgUri = item.productImage
-      ? (item.productImage.startsWith('/') ? `${getApiUrl()}${item.productImage}` : item.productImage)
-      : null;
-
-    return (
-      <View style={[styles.orderCard, styles.oldCard]}>
-        <View style={styles.ocTop}>
-          {imgUri ? (
-            <Image source={{ uri: imgUri }} style={styles.ocImg} contentFit="cover" />
-          ) : (
-            <View style={[styles.ocImg, styles.ocImgPlaceholder]}>
-              <Ionicons name="cube-outline" size={20} color={C.textTertiary} />
-            </View>
-          )}
-          <View style={styles.ocInfo}>
-            <Text style={styles.ocTitle} numberOfLines={2}>{item.productTitle}</Text>
-            <Text style={styles.ocBuyer}>{item.buyerName}</Text>
-            <View style={styles.ocMeta}>
-              <Text style={styles.ocQty}>Qty: {item.quantity || 1}</Text>
-              <Text style={styles.ocDate}>{getDate(item.createdAt)}</Text>
-            </View>
-          </View>
-          <View style={styles.ocRight}>
-            <View style={[styles.statusPill, { backgroundColor: color + '20' }]}>
-              <Text style={[styles.statusPillTxt, { color }]}>{STATUS_LABEL[item.status] || item.status}</Text>
-            </View>
-            <Text style={styles.ocAmount}>₹{(parseFloat(item.totalAmount) || 0).toLocaleString('en-IN')}</Text>
-          </View>
-        </View>
-      </View>
-    );
-  };
+  const currentOrders = ordersForTab(orderTab);
+  const currentTabDef = ORDER_TABS.find(t => t.key === orderTab)!;
 
   return (
     <View style={styles.container}>
@@ -322,53 +331,38 @@ export default function SupplierProductsScreen() {
         <View style={styles.headerRow}>
           <View>
             <Text style={styles.headerTitle}>My Store</Text>
-            <Text style={styles.headerSub}>{profile?.shopName || profile?.name}</Text>
+            <Text style={styles.headerSub}>{profile?.shopName || profile?.name || 'Hi'}</Text>
           </View>
-          <Pressable
-            onPress={() => router.push('/add-product' as any)}
-            style={styles.addBtn}
-          >
+          <Pressable onPress={() => router.push('/add-product' as any)} style={styles.addBtn}>
             <Ionicons name="add" size={20} color="#FFF" />
             <Text style={styles.addBtnTxt}>Add Product</Text>
           </Pressable>
         </View>
-
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 12, marginHorizontal: -16 }} contentContainerStyle={{ paddingHorizontal: 16, gap: 10 }}>
-          <StatCard label="Products" value={products.length} icon="cube-outline" color={PRIMARY} />
-          <StatCard label="Total Orders" value={orders.length} icon="receipt-outline" color="#007AFF" />
-          <StatCard label="Confirmed" value={confirmedOrders.length} icon="checkmark-circle-outline" color={GREEN} />
-          <StatCard label="Revenue" value={`₹${Math.round(totalRevenue).toLocaleString('en-IN')}`} icon="cash-outline" color="#34C759" />
+          <StatCard label="Products"   value={products.length}        icon="cube-outline"     color={PRIMARY} />
+          <StatCard label="Pending"    value={countFor(['pending'])}  icon="time-outline"     color={ORANGE}  />
+          <StatCard label="Confirmed"  value={countFor(['confirmed'])} icon="checkmark-circle-outline" color={BLUE} />
+          <StatCard label="Revenue"    value={`₹${Math.round(totalRevenue).toLocaleString('en-IN')}`} icon="cash-outline" color={GREEN} />
         </ScrollView>
       </View>
 
-      {/* Main Tabs */}
-      <View style={styles.tabRow}>
-        <Pressable
-          onPress={() => setActiveTab('products')}
-          style={[styles.tab, activeTab === 'products' && styles.tabActive]}
-        >
+      {/* Main Tabs: Products / Orders */}
+      <View style={styles.mainTabRow}>
+        <Pressable onPress={() => setActiveTab('products')} style={[styles.mainTab, activeTab === 'products' && styles.mainTabActive]}>
           <Ionicons name="cube-outline" size={15} color={activeTab === 'products' ? PRIMARY : C.textTertiary} />
-          <Text style={[styles.tabTxt, activeTab === 'products' && styles.tabTxtActive]}>
-            Products ({products.length})
-          </Text>
+          <Text style={[styles.mainTabTxt, activeTab === 'products' && styles.mainTabTxtActive]}>Products ({products.length})</Text>
         </Pressable>
-        <Pressable
-          onPress={() => setActiveTab('orders')}
-          style={[styles.tab, activeTab === 'orders' && styles.tabActive]}
-        >
+        <Pressable onPress={() => setActiveTab('orders')} style={[styles.mainTab, activeTab === 'orders' && styles.mainTabActive]}>
           <Ionicons name="receipt-outline" size={15} color={activeTab === 'orders' ? PRIMARY : C.textTertiary} />
-          <Text style={[styles.tabTxt, activeTab === 'orders' && styles.tabTxtActive]}>
-            Orders ({orders.filter(o => o.status !== 'pending').length})
-          </Text>
-          {confirmedOrders.length > 0 && (
+          <Text style={[styles.mainTabTxt, activeTab === 'orders' && styles.mainTabTxtActive]}>Orders ({orders.length})</Text>
+          {countFor(['pending']) > 0 && (
             <View style={styles.tabBadge}>
-              <Text style={styles.tabBadgeTxt}>{confirmedOrders.length}</Text>
+              <Text style={styles.tabBadgeTxt}>{countFor(['pending'])}</Text>
             </View>
           )}
         </Pressable>
       </View>
 
-      {/* Products List */}
       {activeTab === 'products' ? (
         <FlatList
           data={products}
@@ -397,79 +391,59 @@ export default function SupplierProductsScreen() {
         />
       ) : (
         <View style={{ flex: 1 }}>
-          {/* Order Sub-tabs */}
-          <View style={styles.subTabRow}>
-            <Pressable
-              onPress={() => setOrderTab('confirmed')}
-              style={[styles.subTab, orderTab === 'confirmed' && styles.subTabActive]}
-            >
-              <Ionicons
-                name="checkmark-circle-outline"
-                size={14}
-                color={orderTab === 'confirmed' ? GREEN : C.textTertiary}
-              />
-              <Text style={[styles.subTabTxt, orderTab === 'confirmed' && styles.subTabTxtActive]}>
-                Confirmed ({confirmedOrders.length})
-              </Text>
-            </Pressable>
-            <Pressable
-              onPress={() => setOrderTab('old')}
-              style={[styles.subTab, orderTab === 'old' && styles.subTabActive]}
-            >
-              <Ionicons
-                name="time-outline"
-                size={14}
-                color={orderTab === 'old' ? PRIMARY : C.textTertiary}
-              />
-              <Text style={[styles.subTabTxt, orderTab === 'old' && { color: PRIMARY, fontFamily: 'Inter_600SemiBold' }]}>
-                Old Orders ({oldOrders.length})
-              </Text>
-            </Pressable>
-          </View>
-
-          {/* Confirmed Orders List */}
-          {orderTab === 'confirmed' ? (
-            <FlatList
-              data={confirmedOrders}
-              keyExtractor={i => i.id}
-              contentContainerStyle={styles.list}
-              showsVerticalScrollIndicator={false}
-              refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={GREEN} />}
-              ListEmptyComponent={
-                <View style={styles.empty}>
-                  <Ionicons name="checkmark-circle-outline" size={52} color={C.textTertiary} />
-                  <Text style={styles.emptyTitle}>No Confirmed Orders</Text>
-                  <Text style={styles.emptySub}>Accepted orders will appear here ready for delivery</Text>
-                </View>
-              }
-              renderItem={renderConfirmedOrder}
-            />
-          ) : (
-            /* Old Orders List */
-            <FlatList
-              data={oldOrders}
-              keyExtractor={i => i.id}
-              contentContainerStyle={styles.list}
-              showsVerticalScrollIndicator={false}
-              refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={PRIMARY} />}
-              ListHeaderComponent={
-                oldOrders.length > 0 ? (
-                  <View style={styles.oldHeader}>
-                    <Ionicons name="archive-outline" size={15} color={C.textTertiary} />
-                    <Text style={styles.oldHeaderTxt}>Order History — {oldOrders.length} orders</Text>
+          {/* Order Status Tabs — horizontal scroll */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.orderTabScroll}
+            contentContainerStyle={styles.orderTabContent}
+          >
+            {ORDER_TABS.map(tab => {
+              const count = countFor(tab.statuses);
+              const isActive = orderTab === tab.key;
+              return (
+                <Pressable
+                  key={tab.key}
+                  onPress={() => setOrderTab(tab.key)}
+                  style={[styles.orderTab, isActive && { borderBottomColor: tab.color, borderBottomWidth: 2 }]}
+                >
+                  <Ionicons name={tab.icon} size={13} color={isActive ? tab.color : C.textTertiary} />
+                  <Text style={[styles.orderTabTxt, isActive && { color: tab.color, fontFamily: 'Inter_600SemiBold' }]}>
+                    {tab.label}
+                  </Text>
+                  <View style={[styles.orderTabCount, { backgroundColor: isActive ? tab.color : C.border }]}>
+                    <Text style={[styles.orderTabCountTxt, { color: isActive ? '#FFF' : C.textTertiary }]}>{count}</Text>
                   </View>
-                ) : null
-              }
-              ListEmptyComponent={
-                <View style={styles.empty}>
-                  <Ionicons name="time-outline" size={52} color={C.textTertiary} />
-                  <Text style={styles.emptyTitle}>No Past Orders</Text>
-                  <Text style={styles.emptySub}>Delivered and completed orders will appear here</Text>
-                </View>
-              }
-              renderItem={renderOldOrder}
-            />
-          )}
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+
+          {/* Orders List */}
+          <FlatList
+            key={orderTab}
+            data={currentOrders}
+            keyExtractor={i => i.id}
+            contentContainerStyle={styles.list}
+            showsVerticalScrollIndicator={false}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={currentTabDef.color} />}
+            ListEmptyComponent={
+              <View style={styles.empty}>
+                <Ionicons name={currentTabDef.icon} size={52} color={C.textTertiary} />
+                <Text style={styles.emptyTitle}>No {currentTabDef.label}</Text>
+                <Text style={styles.emptySub}>
+                  {orderTab === 'pending'   && 'New orders from customers will appear here'}
+                  {orderTab === 'confirmed' && 'Orders you confirmed will appear here'}
+                  {orderTab === 'shipped'   && 'Shipped orders will appear here'}
+                  {orderTab === 'delivered' && 'Successfully delivered orders appear here'}
+                  {orderTab === 'old'       && 'Completed and archived orders appear here'}
+                </Text>
+              </View>
+            }
+            renderItem={({ item }) => (
+              <OrderCard item={item} onAction={handleStatusChange} loadingId={loadingId} />
+            )}
+          />
         </View>
       )}
     </View>
@@ -488,26 +462,27 @@ const styles = StyleSheet.create({
   statIcon: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
   statValue: { fontSize: 20, fontFamily: 'Inter_700Bold', color: C.text },
   statLabel: { fontSize: 11, color: C.textTertiary, fontFamily: 'Inter_400Regular', marginTop: 2 },
-  tabRow: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: C.border, backgroundColor: C.surface },
-  tab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, borderBottomWidth: 2, borderBottomColor: 'transparent' },
-  tabActive: { borderBottomColor: PRIMARY },
-  tabTxt: { fontSize: 13, fontFamily: 'Inter_500Medium', color: C.textTertiary },
-  tabTxtActive: { color: PRIMARY, fontFamily: 'Inter_600SemiBold' },
-  tabBadge: { backgroundColor: GREEN, borderRadius: 9, minWidth: 18, height: 18, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
+  mainTabRow: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: C.border, backgroundColor: C.surface },
+  mainTab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, borderBottomWidth: 2, borderBottomColor: 'transparent' },
+  mainTabActive: { borderBottomColor: PRIMARY },
+  mainTabTxt: { fontSize: 13, fontFamily: 'Inter_500Medium', color: C.textTertiary },
+  mainTabTxtActive: { color: PRIMARY, fontFamily: 'Inter_600SemiBold' },
+  tabBadge: { backgroundColor: ORANGE, borderRadius: 9, minWidth: 18, height: 18, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
   tabBadgeTxt: { color: '#FFF', fontSize: 10, fontFamily: 'Inter_700Bold' },
-  subTabRow: { flexDirection: 'row', backgroundColor: C.surface, borderBottomWidth: 1, borderBottomColor: C.border, paddingHorizontal: 16, gap: 0 },
-  subTab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingVertical: 10, borderBottomWidth: 2, borderBottomColor: 'transparent' },
-  subTabActive: { borderBottomColor: GREEN },
-  subTabTxt: { fontSize: 13, fontFamily: 'Inter_500Medium', color: C.textTertiary },
-  subTabTxtActive: { color: GREEN, fontFamily: 'Inter_600SemiBold' },
-  list: { padding: 16, paddingBottom: Platform.OS === 'web' ? 100 : 80, gap: 12 },
+  orderTabScroll: { backgroundColor: C.surface, borderBottomWidth: 1, borderBottomColor: C.border, maxHeight: 46, flexGrow: 0 },
+  orderTabContent: { paddingHorizontal: 8, flexDirection: 'row', alignItems: 'center' },
+  orderTab: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 12, borderBottomWidth: 2, borderBottomColor: 'transparent' },
+  orderTabTxt: { fontSize: 12, fontFamily: 'Inter_500Medium', color: C.textTertiary },
+  orderTabCount: { borderRadius: 8, minWidth: 18, height: 16, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
+  orderTabCountTxt: { fontSize: 10, fontFamily: 'Inter_700Bold' },
+  list: { padding: 14, paddingBottom: Platform.OS === 'web' ? 100 : 80, gap: 12 },
   productRow: { flexDirection: 'row', backgroundColor: C.surface, borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: C.border, alignItems: 'center' },
   productImgWrap: { width: 80, height: 80 },
   productImg: { width: 80, height: 80, backgroundColor: C.surfaceElevated },
-  productImgPlaceholder: { alignItems: 'center', justifyContent: 'center' },
+  imgPlaceholder: { alignItems: 'center', justifyContent: 'center' },
   productInfo: { flex: 1, padding: 10 },
   productTitle: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: C.text },
-  productCategory: { fontSize: 11, color: C.textTertiary, fontFamily: 'Inter_400Regular', textTransform: 'capitalize', marginTop: 2 },
+  productCat: { fontSize: 11, color: C.textTertiary, fontFamily: 'Inter_400Regular', textTransform: 'capitalize', marginTop: 2 },
   productMeta: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
   productPrice: { fontSize: 15, fontFamily: 'Inter_700Bold', color: PRIMARY },
   stockBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
@@ -517,27 +492,28 @@ const styles = StyleSheet.create({
   productActions: { paddingRight: 10, gap: 8 },
   actionBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: C.surfaceElevated, alignItems: 'center', justifyContent: 'center' },
   orderCard: { backgroundColor: C.surface, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: C.border },
-  oldCard: { opacity: 0.9 },
-  ocTop: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
-  ocImg: { width: 60, height: 60, borderRadius: 10, backgroundColor: C.surfaceElevated },
-  ocImgPlaceholder: { alignItems: 'center', justifyContent: 'center' },
-  ocInfo: { flex: 1 },
-  ocTitle: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: C.text, lineHeight: 19 },
-  ocBuyer: { fontSize: 12, color: C.textSecondary, fontFamily: 'Inter_400Regular', marginTop: 3 },
-  ocPhone: { fontSize: 12, color: '#007AFF', fontFamily: 'Inter_400Regular', marginTop: 1 },
-  ocMeta: { flexDirection: 'row', gap: 10, marginTop: 5 },
-  ocQty: { fontSize: 11, color: C.textTertiary, fontFamily: 'Inter_400Regular' },
-  ocDate: { fontSize: 11, color: C.textTertiary, fontFamily: 'Inter_400Regular' },
-  ocRight: { alignItems: 'flex-end', gap: 6 },
+  cardTop: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
+  cardImg: { width: 56, height: 56, borderRadius: 10, backgroundColor: C.surfaceElevated },
+  cardInfo: { flex: 1 },
+  cardTitle: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: C.text, lineHeight: 19 },
+  cardBuyer: { fontSize: 12, color: C.textSecondary, fontFamily: 'Inter_400Regular', marginTop: 2 },
+  cardPhone: { fontSize: 12, color: BLUE, fontFamily: 'Inter_400Regular', marginTop: 1 },
+  cardMeta: { flexDirection: 'row', gap: 6, marginTop: 5, alignItems: 'center' },
+  cardMetaTxt: { fontSize: 11, color: C.textTertiary, fontFamily: 'Inter_400Regular' },
+  cardRight: { alignItems: 'flex-end', gap: 6 },
   statusPill: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
   statusPillTxt: { fontSize: 11, fontFamily: 'Inter_600SemiBold' },
-  ocAmount: { fontSize: 15, fontFamily: 'Inter_700Bold', color: GREEN },
+  cardAmount: { fontSize: 14, fontFamily: 'Inter_700Bold', color: GREEN },
   addressRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: C.border },
-  addressTxt: { fontSize: 12, color: C.textTertiary, fontFamily: 'Inter_400Regular', flex: 1 },
-  deliverBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: GREEN, borderRadius: 10, paddingVertical: 11, marginTop: 12 },
-  deliverBtnTxt: { color: '#FFF', fontFamily: 'Inter_700Bold', fontSize: 14 },
-  oldHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },
-  oldHeaderTxt: { fontSize: 12, color: C.textTertiary, fontFamily: 'Inter_400Regular' },
+  addressTxt: { fontSize: 11, color: C.textTertiary, fontFamily: 'Inter_400Regular', flex: 1 },
+  btnRow: { flexDirection: 'row', gap: 10, marginTop: 12 },
+  btn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: 10, paddingVertical: 11 },
+  btnConfirm: { backgroundColor: GREEN },
+  btnReject: { backgroundColor: '#FF3B3010', borderWidth: 1, borderColor: '#FF3B30', flex: 0.5 },
+  btnRejectTxt: { color: '#FF3B30', fontFamily: 'Inter_600SemiBold', fontSize: 13 },
+  btnShip: { backgroundColor: '#8B5CF6', marginTop: 12 },
+  btnDeliver: { backgroundColor: GREEN, marginTop: 12 },
+  btnTxt: { color: '#FFF', fontFamily: 'Inter_700Bold', fontSize: 14 },
   empty: { alignItems: 'center', paddingTop: 60, paddingHorizontal: 40 },
   emptyTitle: { fontSize: 18, fontFamily: 'Inter_700Bold', color: C.text, marginTop: 16 },
   emptySub: { fontSize: 14, color: C.textTertiary, fontFamily: 'Inter_400Regular', textAlign: 'center', marginTop: 8 },
