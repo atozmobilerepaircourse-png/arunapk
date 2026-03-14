@@ -31,7 +31,10 @@ import * as WebBrowser from 'expo-web-browser';
 // Native ApplicationVerifier stub — Firebase uses APNs/SafetyNet on native, not reCAPTCHA
 class NativeApplicationVerifier {
   readonly type = 'recaptcha' as const;
-  async verify(): Promise<string> { return ''; }
+  async verify(): Promise<string> { 
+    // Return empty string — Firebase handles native verification
+    return '';
+  }
 }
 
 const C = Colors.light;
@@ -332,8 +335,8 @@ export default function OnboardingScreen() {
         webConfirmationRef.current = confirmation;
       } else {
         // Native: Firebase uses APNs (iOS) / SafetyNet (Android) — no modal needed
-        const verifier = recaptchaVerifierRef.current ?? new NativeApplicationVerifier();
-        const confirmation = await signInWithPhoneNumber(firebaseAuth, fullPhone, verifier as any);
+        const verifier = recaptchaVerifierRef.current || new NativeApplicationVerifier();
+        const confirmation = await signInWithPhoneNumber(firebaseAuth, fullPhone, verifier);
         webConfirmationRef.current = confirmation;
       }
 
