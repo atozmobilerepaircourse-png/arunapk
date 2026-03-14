@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script>
+        window.FontAwesomeConfig = {
+          autoReplaceSvg: 'nest'
+        };
+      </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add Product - Inventory Management</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: '#4F46E5', // Indigo-600
+                        primaryHover: '#4338CA', // Indigo-700
+                        sidebar: '#FFFFFF',
+                        background: '#F3F4F6', // Gray-100
+                        card: '#FFFFFF',
+                        textMain: '#111827', // Gray-900
+                        textMuted: '#6B7280', // Gray-500
+                        border: '#E5E7EB', // Gray-200
+                        inputBg: '#F9FAFB', // Gray-50
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        ::-webkit-scrollbar { display: none; }
+        body { font-family: 'Inter', sans-serif; background-color: #F3F4F6; }
+        
+        /* Custom Checkbox/Radio styling for the Tags dropdown */
+        .custom-radio {
+            appearance: none;
+            background-color: #fff;
+            margin: 0;
+            font: inherit;
+            color: currentColor;
+            width: 1.15em;
+            height: 1.15em;
+            border: 2px solid #D1D5DB;
+            border-radius: 50%;
+            display: grid;
+            place-content: center;
+        }
+        .custom-radio::before {
+            content: "";
+            width: 0.65em;
+            height: 0.65em;
+            border-radius: 50%;
+            transform: scale(0);
+            transition: 120ms transform ease-in-out;
+            box-shadow: inset 1em 1em #4F46E5;
+        }
+        .custom-radio:checked::before {
+            transform: scale(1);
+        }
+        .custom-radio:checked {
+            border-color: #4F46E5;
+        }
+    </style>
+</head>
+<body class="flex h-screen overflow-hidden text-textMain bg-background">
+
+    <!-- Sidebar -->
+    <aside id="sidebar" class="fixed inset-y-0 left-0 z-50 w-64 bg-sidebar border-r border-border transform -translate-x-full lg:translate-x-0 lg:static lg:inset-0 transition-transform duration-300 ease-in-out flex flex-col flex-shrink-0 h-full">
+        <!-- Logo -->
+        <div class="h-16 flex items-center px-6 border-b border-border">
+            <div class="flex items-center gap-2 text-primary">
+                <i class="fa-solid fa-layer-group text-2xl"></i>
+                <span class="text-xl font-bold text-textMain tracking-tight">Kusale</span>
+            </div>
+        </div>
+
+        <!-- Navigation -->
+        <nav class="flex-1 overflow-y-auto py-4 px-3 space-y-1">
+            <a href="#" class="flex items-center px-3 py-2.5 text-sm font-medium text-textMuted rounded-lg hover:bg-gray-50 hover:text-textMain transition-colors">
+                <i class="fa-solid fa-gauge w-6 text-center"></i>
+                Dashboard
+            </a>
+            <a href="#" class="flex items-center px-3 py-2.5 text-sm font-medium text-textMuted rounded-lg hover:bg-gray-50 hover:text-textMain transition-colors justify-between">
+                <div class="flex items-center">
+                    <i class="fa-regular fa-file-lines w-6 text-center"></i>
+                    Report
+                </div>
+                <span class="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">8</span>
+            </a>
+            <a href="#" class="flex items-center px-3 py-2.5 text-sm font-medium text-primary bg-indigo-50 rounded-lg relative">
+                <div class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-primary rounded-r-md"></div>
+                <i class="fa-solid fa-tags w-6 text-center"></i>
+                Products
+            </a>
+            <a href="#" class="flex items-center px-3 py-2.5 text-sm font-medium text-textMuted rounded-lg hover:bg-gray-50 hover:text-textMain transition-colors">
+                <i class="fa-solid fa-chart-line w-6 text-center"></i>
+                Analytics
+            </a>
+            <a href="#" class="flex items-center px-3 py-2.5 text-sm font-medium text-textMuted rounded-lg hover:bg-gray-50 hover:text-textMain transition-colors">
+                <i class="fa-solid fa-money-bill-transfer w-6 text-center"></i>
+                Transaction
+            </a>
+            <a href="#" class="flex items-center px-3 py-2.5 text-sm font-medium text-textMuted rounded-lg hover:bg-gray-50 hover:text-textMain transition-colors">
+                <i class="fa-solid fa-file-invoice w-6 text-center"></i>
+                Invoice
+            </a>
+            <a href="#" class="flex items-center px-3 py-2.5 text-sm font-medium text-textMuted rounded-lg hover:bg-gray-50 hover:text-textMain transition-colors">
+                <i class="fa-solid fa-users w-6 text-center"></i>
+                Customers
+            </a>
+        </nav>
+
+        <!-- Bottom Links -->
+        <div class="p-4 border-t border-border space-y-1">
+            <a href="#" class="flex items-center px-3 py-2.5 text-sm font-medium text-textMuted rounded-lg hover:bg-gray-50 hover:text-textMain transition-colors">
+                <i class="fa-solid fa-gear w-6 text-center"></i>
+                Settings
+            </a>
+            <a href="#" class="flex items-center px-3 py-2.5 text-sm font-medium text-textMuted rounded-lg hover:bg-gray-50 hover:text-textMain transition-colors">
+                <i class="fa-regular fa-circle-question w-6 text-center"></i>
+                Help Center
+            </a>
+            <a href="#" class="flex items-center px-3 py-2.5 text-sm font-medium text-red-600 rounded-lg hover:bg-red-50 transition-colors mt-4">
+                <i class="fa-solid fa-arrow-right-from-bracket w-6 text-center"></i>
+                Sign Out
+            </a>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-col h-full overflow-hidden">
+        
+        <!-- Top Header -->
+        <header id="top-header" class="h-16 bg-card border-b border-border flex items-center justify-between px-4 md:px-8 flex-shrink-0">
+            <!-- Mobile Menu Toggle & Search -->
+            <div class="flex items-center flex-1 gap-4">
+                <button onclick="document.getElementById('sidebar').classList.toggle('-translate-x-full')" class="lg:hidden text-textMuted hover:text-textMain p-2">
+                    <i class="fa-solid fa-bars text-xl"></i>
+                </button>
+                
+                <div class="relative w-full max-w-md hidden sm:block">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <i class="fa-solid fa-magnifying-glass text-textMuted"></i>
+                    </div>
+                    <input type="text" class="block w-full pl-10 pr-12 py-2 border border-border rounded-lg bg-inputBg text-sm placeholder-textMuted focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-shadow" placeholder="Search Stock or Orders">
+                    <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                        <span class="text-xs text-textMuted font-medium border border-gray-200 rounded px-1.5 py-0.5 bg-white">⌘ + F</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Actions -->
+            <div class="flex items-center gap-4 sm:gap-6">
+                <div class="flex items-center gap-3">
+                    <button class="relative text-textMuted hover:text-textMain transition-colors">
+                        <i class="fa-regular fa-bell text-xl"></i>
+                        <span class="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold h-4 w-4 rounded-full flex items-center justify-center border-2 border-white">2</span>
+                    </button>
+                    <button class="relative text-textMuted hover:text-textMain transition-colors">
+                        <i class="fa-regular fa-envelope text-xl"></i>
+                        <span class="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold h-4 w-4 rounded-full flex items-center justify-center border-2 border-white">2</span>
+                    </button>
+                </div>
+                
+                <div class="h-8 w-px bg-border hidden sm:block"></div>
+
+                <div class="flex items-center gap-3 cursor-pointer">
+                    <div class="relative">
+                        <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-1.jpg" alt="Admin Profile" class="h-9 w-9 rounded-full object-cover border border-gray-200">
+                        <div class="absolute bottom-0 right-0 h-2.5 w-2.5 bg-green-500 rounded-full border-2 border-white"></div>
+                    </div>
+                    <div class="hidden sm:block text-sm">
+                        <p class="font-semibold text-textMain leading-tight">Marylin Mondrong</p>
+                        <p class="text-xs text-textMuted">Afternoon Admin</p>
+                    </div>
+                    <i class="fa-solid fa-chevron-down text-textMuted text-xs hidden sm:block"></i>
+                </div>
+            </div>
+        </header>
+
+        <!-- Page Content Scrollable Area -->
+        <div class="flex-1 overflow-y-auto p-4 sm:p-8">
+            <div class="max-w-7xl mx-auto space-y-6">
+                
+                <!-- Page Header & Breadcrumbs -->
+                <div class="bg-card rounded-xl border border-border p-4 md:p-6 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                    <div class="space-y-1">
+                        <div class="flex items-center gap-3">
+                            <h1 class="text-xl md:text-2xl font-bold text-textMain">Add Product</h1>
+                            <span class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 border border-yellow-200">Draft</span>
+                        </div>
+                        <nav class="flex text-xs md:text-sm text-textMuted gap-2 items-center overflow-x-auto whitespace-nowrap">
+                            <a href="#" class="text-primary hover:underline">Dashboard</a>
+                            <i class="fa-solid fa-chevron-right text-[10px]"></i>
+                            <a href="#" class="text-primary hover:underline">Product List</a>
+                            <i class="fa-solid fa-chevron-right text-[10px]"></i>
+                            <span class="text-textMuted">Add Product</span>
+                        </nav>
+                    </div>
+                    <div class="flex flex-col sm:flex-row items-center gap-3">
+                        <div class="w-full sm:w-48">
+                            <select class="w-full px-3 py-2 bg-inputBg border border-border rounded-lg text-sm focus:ring-1 focus:ring-primary">
+                                <option>Status: Draft</option>
+                                <option>Status: Published</option>
+                                <option>Status: Scheduled</option>
+                            </select>
+                        </div>
+                        <div class="flex gap-3 w-full sm:w-auto">
+                            <button class="flex-1 sm:flex-none px-4 py-2 text-sm font-medium text-red-500 bg-white border border-red-200 rounded-lg hover:bg-red-50">Discard</button>
+                            <button class="flex-1 sm:flex-none px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primaryHover shadow-sm">Add Product</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Main Form Grid -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    
+                    <!-- Left Column -->
+                    <div class="lg:col-span-2 space-y-6">
+                        
+                        <!-- General Information Card -->
+                        <div id="general-info" class="bg-card rounded-xl border border-border p-6 shadow-sm">
+                            <h2 class="text-lg font-semibold text-textMain mb-5">General Information</h2>
+                            
+                            <div class="space-y-5">
+                                <div>
+                                    <label class="block text-sm font-medium text-textMuted mb-1.5">Product Name</label>
+                                    <input type="text" value="Xiaomi Watch 2 Pro" class="w-full px-4 py-2.5 bg-inputBg border border-border rounded-lg text-sm text-textMain focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary">
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-textMuted mb-1.5">Description</label>
+                                    <textarea rows="4" class="w-full px-4 py-2.5 bg-inputBg border border-border rounded-lg text-sm text-textMain focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary leading-relaxed resize-none">Xiaomi Watch 2 Pro supports 19 professional fitness modes such as for basketball, tennis, swimming, and HIIT, and also for nearly 100 additional fitness modes. Accurately monitor and analyze important data, such as heart rate, average pace, and calories burned, for more efficient exercise. Waterproof 5 ATM* Suitable for swimming.</textarea>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Pricing Card -->
+                        <div id="pricing-info" class="bg-card rounded-xl border border-border p-6 shadow-sm">
+                            <h2 class="text-lg font-semibold text-textMain mb-5">Pricing</h2>
+                            
+                            <div class="space-y-5">
+                                <div>
+                                    <label class="block text-sm font-medium text-textMuted mb-1.5">Base Price</label>
+                                    <div class="relative">
+                                        <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                            <span class="text-textMuted sm:text-sm">$</span>
+                                        </div>
+                                        <input type="text" value="118.89" class="w-full pl-8 pr-4 py-2.5 bg-inputBg border border-border rounded-lg text-sm text-textMain focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary">
+                                    </div>
+                                </div>
+                                
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                                    <div>
+                                        <label class="block text-sm font-medium text-textMuted mb-1.5">Discount Precentage (%)</label>
+                                        <input type="text" value="25%" class="w-full px-4 py-2.5 bg-inputBg border border-border rounded-lg text-sm text-textMain focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-textMuted mb-1.5">Discount Type</label>
+                                        <div class="relative">
+                                            <select class="w-full px-4 py-2.5 bg-inputBg border border-border rounded-lg text-sm text-textMuted appearance-none focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary">
+                                                <option>Select a discount type</option>
+                                                <option>Percentage</option>
+                                                <option>Fixed Amount</option>
+                                            </select>
+                                            <div class="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none text-textMuted">
+                                                <i class="fa-solid fa-caret-down"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Inventory Card -->
+                        <div id="inventory-info" class="bg-card rounded-xl border border-border p-6 shadow-sm">
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-5">
+                                <h2 class="text-lg font-semibold text-textMain">Inventory</h2>
+                                <div class="flex items-center gap-2 text-xs font-medium text-green-600 bg-green-50 px-2 py-1 rounded-md border border-green-100">
+                                    <span class="relative flex h-2 w-2">
+                                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                        <span class="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                                    </span>
+                                    Real-time Sync Active
+                                </div>
+                            </div>
+                            
+                            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                                <div>
+                                    <label class="block text-sm font-medium text-textMuted mb-1.5">SKU</label>
+                                    <input type="text" value="113902" class="w-full px-4 py-2.5 bg-inputBg border border-border rounded-lg text-sm focus:ring-1 focus:ring-primary">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-textMuted mb-1.5">Quantity</label>
+                                    <input type="number" value="45" class="w-full px-4 py-2.5 bg-inputBg border border-border rounded-lg text-sm focus:ring-1 focus:ring-primary">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-textMuted mb-1.5">Low Stock Alert</label>
+                                    <input type="number" value="10" class="w-full px-4 py-2.5 bg-inputBg border border-border rounded-lg text-sm focus:ring-1 focus:ring-primary border-red-200">
+                                </div>
+                            </div>
+                            <div class="mt-4 p-3 bg-blue-50 border border-blue-100 rounded-lg flex items-start gap-3">
+                                <i class="fa-solid fa-circle-info text-blue-500 mt-0.5"></i>
+                                <p class="text-xs text-blue-700">Automated re-order rules will trigger when stock falls below 10 units.</p>
+                            </div>
+                        </div>
+
+                        <!-- Variation Card -->
+                        <div id="variation-info" class="bg-card rounded-xl border border-border p-6 shadow-sm mb-8">
+                            <div class="flex items-center justify-between mb-5">
+                                <h2 class="text-lg font-semibold text-textMain">Variation</h2>
+                                <button class="text-primary text-sm font-medium hover:underline">+ Add Variation</button>
+                            </div>
+                            
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-sm text-left">
+                                    <thead class="bg-gray-50 text-textMuted">
+                                        <tr>
+                                            <th class="px-4 py-3 font-medium">Type</th>
+                                            <th class="px-4 py-3 font-medium">Value</th>
+                                            <th class="px-4 py-3 font-medium">Price</th>
+                                            <th class="px-4 py-3 font-medium">Sync Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-border">
+                                        <tr>
+                                            <td class="px-4 py-3">Color</td>
+                                            <td class="px-4 py-3">Space Gray</td>
+                                            <td class="px-4 py-3">$118.89</td>
+                                            <td class="px-4 py-3">
+                                                <span class="flex items-center gap-1.5 text-xs text-green-600"><i class="fa-solid fa-check-circle"></i> Linked</span>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Column -->
+                    <div class="space-y-6">
+                        
+                        <!-- Product Media Card -->
+                        <div id="media-info" class="bg-card rounded-xl border border-border p-6 shadow-sm">
+                            <h2 class="text-lg font-semibold text-textMain mb-5">Product Media</h2>
+                            <div class="border-2 border-dashed border-gray-200 rounded-xl p-4 text-center bg-gray-50/50">
+                                <div class="grid grid-cols-2 gap-3 mb-4">
+                                    <AI-IMAGE class="
+                                        w-24 h-24 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center bg-white/50
+                                        hover:border-gray-400 hover:bg-white/70 transition-all duration-200 cursor-pointer
+                                        group
+                                    ">
+                                        <i class="fa-solid fa-plus text-gray-400 group-hover:text-gray-600"></i>
+                                        <span class="sr-only">Upload Image</span>
+                                    </AI-IMAGE>
+                                    <AI-IMAGE class="
+                                        w-24 h-24 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center bg-white/50
+                                        hover:border-gray-400 hover:bg-white/70 transition-all duration-200 cursor-pointer
+                                        group
+                                    ">
+                                        <i class="fa-solid fa-plus text-gray-400 group-hover:text-gray-600"></i>
+                                        <span class="sr-only">Upload Image</span>
+                                    </AI-IMAGE>
+                                </div>
+                                <p class="text-sm text-textMuted">Drag and drop images here or click to upload</p>
+                            </div>
+                        </div>
+
+                        <!-- Category Card (With Dropdown Open State simulated) -->
+                        <div id="category-info" class="bg-card rounded-xl border border-border p-6 shadow-sm relative">
+                            <h2 class="text-lg font-semibold text-textMain mb-5">Category</h2>
+                            
+                            <div class="space-y-5">
+                                <div>
+                                    <label class="block text-sm font-medium text-textMuted mb-1.5">Product Category</label>
+                                    <div class="relative">
+                                        <select class="w-full px-4 py-2.5 bg-inputBg border border-border rounded-lg text-sm text-textMain appearance-none focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary">
+                                            <option>Electronics</option>
+                                            <option>Fashion</option>
+                                            <option>Home & Garden</option>
+                                        </select>
+                                        <div class="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none text-textMuted">
+                                            <i class="fa-solid fa-caret-down"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-textMuted mb-1.5">Product Tags</label>
+                                    <div class="relative">
+                                        <!-- Simulated Select Input -->
+                                        <div class="w-full px-4 py-2.5 bg-inputBg border border-border rounded-lg text-sm text-textMain flex justify-between items-center cursor-pointer">
+                                            <span>Internet Of Things</span>
+                                            <i class="fa-solid fa-caret-down text-textMuted"></i>
+                                        </div>
+                                        
+                                        <!-- Simulated Open Dropdown Menu (Positioned absolutely over the input to match image) -->
+                                        <div class="absolute top-full left-0 mt-2 w-full bg-white rounded-xl shadow-lg border border-border z-10 p-4 pt-5 pb-5">
+                                            <h3 class="text-sm font-semibold text-textMain mb-4 px-1">Product Tags</h3>
+                                            
+                                            <div class="space-y-3 mb-6">
+                                                <label class="flex items-center gap-3 cursor-pointer group px-1">
+                                                    <input type="radio" name="tags" class="custom-radio">
+                                                    <span class="text-sm text-textMuted group-hover:text-textMain transition-colors">Clothing</span>
+                                                </label>
+                                                <label class="flex items-center gap-3 cursor-pointer group px-1">
+                                                    <input type="radio" name="tags" class="custom-radio">
+                                                    <span class="text-sm text-textMuted group-hover:text-textMain transition-colors">Toys</span>
+                                                </label>
+                                                <label class="flex items-center gap-3 cursor-pointer group px-1">
+                                                    <input type="radio" name="tags" class="custom-radio" checked>
+                                                    <span class="text-sm text-textMain font-medium">Internet Of Things</span>
+                                                </label>
+                                                <label class="flex items-center gap-3 cursor-pointer group px-1">
+                                                    <input type="radio" name="tags" class="custom-radio">
+                                                    <span class="text-sm text-textMuted group-hover:text-textMain transition-colors">Books & Stationaries</span>
+                                                </label>
+                                                <label class="flex items-center gap-3 cursor-pointer group px-1">
+                                                    <input type="radio" name="tags" class="custom-radio">
+                                                    <span class="text-sm text-textMuted group-hover:text-textMain transition-colors">Art Supplies</span>
+                                                </label>
+                                            </div>
+                                            
+                                            <div class="flex justify-end pr-1">
+                                                <button class="px-5 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primaryHover transition-colors shadow-sm">
+                                                    Select Tags
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+</body>
+</html>

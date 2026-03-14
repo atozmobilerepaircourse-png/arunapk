@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script>
+        window.FontAwesomeConfig = {
+          autoReplaceSvg: 'nest'
+        };
+      </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cart & Checkout - MarketHub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#0B4A45',
+                        primaryLight: '#E6F4F1',
+                        accent: '#C74A27',
+                        accentLight: '#FDECE8',
+                        textMain: '#1F2937',
+                        textMuted: '#6B7280',
+                        bgBase: '#F9FAFB',
+                        cardBg: '#FFFFFF',
+                        borderMuted: '#F3F4F6',
+                        success: '#A3D977',
+                        warning: '#F59E0B',
+                        // Inspiration colors
+                        grapeBg: '#E8F3D6',
+                        grapeDark: '#5E2B4B',
+                        grapeLight: '#F2DDE5',
+                        grapeBlue: '#D6E4F0',
+                        grapeGreen: '#8EB33B',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        heading: ['Bebas Neue', 'sans-serif'], // Assuming Bebas Neue for headings from inspiration
+                    },
+                    boxShadow: {
+                        'soft': '0 4px 20px -2px rgba(0, 0, 0, 0.05)',
+                        'nav': '0 -4px 20px -2px rgba(0, 0, 0, 0.05)',
+                        'card': '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+                    },
+                    borderRadius: {
+                        'xl': '1rem',
+                        '2xl': '1.5rem',
+                        '3xl': '2rem',
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Bebas+Neue&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #F9FAFB; }
+        h1, h2, h3, .font-heading { font-family: 'Bebas Neue', sans-serif; letter-spacing: 0.05em; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        
+        /* Custom radio button style */
+        .custom-radio {
+            appearance: none;
+            background-color: #fff;
+            margin: 0;
+            font: inherit;
+            color: currentColor;
+            width: 1.15em;
+            height: 1.15em;
+            border: 1px solid #D1D5DB;
+            border-radius: 50%;
+            display: grid;
+            place-content: center;
+            cursor: pointer;
+        }
+
+        .custom-radio::before {
+            content: "";
+            width: 0.65em;
+            height: 0.65em;
+            border-radius: 50%;
+            transform: scale(0);
+            transition: 120ms transform ease-in-out;
+            box-shadow: inset 1em 1em white;
+            background-color: white;
+        }
+
+        .custom-radio:checked {
+            background-color: #0B4A45;
+            border-color: #0B4A45;
+        }
+
+        .custom-radio:checked::before {
+            transform: scale(1);
+        }
+
+        /* Custom Checkbox */
+        .custom-checkbox {
+            appearance: none;
+            background-color: #fff;
+            margin: 0;
+            font: inherit;
+            color: currentColor;
+            width: 1.15em;
+            height: 1.15em;
+            border: 1px solid #D1D5DB;
+            border-radius: 0.25em;
+            display: grid;
+            place-content: center;
+            cursor: pointer;
+        }
+
+        .custom-checkbox::before {
+            content: "\f00c";
+            font-family: "Font Awesome 6 Free";
+            font-weight: 900;
+            font-size: 0.7em;
+            transform: scale(0);
+            transition: 120ms transform ease-in-out;
+            color: white;
+        }
+
+        .custom-checkbox:checked {
+            background-color: #0B4A45;
+            border-color: #0B4A45;
+        }
+
+        .custom-checkbox:checked::before {
+            transform: scale(1);
+        }
+    </style>
+</head>
+<body class="text-textMain pb-20 lg:pb-0">
+
+    <!-- Desktop Sidebar Navigation -->
+    <aside id="sidebar" class="fixed inset-y-0 left-0 bg-white border-r border-borderMuted z-50 transition-transform duration-300 transform -translate-x-full lg:translate-x-0 w-64 flex flex-col">
+        <div class="p-6 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white">
+                    <i class="fa-solid fa-cube text-sm"></i>
+                </div>
+                <span class="text-xl font-bold text-textMain font-heading">MarketHub</span>
+            </div>
+            <button onclick="toggleSidebar()" class="lg:hidden text-textMuted p-2">
+                <i class="fa-solid fa-xmark text-xl"></i>
+            </button>
+        </div>
+
+        <nav class="flex-1 px-4 space-y-1 overflow-y-auto">
+            <a href="#" class="flex items-center gap-3 px-3 py-2.5 text-textMuted hover:bg-gray-50 rounded-lg font-medium transition-colors">
+                <i class="fa-solid fa-house w-5 text-center"></i> Customer Home
+            </a>
+            <a href="#" class="flex items-center gap-3 px-3 py-2.5 text-textMuted hover:bg-gray-50 rounded-lg font-medium transition-colors">
+                <i class="fa-solid fa-magnifying-glass w-5 text-center"></i> Catalog & Search
+            </a>
+            <a href="#" class="flex items-center gap-3 px-3 py-2.5 text-textMuted hover:bg-gray-50 rounded-lg font-medium transition-colors">
+                <i class="fa-regular fa-heart w-5 text-center"></i> Wishlist
+            </a>
+            <a href="#" class="flex items-center gap-3 px-3 py-2.5 text-textMuted hover:bg-gray-50 rounded-lg font-medium transition-colors">
+                <i class="fa-solid fa-box w-5 text-center"></i> Orders
+            </a>
+            <a href="#" class="flex items-center gap-3 px-3 py-2.5 text-textMuted hover:bg-gray-50 rounded-lg font-medium transition-colors">
+                <i class="fa-solid fa-chart-line w-5 text-center"></i> Supplier Dashboard
+            </a>
+            <a href="#" class="flex items-center gap-3 px-3 py-2.5 text-textMuted hover:bg-gray-50 rounded-lg font-medium transition-colors">
+                <i class="fa-solid fa-shield-halved w-5 text-center"></i> Admin Global Dashboard
+            </a>
+            
+            <div class="pt-4 mt-4 border-t border-borderMuted">
+                <p class="px-3 text-xs font-semibold text-textMuted uppercase tracking-wider mb-2">Switch Account</p>
+                <button class="w-full flex items-center gap-3 px-3 py-2.5 text-textMuted hover:bg-gray-50 rounded-lg font-medium transition-colors">
+                    <i class="fa-solid fa-repeat w-5 text-center"></i> Switch to Seller
+                </button>
+            </div>
+        </nav>
+
+        <div class="p-4 border-t border-borderMuted">
+            <div class="flex items-center gap-3">
+                <img class="w-10 h-10 rounded-full border border-borderMuted object-cover" src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-1.jpg" alt="Jane Doe" />
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-medium text-textMain truncate">Jane Doe</p>
+                    <p class="text-xs text-textMuted truncate">Customer</p>
+                </div>
+                <button class="text-textMuted hover:text-textMain">
+                    <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                </button>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="lg:ml-64 min-h-screen flex flex-col bg-bgBase">
+        
+        <!-- Header -->
+        <header class="bg-white border-b border-borderMuted sticky top-0 z-40">
+            <div class="px-4 sm:px-6 lg:px-8 py-4">
+                <div class="flex items-center justify-between gap-4">
+                    <div class="flex items-center gap-3 lg:hidden">
+                        <button onclick="toggleSidebar()" class="text-textMain p-2 -ml-2">
+                            <i class="fa-solid fa-bars text-xl"></i>
+                        </button>
+                        <span class="font-heading text-xl">MarketHub</span>
+                    </div>
+                    
+                    <div class="hidden lg:block flex-1">
+                        <h1 class="text-2xl font-heading text-textMain">Secure Checkout</h1>
+                    </div>
+
+                    <div class="flex items-center gap-4">
+                        <div class="flex items-center gap-2 text-sm text-textMuted">
+                            <i class="fa-solid fa-lock text-primary"></i>
+                            <span class="hidden sm:inline">256-bit Secure Connection</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Checkout Content -->
+        <div class="flex-1 overflow-y-auto">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                
+                <div class="flex flex-col lg:flex-row gap-8">
+                    
+                    <!-- Left Column: Cart & Forms -->
+                    <div class="w-full lg:w-2/3 space-y-6">
+                        
+                        <!-- 1. Cart Items Grouped by Seller -->
+                        <div class="bg-white rounded-2xl shadow-sm border border-borderMuted overflow-hidden">
+                            <div class="p-4 md:p-6 border-b border-borderMuted bg-gray-50 flex justify-between items-center">
+                                <h2 class="text-xl md:text-2xl text-textMain m-0">1. Review Cart Items</h2>
+                                <span class="text-sm text-textMuted">3 Items</span>
+                            </div>
+                            
+                            <!-- Seller 1 -->
+                            <div class="p-4 md:p-6 border-b border-borderMuted">
+                                <div class="flex items-center gap-2 mb-4">
+                                    <i class="fa-solid fa-store text-textMuted"></i>
+                                    <h3 class="text-lg font-medium text-textMain m-0">Nature's Best Farms</h3>
+                                </div>
+                                
+                                <div class="space-y-4">
+                                    <div class="flex flex-col md:flex-row gap-4">
+                                        <div class="w-full md:w-24 h-48 md:h-24 bg-grapeBg rounded-xl p-2 flex-shrink-0 flex items-center justify-center">
+                                            <img class="w-full h-full object-contain mix-blend-multiply" src="https://storage.googleapis.com/uxpilot-auth.appspot.com/6b70897994-467611ef43230d9932d4.png" alt="fresh organic red apples, studio lighting, white background" />
+                                        </div>
+                                        <div class="flex-1">
+                                            <div class="flex justify-between">
+                                                <h4 class="font-medium text-textMain">Fresh Organic Red Apples</h4>
+                                                <p class="font-bold text-textMain">$11.00</p>
+                                            </div>
+                                            <p class="text-sm text-textMuted mb-2">1 kg (approx. 6-8 apples)</p>
+                                            <div class="flex items-center justify-between mt-4">
+                                                <div class="flex items-center border border-borderMuted rounded-lg">
+                                                    <button class="px-3 py-1 text-textMuted hover:bg-gray-100 rounded-l-lg">-</button>
+                                                    <span class="px-3 py-1 border-x border-borderMuted text-sm font-medium">2</span>
+                                                    <button class="px-3 py-1 text-textMuted hover:bg-gray-100 rounded-r-lg">+</button>
+                                                </div>
+                                                <button class="text-sm text-accent hover:underline">Remove</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Seller 2 -->
+                            <div class="p-4 md:p-6">
+                                <div class="flex items-center gap-2 mb-4">
+                                    <i class="fa-solid fa-store text-textMuted"></i>
+                                    <h3 class="text-lg font-medium text-textMain m-0">Valley Organics</h3>
+                                </div>
+                                
+                                <div class="space-y-4">
+                                    <div class="flex flex-col sm:flex-row gap-4">
+                                        <div class="w-24 h-24 bg-grapeLight rounded-xl p-2 flex-shrink-0 flex items-center justify-center">
+                                            <i class="fa-solid fa-carrot text-4xl text-orange-500"></i>
+                                        </div>
+                                        <div class="flex-1">
+                                            <div class="flex justify-between">
+                                                <h4 class="font-medium text-textMain">Organic Carrots</h4>
+                                                <p class="font-bold text-textMain">$3.20</p>
+                                            </div>
+                                            <p class="text-sm text-textMuted mb-2">500g bunch</p>
+                                            <div class="flex items-center justify-between mt-4">
+                                                <div class="flex items-center border border-borderMuted rounded-lg">
+                                                    <button class="px-3 py-1 text-textMuted hover:bg-gray-100 rounded-l-lg">-</button>
+                                                    <span class="px-3 py-1 border-x border-borderMuted text-sm font-medium">1</span>
+                                                    <button class="px-3 py-1 text-textMuted hover:bg-gray-100 rounded-r-lg">+</button>
+                                                </div>
+                                                <button class="text-sm text-accent hover:underline">Remove</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 2. Shipping Address -->
+                        <div class="bg-white rounded-2xl shadow-sm border border-borderMuted overflow-hidden">
+                            <div class="p-4 md:p-6 border-b border-borderMuted bg-gray-50 flex justify-between items-center">
+                                <h2 class="text-xl md:text-2xl text-textMain m-0">2. Shipping Address</h2>
+                            </div>
+                            <div class="p-4 md:p-6">
+                                <!-- Saved Addresses -->
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                                    <label class="cursor-pointer relative border-2 border-primary rounded-xl p-4 bg-primaryLight/20 h-full">
+                                        <input type="radio" name="address" checked class="peer sr-only">
+                                        <div class="flex justify-between items-start mb-2">
+                                            <span class="font-medium text-textMain flex items-center gap-2">
+                                                <i class="fa-solid fa-house text-primary"></i> Home
+                                            </span>
+                                            <i class="fa-solid fa-circle-check text-primary text-lg"></i>
+                                        </div>
+                                        <p class="text-sm text-textMuted leading-relaxed">Jane Doe<br>123 Maple Street, Apt 4B<br>New York, NY 10001<br>(555) 123-4567</p>
+                                    </label>
+                                    
+                                    <label class="cursor-pointer relative border border-borderMuted rounded-xl p-4 hover:border-primary/50 transition-colors h-full">
+                                        <input type="radio" name="address" class="peer sr-only">
+                                        <div class="flex justify-between items-start mb-2">
+                                            <span class="font-medium text-textMain flex items-center gap-2">
+                                                <i class="fa-solid fa-building text-textMuted"></i> Office
+                                            </span>
+                                            <div class="w-4 h-4 rounded-full border border-gray-300"></div>
+                                        </div>
+                                        <p class="text-sm text-textMuted leading-relaxed">Jane Doe<br>456 Business Blvd, Suite 200<br>New York, NY 10002<br>(555) 987-6543</p>
+                                    </label>
+                                </div>
+                                
+                                <button class="text-sm font-medium text-primary hover:underline flex items-center gap-2">
+                                    <i class="fa-solid fa-plus"></i> Add New Address
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- 3. Delivery Options -->
+                        <div class="bg-white rounded-2xl shadow-sm border border-borderMuted overflow-hidden">
+                            <div class="p-4 md:p-6 border-b border-borderMuted bg-gray-50 flex justify-between items-center">
+                                <h2 class="text-xl md:text-2xl text-textMain m-0">3. Delivery Options</h2>
+                            </div>
+                            <div class="p-4 md:p-6 space-y-4">
+                                <label class="flex items-start gap-4 p-4 border border-primary bg-primaryLight/10 rounded-xl cursor-pointer">
+                                    <input type="radio" name="delivery" checked class="custom-radio mt-1">
+                                    <div class="flex-1">
+                                        <div class="flex justify-between">
+                                            <span class="font-medium text-textMain">Standard Delivery</span>
+                                            <span class="font-medium text-textMain">$5.99</span>
+                                        </div>
+                                        <p class="text-sm text-textMuted">Delivered by Wed, Oct 25</p>
+                                    </div>
+                                </label>
+                                
+                                <label class="flex items-start gap-4 p-4 border border-borderMuted hover:border-gray-300 rounded-xl cursor-pointer">
+                                    <input type="radio" name="delivery" class="custom-radio mt-1">
+                                    <div class="flex-1">
+                                        <div class="flex justify-between">
+                                            <span class="font-medium text-textMain">Express Delivery</span>
+                                            <span class="font-medium text-textMain">$12.99</span>
+                                        </div>
+                                        <p class="text-sm text-textMuted">Delivered by Tomorrow, Oct 23</p>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- 4. Payment Method -->
+                        <div class="bg-white rounded-2xl shadow-sm border border-borderMuted overflow-hidden">
+                            <div class="p-4 md:p-6 border-b border-borderMuted bg-gray-50 flex justify-between items-center">
+                                <h2 class="text-xl md:text-2xl text-textMain m-0">4. Payment Method</h2>
+                            </div>
+                            <div class="p-4 md:p-6">
+                                <div class="space-y-4 mb-6">
+                                    <label class="flex flex-col sm:flex-row sm:items-center justify-between p-4 border border-primary bg-primaryLight/10 rounded-xl cursor-pointer gap-4">
+                                        <div class="flex items-center gap-4">
+                                            <input type="radio" name="payment" checked class="custom-radio">
+                                            <div class="flex items-center gap-3">
+                                                <div class="w-10 h-6 bg-blue-100 rounded flex items-center justify-center text-blue-800 text-[10px] font-bold">VISA</div>
+                                                <div>
+                                                    <p class="font-medium text-sm text-textMain">Visa ending in 4242</p>
+                                                    <p class="text-xs text-textMuted">Expires 12/25</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <!-- CVV Input for active card -->
+                                        <div class="w-full sm:w-20">
+                                            <input type="text" placeholder="CVV" class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary" maxlength="3">
+                                        </div>
+                                    </label>
+                                    
+                                    <label class="flex items-center justify-between p-4 border border-borderMuted hover:border-gray-300 rounded-xl cursor-pointer">
+                                        <div class="flex items-center gap-4">
+                                            <input type="radio" name="payment" class="custom-radio">
+                                            <div class="flex items-center gap-3">
+                                                <div class="w-10 h-6 bg-yellow-100 rounded flex items-center justify-center text-yellow-800 text-xs font-bold"><i class="fa-brands fa-paypal"></i></div>
+                                                <p class="font-medium text-sm text-textMain">PayPal</p>
+                                            </div>
+                                        </div>
+                                    </label>
+                                </div>
+                                
+                                <button class="text-sm font-medium text-primary hover:underline flex items-center gap-2">
+                                    <i class="fa-solid fa-plus"></i> Add New Payment Method
+                                </button>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- Right Column: Order Summary (Sticky) -->
+                    <div class="w-full lg:w-1/3">
+                        <div class="bg-white rounded-2xl shadow-card border border-borderMuted p-4 md:p-6 lg:sticky lg:top-24">
+                            <h2 class="text-xl md:text-2xl text-textMain border-b border-borderMuted pb-4 mb-4 m-0">Order Summary</h2>
+                            
+                            <!-- Coupon Code -->
+                            <div class="mb-6">
+                                <label class="block text-sm font-medium text-textMain mb-2">Promo Code</label>
+                                <div class="flex flex-col sm:flex-row gap-2">
+                                    <input type="text" placeholder="Enter code" class="flex-1 px-4 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary">
+                                    <button class="w-full sm:w-auto px-6 py-2 bg-gray-100 text-textMain font-medium rounded-xl text-sm hover:bg-gray-200 transition-colors">Apply</button>
+                                </div>
+                            </div>
+                            
+                            <!-- Cost Breakdown -->
+                            <div class="space-y-3 text-sm mb-6 border-b border-borderMuted pb-6">
+                                <div class="flex justify-between text-textMain">
+                                    <span>Items (3):</span>
+                                    <span>$14.20</span>
+                                </div>
+                                <div class="flex justify-between text-textMain">
+                                    <span>Shipping & handling:</span>
+                                    <span>$5.99</span>
+                                </div>
+                                <div class="flex justify-between text-textMain">
+                                    <span>Total before tax:</span>
+                                    <span>$20.19</span>
+                                </div>
+                                <div class="flex justify-between text-textMain">
+                                    <span>Estimated tax to be collected:</span>
+                                    <span>$1.62</span>
+                                </div>
+                            </div>
+                            
+                            <!-- Total -->
+                            <div class="flex justify-between items-end mb-6">
+                                <span class="text-lg font-bold text-textMain">Order Total:</span>
+                                <span class="text-2xl md:text-3xl font-bold text-primary">$21.81</span>
+                            </div>
+                            
+                            <button class="w-full py-4 bg-primary text-white rounded-xl font-bold text-lg hover:bg-primary/90 transition-colors shadow-md mb-4 flex justify-center items-center gap-2">
+                                Place Your Order <i class="fa-solid fa-arrow-right"></i>
+                            </button>
+                            
+                            <p class="text-xs text-textMuted text-center leading-relaxed">
+                                By placing your order, you agree to MarketHub's <a href="#" class="text-primary hover:underline">privacy notice</a> and <a href="#" class="text-primary hover:underline">conditions of use</a>.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+            
+            <!-- Footer -->
+            <footer class="bg-white border-t border-borderMuted py-8 mt-12 mb-16 lg:mb-0">
+                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+                    <div class="flex items-center justify-center gap-2 mb-4">
+                        <div class="w-6 h-6 bg-primary rounded flex items-center justify-center text-white text-xs">
+                            <i class="fa-solid fa-cube"></i>
+                        </div>
+                        <span class="font-heading text-xl text-textMain">MarketHub</span>
+                    </div>
+                    <p class="text-sm text-textMuted mb-4">Secure Checkout Process</p>
+                    <div class="flex justify-center gap-4 text-xs text-textMuted">
+                        <a href="#" class="hover:text-textMain">Conditions of Use</a>
+                        <a href="#" class="hover:text-textMain">Privacy Notice</a>
+                        <a href="#" class="hover:text-textMain">Help</a>
+                    </div>
+                    <p class="text-xs text-textMuted mt-4">&copy; 2023 MarketHub Inc. All rights reserved.</p>
+                </div>
+            </footer>
+        </div>
+    </main>
+
+    <!-- Mobile Bottom Navigation (Sticky) -->
+    <div class="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-borderMuted shadow-nav z-50 px-2 py-2 flex justify-between items-center pb-safe">
+        <a href="#" class="flex flex-col items-center justify-center w-14 h-12 text-textMuted hover:text-primary transition-colors">
+            <i class="fa-solid fa-house text-lg mb-1"></i>
+            <span class="text-[10px] font-medium">Home</span>
+        </a>
+        <a href="#" class="flex flex-col items-center justify-center w-14 h-12 text-textMuted hover:text-primary transition-colors">
+            <i class="fa-solid fa-magnifying-glass text-lg mb-1"></i>
+            <span class="text-[10px] font-medium">Search</span>
+        </a>
+        <div class="flex-1 px-2 flex justify-end">
+            <button class="w-full h-10 bg-primary text-white rounded-lg font-bold text-sm flex items-center justify-center gap-2">
+                Place Order <span class="font-normal">($21.81)</span>
+            </button>
+        </div>
+    </div>
+    
+    <!-- Safe area padding for mobile bottom nav -->
+    <style>
+        @supports (padding-bottom: env(safe-area-inset-bottom)) {
+            .pb-safe { padding-bottom: calc(0.5rem + env(safe-area-inset-bottom)); }
+        }
+    </style>
+
+    <script>
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            sidebar.classList.toggle('-translate-x-full');
+        }
+    </script>
+</body>
+</html>

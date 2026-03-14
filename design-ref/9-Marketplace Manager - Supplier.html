@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script>
+        window.FontAwesomeConfig = {
+          autoReplaceSvg: 'nest'
+        };
+      </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Global Dashboard - MarketHub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.plot.ly/plotly-3.1.1.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#0B4A45',
+                        primaryLight: '#E6F4F1',
+                        accent: '#C74A27',
+                        accentLight: '#FDECE8',
+                        textMain: '#1F2937',
+                        textMuted: '#6B7280',
+                        bgBase: '#F9FAFB',
+                        cardBg: '#FFFFFF',
+                        borderMuted: '#E5E7EB',
+                        success: '#10B981',
+                        brandOrange: '#C74A27',
+                        warning: '#F59E0B',
+                        danger: '#EF4444',
+                        info: '#3B82F6',
+                        dashboardDark: '#0C0D0D',
+                        dashboardLight: '#ECF4EE',
+                        dashboardGray: '#FAFAFA'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        heading: ['Bebas Neue', 'sans-serif'],
+                    },
+                    boxShadow: {
+                        'soft': '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)',
+                        'nav': '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
+                        'card': '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
+                    },
+                    borderRadius: {
+                        'xl': '0.75rem',
+                        '2xl': '1rem',
+                        '3xl': '1.5rem',
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Bebas+Neue&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #F3F4F6; }
+        h1, h2, h3, .font-heading { font-family: 'Inter', sans-serif; font-weight: 600; letter-spacing: -0.02em; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    </style>
+</head>
+<body class="text-textMain pb-20 lg:pb-0 h-screen overflow-hidden flex bg-bgBase">
+
+    <!-- Desktop Sidebar Navigation -->
+    <aside id="sidebar" class="fixed inset-y-0 left-0 bg-white border-r border-borderMuted z-50 transition-transform duration-300 transform -translate-x-full lg:translate-x-0 w-64 flex flex-col h-full">
+        <div class="p-6 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white">
+                    <i class="fa-solid fa-shop text-sm"></i>
+                </div>
+                <span class="text-xl font-heading text-primary tracking-wider uppercase">MarketHub</span>
+            </div>
+            <button onclick="toggleSidebar()" class="lg:hidden text-textMuted p-2">
+                <i class="fa-solid fa-xmark text-xl"></i>
+            </button>
+        </div>
+
+        <div class="px-6 py-4 flex items-center gap-3 border-b border-borderMuted/50 mb-4">
+            <img class="w-10 h-10 rounded-full object-cover" src="https://storage.googleapis.com/uxpilot-auth.appspot.com/59699417a2-84e53f7c01ff379b33b4.png" alt="professional headshot of a female admin manager, corporate style, clean background" />
+            <div class="flex-1 min-w-0">
+                <p class="text-sm font-semibold text-textMain truncate">Hanifa Maulina</p>
+                <p class="text-xs text-textMuted truncate">Admin Portal</p>
+            </div>
+        </div>
+
+        <nav class="flex-1 px-4 space-y-1 overflow-y-auto hide-scrollbar">
+            <a href="#" class="flex items-center gap-3 px-3 py-2.5 text-textMuted hover:bg-primaryLight hover:text-primary rounded-lg font-medium transition-colors text-sm">
+                <i class="fa-solid fa-house w-5 text-center"></i> Customer Home
+            </a>
+            <a href="#" class="flex items-center gap-3 px-3 py-2.5 text-textMuted hover:bg-primaryLight hover:text-primary rounded-lg font-medium transition-colors text-sm">
+                <i class="fa-solid fa-box-open w-5 text-center"></i> Catalog & Search
+            </a>
+            <a href="#" class="flex items-center gap-3 px-3 py-2.5 text-textMuted hover:bg-primaryLight hover:text-primary rounded-lg font-medium transition-colors text-sm">
+                <i class="fa-solid fa-heart w-5 text-center"></i> Wishlist
+            </a>
+            <a href="#" class="flex items-center gap-3 px-3 py-2.5 text-textMuted hover:bg-primaryLight hover:text-primary rounded-lg font-medium transition-colors text-sm">
+                <i class="fa-solid fa-cart-flatbed w-5 text-center"></i> Orders Management
+            </a>
+            <a href="#" class="flex items-center gap-3 px-3 py-2.5 text-textMuted hover:bg-primaryLight hover:text-primary rounded-lg font-medium transition-colors text-sm">
+                <i class="fa-solid fa-chart-pie w-5 text-center"></i> Supplier Dashboard
+            </a>
+            <a href="#" class="flex items-center gap-3 px-3 py-2.5 bg-primaryLight text-primary rounded-lg font-medium transition-colors text-sm">
+                <i class="fa-solid fa-globe w-5 text-center"></i> Admin Global Dashboard
+            </a>
+            
+            <div class="my-4 border-t border-borderMuted/50"></div>
+            
+            <a href="#" class="flex items-center gap-3 px-3 py-2.5 text-textMuted hover:bg-primaryLight hover:text-primary rounded-lg font-medium transition-colors text-sm">
+                <i class="fa-solid fa-gear w-5 text-center"></i> Settings
+            </a>
+            <a href="#" class="flex items-center gap-3 px-3 py-2.5 text-textMuted hover:bg-primaryLight hover:text-primary rounded-lg font-medium transition-colors text-sm">
+                <i class="fa-solid fa-arrow-right-from-bracket w-5 text-center"></i> Logout
+            </a>
+        </nav>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 lg:ml-64 flex flex-col h-full bg-[#F3F4F6] overflow-hidden">
+        
+        <!-- Top Navigation Bar -->
+        <header class="bg-white border-b border-borderMuted px-4 md:px-6 py-4 flex items-center justify-between z-10">
+            <div class="flex items-center gap-4">
+                <button onclick="toggleSidebar()" class="lg:hidden text-textMain p-2 -ml-2">
+                    <i class="fa-solid fa-bars text-xl"></i>
+                </button>
+                <h2 class="text-lg md:text-xl font-semibold text-textMain hidden sm:block">Global Analytics</h2>
+            </div>
+
+            <div class="flex-1 max-w-xl mx-4 hidden md:block">
+                <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <i class="fa-solid fa-magnifying-glass text-gray-400 text-sm"></i>
+                    </div>
+                    <input type="text" class="block w-full pl-10 pr-10 py-2 border border-gray-200 rounded-lg bg-gray-50 text-sm placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-300 focus:border-gray-300" placeholder="Search analytics...">
+                </div>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <button class="w-10 h-10 rounded-full border border-gray-200 flex items-center justify-center text-gray-500 hover:bg-gray-50 relative">
+                    <i class="fa-regular fa-bell"></i>
+                    <span class="absolute top-2 right-2.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
+                </button>
+                <img class="w-10 h-10 rounded-full object-cover border border-gray-200" src="https://storage.googleapis.com/uxpilot-auth.appspot.com/e7d52ae8f6-2dcd63d8cf0f10e19f0e.png" alt="diverse professional avatar, male executive, minimalist style" />
+            </div>
+        </header>
+
+        <!-- Main Content Scrollable Area -->
+        <div class="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
+            
+            <!-- Dashboard Header & Controls -->
+            <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4">
+                <div>
+                    <h1 class="text-2xl md:text-3xl font-bold text-textMain">Platform Overview</h1>
+                    <p class="text-sm text-textMuted">Monitor global sales, performance, and vendor metrics.</p>
+                </div>
+                <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto">
+                    <select class="border border-gray-200 rounded-lg px-4 py-2 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-primary w-full sm:w-auto">
+                        <option>Last 30 Days</option>
+                        <option>Last 7 Days</option>
+                        <option>This Quarter</option>
+                        <option>Year to Date</option>
+                    </select>
+                    <button class="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium hover:bg-gray-50 flex items-center justify-center gap-2 w-full sm:w-auto">
+                        <i class="fa-solid fa-download"></i> Export
+                    </button>
+                    <button class="px-4 py-2 bg-dashboardDark text-white rounded-lg text-sm font-medium hover:bg-opacity-90 flex items-center justify-center gap-2 w-full sm:w-auto">
+                        <i class="fa-solid fa-plus"></i> Schedule Report
+                    </button>
+                </div>
+            </div>
+
+            <!-- Top KPIs -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6">
+                <!-- Total Sales -->
+                <div class="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                    <div class="flex justify-between items-start mb-4">
+                        <div class="w-10 h-10 rounded-full bg-dashboardLight flex items-center justify-center text-primary">
+                            <i class="fa-solid fa-dollar-sign"></i>
+                        </div>
+                        <span class="inline-flex items-center gap-1 text-xs font-medium text-success bg-success/10 px-2 py-1 rounded-full">
+                            <i class="fa-solid fa-arrow-trend-up"></i> 12.5%
+                        </span>
+                    </div>
+                    <p class="text-sm text-textMuted mb-1">Total Gross Sales</p>
+                    <h3 class="text-2xl font-bold text-textMain">$2,450,925</h3>
+                </div>
+
+                <!-- Conversions -->
+                <div class="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                    <div class="flex justify-between items-start mb-4">
+                        <div class="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
+                            <i class="fa-solid fa-chart-line"></i>
+                        </div>
+                        <span class="inline-flex items-center gap-1 text-xs font-medium text-success bg-success/10 px-2 py-1 rounded-full">
+                            <i class="fa-solid fa-arrow-trend-up"></i> 3.2%
+                        </span>
+                    </div>
+                    <p class="text-sm text-textMuted mb-1">Avg. Conversion Rate</p>
+                    <h3 class="text-2xl font-bold text-textMain">4.8%</h3>
+                </div>
+
+                <!-- Active Suppliers -->
+                <div class="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                    <div class="flex justify-between items-start mb-4">
+                        <div class="w-10 h-10 rounded-full bg-purple-50 flex items-center justify-center text-purple-600">
+                            <i class="fa-solid fa-store"></i>
+                        </div>
+                        <span class="inline-flex items-center gap-1 text-xs font-medium text-success bg-success/10 px-2 py-1 rounded-full">
+                            <i class="fa-solid fa-arrow-trend-up"></i> 8.4%
+                        </span>
+                    </div>
+                    <p class="text-sm text-textMuted mb-1">Active Suppliers</p>
+                    <h3 class="text-2xl font-bold text-textMain">1,248</h3>
+                </div>
+
+                <!-- Returns -->
+                <div class="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                    <div class="flex justify-between items-start mb-4">
+                        <div class="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center text-red-600">
+                            <i class="fa-solid fa-arrow-rotate-left"></i>
+                        </div>
+                        <span class="inline-flex items-center gap-1 text-xs font-medium text-danger bg-danger/10 px-2 py-1 rounded-full">
+                            <i class="fa-solid fa-arrow-trend-down"></i> -1.2%
+                        </span>
+                    </div>
+                    <p class="text-sm text-textMuted mb-1">Return Rate</p>
+                    <h3 class="text-2xl font-bold text-textMain">2.1%</h3>
+                </div>
+            </div>
+
+            <!-- Main Charts Row -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                <!-- Sales Trend Chart -->
+                <div class="lg:col-span-2 bg-dashboardLight/30 p-6 rounded-2xl border border-gray-100">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="text-lg font-bold text-textMain">Sales & Conversion Forecast</h3>
+                        <div class="flex gap-2">
+                            <button class="p-2 border border-gray-200 rounded-lg hover:bg-white bg-white shadow-sm"><i class="fa-regular fa-calendar"></i></button>
+                            <button class="p-2 border border-gray-200 rounded-lg hover:bg-white"><i class="fa-solid fa-arrow-up-right-from-square"></i></button>
+                        </div>
+                    </div>
+                    <div id="salesForecastChart" class="w-full h-[300px]"></div>
+                </div>
+
+                <!-- Traffic Sources -->
+                <div class="bg-white p-6 rounded-2xl border border-gray-100">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="text-lg font-bold text-textMain">Traffic Sources</h3>
+                        <button class="p-2 border border-gray-200 rounded-lg hover:bg-gray-50"><i class="fa-solid fa-sliders"></i></button>
+                    </div>
+                    <div id="trafficSourcesChart" class="w-full h-[300px]"></div>
+                </div>
+            </div>
+
+            <!-- Detailed Metrics Row -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Top Products Table -->
+                <div class="bg-white rounded-2xl border border-gray-100 overflow-hidden flex flex-col">
+                    <div class="p-6 border-b border-gray-100 flex justify-between items-center">
+                        <h3 class="text-lg font-bold text-textMain">Top Performing Products</h3>
+                        <a href="#" class="text-sm text-primary font-medium hover:underline">View All</a>
+                    </div>
+                    <div class="overflow-x-auto w-full">
+                        <table class="w-full text-left min-w-[600px]">
+                            <thead class="bg-gray-50 text-xs text-textMuted uppercase">
+                                <tr>
+                                    <th class="px-6 py-3 font-medium">Product</th>
+                                    <th class="px-6 py-3 font-medium">Supplier</th>
+                                    <th class="px-6 py-3 font-medium">Sales</th>
+                                    <th class="px-6 py-3 font-medium">Revenue</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100 text-sm">
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-6 py-4 font-medium text-textMain">Wireless Noise-Cancelling Headphones</td>
+                                    <td class="px-6 py-4 text-textMuted">AudioTech Inc.</td>
+                                    <td class="px-6 py-4">1,245</td>
+                                    <td class="px-6 py-4 font-medium">$311,250</td>
+                                </tr>
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-6 py-4 font-medium text-textMain">Smart Home Security Camera</td>
+                                    <td class="px-6 py-4 text-textMuted">SafeGuard Tech</td>
+                                    <td class="px-6 py-4">982</td>
+                                    <td class="px-6 py-4 font-medium">$196,300</td>
+                                </tr>
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-6 py-4 font-medium text-textMain">Ergonomic Office Chair</td>
+                                    <td class="px-6 py-4 text-textMuted">Workspace Pro</td>
+                                    <td class="px-6 py-4">854</td>
+                                    <td class="px-6 py-4 font-medium">$256,200</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Cohort Insights -->
+                <div class="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+                    <div class="p-6 border-b border-gray-100 flex justify-between items-center">
+                        <h3 class="text-lg font-bold text-textMain">Customer Cohort Retention</h3>
+                        <button class="p-2 border border-gray-200 rounded-lg hover:bg-gray-50"><i class="fa-solid fa-download"></i></button>
+                    </div>
+                    <div class="p-6">
+                        <div id="cohortChart" class="w-full h-[250px]"></div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Overlay for mobile sidebar -->
+    <div id="sidebar-overlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/50 z-40 hidden lg:hidden"></div>
+
+    <script>
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebar-overlay');
+            
+            sidebar.classList.toggle('-translate-x-full');
+            
+            if (sidebar.classList.contains('-translate-x-full')) {
+                overlay.classList.add('hidden');
+            } else {
+                overlay.classList.remove('hidden');
+            }
+        }
+
+        // Initialize Plotly Charts
+        window.addEventListener('load', function() {
+            try {
+                // Sales Forecast Chart (Bar/Line combo representation)
+                const salesData = {
+                    x: ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5', 'Week 6', 'Week 7'],
+                    y: [120, 150, 180, 140, 210, 250, 280],
+                    type: 'bar',
+                    marker: { color: '#0C0D0D' },
+                    name: 'Actual Sales'
+                };
+                
+                const forecastData = {
+                    x: ['Week 5', 'Week 6', 'Week 7', 'Week 8', 'Week 9'],
+                    y: [210, 250, 280, 310, 350],
+                    type: 'scatter',
+                    mode: 'lines+markers',
+                    line: { color: '#10B981', width: 3, dash: 'dot' },
+                    name: 'AI Forecast'
+                };
+
+                Plotly.newPlot('salesForecastChart', [salesData, forecastData], {
+                    margin: { t: 10, r: 10, b: 30, l: 40 },
+                    plot_bgcolor: 'transparent',
+                    paper_bgcolor: 'transparent',
+                    showlegend: true,
+                    legend: { orientation: 'h', y: -0.2 }
+                }, {responsive: true, displayModeBar: false});
+
+                // Traffic Sources Donut Chart
+                const trafficData = [{
+                    values: [45, 25, 20, 10],
+                    labels: ['Organic Search', 'Direct', 'Social Media', 'Referral'],
+                    type: 'pie',
+                    hole: 0.6,
+                    marker: { colors: ['#0C0D0D', '#0B4A45', '#C74A27', '#E5E7EB'] }
+                }];
+
+                Plotly.newPlot('trafficSourcesChart', trafficData, {
+                    margin: { t: 10, r: 10, b: 10, l: 10 },
+                    showlegend: true,
+                    legend: { orientation: 'h', y: -0.1 }
+                }, {responsive: true, displayModeBar: false});
+
+                // Cohort Heatmap representation
+                const cohortZ = [
+                    [100, 45, 30, 25, 20, 15],
+                    [100, 50, 35, 28, 22, null],
+                    [100, 48, 32, 26, null, null],
+                    [100, 55, 40, null, null, null],
+                    [100, 60, null, null, null, null]
+                ];
+                
+                const cohortData = [{
+                    z: cohortZ,
+                    x: ['Month 1', 'Month 2', 'Month 3', 'Month 4', 'Month 5', 'Month 6'],
+                    y: ['Jan', 'Feb', 'Mar', 'Apr', 'May'],
+                    type: 'heatmap',
+                    colorscale: [[0, '#E6F4F1'], [1, '#0B4A45']],
+                    showscale: false
+                }];
+
+                Plotly.newPlot('cohortChart', cohortData, {
+                    margin: { t: 20, r: 10, b: 30, l: 40 },
+                }, {responsive: true, displayModeBar: false});
+
+            } catch(e) { console.error('Chart initialization failed', e); }
+        });
+    </script>
+</body>
+</html>

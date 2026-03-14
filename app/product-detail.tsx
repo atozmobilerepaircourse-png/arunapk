@@ -191,7 +191,7 @@ export default function ProductDetailScreen() {
           </View>
 
           {/* Supplier card */}
-          <Pressable onPress={handleChat} style={styles.supplierCard}>
+          <View style={styles.supplierCard}>
             <View style={styles.supplierAvatar}>
               <Text style={styles.supplierInitials}>
                 {(product.userName || 'S').charAt(0).toUpperCase()}
@@ -199,13 +199,20 @@ export default function ProductDetailScreen() {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.supplierName}>{product.userName}</Text>
-              <Text style={styles.supplierRole}>Supplier</Text>
+              <Text style={styles.supplierRole}>Verified Supplier</Text>
             </View>
-            <View style={styles.chatBtn}>
+            <Pressable
+              onPress={() => router.push({ pathname: '/shop', params: { supplierId: product.userId, supplierName: product.userName } } as any)}
+              style={styles.viewShopBtn}
+            >
+              <Ionicons name="storefront-outline" size={13} color="#1B4D3E" />
+              <Text style={styles.viewShopTxt}>Shop</Text>
+            </Pressable>
+            <Pressable onPress={handleChat} style={styles.chatBtn}>
               <Ionicons name="chatbubble-outline" size={14} color={T.accent} />
               <Text style={styles.chatBtnTxt}>Chat</Text>
-            </View>
-          </Pressable>
+            </Pressable>
+          </View>
 
           {/* Description */}
           {product.description ? (
@@ -317,6 +324,8 @@ const styles = StyleSheet.create({
   supplierRole: { fontSize: 11, color: T.muted, fontFamily: 'Inter_400Regular', marginTop: 2 },
   chatBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: T.accentMuted, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10 },
   chatBtnTxt: { color: T.accent, fontFamily: 'Inter_600SemiBold', fontSize: 13 },
+  viewShopBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#D1FAE5', paddingHorizontal: 10, paddingVertical: 7, borderRadius: 10, marginRight: 4 },
+  viewShopTxt: { color: '#1B4D3E', fontFamily: 'Inter_600SemiBold', fontSize: 13 },
   section: { marginBottom: 20 },
   sectionTitle: { fontSize: 16, fontFamily: 'Inter_700Bold', color: T.text, marginBottom: 10 },
   description: { fontSize: 14, color: T.textSub, fontFamily: 'Inter_400Regular', lineHeight: 22 },

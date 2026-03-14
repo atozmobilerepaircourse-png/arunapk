@@ -266,6 +266,23 @@ export default function MarketplaceScreen() {
           columnWrapperStyle={styles.row}
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={T.accent} />}
+          ListHeaderComponent={
+            <Pressable
+              onPress={() => router.push('/shop' as any)}
+              style={styles.shopBanner}
+            >
+              <View style={styles.shopBannerIcon}>
+                <Ionicons name="storefront" size={28} color="#FFF" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.shopBannerTitle}>MarketHub Store</Text>
+                <Text style={styles.shopBannerSub}>Browse full catalog · Search · Filter</Text>
+              </View>
+              <View style={styles.shopBannerArrow}>
+                <Ionicons name="arrow-forward" size={18} color="#FFF" />
+              </View>
+            </Pressable>
+          }
           ListEmptyComponent={
             <View style={styles.empty}>
               <Ionicons name="cube-outline" size={56} color={T.muted} />
@@ -334,4 +351,9 @@ const styles = StyleSheet.create({
   empty: { alignItems: 'center', paddingTop: 80, paddingHorizontal: 40 },
   emptyTitle: { fontSize: 18, fontFamily: 'Inter_700Bold', color: T.text, marginTop: 16 },
   emptySub: { fontSize: 14, color: T.muted, fontFamily: 'Inter_400Regular', textAlign: 'center', marginTop: 8 },
+  shopBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1B4D3E', borderRadius: 16, padding: 16, marginBottom: 16, gap: 12 },
+  shopBannerIcon: { width: 52, height: 52, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' },
+  shopBannerTitle: { color: '#FFF', fontFamily: 'Inter_700Bold', fontSize: 16 },
+  shopBannerSub: { color: 'rgba(255,255,255,0.75)', fontFamily: 'Inter_400Regular', fontSize: 12, marginTop: 2 },
+  shopBannerArrow: { width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
 });

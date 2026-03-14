@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script>
+        window.FontAwesomeConfig = {
+          autoReplaceSvg: 'nest'
+        };
+      </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customer Orders - MarketHub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#0B4A45',
+                        primaryLight: '#E6F4F1',
+                        accent: '#C74A27',
+                        accentLight: '#FDECE8',
+                        textMain: '#1F2937',
+                        textMuted: '#6B7280',
+                        bgBase: '#F9FAFB',
+                        cardBg: '#FFFFFF',
+                        borderMuted: '#F3F4F6',
+                        success: '#A3D977',
+                        warning: '#F59E0B',
+                        // Inspiration colors
+                        grapeBg: '#E8F3D6',
+                        grapeDark: '#5E2B4B',
+                        grapeLight: '#F2DDE5',
+                        grapeBlue: '#D6E4F0',
+                        grapeGreen: '#8EB33B',
+                        brandNav: '#1E1B4B', // Deep navy from inspiration
+                        brandPurple: '#4F46E5', // Action color from inspiration
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        heading: ['Bebas Neue', 'sans-serif'],
+                    },
+                    boxShadow: {
+                        'soft': '0 4px 20px -2px rgba(0, 0, 0, 0.05)',
+                        'nav': '0 -4px 20px -2px rgba(0, 0, 0, 0.05)',
+                        'card': '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+                    },
+                    borderRadius: {
+                        'xl': '1rem',
+                        '2xl': '1.5rem',
+                        '3xl': '2rem',
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Bebas+Neue&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #F9FAFB; }
+        h1, h2, h3, .font-heading { font-family: 'Bebas Neue', sans-serif; letter-spacing: 0.05em; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        
+        .tab-active {
+            color: #1F2937;
+            border-bottom: 2px solid #0B4A45;
+            font-weight: 600;
+        }
+        .tab-inactive {
+            color: #6B7280;
+            border-bottom: 2px solid transparent;
+        }
+        .tab-inactive:hover {
+            color: #374151;
+            border-bottom: 2px solid #D1D5DB;
+        }
+    </style>
+</head>
+<body class="text-textMain pb-20 lg:pb-0">
+
+    <!-- Desktop Sidebar Navigation -->
+    <aside id="sidebar" class="fixed inset-y-0 left-0 bg-white border-r border-borderMuted z-50 transition-transform duration-300 transform -translate-x-full lg:translate-x-0 w-64 flex flex-col">
+        <div class="p-6 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white">
+                    <i class="fa-solid fa-cube text-sm"></i>
+                </div>
+                <span class="text-xl font-bold text-textMain font-heading">MarketHub</span>
+            </div>
+            <button onclick="toggleSidebar()" class="lg:hidden text-textMuted p-2">
+                <i class="fa-solid fa-xmark text-xl"></i>
+            </button>
+        </div>
+
+        <nav class="flex-1 px-4 space-y-1 overflow-y-auto">
+            <a href="#" class="flex items-center gap-3 px-3 py-2.5 text-textMuted hover:bg-gray-50 rounded-lg font-medium transition-colors">
+                <i class="fa-solid fa-house w-5 text-center"></i> Customer Home
+            </a>
+            <a href="#" class="flex items-center gap-3 px-3 py-2.5 text-textMuted hover:bg-gray-50 rounded-lg font-medium transition-colors">
+                <i class="fa-solid fa-magnifying-glass w-5 text-center"></i> Catalog & Search
+            </a>
+            <a href="#" class="flex items-center gap-3 px-3 py-2.5 text-textMuted hover:bg-gray-50 rounded-lg font-medium transition-colors">
+                <i class="fa-regular fa-heart w-5 text-center"></i> Wishlist
+            </a>
+            <a href="#" class="flex items-center gap-3 px-3 py-2.5 bg-primaryLight text-primary rounded-lg font-medium transition-colors">
+                <i class="fa-solid fa-box w-5 text-center"></i> Orders
+            </a>
+            <a href="#" class="flex items-center gap-3 px-3 py-2.5 text-textMuted hover:bg-gray-50 rounded-lg font-medium transition-colors">
+                <i class="fa-solid fa-chart-line w-5 text-center"></i> Supplier Dashboard
+            </a>
+            <a href="#" class="flex items-center gap-3 px-3 py-2.5 text-textMuted hover:bg-gray-50 rounded-lg font-medium transition-colors">
+                <i class="fa-solid fa-shield-halved w-5 text-center"></i> Admin Global Dashboard
+            </a>
+            
+            <div class="pt-4 mt-4 border-t border-borderMuted">
+                <p class="px-3 text-xs font-semibold text-textMuted uppercase tracking-wider mb-2">Switch Account</p>
+                <button class="w-full flex items-center gap-3 px-3 py-2.5 text-textMuted hover:bg-gray-50 rounded-lg font-medium transition-colors">
+                    <i class="fa-solid fa-repeat w-5 text-center"></i> Switch to Seller
+                </button>
+            </div>
+        </nav>
+
+        <div class="p-4 border-t border-borderMuted">
+            <div class="flex items-center gap-3">
+                <img class="w-10 h-10 rounded-full border border-borderMuted object-cover" src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-1.jpg" alt="Jane Doe" />
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-medium text-textMain truncate">Jane Doe</p>
+                    <p class="text-xs text-textMuted truncate">Customer</p>
+                </div>
+                <button class="text-textMuted hover:text-textMain">
+                    <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                </button>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="lg:ml-64 min-h-screen flex flex-col bg-bgBase">
+        
+        <!-- Header -->
+        <header class="bg-white border-b border-borderMuted sticky top-0 z-40">
+            <div class="px-4 sm:px-6 lg:px-8 py-4">
+                <div class="flex items-center justify-between gap-4">
+                    <div class="flex items-center gap-3 lg:hidden">
+                        <button onclick="toggleSidebar()" class="text-textMain p-2 -ml-2">
+                            <i class="fa-solid fa-bars text-xl"></i>
+                        </button>
+                        <span class="font-heading text-xl">MarketHub</span>
+                    </div>
+                    
+                    <div class="hidden lg:block flex-1">
+                        <h1 class="text-2xl font-heading text-textMain">Your Orders</h1>
+                    </div>
+
+                    <div class="flex items-center gap-4">
+                        <div class="relative hidden sm:block">
+                            <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 transform -translate-y-1/2 text-textMuted"></i>
+                            <input type="text" placeholder="Search orders..." class="pl-10 pr-4 py-2 border border-borderMuted rounded-xl text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary w-64">
+                        </div>
+                        <button class="p-2 text-textMuted hover:text-textMain relative">
+                            <i class="fa-regular fa-bell text-xl"></i>
+                            <span class="absolute top-1 right-1 w-2 h-2 bg-accent rounded-full"></span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Orders Content -->
+        <div class="flex-1 overflow-y-auto">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                
+                <!-- Page Header & Filters -->
+                <div class="mb-8">
+                    <!-- Tabs -->
+                    <div class="flex overflow-x-auto hide-scrollbar border-b border-borderMuted">
+                        <button class="tab-active px-6 py-3 text-sm whitespace-nowrap">All Orders</button>
+                        <button class="tab-inactive px-6 py-3 text-sm whitespace-nowrap">In Transit</button>
+                        <button class="tab-inactive px-6 py-3 text-sm whitespace-nowrap">Delivered</button>
+                        <button class="tab-inactive px-6 py-3 text-sm whitespace-nowrap">Returns</button>
+                    </div>
+                    
+                    <!-- Filter Controls -->
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mt-6">
+                        <div class="flex items-center gap-2">
+                            <span class="text-sm text-textMuted">Filter by:</span>
+                            <select class="border border-borderMuted rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-primary">
+                                <option>Last 30 days</option>
+                                <option>Past 6 months</option>
+                                <option>2023</option>
+                                <option>2022</option>
+                            </select>
+                        </div>
+                        <p class="text-sm text-textMuted">Showing 4 orders</p>
+                    </div>
+                </div>
+
+                <!-- Orders List -->
+                <div class="space-y-6">
+                    
+                    <!-- Order Card 1: In Transit -->
+                    <div class="bg-white rounded-2xl shadow-sm border border-borderMuted overflow-hidden">
+                        <!-- Card Header -->
+                        <div class="p-4 md:p-6 bg-gray-50 border-b border-borderMuted flex flex-col sm:flex-row justify-between gap-4 text-sm">
+                            <div class="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-8 flex-1">
+                                <div>
+                                    <p class="text-textMuted mb-1 uppercase text-[10px] sm:text-xs font-semibold tracking-wider">Order Placed</p>
+                                    <p class="font-medium whitespace-nowrap">October 21, 2023</p>
+                                </div>
+                                <div>
+                                    <p class="text-textMuted mb-1 uppercase text-[10px] sm:text-xs font-semibold tracking-wider">Total</p>
+                                    <p class="font-medium">$124.50</p>
+                                </div>
+                                <div>
+                                    <p class="text-textMuted mb-1 uppercase text-[10px] sm:text-xs font-semibold tracking-wider">Ship To</p>
+                                    <p class="font-medium text-primary hover:underline cursor-pointer truncate max-w-[120px] sm:max-w-none">Jane Doe <i class="fa-solid fa-chevron-down text-[10px] ml-1"></i></p>
+                                </div>
+                                <div>
+                                    <p class="text-textMuted mb-1 uppercase text-[10px] sm:text-xs font-semibold tracking-wider">Order #</p>
+                                    <p class="font-medium truncate">MH-892-441-992</p>
+                                </div>
+                            </div>
+                            <div class="flex flex-row sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-2 pt-2 sm:pt-0 border-t sm:border-t-0 border-borderMuted">
+                                <a href="#" class="text-primary hover:underline font-medium">View Details</a>
+                                <a href="#" class="text-textMuted hover:text-textMain flex items-center gap-1"><i class="fa-solid fa-file-invoice"></i> Invoice</a>
+                            </div>
+                        </div>
+                        
+                        <!-- Card Body -->
+                        <div class="p-4 md:p-6">
+                            <div class="mb-6">
+                                <h3 class="text-lg md:text-xl font-bold text-textMain mb-2 flex items-center gap-2">
+                                    <span class="w-3 h-3 rounded-full bg-warning"></span> 
+                                    Arriving Tomorrow
+                                </h3>
+                                <p class="text-sm text-textMuted">Your package is out for delivery. Tracking ID: <span class="font-medium text-textMain">TRK-99281736</span></p>
+                            </div>
+                            
+                            <!-- Tracking Timeline -->
+                            <div class="mb-10 px-2 sm:px-4">
+                                <div class="relative flex items-center justify-between w-full">
+                                    <!-- Progress Track -->
+                                    <div class="absolute left-0 top-3 sm:top-4 transform -translate-y-1/2 w-full h-1 bg-gray-200 -z-10"></div>
+                                    <div class="absolute left-0 top-3 sm:top-4 transform -translate-y-1/2 w-[66%] h-1 bg-success -z-10 transition-all duration-500"></div>
+                                    
+                                    <div class="flex flex-col items-center w-1/4">
+                                        <div class="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-success text-white flex items-center justify-center text-[10px] sm:text-xs mb-2 shadow-sm"><i class="fa-solid fa-check"></i></div>
+                                        <span class="text-[10px] sm:text-xs font-medium text-textMain text-center">Ordered</span>
+                                    </div>
+                                    <div class="flex flex-col items-center w-1/4">
+                                        <div class="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-success text-white flex items-center justify-center text-[10px] sm:text-xs mb-2 shadow-sm"><i class="fa-solid fa-check"></i></div>
+                                        <span class="text-[10px] sm:text-xs font-medium text-textMain text-center">Shipped</span>
+                                    </div>
+                                    <div class="flex flex-col items-center w-1/4">
+                                        <div class="w-7 h-7 sm:w-10 sm:h-10 rounded-full bg-white border-4 border-success flex items-center justify-center text-[10px] sm:text-xs mb-1 shadow-md"></div>
+                                        <span class="text-[10px] sm:text-xs font-bold text-textMain text-center">Out for Delivery</span>
+                                    </div>
+                                    <div class="flex flex-col items-center w-1/4">
+                                        <div class="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center text-[10px] sm:text-xs mb-2 shadow-sm"></div>
+                                        <span class="text-[10px] sm:text-xs font-medium text-textMuted text-center">Delivered</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="flex flex-col md:flex-row gap-6">
+                                <!-- Product Info -->
+                                <div class="flex-1 flex gap-4">
+                                    <div class="w-20 h-20 sm:w-24 sm:h-24 bg-grapeBg rounded-xl p-2 flex-shrink-0 flex items-center justify-center border border-borderMuted">
+                                        <img class="w-full h-full object-contain mix-blend-multiply" src="https://storage.googleapis.com/uxpilot-auth.appspot.com/a488b57e04-cd50d79c796a4c888823.png" alt="premium wireless noise-cancelling headphones, high-tech product photography, clean white background" />
+                                    </div>
+                                    <div class="min-w-0">
+                                        <h4 class="font-medium text-textMain text-base sm:text-lg mb-1 truncate">Premium Wireless Noise-Cancelling Headphones</h4>
+                                        <p class="text-sm text-textMuted mb-1">Sold by: <a href="#" class="text-primary hover:underline">TechNova Electronics</a></p>
+                                        <p class="text-sm text-textMuted mb-1">Qty: 1</p>
+                                        <p class="font-bold text-textMain">$124.50</p>
+                                    </div>
+                                </div>
+                                
+                                <!-- Actions -->
+                                <div class="flex flex-col gap-3 md:w-48 shrink-0">
+                                    <button class="w-full py-2 px-4 bg-primary text-white rounded-xl font-medium text-sm hover:bg-primary/90 transition-colors shadow-sm">
+                                        Track Package
+                                    </button>
+                                    <button class="w-full py-2 px-4 bg-white border border-borderMuted text-textMain rounded-xl font-medium text-sm hover:bg-gray-50 transition-colors shadow-sm">
+                                        Contact Seller
+                                    </button>
+                                    <button class="w-full py-2 px-4 bg-white border border-borderMuted text-textMain rounded-xl font-medium text-sm hover:bg-gray-50 transition-colors shadow-sm">
+                                        Cancel Order
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Order Card 2: Delivered -->
+                    <div class="bg-white rounded-2xl shadow-sm border border-borderMuted overflow-hidden">
+                        <!-- Card Header -->
+                        <div class="p-4 md:p-6 bg-gray-50 border-b border-borderMuted flex flex-col sm:flex-row justify-between gap-4 text-sm">
+                            <div class="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-8 flex-1">
+                                <div>
+                                    <p class="text-textMuted mb-1 uppercase text-[10px] sm:text-xs font-semibold tracking-wider">Order Placed</p>
+                                    <p class="font-medium">October 05, 2023</p>
+                                </div>
+                                <div>
+                                    <p class="text-textMuted mb-1 uppercase text-[10px] sm:text-xs font-semibold tracking-wider">Total</p>
+                                    <p class="font-medium">$45.00</p>
+                                </div>
+                                <div>
+                                    <p class="text-textMuted mb-1 uppercase text-[10px] sm:text-xs font-semibold tracking-wider">Ship To</p>
+                                    <p class="font-medium text-primary hover:underline cursor-pointer truncate max-w-[120px] sm:max-w-none">Jane Doe <i class="fa-solid fa-chevron-down text-[10px] ml-1"></i></p>
+                                </div>
+                                <div>
+                                    <p class="text-textMuted mb-1 uppercase text-[10px] sm:text-xs font-semibold tracking-wider">Order #</p>
+                                    <p class="font-medium">MH-112-884-332</p>
+                                </div>
+                            </div>
+                            <div class="flex flex-row sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-2 pt-2 sm:pt-0 border-t sm:border-t-0 border-borderMuted">
+                                <a href="#" class="text-primary hover:underline font-medium">View Details</a>
+                                <a href="#" class="text-textMuted hover:text-textMain flex items-center gap-1"><i class="fa-solid fa-file-invoice"></i> Invoice</a>
+                            </div>
+                        </div>
+                        
+                        <!-- Card Body -->
+                        <div class="p-4 md:p-6">
+                            <div class="mb-6">
+                                <h3 class="text-lg font-bold text-textMain mb-2 flex items-center gap-2">
+                                    <span class="w-3 h-3 rounded-full bg-success"></span> 
+                                    Delivered Oct 08, 2023
+                                </h3>
+                                <p class="text-sm text-textMuted">Your package was left near the front door.</p>
+                            </div>
+                            
+                            <div class="flex flex-col md:flex-row gap-6 border-b border-borderMuted pb-6 mb-6">
+                                <!-- Product Info -->
+                                <div class="flex-1 flex gap-4">
+                                    <div class="w-20 h-20 sm:w-24 sm:h-24 bg-grapeLight rounded-xl p-2 flex-shrink-0 flex items-center justify-center border border-borderMuted">
+                                        <img class="w-12 h-12 object-contain" src="https://storage.googleapis.com/uxpilot-auth.appspot.com/85096a9859-ec55f282a74a66e7959c.png" alt="educational book icon, modern 3d illustration, vibrant purple colors" />
+                                    </div>
+                                    <div class="min-w-0">
+                                        <h4 class="font-medium text-textMain text-base sm:text-lg mb-1 truncate">The Complete Web Development Bootcamp Book</h4>
+                                        <p class="text-sm text-textMuted mb-1">Sold by: <a href="#" class="text-primary hover:underline">CodeMasters Publishing</a></p>
+                                        <p class="text-sm text-textMuted mb-1">Qty: 1</p>
+                                        <p class="font-bold text-textMain">$45.00</p>
+                                    </div>
+                                </div>
+                                
+                                <!-- Actions -->
+                                <div class="flex flex-col gap-3 md:w-48 shrink-0">
+                                    <button class="w-full py-2 px-4 bg-primary text-white rounded-xl font-medium text-sm hover:bg-primary/90 transition-colors shadow-sm flex items-center justify-center gap-2">
+                                        <i class="fa-solid fa-rotate-right"></i> Buy it again
+                                    </button>
+                                    <button class="w-full py-2 px-4 bg-white border border-borderMuted text-textMain rounded-xl font-medium text-sm hover:bg-gray-50 transition-colors shadow-sm">
+                                        Return or replace items
+                                    </button>
+                                    <button class="w-full py-2 px-4 bg-white border border-borderMuted text-textMain rounded-xl font-medium text-sm hover:bg-gray-50 transition-colors shadow-sm">
+                                        Write a product review
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- Support Section -->
+                            <div class="bg-gray-50 rounded-xl p-4 flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                                        <i class="fa-solid fa-headset"></i>
+                                    </div>
+                                    <div>
+                                        <p class="font-medium text-sm text-textMain">Need help with your item?</p>
+                                        <p class="text-xs text-textMuted">Get product support or contact seller</p>
+                                    </div>
+                                </div>
+                                <button class="text-sm font-medium text-primary hover:underline">Get Support</button>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+            
+            <!-- Footer -->
+            <footer class="bg-white border-t border-borderMuted py-8 mt-12 mb-16 lg:mb-0">
+                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+                    <div class="flex items-center justify-center gap-2 mb-4">
+                        <div class="w-6 h-6 bg-primary rounded flex items-center justify-center text-white text-xs">
+                            <i class="fa-solid fa-cube"></i>
+                        </div>
+                        <span class="font-heading text-xl text-textMain">MarketHub</span>
+                    </div>
+                    <div class="flex justify-center gap-4 text-xs text-textMuted mb-4">
+                        <a href="#" class="hover:text-textMain">Conditions of Use</a>
+                        <a href="#" class="hover:text-textMain">Privacy Notice</a>
+                        <a href="#" class="hover:text-textMain">Help</a>
+                    </div>
+                    <p class="text-xs text-textMuted">&copy; 2023 MarketHub Inc. All rights reserved.</p>
+                </div>
+            </footer>
+        </div>
+    </main>
+
+    <!-- Mobile Bottom Navigation (Sticky) -->
+    <div class="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-borderMuted shadow-nav z-50 px-2 py-2 flex justify-around items-center pb-safe">
+        <a href="#" class="flex flex-col items-center justify-center w-14 h-12 text-textMuted hover:text-primary transition-colors">
+            <i class="fa-solid fa-house text-lg mb-1"></i>
+            <span class="text-[10px] font-medium">Home</span>
+        </a>
+        <a href="#" class="flex flex-col items-center justify-center w-14 h-12 text-textMuted hover:text-primary transition-colors">
+            <i class="fa-solid fa-magnifying-glass text-lg mb-1"></i>
+            <span class="text-[10px] font-medium">Search</span>
+        </a>
+        <a href="#" class="flex flex-col items-center justify-center w-14 h-12 text-textMuted hover:text-primary transition-colors">
+            <i class="fa-regular fa-heart text-lg mb-1"></i>
+            <span class="text-[10px] font-medium">Wishlist</span>
+        </a>
+        <a href="#" class="flex flex-col items-center justify-center w-14 h-12 text-primary transition-colors relative">
+            <i class="fa-solid fa-box text-lg mb-1"></i>
+            <span class="text-[10px] font-medium">Orders</span>
+            <span class="absolute top-1 right-2 w-2 h-2 bg-accent rounded-full"></span>
+        </a>
+        <a href="#" class="flex flex-col items-center justify-center w-14 h-12 text-textMuted hover:text-primary transition-colors">
+            <i class="fa-regular fa-user text-lg mb-1"></i>
+            <span class="text-[10px] font-medium">Profile</span>
+        </a>
+    </div>
+    
+    <style>
+        @supports (padding-bottom: env(safe-area-inset-bottom)) {
+            .pb-safe { padding-bottom: calc(0.5rem + env(safe-area-inset-bottom)); }
+        }
+    </style>
+
+    <script>
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            sidebar.classList.toggle('-translate-x-full');
+        }
+    </script>
+</body>
+</html>

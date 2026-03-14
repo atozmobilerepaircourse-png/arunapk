@@ -254,6 +254,21 @@ Builds run on Expo's cloud servers (10-25 min). Download from https://expo.dev d
 - Places one order per cart item to respective supplier via `/api/orders`
 - Clears cart and shows success alert after placement
 
+### MarketHub Shop (app/shop.tsx) — NEW SCREEN (March 13, 2026)
+- Dedicated full-catalog shop screen following MarketHub design (from ZIP)
+- Light white theme: bg=#F9FAFB, primary=#1B4D3E, cards=white
+- Top header with logo icon, back button, cart badge
+- Search bar with live filtering
+- Category chip scrollbar (All, Spare Parts, Tools, Components, Accessories)
+- Results bar with Sort (bottom sheet modal) and Filters (bottom sheet)
+- 2-column product grid with SALE/NEW/OUT OF STOCK badges, heart wishlist, rating stars
+- Add to Cart button (dark green circle)
+- Sticky green cart action bar at bottom when cart has items
+- Works as: general marketplace (`/shop`) OR specific supplier's shop (`/shop?supplierId=xxx`)
+- Entry points:
+  1. Marketplace tab → "MarketHub Store" green banner at top → `/shop`
+  2. Product detail → tap "Shop" button next to supplier → `/shop?supplierId=xxx`
+
 ### Add Product (app/add-product.tsx) — EDIT MODE + STOCK TOGGLE
 - Edit mode: loads existing product data when `?productId=` param is present
 - Shows loading spinner during edit data fetch

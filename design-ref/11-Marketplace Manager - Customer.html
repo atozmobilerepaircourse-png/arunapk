@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script>
+        window.FontAwesomeConfig = {
+          autoReplaceSvg: 'nest'
+        };
+      </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customer Home - MarketHub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#0B4A45', // Dark green from header
+                        primaryLight: '#E6F4F1',
+                        accent: '#C74A27', // Orange/Red from banner
+                        accentLight: '#FDECE8',
+                        textMain: '#1F2937',
+                        textMuted: '#6B7280',
+                        bgBase: '#F9FAFB',
+                        cardBg: '#FFFFFF',
+                        borderMuted: '#F3F4F6',
+                        success: '#A3D977', // Light green from quantity selector
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    boxShadow: {
+                        'soft': '0 4px 20px -2px rgba(0, 0, 0, 0.05)',
+                        'nav': '0 -4px 20px -2px rgba(0, 0, 0, 0.05)',
+                    },
+                    borderRadius: {
+                        'xl': '1rem',
+                        '2xl': '1.5rem',
+                        '3xl': '2rem',
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #F9FAFB; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        
+        /* Custom curved header background */
+        .curved-header {
+            border-bottom-left-radius: 40px;
+            border-bottom-right-radius: 40px;
+        }
+    </style>
+</head>
+<body class="text-textMain pb-24 md:pb-0">
+
+    <!-- Desktop Sidebar Navigation (Hidden on Mobile) -->
+    <aside id="sidebar" class="hidden lg:flex flex-col w-64 fixed inset-y-0 left-0 bg-white border-r border-borderMuted z-50 transition-transform duration-300 transform -translate-x-full lg:translate-x-0">
+        <div class="p-6 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white">
+                    <i class="fa-solid fa-cube text-sm"></i>
+                </div>
+                <span class="text-xl font-bold text-textMain">MarketHub</span>
+            </div>
+            <button onclick="toggleSidebar()" class="lg:hidden text-textMuted p-2">
+                <i class="fa-solid fa-xmark text-xl"></i>
+            </button>
+        </div>
+
+        <nav class="flex-1 px-4 space-y-1 overflow-y-auto">
+            <a href="#" class="flex items-center gap-3 px-3 py-2.5 bg-primaryLight text-primary rounded-lg font-medium">
+                <i class="fa-solid fa-house w-5 text-center"></i> Customer Home
+            </a>
+            <a href="#" class="flex items-center gap-3 px-3 py-2.5 text-textMuted hover:bg-gray-50 rounded-lg font-medium transition-colors">
+                <i class="fa-solid fa-magnifying-glass w-5 text-center"></i> Catalog & Search
+            </a>
+            <a href="#" class="flex items-center gap-3 px-3 py-2.5 text-textMuted hover:bg-gray-50 rounded-lg font-medium transition-colors">
+                <i class="fa-regular fa-heart w-5 text-center"></i> Wishlist
+            </a>
+            <a href="#" class="flex items-center gap-3 px-3 py-2.5 text-textMuted hover:bg-gray-50 rounded-lg font-medium transition-colors">
+                <i class="fa-solid fa-box w-5 text-center"></i> Orders
+            </a>
+            
+            <div class="pt-4 mt-4 border-t border-borderMuted">
+                <p class="px-3 text-xs font-semibold text-textMuted uppercase tracking-wider mb-2">Switch Account</p>
+                <button class="w-full flex items-center gap-3 px-3 py-2.5 text-textMuted hover:bg-gray-50 rounded-lg font-medium transition-colors">
+                    <i class="fa-solid fa-repeat w-5 text-center"></i> Switch to Seller
+                </button>
+            </div>
+        </nav>
+
+        <div class="p-4 border-t border-borderMuted">
+            <div class="flex items-center gap-3">
+                <img class="w-10 h-10 rounded-full border border-borderMuted" src="https://storage.googleapis.com/uxpilot-auth.appspot.com/cf6f7bc279-8e729895dcbbfafdcb9f.png" alt="Professional headshot of a woman for profile avatar, clean background" />
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-medium text-textMain truncate">Jane Doe</p>
+                    <p class="text-xs text-textMuted truncate">Customer</p>
+                </div>
+                <button class="text-textMuted hover:text-textMain">
+                    <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                </button>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="lg:ml-64 min-h-screen relative">
+        
+        <!-- Header Section (Curved Background) -->
+        <div class="bg-primary pt-6 pb-12 px-4 md:px-8 lg:px-12 curved-header relative z-10">
+            <!-- Top Bar -->
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                <!-- Mobile Logo/Menu Toggle -->
+                <div class="flex items-center justify-between w-full md:w-auto">
+                    <button onclick="toggleSidebar()" class="lg:hidden text-white p-2 -ml-2">
+                        <i class="fa-solid fa-bars text-2xl"></i>
+                    </button>
+                    <div class="lg:hidden flex items-center gap-2 text-white">
+                        <i class="fa-solid fa-cube text-xl"></i>
+                        <span class="font-bold">MarketHub</span>
+                    </div>
+                    <!-- Desktop Welcome -->
+                    <div class="hidden lg:block text-white">
+                        <h1 class="text-xl md:text-2xl font-semibold">Good morning, Jane!</h1>
+                    </div>
+                    <div class="md:hidden">
+                        <button class="relative w-10 h-10 bg-white/10 rounded-full flex items-center justify-center text-white">
+                            <i class="fa-solid fa-cart-shopping"></i>
+                            <span class="absolute -top-1 -right-1 w-4 h-4 bg-accent text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-primary">2</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Search & Cart -->
+                <div class="flex items-center gap-4 w-full md:max-w-2xl">
+                    <div class="relative flex-1">
+                        <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 transform -translate-y-1/2 text-textMuted"></i>
+                        <input type="text" placeholder="Search for 'Grocery'" class="w-full pl-10 pr-4 py-3 rounded-full bg-white text-sm focus:outline-none shadow-sm">
+                    </div>
+                    <button class="hidden md:flex relative w-12 h-12 bg-white rounded-full items-center justify-center text-primary shadow-sm hover:bg-gray-50 transition-colors flex-shrink-0">
+                        <i class="fa-solid fa-cart-shopping"></i>
+                        <span class="absolute -top-1 -right-1 w-5 h-5 bg-accent text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white">2</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Location Selector -->
+            <div class="flex flex-col items-center justify-center text-white mb-6">
+                <span class="text-xs text-white/70">Current Location</span>
+                <button class="flex items-center gap-1 font-semibold hover:text-white/90 transition-colors">
+                    California, USA <i class="fa-solid fa-location-arrow text-xs ml-1"></i>
+                </button>
+            </div>
+
+            <!-- Quick Categories (Circular) -->
+            <div class="grid grid-cols-4 sm:flex sm:justify-center gap-4 md:gap-8 max-w-2xl mx-auto px-2">
+                <button class="flex flex-col items-center gap-2 group">
+                    <div class="w-14 h-14 md:w-16 md:h-16 bg-white/10 rounded-full flex items-center justify-center group-hover:bg-white/20 transition-colors">
+                        <img class="w-8 h-8 md:w-10 md:h-10" src="https://storage.googleapis.com/uxpilot-auth.appspot.com/35c997295f-d8d0e917e2a231122c4d.png" alt="Minimalist meat icon, white line art" />
+                    </div>
+                    <span class="text-xs md:text-sm font-medium text-white">Meats</span>
+                </button>
+                <button class="flex flex-col items-center gap-2 group">
+                    <div class="w-14 h-14 md:w-16 md:h-16 bg-white/10 rounded-full flex items-center justify-center group-hover:bg-white/20 transition-colors">
+                        <img class="w-8 h-8 md:w-10 md:h-10" src="https://storage.googleapis.com/uxpilot-auth.appspot.com/6e9a2f750a-69c04e2aee1376be170e.png" alt="Minimalist broccoli icon, white line art" />
+                    </div>
+                    <span class="text-xs md:text-sm font-medium text-white">Vege</span>
+                </button>
+                <button class="flex flex-col items-center gap-2 group">
+                    <div class="w-14 h-14 md:w-16 md:h-16 bg-white/10 rounded-full flex items-center justify-center group-hover:bg-white/20 transition-colors">
+                        <img class="w-8 h-8 md:w-10 md:h-10" src="https://storage.googleapis.com/uxpilot-auth.appspot.com/9631d8470c-bf9ec12e7fb85da64f3c.png" alt="Minimalist carrot icon, white line art" />
+                    </div>
+                    <span class="text-xs md:text-sm font-medium text-white">Fruits</span>
+                </button>
+                <button class="flex flex-col items-center gap-2 group">
+                    <div class="w-14 h-14 md:w-16 md:h-16 bg-white/10 rounded-full flex items-center justify-center group-hover:bg-white/20 transition-colors">
+                        <img class="w-8 h-8 md:w-10 md:h-10" src="https://storage.googleapis.com/uxpilot-auth.appspot.com/4691c6e356-890b9e865b7af0579cbe.png" alt="Minimalist bread icon, white line art" />
+                    </div>
+                    <span class="text-xs md:text-sm font-medium text-white">Breads</span>
+                </button>
+            </div>
+            
+            <!-- Decorative curve element -->
+            <div class="absolute -bottom-3 left-1/2 transform -translate-x-1/2 w-12 h-1 bg-accent/20 rounded-full"></div>
+            <div class="absolute -bottom-4 left-1/2 transform -translate-x-1/2 w-6 h-1 bg-accent rounded-full"></div>
+        </div>
+
+        <!-- Main Content Body -->
+        <div class="px-4 sm:px-6 lg:px-8 -mt-4 relative z-20 space-y-8 pb-8">
+            
+            <!-- Promo Banner -->
+            <div class="bg-[#C74A27] rounded-xl p-4 text-white shadow-md flex items-center justify-between">
+                <div>
+                    <h3 class="font-semibold text-sm sm:text-base">Get 10% off groceries with Plus+ T&C Apply</h3>
+                    <p class="text-xs text-white/80 mt-1 flex items-center gap-1">
+                        <i class="fa-solid fa-circle-info"></i> Spend $30.00 to get 5%
+                    </p>
+                </div>
+            </div>
+
+            <!-- AI Recommended / You might need -->
+            <section>
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-lg font-bold text-primary">You might need</h2>
+                    <a href="#" class="text-sm font-medium text-accent hover:underline">See more</a>
+                </div>
+                
+                <div class="flex overflow-x-auto hide-scrollbar gap-4 pb-4 -mx-4 px-4 sm:mx-0 sm:px-0">
+                    <!-- Product Card 1 -->
+                    <div class="min-w-[140px] max-w-[160px] bg-white rounded-2xl p-3 shadow-sm border border-borderMuted flex-shrink-0 flex flex-col">
+                        <div class="h-24 flex items-center justify-center mb-2">
+                            <div class="w-20 h-20 bg-accentLight rounded-full flex items-center justify-center">
+                                <i class="fa-solid fa-carrot text-3xl text-accent"></i>
+                            </div>
+                        </div>
+                        <h3 class="font-semibold text-sm text-center leading-tight">Beetroot<br>(Local shop)</h3>
+                        <p class="text-xs text-textMuted text-center mt-1">500 gm.</p>
+                        <p class="font-bold text-lg text-center mt-2">17.<sup class="text-xs">29$</sup></p>
+                        <div class="mt-auto pt-3">
+                            <button class="w-full py-1.5 bg-primaryLight text-primary font-semibold rounded-lg hover:bg-primary hover:text-white transition-colors">
+                                +
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Product Card 2 (In Cart State) -->
+                    <div class="min-w-[140px] max-w-[160px] bg-white rounded-2xl p-3 shadow-sm border border-borderMuted flex-shrink-0 flex flex-col">
+                        <div class="h-24 flex items-center justify-center mb-2">
+                            <div class="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center">
+                                <i class="fa-solid fa-apple-whole text-3xl text-green-600"></i>
+                            </div>
+                        </div>
+                        <h3 class="font-semibold text-sm text-center leading-tight">Italian Avocado<br>(Local shop)</h3>
+                        <p class="text-xs text-textMuted text-center mt-1">450 gm.</p>
+                        <p class="font-bold text-lg text-center mt-2">14.<sup class="text-xs">29$</sup></p>
+                        <div class="mt-auto pt-3">
+                            <div class="flex items-center justify-between bg-success/20 rounded-lg p-1">
+                                <button class="w-6 h-6 rounded-full bg-white text-primary flex items-center justify-center shadow-sm border border-success/30">
+                                    <i class="fa-solid fa-minus text-xs"></i>
+                                </button>
+                                <span class="font-semibold text-sm">1</span>
+                                <button class="w-6 h-6 rounded-full bg-success text-primary flex items-center justify-center shadow-sm">
+                                    <i class="fa-solid fa-plus text-xs"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Product Card 3 -->
+                    <div class="min-w-[140px] max-w-[160px] bg-white rounded-2xl p-3 shadow-sm border border-borderMuted flex-shrink-0 flex flex-col">
+                        <div class="h-24 flex items-center justify-center mb-2">
+                            <div class="w-20 h-20 bg-orange-50 rounded-full flex items-center justify-center">
+                                <i class="fa-solid fa-pepper-hot text-3xl text-orange-500"></i>
+                            </div>
+                        </div>
+                        <h3 class="font-semibold text-sm text-center leading-tight">Deshi Gajor<br>(Local Carrot)</h3>
+                        <p class="text-xs text-textMuted text-center mt-1">1000 gm.</p>
+                        <p class="font-bold text-lg text-center mt-2">27.<sup class="text-xs">29$</sup></p>
+                        <div class="mt-auto pt-3">
+                            <button class="w-full py-1.5 bg-primaryLight text-primary font-semibold rounded-lg hover:bg-primary hover:text-white transition-colors">
+                                +
+                            </button>
+                        </div>
+                    </div>
+                     <!-- Product Card 4 -->
+                     <div class="min-w-[140px] max-w-[160px] bg-white rounded-2xl p-3 shadow-sm border border-borderMuted flex-shrink-0 flex flex-col">
+                        <div class="h-24 flex items-center justify-center mb-2">
+                            <div class="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center">
+                                <i class="fa-solid fa-drumstick-bite text-3xl text-red-500"></i>
+                            </div>
+                        </div>
+                        <h3 class="font-semibold text-sm text-center leading-tight">Fresh Beef<br>(Cut Bone)</h3>
+                        <p class="text-xs text-textMuted text-center mt-1">1000 gm.</p>
+                        <p class="font-bold text-lg text-center mt-2">23.<sup class="text-xs">46$</sup></p>
+                        <div class="mt-auto pt-3">
+                            <button class="w-full py-1.5 bg-primaryLight text-primary font-semibold rounded-lg hover:bg-primary hover:text-white transition-colors">
+                                +
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Delivery Options Cards -->
+            <section class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div class="bg-orange-50 rounded-xl p-4 md:p-6 relative overflow-hidden flex flex-col justify-between min-h-[120px]">
+                    <div class="relative z-10">
+                        <h3 class="text-lg md:text-xl font-bold text-textMain">Grocery</h3>
+                        <p class="text-sm font-semibold text-accent mt-1">By 12:15pm</p>
+                        <p class="text-xs text-textMuted mt-1">Free delivery</p>
+                    </div>
+                    <div class="absolute right-[-10px] bottom-[-10px] w-20 h-20 bg-white rounded-full flex items-center justify-center opacity-50 shadow-inner">
+                         <img class="w-10 h-10" src="https://storage.googleapis.com/uxpilot-auth.appspot.com/87c99b2df6-8344255395a4c77e4f5e.png" alt="Fresh green apple icon" />
+                    </div>
+                </div>
+                
+                <div class="bg-pink-50 rounded-xl p-4 md:p-6 relative overflow-hidden flex flex-col justify-between min-h-[120px]">
+                    <div class="relative z-10">
+                        <h3 class="text-lg md:text-xl font-bold text-textMain">Wholesale</h3>
+                        <p class="text-sm font-semibold text-pink-600 mt-1">By 1:30pm</p>
+                        <p class="text-xs text-textMuted mt-1">Free delivery</p>
+                    </div>
+                    <div class="absolute right-[-10px] bottom-[-10px] w-20 h-20 bg-white rounded-full flex items-center justify-center opacity-50 shadow-inner">
+                         <i class="fa-solid fa-box text-2xl text-pink-500"></i>
+                    </div>
+                </div>
+            </section>
+
+            <!-- All Categories Grid -->
+            <section>
+                <h2 class="text-lg font-bold text-primary mb-4">All categories</h2>
+                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                    
+                    <!-- Category 1 -->
+                    <a href="#" class="bg-white rounded-xl p-4 shadow-sm border border-borderMuted flex justify-between items-center hover:shadow-md transition-shadow">
+                        <div>
+                            <h3 class="font-semibold text-sm">Meets</h3>
+                            <p class="text-xs text-textMuted mt-0.5">Frozen Meal</p>
+                        </div>
+                        <div class="w-10 h-10 bg-primaryLight rounded-full flex items-center justify-center">
+                            <i class="fa-solid fa-drumstick-bite text-primary"></i>
+                        </div>
+                    </a>
+
+                    <!-- Category 2 -->
+                    <a href="#" class="bg-white rounded-xl p-4 shadow-sm border border-borderMuted flex justify-between items-center hover:shadow-md transition-shadow">
+                        <div>
+                            <h3 class="font-semibold text-sm">Vegetable</h3>
+                            <p class="text-xs text-textMuted mt-0.5">Markets</p>
+                        </div>
+                        <div class="w-10 h-10 bg-green-50 rounded-full flex items-center justify-center">
+                            <i class="fa-solid fa-leaf text-green-600"></i>
+                        </div>
+                    </a>
+
+                    <!-- Category 3 -->
+                    <a href="#" class="bg-white rounded-xl p-4 shadow-sm border border-borderMuted flex justify-between items-center hover:shadow-md transition-shadow">
+                        <div>
+                            <h3 class="font-semibold text-sm">Fruits</h3>
+                            <p class="text-xs text-textMuted mt-0.5">Comical free</p>
+                        </div>
+                        <div class="w-10 h-10 bg-orange-50 rounded-full flex items-center justify-center">
+                            <i class="fa-solid fa-lemon text-orange-500"></i>
+                        </div>
+                    </a>
+
+                    <!-- Category 4 -->
+                    <a href="#" class="bg-white rounded-xl p-4 shadow-sm border border-borderMuted flex justify-between items-center hover:shadow-md transition-shadow">
+                        <div>
+                            <h3 class="font-semibold text-sm">Breads</h3>
+                            <p class="text-xs text-textMuted mt-0.5">Burnt</p>
+                        </div>
+                        <div class="w-10 h-10 bg-yellow-50 rounded-full flex items-center justify-center">
+                            <i class="fa-solid fa-bread-slice text-yellow-600"></i>
+                        </div>
+                    </a>
+                    
+                    <!-- Category 5 -->
+                    <a href="#" class="bg-white rounded-xl p-4 shadow-sm border border-borderMuted flex justify-between items-center hover:shadow-md transition-shadow">
+                        <div>
+                            <h3 class="font-semibold text-sm">Snacks</h3>
+                            <p class="text-xs text-textMuted mt-0.5">Evening</p>
+                        </div>
+                        <div class="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center">
+                            <i class="fa-solid fa-cookie text-blue-500"></i>
+                        </div>
+                    </a>
+
+                    <!-- Category 6 -->
+                    <a href="#" class="bg-white rounded-xl p-4 shadow-sm border border-borderMuted flex justify-between items-center hover:shadow-md transition-shadow">
+                        <div>
+                            <h3 class="font-semibold text-sm">Bakery</h3>
+                            <p class="text-xs text-textMuted mt-0.5">Meal and Flour</p>
+                        </div>
+                        <div class="w-10 h-10 bg-amber-50 rounded-full flex items-center justify-center">
+                            <i class="fa-solid fa-cake-candles text-amber-600"></i>
+                        </div>
+                    </a>
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <!-- Mobile Bottom Navigation -->
+    <div class="md:hidden fixed bottom-6 left-1/2 transform -translate-x-1/2 w-[90%] max-w-sm bg-white rounded-full shadow-nav px-6 py-3 flex justify-between items-center z-50 border border-borderMuted">
+        <a href="#" class="flex flex-col items-center justify-center w-12 h-12 text-textMuted hover:text-primary transition-colors">
+            <i class="fa-solid fa-house text-xl"></i>
+        </a>
+        <a href="#" class="flex flex-col items-center justify-center w-12 h-12 bg-primaryLight text-primary rounded-full shadow-sm">
+            <i class="fa-solid fa-list-ul text-xl"></i>
+        </a>
+        <a href="#" class="flex flex-col items-center justify-center w-12 h-12 text-textMuted hover:text-primary transition-colors relative">
+            <i class="fa-regular fa-heart text-xl"></i>
+        </a>
+        <a href="#" class="flex flex-col items-center justify-center w-12 h-12 text-textMuted hover:text-primary transition-colors">
+            <i class="fa-solid fa-truck-fast text-xl"></i>
+        </a>
+    </div>
+
+    <script>
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            sidebar.classList.toggle('translate-x-full');
+            sidebar.classList.toggle('lg:translate-x-0');
+        }
+    </script>
+
+</body>
+</html>

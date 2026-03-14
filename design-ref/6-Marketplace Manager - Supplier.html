@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script>
+        window.FontAwesomeConfig = {
+          autoReplaceSvg: 'nest'
+        };
+      </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supplier Dashboard - MarketHub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#0B4A45',
+                        primaryLight: '#E6F4F1',
+                        accent: '#C74A27',
+                        accentLight: '#FDECE8',
+                        textMain: '#1F2937',
+                        textMuted: '#6B7280',
+                        bgBase: '#F9FAFB',
+                        cardBg: '#FFFFFF',
+                        borderMuted: '#F3F4F6',
+                        success: '#8EB33B',
+                        successLight: '#E8F3D6',
+                        warning: '#F59E0B',
+                        warningLight: '#FEF3C7',
+                        danger: '#EF4444',
+                        dangerLight: '#FEE2E2',
+                        info: '#D6E4F0',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        heading: ['Bebas Neue', 'sans-serif'],
+                    },
+                    boxShadow: {
+                        'soft': '0 4px 20px -2px rgba(0, 0, 0, 0.05)',
+                        'nav': '0 -4px 20px -2px rgba(0, 0, 0, 0.05)',
+                        'card': '0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01)',
+                    },
+                    borderRadius: {
+                        'xl': '1rem',
+                        '2xl': '1.5rem',
+                        '3xl': '2rem',
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Bebas+Neue&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.plot.ly/plotly-3.1.1.min.js"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #F9FAFB; }
+        h1, h2, h3, .font-heading { font-family: 'Bebas Neue', sans-serif; letter-spacing: 0.05em; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    </style>
+</head>
+<body class="text-textMain pb-20 lg:pb-0">
+
+    <!-- Desktop Sidebar Navigation -->
+    <aside id="sidebar" class="fixed inset-y-0 left-0 bg-white border-r border-borderMuted z-50 transition-transform duration-300 transform -translate-x-full lg:translate-x-0 w-64 flex flex-col">
+        <div class="p-6 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white">
+                    <i class="fa-solid fa-cube text-sm"></i>
+                </div>
+                <span class="text-xl font-bold text-textMain font-heading">MarketHub</span>
+            </div>
+            <button onclick="toggleSidebar()" class="lg:hidden text-textMuted p-2">
+                <i class="fa-solid fa-xmark text-xl"></i>
+            </button>
+        </div>
+
+        <nav class="flex-1 px-4 space-y-1 overflow-y-auto">
+            <a href="#" class="flex items-center gap-3 px-3 py-2.5 text-textMuted hover:bg-gray-50 rounded-lg font-medium transition-colors">
+                <i class="fa-solid fa-house w-5 text-center"></i> Customer Home
+            </a>
+            <a href="#" class="flex items-center gap-3 px-3 py-2.5 text-textMuted hover:bg-gray-50 rounded-lg font-medium transition-colors">
+                <i class="fa-solid fa-magnifying-glass w-5 text-center"></i> Catalog & Search
+            </a>
+            <a href="#" class="flex items-center gap-3 px-3 py-2.5 text-textMuted hover:bg-gray-50 rounded-lg font-medium transition-colors">
+                <i class="fa-solid fa-heart w-5 text-center"></i> Wishlist
+            </a>
+            <a href="#" class="flex items-center gap-3 px-3 py-2.5 text-textMuted hover:bg-gray-50 rounded-lg font-medium transition-colors">
+                <i class="fa-solid fa-box w-5 text-center"></i> Orders
+            </a>
+            <a href="#" class="flex items-center gap-3 px-3 py-2.5 bg-primaryLight text-primary rounded-lg font-medium transition-colors">
+                <i class="fa-solid fa-chart-line w-5 text-center"></i> Supplier Dashboard
+            </a>
+            <a href="#" class="flex items-center gap-3 px-3 py-2.5 text-textMuted hover:bg-gray-50 rounded-lg font-medium transition-colors">
+                <i class="fa-solid fa-shield-halved w-5 text-center"></i> Admin Global Dashboard
+            </a>
+            
+            <div class="pt-4 mt-4 border-t border-borderMuted">
+                <p class="px-3 text-xs font-semibold text-textMuted uppercase tracking-wider mb-2">Switch Account</p>
+                <button class="w-full flex items-center gap-3 px-3 py-2.5 text-textMuted hover:bg-gray-50 rounded-lg font-medium transition-colors">
+                    <i class="fa-solid fa-repeat w-5 text-center"></i> Switch to Customer
+                </button>
+            </div>
+        </nav>
+
+        <div class="p-4 border-t border-borderMuted">
+            <div class="flex items-center gap-3">
+                <img class="w-10 h-10 rounded-full border border-borderMuted object-cover" src="https://storage.googleapis.com/uxpilot-auth.appspot.com/2a64d89068-84d7f90934bf6294b684.png" alt="professional headshot of a businessman, clean background, corporate style" />
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-medium text-textMain truncate">Fresh Foods Co.</p>
+                    <p class="text-xs text-textMuted truncate">Supplier</p>
+                </div>
+                <button class="text-textMuted hover:text-textMain">
+                    <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                </button>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="lg:ml-64 min-h-screen flex flex-col bg-bgBase">
+        
+        <!-- Header -->
+        <header class="bg-white border-b border-borderMuted sticky top-0 z-40">
+            <div class="px-4 sm:px-6 lg:px-8 py-4">
+                <div class="flex items-center justify-between gap-4">
+                    <div class="flex items-center gap-3 lg:hidden">
+                        <button onclick="toggleSidebar()" class="text-textMain p-2 -ml-2">
+                            <i class="fa-solid fa-bars text-xl"></i>
+                        </button>
+                        <span class="font-heading text-xl">MarketHub</span>
+                    </div>
+                    
+                    <div class="hidden lg:block flex-1">
+                        <h1 class="text-2xl font-heading text-textMain">Supplier Overview</h1>
+                        <p class="text-sm text-textMuted">Welcome back! Here's what's happening today.</p>
+                    </div>
+
+                    <div class="flex items-center gap-4">
+                        <button class="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-medium hover:bg-primary/90 transition-colors">
+                            <i class="fa-solid fa-plus"></i> Add Product
+                        </button>
+                        <button class="p-2 text-textMuted hover:text-textMain relative">
+                            <i class="fa-regular fa-bell text-xl"></i>
+                            <span class="absolute top-1 right-1 w-2 h-2 bg-accent rounded-full"></span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Dashboard Content -->
+        <div class="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
+            <div class="max-w-7xl mx-auto space-y-6 md:space-y-8">
+                
+                <!-- Alerts Section -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-dangerLight border border-danger/20 rounded-2xl p-4 flex items-start gap-4">
+                        <div class="w-10 h-10 rounded-full bg-white flex items-center justify-center text-danger flex-shrink-0 shadow-sm">
+                            <i class="fa-solid fa-triangle-exclamation"></i>
+                        </div>
+                        <div class="flex-1">
+                            <h4 class="font-medium text-textMain text-sm">Low Stock Alert</h4>
+                            <p class="text-xs text-textMuted mt-1">3 products are running low on inventory. <a href="#" class="text-danger font-medium hover:underline">Restock now</a></p>
+                        </div>
+                    </div>
+                    <div class="bg-warningLight border border-warning/20 rounded-2xl p-4 flex items-start gap-4">
+                        <div class="w-10 h-10 rounded-full bg-white flex items-center justify-center text-warning flex-shrink-0 shadow-sm">
+                            <i class="fa-solid fa-file-contract"></i>
+                        </div>
+                        <div class="flex-1">
+                            <h4 class="font-medium text-textMain text-sm">Policy Update</h4>
+                            <p class="text-xs text-textMuted mt-1">New shipping guidelines effective next week. <a href="#" class="text-warning font-medium hover:underline">Review policy</a></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- KPI Cards -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+                    <!-- Revenue -->
+                    <div class="bg-white rounded-2xl p-5 shadow-sm border border-borderMuted">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <p class="text-sm text-textMuted font-medium">Total Revenue</p>
+                                <h3 class="text-2xl font-bold text-textMain mt-1">$12,450.00</h3>
+                            </div>
+                            <div class="w-10 h-10 rounded-full bg-successLight text-success flex items-center justify-center">
+                                <i class="fa-solid fa-dollar-sign"></i>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2 text-sm">
+                            <span class="text-success flex items-center gap-1 font-medium"><i class="fa-solid fa-arrow-up"></i> 12.5%</span>
+                            <span class="text-textMuted">vs last month</span>
+                        </div>
+                    </div>
+
+                    <!-- Orders -->
+                    <div class="bg-white rounded-2xl p-5 shadow-sm border border-borderMuted">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <p class="text-sm text-textMuted font-medium">Total Orders</p>
+                                <h3 class="text-2xl font-bold text-textMain mt-1">342</h3>
+                            </div>
+                            <div class="w-10 h-10 rounded-full bg-info text-blue-600 flex items-center justify-center">
+                                <i class="fa-solid fa-shopping-bag"></i>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2 text-sm">
+                            <span class="text-success flex items-center gap-1 font-medium"><i class="fa-solid fa-arrow-up"></i> 8.2%</span>
+                            <span class="text-textMuted">vs last month</span>
+                        </div>
+                    </div>
+
+                    <!-- Pending Shipments -->
+                    <div class="bg-white rounded-2xl p-5 shadow-sm border border-borderMuted">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <p class="text-sm text-textMuted font-medium">Pending Shipments</p>
+                                <h3 class="text-2xl font-bold text-textMain mt-1">28</h3>
+                            </div>
+                            <div class="w-10 h-10 rounded-full bg-warningLight text-warning flex items-center justify-center">
+                                <i class="fa-solid fa-truck-fast"></i>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2 text-sm">
+                            <span class="text-danger flex items-center gap-1 font-medium"><i class="fa-solid fa-arrow-down"></i> -2.4%</span>
+                            <span class="text-textMuted">needs attention</span>
+                        </div>
+                    </div>
+
+                    <!-- Active Products -->
+                    <div class="bg-white rounded-2xl p-5 shadow-sm border border-borderMuted">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <p class="text-sm text-textMuted font-medium">Active Products</p>
+                                <h3 class="text-2xl font-bold text-textMain mt-1">156</h3>
+                            </div>
+                            <div class="w-10 h-10 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center">
+                                <i class="fa-solid fa-box-open"></i>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2 text-sm">
+                            <span class="text-textMuted">4 out of stock</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Main Content Grid -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    
+                    <!-- Left Column: Charts & Analytics -->
+                    <div class="lg:col-span-2 space-y-6">
+                        <!-- Revenue Chart -->
+                        <div class="bg-white rounded-2xl shadow-sm border border-borderMuted p-6">
+                            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                                <h3 class="text-lg font-bold text-textMain">Revenue Overview</h3>
+                                <select class="w-full sm:w-auto border border-borderMuted rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none focus:border-primary">
+                                    <option>Last 7 Days</option>
+                                    <option>Last 30 Days</option>
+                                    <option>This Year</option>
+                                </select>
+                            </div>
+                            <div id="revenueChart" class="h-[200px] md:h-[300px] w-full"></div>
+                        </div>
+
+                        <!-- Top Products Table -->
+                        <div class="bg-white rounded-2xl shadow-sm border border-borderMuted overflow-hidden">
+                            <div class="p-6 border-b border-borderMuted flex justify-between items-center">
+                                <h3 class="text-lg font-bold text-textMain">Top Performing Products</h3>
+                                <button class="text-primary text-sm font-medium hover:underline">View All</button>
+                            </div>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-left text-sm">
+                                    <thead class="bg-gray-50 text-textMuted">
+                                        <tr>
+                                            <th class="px-6 py-3 font-medium">Product</th>
+                                            <th class="px-6 py-3 font-medium">Sales</th>
+                                            <th class="px-6 py-3 font-medium">Revenue</th>
+                                            <th class="px-6 py-3 font-medium">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-borderMuted">
+                                        <tr class="hover:bg-gray-50 transition-colors">
+                                            <td class="px-6 py-4 flex items-center gap-3">
+                                                <div class="w-10 h-10 rounded bg-gray-100 flex items-center justify-center flex-shrink-0">
+                                                    <img class="w-8 h-8 object-contain" src="https://storage.googleapis.com/uxpilot-auth.appspot.com/22ea52a2c2-f4806f820bc6056fc202.png" alt="organic avocado fruit illustration, clean minimal style" />
+                                                </div>
+                                                <div>
+                                                    <p class="font-medium text-textMain">Organic Avocados</p>
+                                                    <p class="text-xs text-textMuted">SKU: AV-001</p>
+                                                </div>
+                                            </td>
+                                            <td class="px-6 py-4 text-textMain">145 units</td>
+                                            <td class="px-6 py-4 font-medium text-textMain">$1,250.00</td>
+                                            <td class="px-6 py-4">
+                                                <span class="px-2.5 py-1 bg-successLight text-success text-xs font-medium rounded-full">In Stock</span>
+                                            </td>
+                                        </tr>
+                                        <tr class="hover:bg-gray-50 transition-colors">
+                                            <td class="px-6 py-4 flex items-center gap-3">
+                                                <div class="w-10 h-10 rounded bg-gray-100 flex items-center justify-center flex-shrink-0">
+                                                    <img class="w-8 h-8 object-contain" src="https://storage.googleapis.com/uxpilot-auth.appspot.com/dcc7454cc0-a93ef6d808f778dcbbae.png" alt="fresh strawberry fruit illustration, clean minimal style" />
+                                                </div>
+                                                <div>
+                                                    <p class="font-medium text-textMain">Fresh Strawberries</p>
+                                                    <p class="text-xs text-textMuted">SKU: ST-002</p>
+                                                </div>
+                                            </td>
+                                            <td class="px-6 py-4 text-textMain">98 units</td>
+                                            <td class="px-6 py-4 font-medium text-textMain">$850.00</td>
+                                            <td class="px-6 py-4">
+                                                <span class="px-2.5 py-1 bg-warningLight text-warning text-xs font-medium rounded-full">Low Stock</span>
+                                            </td>
+                                        </tr>
+                                        <tr class="hover:bg-gray-50 transition-colors">
+                                            <td class="px-6 py-4 flex items-center gap-3">
+                                                <div class="w-10 h-10 rounded bg-gray-100 flex items-center justify-center flex-shrink-0">
+                                                    <img class="w-8 h-8 object-contain" src="https://storage.googleapis.com/uxpilot-auth.appspot.com/e0f991a4f9-dea6b566a0971fc0396b.png" alt="whole wheat bread loaf illustration, clean minimal style" />
+                                                </div>
+                                                <div>
+                                                    <p class="font-medium text-textMain">Whole Wheat Bread</p>
+                                                    <p class="text-xs text-textMuted">SKU: BR-003</p>
+                                                </div>
+                                            </td>
+                                            <td class="px-6 py-4 text-textMain">85 units</td>
+                                            <td class="px-6 py-4 font-medium text-textMain">$425.00</td>
+                                            <td class="px-6 py-4">
+                                                <span class="px-2.5 py-1 bg-successLight text-success text-xs font-medium rounded-full">In Stock</span>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Column: AI Insights & Quick Actions -->
+                    <div class="space-y-6">
+                        
+                        <!-- AI Insights -->
+                        <div class="bg-gradient-to-br from-primary to-brandNav rounded-2xl p-6 text-white shadow-card relative overflow-hidden">
+                            <div class="absolute top-0 right-0 w-32 h-32 bg-white opacity-5 rounded-full -mr-10 -mt-10 blur-2xl"></div>
+                            <div class="flex items-center gap-2 mb-4">
+                                <i class="fa-solid fa-wand-magic-sparkles text-accentLight"></i>
+                                <h3 class="text-lg font-bold">AI Insights</h3>
+                            </div>
+                            
+                            <div class="space-y-4">
+                                <div class="bg-white/10 backdrop-blur rounded-xl p-4 border border-white/20">
+                                    <h4 class="font-medium text-sm mb-1 flex items-center gap-2">
+                                        <i class="fa-solid fa-arrow-trend-up text-successLight"></i> Restock Suggestion
+                                    </h4>
+                                    <p class="text-xs text-primaryLight leading-relaxed">Demand for "Organic Avocados" is predicted to increase by 20% next week. Consider restocking 50+ units.</p>
+                                    <button class="mt-3 text-xs font-medium bg-white text-primary px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors">Restock Now</button>
+                                </div>
+                                
+                                <div class="bg-white/10 backdrop-blur rounded-xl p-4 border border-white/20">
+                                    <h4 class="font-medium text-sm mb-1 flex items-center gap-2">
+                                        <i class="fa-solid fa-tag text-warningLight"></i> Pricing Tip
+                                    </h4>
+                                    <p class="text-xs text-primaryLight leading-relaxed">Your "Fresh Strawberries" are priced 5% higher than competitors. A slight price drop could boost sales volume.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Quick Actions -->
+                        <div class="bg-white rounded-2xl shadow-sm border border-borderMuted p-6">
+                            <h3 class="text-lg font-bold text-textMain mb-4">Quick Actions</h3>
+                            <div class="grid grid-cols-2 gap-3">
+                                <button class="flex flex-col items-center justify-center p-4 bg-gray-50 rounded-xl border border-borderMuted hover:bg-primaryLight hover:border-primary hover:text-primary transition-all group">
+                                    <i class="fa-solid fa-box-open text-xl text-textMuted group-hover:text-primary mb-2"></i>
+                                    <span class="text-xs font-medium">Inventory</span>
+                                </button>
+                                <button class="flex flex-col items-center justify-center p-4 bg-gray-50 rounded-xl border border-borderMuted hover:bg-primaryLight hover:border-primary hover:text-primary transition-all group">
+                                    <i class="fa-solid fa-truck text-xl text-textMuted group-hover:text-primary mb-2"></i>
+                                    <span class="text-xs font-medium">Shipments</span>
+                                </button>
+                                <button class="flex flex-col items-center justify-center p-4 bg-gray-50 rounded-xl border border-borderMuted hover:bg-primaryLight hover:border-primary hover:text-primary transition-all group">
+                                    <i class="fa-solid fa-tags text-xl text-textMuted group-hover:text-primary mb-2"></i>
+                                    <span class="text-xs font-medium">Promotions</span>
+                                </button>
+                                <button class="flex flex-col items-center justify-center p-4 bg-gray-50 rounded-xl border border-borderMuted hover:bg-primaryLight hover:border-primary hover:text-primary transition-all group">
+                                    <i class="fa-solid fa-chart-pie text-xl text-textMuted group-hover:text-primary mb-2"></i>
+                                    <span class="text-xs font-medium">Reports</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Recent Orders -->
+                        <div class="bg-white rounded-2xl shadow-sm border border-borderMuted p-6">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-lg font-bold text-textMain">Recent Orders</h3>
+                                <button class="text-primary text-sm font-medium hover:underline">View All</button>
+                            </div>
+                            <div class="space-y-4">
+                                <div class="flex items-center justify-between pb-3 border-b border-borderMuted last:border-0 last:pb-0">
+                                    <div>
+                                        <p class="font-medium text-sm text-textMain">ORD-9824</p>
+                                        <p class="text-xs text-textMuted">2 items • $45.00</p>
+                                    </div>
+                                    <span class="px-2 py-1 bg-warningLight text-warning text-[10px] font-bold rounded-md">PENDING</span>
+                                </div>
+                                <div class="flex items-center justify-between pb-3 border-b border-borderMuted last:border-0 last:pb-0">
+                                    <div>
+                                        <p class="font-medium text-sm text-textMain">ORD-9823</p>
+                                        <p class="text-xs text-textMuted">5 items • $120.50</p>
+                                    </div>
+                                    <span class="px-2 py-1 bg-blue-100 text-blue-600 text-[10px] font-bold rounded-md">SHIPPED</span>
+                                </div>
+                                <div class="flex items-center justify-between pb-3 border-b border-borderMuted last:border-0 last:pb-0">
+                                    <div>
+                                        <p class="font-medium text-sm text-textMain">ORD-9822</p>
+                                        <p class="text-xs text-textMuted">1 item • $15.00</p>
+                                    </div>
+                                    <span class="px-2 py-1 bg-successLight text-success text-[10px] font-bold rounded-md">DELIVERED</span>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>
+            
+            <!-- Footer -->
+            <footer class="bg-white border-t border-borderMuted py-8 mt-12 mb-16 lg:mb-0 rounded-t-3xl shadow-nav">
+                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+                    <div class="flex items-center justify-center gap-2 mb-4">
+                        <div class="w-6 h-6 bg-primary rounded flex items-center justify-center text-white text-xs">
+                            <i class="fa-solid fa-cube"></i>
+                        </div>
+                        <span class="font-heading text-xl text-textMain">MarketHub</span>
+                    </div>
+                    <div class="flex justify-center gap-4 text-xs text-textMuted mb-4">
+                        <a href="#" class="hover:text-textMain">Supplier Terms</a>
+                        <a href="#" class="hover:text-textMain">Privacy Policy</a>
+                        <a href="#" class="hover:text-textMain">Support Center</a>
+                    </div>
+                    <p class="text-xs text-textMuted">&copy; 2023 MarketHub Inc. All rights reserved.</p>
+                </div>
+            </footer>
+        </div>
+    </main>
+
+    <!-- Mobile Bottom Navigation (Sticky) -->
+    <div class="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-borderMuted shadow-nav z-50 px-2 py-2 flex justify-around items-center pb-safe">
+        <a href="#" class="flex flex-col items-center justify-center w-14 h-12 text-textMuted hover:text-primary transition-colors">
+            <i class="fa-solid fa-house text-lg mb-1"></i>
+            <span class="text-[10px] font-medium">Home</span>
+        </a>
+        <a href="#" class="flex flex-col items-center justify-center w-14 h-12 text-textMuted hover:text-primary transition-colors">
+            <i class="fa-solid fa-magnifying-glass text-lg mb-1"></i>
+            <span class="text-[10px] font-medium">Search</span>
+        </a>
+        <a href="#" class="flex flex-col items-center justify-center w-14 h-12 text-textMuted hover:text-primary transition-colors">
+            <i class="fa-solid fa-heart text-lg mb-1"></i>
+            <span class="text-[10px] font-medium">Wishlist</span>
+        </a>
+        <a href="#" class="flex flex-col items-center justify-center w-14 h-12 text-textMuted hover:text-primary transition-colors">
+            <i class="fa-solid fa-box text-lg mb-1"></i>
+            <span class="text-[10px] font-medium">Orders</span>
+        </a>
+        <a href="#" class="flex flex-col items-center justify-center w-14 h-12 text-primary transition-colors relative">
+            <i class="fa-solid fa-chart-line text-lg mb-1"></i>
+            <span class="text-[10px] font-medium">Dashboard</span>
+        </a>
+    </div>
+    
+    <style>
+        @supports (padding-bottom: env(safe-area-inset-bottom)) {
+            .pb-safe { padding-bottom: calc(0.5rem + env(safe-area-inset-bottom)); }
+        }
+    </style>
+
+    <script>
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            sidebar.classList.toggle('-translate-x-full');
+        }
+
+        // Plotly Chart Initialization
+        window.addEventListener('load', function() {
+            try {
+                const revenueData = [{
+                    type: 'scatter',
+                    mode: 'lines+markers',
+                    x: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                    y: [1200, 1900, 1500, 2200, 1800, 2800, 2400],
+                    line: { color: '#0B4A45', width: 3 },
+                    marker: { size: 8, color: '#0B4A45' },
+                    fill: 'tozeroy',
+                    fillcolor: 'rgba(11, 74, 69, 0.1)'
+                }];
+
+                const layout = {
+                    margin: { t: 20, r: 20, b: 40, l: 40 },
+                    plot_bgcolor: 'transparent',
+                    paper_bgcolor: 'transparent',
+                    xaxis: { 
+                        showgrid: false,
+                        tickfont: { color: '#6B7280' }
+                    },
+                    yaxis: { 
+                        gridcolor: '#F3F4F6',
+                        tickfont: { color: '#6B7280' },
+                        tickprefix: '$'
+                    },
+                    showlegend: false,
+                    hovermode: 'closest'
+                };
+
+                const config = {
+                    responsive: true,
+                    displayModeBar: false
+                };
+
+                Plotly.newPlot('revenueChart', revenueData, layout, config);
+            } catch(e) {
+                console.error('Error initializing chart:', e);
+                document.getElementById('revenueChart').innerHTML = '<div class="flex items-center justify-center h-full text-textMuted">Chart data unavailable</div>';
+            }
+        });
+    </script>
+</body>
+</html>
