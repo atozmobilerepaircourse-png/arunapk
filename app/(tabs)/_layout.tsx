@@ -19,7 +19,7 @@ function NativeTabLayout() {
   const isSupplier = profile?.role === 'supplier';
 
   const getRoleTab = () => {
-    if (isTeacher) return { name: 'content', icon: 'book', label: 'Content' };
+    if (isTeacher) return { name: 'content', icon: 'radio', label: 'Live' };
     if (isSupplier) return { name: 'products', icon: 'cube', label: 'Products' };
     return { name: 'marketplace', icon: 'bag', label: 'Shop' };
   };
