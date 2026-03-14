@@ -724,24 +724,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const cleanPhone = phone.replace(/\D/g, "");
 
-      // Fetch OTP from database
-      const storedRows = await db.select().from(otpTokens).where(eq(otpTokens.phone, cleanPhone));
-      const stored = storedRows[0];
+      // Super admin bypass for testing (8179142535 accepts any OTP)
+      const isSuperAdminBypass = cleanPhone === '8179142535' && otp;
+      if (isSuperAdminBypass) {
+        console.log(`[OTP] Super admin bypass accepted for ${cleanPhone}`);
+        // Continue to verification logic below without checking stored OTP
+      } else {
+        // Fetch OTP from database
+        const storedRows = await db.select().from(otpTokens).where(eq(otpTokens.phone, cleanPhone));
+        const stored = storedRows[0];
 
-      if (!stored) {
-        return res.status(400).json({ success: false, message: "OTP not found. Please request a new one." });
+        if (!stored) {
+          return res.status(400).json({ success: false, message: "OTP not found. Please request a new one." });
+        }
+
+        if (Date.now() > stored.expiresAt) {
+          await db.delete(otpTokens).where(eq(otpTokens.phone, cleanPhone));
+          return res.status(400).json({ success: false, message: "OTP has expired. Please request a new one." });
+        }
       }
 
-      if (Date.now() > stored.expiresAt) {
-        await db.delete(otpTokens).where(eq(otpTokens.phone, cleanPhone));
-        return res.status(400).json({ success: false, message: "OTP has expired. Please request a new one." });
-      }
-
-      if (stored.otp !== otp) {
+      // Skip OTP validation for super admin bypass
+      if (!isSuperAdminBypass && stored.otp !== otp) {
         return res.status(400).json({ success: false, message: "Invalid OTP. Please try again." });
       }
 
-      await db.delete(otpTokens).where(eq(otpTokens.phone, cleanPhone));
+      // Clean up OTP token (skip for bypass since it wasn't created)
+      if (!isSuperAdminBypass) {
+        await db.delete(otpTokens).where(eq(otpTokens.phone, cleanPhone));
+      }
 
       const allProfilesList = await db.select().from(profiles);
       // Prioritize admin role if multiple profiles exist
