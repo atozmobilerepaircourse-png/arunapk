@@ -637,21 +637,37 @@ export default function AdminScreen() {
     return users;
   }, [allUsers, userSearchQuery, userRoleFilter]);
 
-  const stats = useMemo(() => ({
-    totalUsers: allUsers.length,
-    registeredUsers: allUsers.filter(u => u.isRegistered).length,
-    totalPosts: posts?.length || 0,
-    totalJobs: jobs?.length || 0,
-    totalChats: conversations?.length || 0,
-    totalLikes: posts?.reduce((sum, p) => sum + (p.likes?.length || 0), 0) || 0,
-    totalComments: posts?.reduce((sum, p) => sum + (p.comments?.length || 0), 0) || 0,
-    roleBreakdown: {
-      technician: allUsers.filter(u => u.role === 'technician').length,
-      teacher: allUsers.filter(u => u.role === 'teacher').length,
-      supplier: allUsers.filter(u => u.role === 'supplier').length,
-      job_provider: allUsers.filter(u => u.role === 'job_provider').length,
-    },
-  }), [allUsers, posts, jobs, conversations]);
+  const stats = useMemo(() => {
+    try {
+      const postsArray = Array.isArray(posts) ? posts : [];
+      return {
+        totalUsers: allUsers.length,
+        registeredUsers: allUsers.filter(u => u.isRegistered).length,
+        totalPosts: postsArray.length,
+        totalJobs: Array.isArray(jobs) ? jobs.length : 0,
+        totalChats: Array.isArray(conversations) ? conversations.length : 0,
+        totalLikes: postsArray.reduce((sum, p) => sum + (Array.isArray(p.likes) ? p.likes.length : 0), 0),
+        totalComments: postsArray.reduce((sum, p) => sum + (Array.isArray(p.comments) ? p.comments.length : 0), 0),
+        roleBreakdown: {
+          technician: allUsers.filter(u => u.role === 'technician').length,
+          teacher: allUsers.filter(u => u.role === 'teacher').length,
+          supplier: allUsers.filter(u => u.role === 'supplier').length,
+          job_provider: allUsers.filter(u => u.role === 'job_provider').length,
+        },
+      };
+    } catch (e) {
+      return {
+        totalUsers: allUsers.length,
+        registeredUsers: allUsers.filter(u => u.isRegistered).length,
+        totalPosts: 0,
+        totalJobs: 0,
+        totalChats: 0,
+        totalLikes: 0,
+        totalComments: 0,
+        roleBreakdown: { technician: 0, teacher: 0, supplier: 0, job_provider: 0 },
+      };
+    }
+  }, [allUsers, posts, jobs, conversations]);
 
   // ── Action handlers ──
   const handleDeletePost = (postId: string, userName: string) => {
