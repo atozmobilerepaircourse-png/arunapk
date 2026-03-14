@@ -4,12 +4,6 @@ import {
   Platform, Alert, ActivityIndicator, Modal, FlatList,
 } from 'react-native';
 import { PhoneAuthProvider, signInWithCredential, signInWithPhoneNumber } from 'firebase/auth';
-
-// Native ApplicationVerifier stub — Firebase uses APNs/SafetyNet on native, not reCAPTCHA
-class NativeApplicationVerifier {
-  readonly type = 'recaptcha' as const;
-  async verify(): Promise<string> { return ''; }
-}
 import { firebaseAuth, firebaseConfig } from '@/lib/firebase';
 import { Image } from 'expo-image';
 import { StatusBar } from 'expo-status-bar';
@@ -33,6 +27,12 @@ import {
 import { apiRequest, getApiUrl } from '@/lib/query-client';
 import { getDeviceId } from '@/lib/device-fingerprint';
 import * as WebBrowser from 'expo-web-browser';
+
+// Native ApplicationVerifier stub — Firebase uses APNs/SafetyNet on native, not reCAPTCHA
+class NativeApplicationVerifier {
+  readonly type = 'recaptcha' as const;
+  async verify(): Promise<string> { return ''; }
+}
 
 const C = Colors.light;
 
