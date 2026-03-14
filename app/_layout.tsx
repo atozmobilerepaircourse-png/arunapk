@@ -91,36 +91,50 @@ export default function RootLayout() {
   }, [fontsLoaded, fontError, fontTimeout]);
 
   useEffect(() => {
-    requestNotificationPermission();
-    return () => { cleanupSounds(); };
+    try {
+      requestNotificationPermission();
+    } catch (e) {
+      console.warn('[Notifications] Init failed:', e);
+    }
+    return () => { 
+      try {
+        cleanupSounds();
+      } catch (e) {
+        console.warn('[Sounds] Cleanup failed:', e);
+      }
+    };
   }, []);
 
   useEffect(() => {
     if (Platform.OS === 'web') return;
 
     let subscription: any = null;
-    try {
-      ScreenCapture.preventScreenCaptureAsync().catch(() => {});
+    const initScreenCapture = async () => {
+      try {
+        await ScreenCapture.preventScreenCaptureAsync();
+        subscription = await ScreenCapture.addScreenshotListener(() => {
+          Alert.alert(
+            'Screenshot Detected',
+            'Screenshots are not allowed in Mobi for privacy protection.'
+          );
+        });
+      } catch (e) {
+        console.warn('[ScreenCapture] Failed to initialize:', e);
+      }
+    };
 
-      ScreenCapture.addScreenshotListener(() => {
-        Alert.alert(
-          'Screenshot Detected',
-          'Screenshots are not allowed in Mobi for privacy protection.'
-        );
-      }).then((sub) => {
-        subscription = sub;
-      }).catch(() => {});
-    } catch (e) {
-      console.warn('[ScreenCapture] Failed to initialize:', e);
-    }
+    initScreenCapture();
 
     return () => {
-      try {
-        if (subscription) subscription.remove();
-        ScreenCapture.allowScreenCaptureAsync().catch(() => {});
-      } catch (e) {
-        console.warn('[ScreenCapture] Cleanup failed:', e);
-      }
+      const cleanup = async () => {
+        try {
+          if (subscription) subscription.remove();
+          await ScreenCapture.allowScreenCaptureAsync();
+        } catch (e) {
+          console.warn('[ScreenCapture] Cleanup failed:', e);
+        }
+      };
+      cleanup().catch(() => {});
     };
   }, []);
 
