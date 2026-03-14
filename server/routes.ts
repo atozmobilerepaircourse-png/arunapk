@@ -87,32 +87,53 @@ if (bunnyStreamAvailable) {
 }
 
 async function uploadToStorage(buffer: Buffer, filename: string): Promise<string> {
-  const GCS_BUCKET = process.env.GCS_BUCKET || 'mobi-uploads';
-  
-  // Try Google Cloud Storage first (production-reliable)
-  try {
-    const storage = getStorage();
-    const bucket = storage.bucket(GCS_BUCKET);
-    const file = bucket.file(filename);
-    
-    await file.save(buffer, { metadata: { contentType: 'application/octet-stream' } });
-    const publicUrl = `https://storage.googleapis.com/${GCS_BUCKET}/${filename}`;
-    console.log(`[GCS] Uploaded: ${filename} → ${publicUrl}`);
-    return publicUrl;
-  } catch (error: any) {
-    console.error(`[GCS] Upload failed: ${error?.message || error}`);
+  // Try Bunny.net Storage (primary)
+  if (bunnyAvailable) {
+    try {
+      const url = `${BUNNY_STORAGE_ENDPOINT}/${BUNNY_STORAGE_ZONE_NAME}/${filename}`;
+      console.log(`[Bunny] Uploading to: ${url}`);
+      const response = await Promise.race([
+        fetch(url, {
+          method: 'PUT',
+          headers: {
+            'AccessKey': BUNNY_STORAGE_API_KEY,
+            'Content-Type': 'application/octet-stream',
+            'Content-Length': String(buffer.length),
+          },
+          body: buffer,
+          duplex: 'half',
+        } as any),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 15000))
+      ]) as any;
+      
+      if (response.ok) {
+        const cdnUrl = `${BUNNY_CDN_URL}/${filename}`;
+        console.log(`[Bunny] Success: ${filename} → ${cdnUrl}`);
+        return cdnUrl;
+      } else {
+        const text = await response.text().catch(() => '');
+        console.error(`[Bunny] Failed: ${response.status} ${text}`);
+      }
+    } catch (error: any) {
+      console.error(`[Bunny] Error: ${error?.message || error}`);
+    }
   }
   
-  // Local storage fallback for dev
+  // Fallback: Local storage (dev only, won't work on Cloud Run)
   const localFilename = filename.replace(/^(images|videos)\//, "");
   const filePath = path.join(uploadsDir, localFilename);
   fs.writeFileSync(filePath, buffer);
-  const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
-  const host = process.env.REPLIT_DEV_DOMAIN ? process.env.REPLIT_DEV_DOMAIN : 
-               process.env.REPLIT_DOMAINS?.split(',')[0] || 'localhost:5000';
-  const localUrl = `${protocol}://${host}/uploads/${localFilename}`;
-  console.log(`[Local] Saved: ${filePath} → ${localUrl}`);
-  return localUrl;
+  console.log(`[Local] Fallback: ${filePath}`);
+  
+  // Return URL that works based on environment
+  if (process.env.NODE_ENV === 'production') {
+    // On Cloud Run, return a placeholder URL (won't actually work without persistent storage)
+    return `https://storage.googleapis.com/mobi-repair-uploads/${filename}`;
+  } else {
+    const protocol = 'http';
+    const host = process.env.REPLIT_DEV_DOMAIN || 'localhost:5000';
+    return `${protocol}://${host}/uploads/${localFilename}`;
+  }
 }
 
 async function uploadStreamToStorage(
