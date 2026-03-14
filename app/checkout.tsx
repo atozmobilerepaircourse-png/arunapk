@@ -48,26 +48,12 @@ export default function CheckoutScreen() {
   };
 
   const placeOrder = async () => {
-    console.log('[Checkout] Place order clicked');
-    if (!name || !phone || !address || !city || !pincode) {
-      Alert.alert('Missing Info', 'Please fill all fields');
-      return;
-    }
-    if (phone.length < 10 || pincode.length !== 6) {
-      Alert.alert('Invalid', 'Check phone (10 digits) and pincode (6 digits)');
-      return;
-    }
-
     setPlacing(true);
     try {
-      console.log('[Checkout] Starting orders for ' + items.length + ' items');
       const addr = `${address}, ${city} - ${pincode}`;
       
-      for (let i = 0; i < items.length; i++) {
-        const item = items[i];
-        console.log('[Checkout] Creating order ' + (i+1) + ' for product ' + item.productId);
-        
-        const res = await apiRequest('POST', '/api/orders', {
+      for (const item of items) {
+        await apiRequest('POST', '/api/orders', {
           productId: item.productId,
           productTitle: item.title,
           productPrice: item.price.toString(),
@@ -87,25 +73,14 @@ export default function CheckoutScreen() {
           buyerNotes: notes,
           status: 'pending',
         });
-
-        if (!res.ok) {
-          throw new Error('Order ' + (i+1) + ' failed');
-        }
-        console.log('[Checkout] Order ' + (i+1) + ' created successfully');
       }
 
-      console.log('[Checkout] All orders created, clearing cart');
       clearCart();
-      
-      Alert.alert('Order Placed!', 'Supplier will contact you.', [
-        { text: 'OK', onPress: () => router.push('/(tabs)/marketplace' as any) }
-      ]);
-    } catch (err: any) {
-      console.error('[Checkout] Error:', err);
-      Alert.alert('Failed', err?.message || 'Could not place order');
+      Alert.alert('Success!', 'Order placed', [{ text: 'OK', onPress: () => router.push('/(tabs)/marketplace' as any) }]);
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Failed');
     } finally {
       setPlacing(false);
-      console.log('[Checkout] Done');
     }
   };
 

@@ -293,8 +293,11 @@ export default function OrdersScreen() {
         ListHeaderComponent={
           filtered.length > 0 ? (
             <View style={styles.feedHeader}>
-              <Text style={styles.feedHeaderTitle}>Community Feed</Text>
-              <Text style={styles.feedHeaderSub}>(India)</Text>
+              <Text style={styles.flagEmoji}>🇮🇳</Text>
+              <View>
+                <Text style={styles.feedHeaderTitle}>Community Feed</Text>
+                <Text style={styles.feedHeaderSub}>India</Text>
+              </View>
             </View>
           ) : null
         }
@@ -442,19 +445,25 @@ const styles = StyleSheet.create({
   feedHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 12,
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: BORDER,
+  },
+  flagEmoji: {
+    fontSize: 32,
   },
   feedHeaderTitle: {
     color: TEXT,
-    fontSize: 13,
+    fontSize: 16,
     fontFamily: 'Inter_700Bold',
   },
   feedHeaderSub: {
     color: MUTED,
-    fontSize: 11,
-    fontFamily: 'Inter_400Regular',
+    fontSize: 12,
+    fontFamily: 'Inter_500Medium',
+    marginTop: 2,
   },
   listContent: {
     paddingTop: 4,
