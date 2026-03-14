@@ -20,6 +20,7 @@ const T = {
   bg: '#F9FAFB', card: '#FFFFFF', cardSurface: '#F3F4F6', bgElevated: '#FFFFFF',
   border: '#E5E7EB', text: '#111827', muted: '#9CA3AF', textSub: '#4B5563',
   accent: '#1B4D3E', accentMuted: '#D1FAE5', green: '#10B981', red: '#EF4444',
+  placeholder: '#D1D5DB',
 };
 
 const webTop = Platform.OS === 'web' ? 67 : 0;
@@ -53,12 +54,17 @@ export default function CheckoutScreen() {
   };
 
   const placeOrder = async () => {
+    if (!validate()) {
+      setPlacing(false);
+      return;
+    }
+    
     setPlacing(true);
     try {
       const addr = `${address}, ${city} - ${pincode}`;
       
       for (const item of items) {
-        await apiRequest('POST', '/api/orders', {
+        const res = await apiRequest('POST', '/api/orders', {
           productId: item.productId,
           productTitle: item.title,
           productPrice: item.price.toString(),
@@ -78,17 +84,18 @@ export default function CheckoutScreen() {
           buyerNotes: notes,
           status: 'pending',
         });
+        if (!res.ok) throw new Error('Order creation failed');
       }
 
       clearCart();
-      setSuccess(true);
       if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setSuccess(true);
       
       setTimeout(() => {
-        router.push('/(tabs)/marketplace' as any);
+        router.replace('/(tabs)/marketplace' as any);
       }, 3500);
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'Failed');
+      Alert.alert('Error', e.message || 'Failed to place order. Please try again.');
       setPlacing(false);
     }
   };
