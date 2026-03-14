@@ -4,3 +4,7 @@ export function redirectSystemPath({
 }: { path: string; initial: boolean }) {
   return '/';
 }
+
+export default function NotFoundScreen() {
+  return null;
+}

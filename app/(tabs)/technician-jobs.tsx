@@ -1,1 +1,3 @@
-export { default } from '../technician-jobs';
+import TechnicianJobsScreen from '../technician-jobs';
+
+export default TechnicianJobsScreen;
