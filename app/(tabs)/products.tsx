@@ -259,7 +259,7 @@ export default function SupplierProductsScreen() {
         />
       ) : (
         <FlatList
-          data={orders}
+          data={orders.filter(o => !['pending'].includes(o.status))}
           keyExtractor={i => i.id}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
@@ -267,8 +267,8 @@ export default function SupplierProductsScreen() {
           ListEmptyComponent={
             <View style={styles.empty}>
               <Ionicons name="receipt-outline" size={52} color={C.textTertiary} />
-              <Text style={styles.emptyTitle}>No orders yet</Text>
-              <Text style={styles.emptySub}>Orders will appear here when customers purchase</Text>
+              <Text style={styles.emptyTitle}>No confirmed orders</Text>
+              <Text style={styles.emptySub}>Confirmed orders will appear here</Text>
             </View>
           }
           renderItem={({ item }) => (
@@ -296,11 +296,6 @@ export default function SupplierProductsScreen() {
                   {new Date(item.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
                 </Text>
               </View>
-              {item.status === 'pending' && (
-                <View style={styles.newBadge}>
-                  <Text style={styles.newBadgeTxt}>🔔 New — Tap to respond</Text>
-                </View>
-              )}
             </Pressable>
           )}
         />
