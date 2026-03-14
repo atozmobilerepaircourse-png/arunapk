@@ -4483,6 +4483,72 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
     }
   });
 
+  // ========== Community Live Streams (Feed) ==========
+  // GET all active/recent live streams visible in community feed
+  app.get("/api/live-streams", async (req, res) => {
+    try {
+      const streams = await db.select().from(liveClasses)
+        .where(eq(liveClasses.courseId, "community-feed"))
+        .orderBy(desc(liveClasses.createdAt))
+        .limit(20);
+      return res.json(streams);
+    } catch (error) {
+      console.error("[LiveStreams] List error:", error);
+      return res.status(500).json({ success: false, message: "Failed to get live streams" });
+    }
+  });
+
+  // POST teacher goes live in the community feed
+  app.post("/api/live-streams/go-live", async (req, res) => {
+    try {
+      const { teacherId, teacherName, title, streamUrl, avatar } = req.body;
+      if (!teacherId || !teacherName || !title) {
+        return res.status(400).json({ success: false, message: "teacherId, teacherName, title required" });
+      }
+      // End any existing live stream by this teacher first
+      await db.update(liveClasses)
+        .set({ status: "ended" })
+        .where(
+          and(
+            eq(liveClasses.courseId, "community-feed"),
+            eq(liveClasses.teacherId, teacherId),
+            eq(liveClasses.status, "live")
+          )
+        );
+      const [stream] = await db.insert(liveClasses).values({
+        id: randomUUID(),
+        courseId: "community-feed",
+        teacherId,
+        teacherName,
+        title,
+        description: avatar || "",
+        scheduledAt: Date.now(),
+        duration: 120,
+        status: "live",
+        meetingUrl: streamUrl || "",
+        createdAt: Date.now(),
+      }).returning();
+      return res.json({ success: true, stream });
+    } catch (error) {
+      console.error("[LiveStreams] Go-live error:", error);
+      return res.status(500).json({ success: false, message: "Failed to start live stream" });
+    }
+  });
+
+  // PUT teacher ends their live stream
+  app.put("/api/live-streams/:id/end", async (req, res) => {
+    try {
+      const [updated] = await db.update(liveClasses)
+        .set({ status: "ended" })
+        .where(eq(liveClasses.id, req.params.id))
+        .returning();
+      return res.json({ success: true, stream: updated });
+    } catch (error) {
+      console.error("[LiveStreams] End error:", error);
+      return res.status(500).json({ success: false, message: "Failed to end live stream" });
+    }
+  });
+
   // ========== Live Polls & Quizzes routes ==========
   app.get("/api/live-classes/:classId/polls", async (req, res) => {
     try {
