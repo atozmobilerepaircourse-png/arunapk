@@ -272,16 +272,22 @@ export default function SupplierProductsScreen() {
             </View>
           }
           renderItem={({ item }) => (
-            <View style={styles.orderCard}>
+            <Pressable
+              style={({ pressed }) => [styles.orderCard, pressed && { opacity: 0.85 }]}
+              onPress={() => router.push({ pathname: '/order-detail', params: { id: item.id } } as any)}
+            >
               <View style={styles.orderHeader}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.orderProduct} numberOfLines={1}>{item.productTitle}</Text>
                   <Text style={styles.orderBuyer}>{item.buyerName}</Text>
                 </View>
-                <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) + '20' }]}>
-                  <Text style={[styles.statusTxt, { color: getStatusColor(item.status) }]}>
-                    {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
-                  </Text>
+                <View style={{ alignItems: 'flex-end', gap: 4 }}>
+                  <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) + '20' }]}>
+                    <Text style={[styles.statusTxt, { color: getStatusColor(item.status) }]}>
+                      {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={14} color={C.textTertiary} />
                 </View>
               </View>
               <View style={styles.orderFooter}>
@@ -290,7 +296,12 @@ export default function SupplierProductsScreen() {
                   {new Date(item.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
                 </Text>
               </View>
-            </View>
+              {item.status === 'pending' && (
+                <View style={styles.newBadge}>
+                  <Text style={styles.newBadgeTxt}>🔔 New — Tap to respond</Text>
+                </View>
+              )}
+            </Pressable>
           )}
         />
       )}
@@ -346,5 +357,7 @@ const styles = StyleSheet.create({
   emptyTitle: { fontSize: 18, fontFamily: 'Inter_700Bold', color: C.text, marginTop: 16 },
   emptySub: { fontSize: 14, color: C.textTertiary, fontFamily: 'Inter_400Regular', textAlign: 'center', marginTop: 8 },
   emptyBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: PRIMARY, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 12, marginTop: 20 },
+  newBadge: { marginTop: 10, backgroundColor: '#FEF3C7', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 },
+  newBadgeTxt: { fontSize: 12, color: '#92400E', fontFamily: 'Inter_600SemiBold' },
   emptyBtnTxt: { color: '#FFF', fontFamily: 'Inter_600SemiBold', fontSize: 14 },
 });

@@ -162,7 +162,10 @@ export default function SellerOrdersScreen() {
     const isActionable = ['pending', 'confirmed', 'shipped'].includes(item.status);
 
     return (
-      <View style={[styles.orderCard, isPending && styles.orderCardPending]}>
+      <Pressable
+        style={[styles.orderCard, isPending && styles.orderCardPending]}
+        onPress={() => router.push({ pathname: '/order-detail', params: { id: item.id } } as any)}
+      >
         <View style={styles.orderTop}>
           <View style={styles.orderImageWrap}>
             {item.productImage ? (
@@ -230,7 +233,7 @@ export default function SellerOrdersScreen() {
             </Pressable>
           )}
         </View>
-      </View>
+      </Pressable>
     );
   };
 
