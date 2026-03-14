@@ -67,7 +67,7 @@ const BUNNY_STORAGE_REGION = process.env.BUNNY_STORAGE_REGION || 'sg';
 const BUNNY_STORAGE_ENDPOINT = BUNNY_STORAGE_REGION === 'de' 
   ? 'https://storage.bunnycdn.com' 
   : `https://${BUNNY_STORAGE_REGION}.storage.bunnycdn.com`;
-const BUNNY_CDN_URL = `https://Mobistorage.b-cdn.net`;
+const BUNNY_CDN_URL = `https://mobistorage.b-cdn.net`;
 const bunnyAvailable = !!(BUNNY_STORAGE_API_KEY && BUNNY_STORAGE_ZONE_NAME);
 
 // Bunny Stream — for video encoding + HLS streaming
