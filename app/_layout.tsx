@@ -98,18 +98,29 @@ export default function RootLayout() {
   useEffect(() => {
     if (Platform.OS === 'web') return;
 
-    ScreenCapture.preventScreenCaptureAsync();
+    let subscription: any = null;
+    try {
+      ScreenCapture.preventScreenCaptureAsync().catch(() => {});
 
-    const subscription = ScreenCapture.addScreenshotListener(() => {
-      Alert.alert(
-        'Screenshot Detected',
-        'Screenshots are not allowed in Mobi for privacy protection.'
-      );
-    });
+      ScreenCapture.addScreenshotListener(() => {
+        Alert.alert(
+          'Screenshot Detected',
+          'Screenshots are not allowed in Mobi for privacy protection.'
+        );
+      }).then((sub) => {
+        subscription = sub;
+      }).catch(() => {});
+    } catch (e) {
+      console.warn('[ScreenCapture] Failed to initialize:', e);
+    }
 
     return () => {
-      subscription.remove();
-      ScreenCapture.allowScreenCaptureAsync();
+      try {
+        if (subscription) subscription.remove();
+        ScreenCapture.allowScreenCaptureAsync().catch(() => {});
+      } catch (e) {
+        console.warn('[ScreenCapture] Cleanup failed:', e);
+      }
     };
   }, []);
 

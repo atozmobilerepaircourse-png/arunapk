@@ -4,12 +4,25 @@ import * as Crypto from 'expo-crypto';
 const DEVICE_ID_KEY = '@mobi_device_id';
 
 export async function getDeviceId(): Promise<string> {
-  const existingId = await AsyncStorage.getItem(DEVICE_ID_KEY);
-  if (existingId) {
-    return existingId;
-  }
+  try {
+    const existingId = await AsyncStorage.getItem(DEVICE_ID_KEY);
+    if (existingId) {
+      return existingId;
+    }
 
-  const newId = Crypto.randomUUID();
-  await AsyncStorage.setItem(DEVICE_ID_KEY, newId);
-  return newId;
+    let newId: string;
+    try {
+      newId = await Crypto.randomUUID();
+    } catch (e) {
+      // Fallback for devices where Crypto.randomUUID() fails
+      newId = Date.now().toString() + Math.random().toString(36).substr(2, 9);
+    }
+    
+    await AsyncStorage.setItem(DEVICE_ID_KEY, newId);
+    return newId;
+  } catch (e) {
+    console.warn('[DeviceId] Error:', e);
+    // Final fallback
+    return Date.now().toString() + Math.random().toString(36).substr(2, 9);
+  }
 }
