@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "node:http";
-import { getFirestore, getAdminAuth } from "./firebase-admin";
+import { getFirestore, getAdminAuth, getStorage } from "./firebase-admin";
 import { db } from "./db";
 import OpenAI from "openai";
 import { notifyAllUsers, notifyNewPost, notifyUser } from "./push-notifications";
@@ -87,50 +87,31 @@ if (bunnyStreamAvailable) {
 }
 
 async function uploadToStorage(buffer: Buffer, filename: string): Promise<string> {
-  // Always use local storage as primary fallback for reliability
+  const GCS_BUCKET = process.env.GCS_BUCKET || 'mobi-uploads';
+  
+  // Try Google Cloud Storage first (production-reliable)
+  try {
+    const storage = getStorage();
+    const bucket = storage.bucket(GCS_BUCKET);
+    const file = bucket.file(filename);
+    
+    await file.save(buffer, { metadata: { contentType: 'application/octet-stream' } });
+    const publicUrl = `https://storage.googleapis.com/${GCS_BUCKET}/${filename}`;
+    console.log(`[GCS] Uploaded: ${filename} → ${publicUrl}`);
+    return publicUrl;
+  } catch (error: any) {
+    console.error(`[GCS] Upload failed: ${error?.message || error}`);
+  }
+  
+  // Local storage fallback for dev
   const localFilename = filename.replace(/^(images|videos)\//, "");
   const filePath = path.join(uploadsDir, localFilename);
   fs.writeFileSync(filePath, buffer);
-  
-  if (bunnyAvailable) {
-    try {
-      const url = `${BUNNY_STORAGE_ENDPOINT}/${BUNNY_STORAGE_ZONE_NAME}/${filename}`;
-      console.log(`[Bunny] Attempting upload to: ${url}`);
-      const response = await Promise.race([
-        fetch(url, {
-          method: 'PUT',
-          headers: {
-            'AccessKey': BUNNY_STORAGE_API_KEY,
-            'Content-Type': 'application/octet-stream',
-            'Content-Length': String(buffer.length),
-          },
-          body: buffer,
-          duplex: 'half',
-        } as any),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Bunny upload timeout')), 10000))
-      ]) as any;
-      
-      if (!response.ok) {
-        const text = await response.text().catch(() => '');
-        throw new Error(`Bunny upload failed: ${response.status} ${response.statusText} ${text}`);
-      }
-      console.log(`[Bunny] Success: ${filename} (${buffer.length} bytes)`);
-      const cdnUrl = `${BUNNY_CDN_URL}/${filename}`;
-      console.log(`[Bunny] Returning CDN URL: ${cdnUrl}`);
-      return cdnUrl;
-    } catch (error: any) {
-      console.error("[Bunny] Upload failed, using local fallback:", error?.message || error);
-    }
-  } else {
-    console.log('[Bunny] Not configured, using local storage');
-  }
-  
-  // Local storage fallback — always works
   const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
   const host = process.env.REPLIT_DEV_DOMAIN ? process.env.REPLIT_DEV_DOMAIN : 
                process.env.REPLIT_DOMAINS?.split(',')[0] || 'localhost:5000';
   const localUrl = `${protocol}://${host}/uploads/${localFilename}`;
-  console.log(`[Local] Saved: ${filePath}, returning: ${localUrl}`);
+  console.log(`[Local] Saved: ${filePath} → ${localUrl}`);
   return localUrl;
 }
 

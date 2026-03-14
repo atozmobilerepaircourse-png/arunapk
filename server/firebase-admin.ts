@@ -35,3 +35,8 @@ export function getAdminAuth(): admin.auth.Auth {
   ensureInitialized();
   return admin.auth();
 }
+
+export function getStorage(): admin.storage.Storage {
+  ensureInitialized();
+  return admin.storage();
+}
