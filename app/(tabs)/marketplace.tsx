@@ -415,8 +415,8 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: MH.bg },
 
   // Header
-  header: { backgroundColor: MH.surface, paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: MH.border },
-  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  header: { backgroundColor: MH.surface, paddingHorizontal: 16, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: MH.border },
+  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
   logoRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   logoBox: { width: 36, height: 36, borderRadius: 10, backgroundColor: MH.primary, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { fontSize: 18, fontFamily: 'Inter_700Bold', color: MH.primary },
@@ -431,7 +431,7 @@ const styles = StyleSheet.create({
 
   // Categories
   catBar: { backgroundColor: MH.surface, borderBottomWidth: 1, borderBottomColor: MH.border },
-  catScroll: { paddingHorizontal: 16, paddingVertical: 10, gap: 8 },
+  catScroll: { paddingHorizontal: 16, paddingVertical: 6, gap: 6 },
   catChip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, borderWidth: 1, borderColor: MH.border, backgroundColor: MH.surface },
   catChipOn: { backgroundColor: MH.primary, borderColor: MH.primary },
   catLabel: { fontSize: 13, fontFamily: 'Inter_500Medium', color: MH.textSub },
@@ -447,7 +447,7 @@ const styles = StyleSheet.create({
   sortTxt: { fontSize: 13, color: MH.textSub, fontFamily: 'Inter_500Medium' },
 
   // Grid
-  grid: { padding: 12, gap: 10 },
+  grid: { padding: 8, gap: 8 },
   row: { gap: 10, justifyContent: 'space-between' },
 
   // Product Card
@@ -455,13 +455,13 @@ const styles = StyleSheet.create({
   badge: { position: 'absolute', top: 8, left: 8, paddingHorizontal: 6, paddingVertical: 3, borderRadius: 4, zIndex: 2 },
   badgeTxt: { color: '#FFF', fontSize: 8, fontFamily: 'Inter_700Bold', letterSpacing: 0.3 },
   heartBtn: { position: 'absolute', top: 8, right: 8, zIndex: 2, width: 26, height: 26, borderRadius: 13, backgroundColor: 'rgba(255,255,255,0.9)', alignItems: 'center', justifyContent: 'center' },
-  cardImgWrap: { width: '100%', height: 120, backgroundColor: MH.bg, alignItems: 'center', justifyContent: 'center' },
+  cardImgWrap: { width: '100%', height: 100, backgroundColor: MH.bg, alignItems: 'center', justifyContent: 'center' },
   cardImg: { width: '100%', height: '100%' },
   cardImgEmpty: { alignItems: 'center', justifyContent: 'center' },
-  cardBody: { padding: 10, gap: 3 },
-  cardTitle: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: MH.text, lineHeight: 18, marginTop: 2 },
+  cardBody: { padding: 8, gap: 2 },
+  cardTitle: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: MH.text, lineHeight: 17, marginTop: 1 },
   cardSeller: { fontSize: 11, color: MH.textMuted, fontFamily: 'Inter_400Regular' },
-  cardFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 },
+  cardFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 },
   cardPrice: { fontSize: 15, fontFamily: 'Inter_700Bold', color: MH.text },
   addBtn: { width: 30, height: 30, borderRadius: 15, backgroundColor: MH.primary, alignItems: 'center', justifyContent: 'center' },
   addBtnOut: { width: 30, height: 30, borderRadius: 15, backgroundColor: MH.bg, borderWidth: 1, borderColor: MH.border, alignItems: 'center', justifyContent: 'center' },

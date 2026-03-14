@@ -503,8 +503,8 @@ const styles = StyleSheet.create({
   },
   filtersContent: {
     paddingHorizontal: 16,
-    paddingVertical: 10,
-    gap: 8,
+    paddingVertical: 6,
+    gap: 6,
   },
   filterChip: {
     flexDirection: 'row',
@@ -512,10 +512,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     paddingHorizontal: 14,
-    paddingVertical: 9,
+    paddingVertical: 6,
     borderRadius: 22,
     borderWidth: 1,
-    minHeight: 36,
+    minHeight: 34,
   },
   filterText: {
     fontSize: 12,
@@ -526,7 +526,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 4,
   },
   feedHeaderTitle: {
     color: TEXT,
@@ -539,7 +539,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_400Regular',
   },
   listContent: {
-    paddingTop: 4,
+    paddingTop: 2,
   },
   emptyState: {
     alignItems: 'center',

@@ -412,10 +412,10 @@ const styles = StyleSheet.create({
   chipTextActive: { color: PRIMARY },
 
   // Stats
-  statsScroll: { paddingHorizontal: 16, paddingBottom: 16, gap: 12 },
+  statsScroll: { paddingHorizontal: 16, paddingBottom: 8, gap: 8 },
   statCard: {
     width: 168, backgroundColor: CARD, borderRadius: 20,
-    padding: 14, marginVertical: 4,
+    padding: 10, marginVertical: 2,
     shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 12, elevation: 2,
     borderWidth: 1, borderColor: '#F3F4F6', overflow: 'hidden', position: 'relative',
   },
@@ -445,7 +445,8 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     backgroundColor: CARD,
     borderRadius: 20,
-    padding: 12,
+    padding: 8,
+    marginBottom: 8,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 1,
     borderWidth: 1, borderColor: '#F3F4F6',
   },
@@ -456,9 +457,9 @@ const styles = StyleSheet.create({
   avatarInitials: { fontSize: 16, fontFamily: 'Inter_700Bold', color: PRIMARY },
   onlineDot: { position: 'absolute', bottom: 1, right: 1, width: 12, height: 12, borderRadius: 6, borderWidth: 2, borderColor: CARD },
   cardInfo: { flex: 1 },
-  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 2 },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 1 },
   cardName: { fontSize: 13, fontFamily: 'Inter_700Bold', color: DARK, flex: 1 },
-  badgeRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
+  badgeRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 2 },
   roleBadge: { paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4 },
   roleBadgeText: { fontSize: 9, fontFamily: 'Inter_600SemiBold' },
   ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 2 },
@@ -469,7 +470,7 @@ const styles = StyleSheet.create({
   distanceText: { fontSize: 9, color: PRIMARY, fontFamily: 'Inter_600SemiBold' },
 
   // Card footer
-  cardFooter: { flexDirection: 'row', gap: 6, marginTop: 10, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#F9FAFB' },
+  cardFooter: { flexDirection: 'row', gap: 6, marginTop: 6, paddingTop: 4, borderTopWidth: 1, borderTopColor: '#F9FAFB' },
   chatBtn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4,
     borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12,
