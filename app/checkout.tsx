@@ -48,17 +48,15 @@ export default function CheckoutScreen() {
   };
 
   const placeOrder = async () => {
-    if (placing || items.length === 0) return;
     if (!validate()) return;
-    if (!profile) { Alert.alert('Error', 'Please log in to place an order'); return; }
+    if (!profile) { Alert.alert('Error', 'Please log in'); return; }
 
     setPlacing(true);
-    if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    
     try {
       const shippingAddress = `${address}, ${city} - ${pincode}`;
-      const orderPromises = items.map(item =>
-        apiRequest('POST', '/api/orders', {
+      
+      for (const item of items) {
+        const res = await apiRequest('POST', '/api/orders', {
           productId: item.productId,
           productTitle: item.title,
           productPrice: item.price.toString(),
@@ -77,34 +75,20 @@ export default function CheckoutScreen() {
           shippingAddress,
           buyerNotes: notes,
           status: 'pending',
-        })
-      );
-
-      const results = await Promise.all(orderPromises);
-      
-      // Check if any orders failed
-      const failedOrders = results.filter((r: any) => !r.ok);
-      if (failedOrders.length > 0) {
-        const errorData = await failedOrders[0].json();
-        throw new Error(errorData.message || 'Failed to place some orders');
+        });
+        
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.message || 'Order failed');
+        }
       }
 
-      if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
       clearCart();
-
-      Alert.alert(
-        'Order Placed!',
-        `Your order has been placed successfully. The supplier will contact you shortly at ${phone}.`,
-        [{
-          text: 'View Orders', onPress: () => {
-            router.replace('/(tabs)/marketplace' as any);
-          }
-        }]
-      );
+      Alert.alert('Success!', 'Order placed. Supplier will contact you.', [
+        { text: 'OK', onPress: () => router.replace('/(tabs)/marketplace' as any) }
+      ]);
     } catch (e: any) {
-      console.error('[Checkout] Order error:', e);
-      Alert.alert('Error', e?.message || 'Failed to place order. Please try again.');
+      Alert.alert('Error', e.message || 'Failed to place order');
     } finally {
       setPlacing(false);
     }
