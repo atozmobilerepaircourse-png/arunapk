@@ -19,7 +19,7 @@
     },
     "android": {
       "package": "com.mobi.app",
-      "versionCode": 19,
+      "versionCode": 21,
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.READ_EXTERNAL_STORAGE",
