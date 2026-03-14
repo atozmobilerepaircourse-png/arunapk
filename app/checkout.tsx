@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Pressable, TextInput,
   Platform, Alert, ActivityIndicator,
@@ -7,6 +7,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import Animated, {
+  FadeInDown, ScaleIn, useSharedValue, useAnimatedStyle,
+  withTiming, withDelay, withSequence, Easing,
+} from 'react-native-reanimated';
 import { useCart } from '@/lib/cart-context';
 import { useApp } from '@/lib/context';
 import { apiRequest } from '@/lib/query-client';
@@ -32,6 +36,7 @@ export default function CheckoutScreen() {
   const [pincode, setPincode] = useState('');
   const [notes, setNotes] = useState('');
   const [placing, setPlacing] = useState(false);
+  const [success, setSuccess] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'cod' | 'online'>('cod');
 
   const topInset = Platform.OS === 'web' ? webTop : insets.top;
@@ -76,13 +81,51 @@ export default function CheckoutScreen() {
       }
 
       clearCart();
-      Alert.alert('Success!', 'Order placed', [{ text: 'OK', onPress: () => router.push('/(tabs)/marketplace' as any) }]);
+      setSuccess(true);
+      if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      
+      setTimeout(() => {
+        router.push('/(tabs)/marketplace' as any);
+      }, 3500);
     } catch (e: any) {
       Alert.alert('Error', e.message || 'Failed');
-    } finally {
       setPlacing(false);
     }
   };
+
+  // Success Screen
+  if (success) {
+    return (
+      <View style={[styles.container, { alignItems: 'center', justifyContent: 'center', backgroundColor: '#F0FDF4' }]}>
+        <Animated.View entering={ScaleIn.springify()} style={styles.successBadge}>
+          <Animated.View entering={FadeInDown.delay(200)} style={styles.checkmark}>
+            <Text style={{ fontSize: 60 }}>✓</Text>
+          </Animated.View>
+        </Animated.View>
+        
+        <Animated.Text entering={FadeInDown.delay(400)} style={styles.successTitle}>
+          Congratulations!
+        </Animated.Text>
+        
+        <Animated.Text entering={FadeInDown.delay(600)} style={styles.successSub}>
+          Your order was placed successfully
+        </Animated.Text>
+        
+        <Animated.View entering={FadeInDown.delay(800)} style={styles.successDetails}>
+          <View style={styles.detailRow}>
+            <Ionicons name="call" size={16} color={T.accent} />
+            <Text style={styles.detailText}>Supplier will contact you</Text>
+          </View>
+          <View style={styles.detailRow}>
+            <Ionicons name="location" size={16} color={T.accent} />
+            <Text style={styles.detailText}>at {phone}</Text>
+          </View>
+        </Animated.View>
+        
+        <Text style={styles.countdownText}>Redirecting...</Text>
+      </View>
+    );
+  }
 
   if (items.length === 0) {
     return (
@@ -246,6 +289,58 @@ export default function CheckoutScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: T.bg },
+  successBadge: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#10B981',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 12,
+    marginBottom: 24,
+  },
+  checkmark: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  successTitle: {
+    fontSize: 28,
+    fontFamily: 'Inter_700Bold',
+    color: T.text,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  successSub: {
+    fontSize: 16,
+    fontFamily: 'Inter_500Medium',
+    color: T.muted,
+    marginBottom: 32,
+    textAlign: 'center',
+    paddingHorizontal: 20,
+  },
+  successDetails: {
+    gap: 12,
+    marginBottom: 40,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  detailText: {
+    fontSize: 14,
+    fontFamily: 'Inter_500Medium',
+    color: T.text,
+  },
+  countdownText: {
+    fontSize: 13,
+    fontFamily: 'Inter_400Regular',
+    color: T.muted,
+  },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 12, backgroundColor: T.bgElevated, borderBottomWidth: 1, borderBottomColor: T.border },
   backBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: T.card, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
   backBtnEmpty: { marginTop: 16, paddingHorizontal: 20, paddingVertical: 10 },
