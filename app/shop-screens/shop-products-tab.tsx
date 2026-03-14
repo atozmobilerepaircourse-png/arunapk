@@ -101,7 +101,7 @@ function getReviewCount(id: string): number {
   return 5 + (Math.abs(h) % 245);
 }
 
-export function ShopProductsTab({ search, onSearch }: ShopProductsTabProps) {
+function ShopProductsTab({ search, onSearch }: ShopProductsTabProps) {
   const { profile, startConversation } = useApp();
   const [wishlist, setWishlist] = useState(new Set<string>());
   const [products, setProducts] = useState<RealProduct[]>([]);
@@ -524,3 +524,5 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 });
+
+export default ShopProductsTab;
