@@ -144,7 +144,7 @@ export default function MyOrdersScreen() {
 
   const renderOrder = ({ item }: { item: Order }) => {
     const statusColor = ORDER_STATUS_COLORS[item.status as OrderStatus];
-    const canCancel = item.status === 'pending';
+    const canCancel = ['pending', 'confirmed', 'shipped'].includes(item.status);
     const canConfirmDelivery = item.status === 'delivered';
 
     return (
