@@ -34,6 +34,7 @@ export default function GoLiveScreen() {
   const { profile } = useApp();
   const isTeacher = profile?.role === 'teacher' || profile?.role === 'admin';
 
+  const [mode, setMode] = useState<'link' | 'camera'>('link');
   const [platform, setPlatform] = useState<'youtube' | 'zoom' | 'meet' | 'other'>('youtube');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -44,6 +45,7 @@ export default function GoLiveScreen() {
   const [loadingSession, setLoadingSession] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [isPickingThumbnail, setIsPickingThumbnail] = useState(false);
+  const [cameraRtmpUrl, setCameraRtmpUrl] = useState<string | null>(null);
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
 
@@ -162,6 +164,35 @@ export default function GoLiveScreen() {
     }
   };
 
+  const handleStartCameraStream = async () => {
+    if (!title.trim()) {
+      Alert.alert('Missing Title', 'Please enter a session title.');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const res = await apiRequest('POST', '/api/teacher/camera-stream/start', {
+        teacherId: profile?.id,
+        teacherName: profile?.name,
+        teacherAvatar: profile?.avatar,
+        title: title.trim(),
+        description: description.trim(),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setCameraRtmpUrl(data.rtmpUrl);
+        setActiveSession(data.session);
+        Alert.alert('Camera Stream Started!', 'RTMP URL ready. Stream from OBS, Streamlabs, or any RTMP app.\n\nURL: ' + data.rtmpUrl);
+      } else {
+        Alert.alert('Error', data.message || 'Failed to start camera stream');
+      }
+    } catch (e) {
+      Alert.alert('Error', 'Connection failed. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleGoLive = async () => {
     if (!title.trim()) {
       Alert.alert('Missing Title', 'Please enter a session title.');
@@ -273,6 +304,26 @@ export default function GoLiveScreen() {
       </View>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20, paddingBottom: insets.bottom + 40 }}>
+        {/* Mode selector: Link or Camera */}
+        {!activeSession && (
+          <View style={styles.modeSelector}>
+            <Pressable
+              style={[styles.modeBtn, mode === 'link' && styles.modeBtnActive]}
+              onPress={() => setMode('link')}
+            >
+              <Ionicons name="link" size={18} color={mode === 'link' ? '#FFF' : '#999'} />
+              <Text style={[styles.modeBtnText, mode === 'link' && { color: '#FFF' }]}>Share Link</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.modeBtn, mode === 'camera' && styles.modeBtnActive]}
+              onPress={() => setMode('camera')}
+            >
+              <Ionicons name="videocam" size={18} color={mode === 'camera' ? '#FFF' : '#999'} />
+              <Text style={[styles.modeBtnText, mode === 'camera' && { color: '#FFF' }]}>Stream Camera</Text>
+            </Pressable>
+          </View>
+        )}
+
         {activeSession ? (
           <View style={styles.activeCard}>
             <View style={styles.activeHeader}>
@@ -315,103 +366,49 @@ export default function GoLiveScreen() {
           </View>
         ) : (
           <>
-            <View style={styles.introCard}>
-              <View style={styles.liveBadge}>
-                <View style={styles.liveDot} />
-                <Text style={styles.liveBadgeText}>START STREAMING</Text>
-              </View>
-              <Text style={styles.introTitle}>Share your live class</Text>
-              <Text style={styles.introDesc}>
-                Post your YouTube, Zoom, or Google Meet link. Students will receive a push notification instantly.
-              </Text>
-            </View>
+            {mode === 'link' ? (
+              <>
+                <View style={styles.introCard}>
+                  <View style={styles.liveBadge}>
+                    <View style={styles.liveDot} />
+                    <Text style={styles.liveBadgeText}>SHARE LINK</Text>
+                  </View>
+                  <Text style={styles.introTitle}>Share your live class</Text>
+                  <Text style={styles.introDesc}>
+                    Post your YouTube, Zoom, or Google Meet link. Students will receive a push notification instantly.
+                  </Text>
+                </View>
 
-            <Text style={styles.sectionLabel}>Platform</Text>
+                <Text style={styles.sectionLabel}>Platform</Text>
             <View style={styles.platformRow}>
               {PLATFORMS.map(p => (
                 <Pressable
-                  key={p.key}
-                  style={[styles.platformBtn, platform === p.key && { borderColor: p.color, backgroundColor: p.color + '12' }]}
-                  onPress={() => setPlatform(p.key as any)}
-                >
-                  <Ionicons name={p.icon as any} size={20} color={platform === p.key ? p.color : '#999'} />
-                  <Text style={[styles.platformLabel, platform === p.key && { color: p.color }]}>{p.label}</Text>
+                )}
+              </>
+            ) : (
+              <>
+                <View style={[styles.introCard, { backgroundColor: '#F0F8FF' }]}>
+                  <View style={[styles.liveBadge, { backgroundColor: '#2D8CFF' }]}>
+                    <View style={[styles.liveDot, { backgroundColor: '#2D8CFF' }]} />
+                    <Text style={styles.liveBadgeText}>CAMERA STREAM</Text>
+                  </View>
+                  <Text style={styles.introTitle}>Stream from your mobile</Text>
+                  <Text style={styles.introDesc}>
+                    Get an RTMP URL to stream from OBS, Streamlabs, or any streaming app.
+                  </Text>
+                </View>
+
+                <Text style={styles.sectionLabel}>Session Title</Text>
+                <TextInput style={styles.input} value={title} onChangeText={setTitle} placeholder="e.g. Live AC Repair Workshop" placeholderTextColor="#BBB" maxLength={80} />
+                
+                <Text style={styles.sectionLabel}>Description (Optional)</Text>
+                <TextInput style={[styles.input, styles.textArea]} value={description} onChangeText={setDescription} placeholder="What will you cover today?" placeholderTextColor="#BBB" multiline numberOfLines={3} maxLength={200} />
+
+                <Pressable style={[styles.goLiveBtn, submitting && { opacity: 0.6 }]} onPress={handleStartCameraStream} disabled={submitting}>
+                  {submitting ? <ActivityIndicator size="small" color="#FFF" /> : <><View style={styles.goLiveDot} /><Text style={styles.goLiveBtnText}>Get RTMP URL</Text></> }
                 </Pressable>
-              ))}
-            </View>
-
-            <Text style={styles.sectionLabel}>Session Title</Text>
-            <TextInput
-              style={styles.input}
-              value={title}
-              onChangeText={setTitle}
-              placeholder="e.g. Live AC Repair Workshop"
-              placeholderTextColor="#BBB"
-              maxLength={80}
-            />
-
-            <Text style={styles.sectionLabel}>Description (Optional)</Text>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              value={description}
-              onChangeText={setDescription}
-              placeholder="What will you cover today?"
-              placeholderTextColor="#BBB"
-              multiline
-              numberOfLines={3}
-              maxLength={200}
-            />
-
-            <Text style={styles.sectionLabel}>Stream Link</Text>
-            <TextInput
-              style={styles.input}
-              value={link}
-              onChangeText={setLink}
-              placeholder={
-                platform === 'youtube' ? 'https://youtube.com/live/...' :
-                platform === 'zoom' ? 'https://zoom.us/j/...' :
-                platform === 'meet' ? 'https://meet.google.com/...' :
-                'https://...'
-              }
-              placeholderTextColor="#BBB"
-              autoCapitalize="none"
-              keyboardType="url"
-            />
-
-            <Text style={styles.sectionLabel}>Thumbnail Image (Optional)</Text>
-            <Pressable
-              style={[styles.thumbnailPickerBtn, thumbnailUri && styles.thumbnailPickerBtnActive]}
-              onPress={handlePickThumbnail}
-              disabled={isPickingThumbnail}
-            >
-              {thumbnailUri ? (
-                <>
-                  <Ionicons name="checkmark-circle" size={20} color="#34C759" />
-                  <Text style={styles.thumbnailPickerBtnText}>Image selected</Text>
-                </>
-              ) : (
-                <>
-                  <Ionicons name="image-outline" size={20} color={GRAY} />
-                  <Text style={styles.thumbnailPickerBtnText}>Choose thumbnail image</Text>
-                </>
-              )}
-            </Pressable>
-
-            <Pressable
-              style={[styles.goLiveBtn, submitting && { opacity: 0.6 }]}
-              onPress={handleGoLive}
-              disabled={submitting}
-            >
-              {submitting ? (
-                <ActivityIndicator size="small" color="#FFF" />
-              ) : (
-                <>
-                  <View style={styles.goLiveDot} />
-                  <Text style={styles.goLiveBtnText}>Go Live Now</Text>
-                  <Text style={styles.goLiveSubtext}>Notifies all students</Text>
-                </>
-              )}
-            </Pressable>
+              </>
+            )}
           </>
         )}
       </ScrollView>
@@ -424,6 +421,10 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
   backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#F2F2F2', alignItems: 'center', justifyContent: 'center' },
   headerTitle: { fontSize: 18, fontWeight: '700' as const, color: '#000' },
+  modeSelector: { flexDirection: 'row', gap: 12, marginBottom: 20 },
+  modeBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 12, paddingHorizontal: 16, borderRadius: 12, borderWidth: 1.5, borderColor: '#E0E0E0', backgroundColor: '#F8F8F8' },
+  modeBtnActive: { backgroundColor: RED, borderColor: RED },
+  modeBtnText: { fontSize: 14, fontWeight: '600' as const, color: '#999' },
   centerContent: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
   restrictedText: { fontSize: 15, color: GRAY, fontWeight: '500' as const },
   introCard: { backgroundColor: '#FFF5F5', borderRadius: 20, padding: 20, marginBottom: 24, borderWidth: 1, borderColor: '#FFD5D5' },

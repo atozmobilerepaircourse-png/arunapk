@@ -6008,6 +6008,59 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
     }
   });
 
+  // Camera streaming (RTMP)
+  app.post("/api/teacher/camera-stream/start", async (req, res) => {
+    try {
+      const { teacherId, teacherName, teacherAvatar, title, description } = req.body;
+      if (!teacherId || !title) {
+        return res.status(400).json({ success: false, message: "teacherId and title required" });
+      }
+      const sessionId = randomUUID();
+      const firestore = getFirestore();
+      
+      // End any existing camera streams by this teacher
+      const existing = await firestore.collection("teacher_live_sessions")
+        .where("teacherId", "==", teacherId)
+        .where("isLive", "==", true)
+        .get();
+      for (const doc of existing.docs) {
+        await doc.ref.update({ isLive: false, endedAt: Date.now() });
+      }
+      
+      // Generate RTMP URL using Bunny Stream
+      const rtmpUrl = `rtmp://live.bunnystream.io/live/${BUNNY_STREAM_LIBRARY_ID}?accessKey=${BUNNY_STREAM_API_KEY}`;
+      
+      const sessionData = {
+        id: sessionId,
+        teacherId,
+        teacherName: teacherName || "",
+        teacherAvatar: teacherAvatar || "",
+        title,
+        description: description || "",
+        platform: "camera",
+        link: rtmpUrl,
+        isLive: true,
+        startedAt: Date.now(),
+        viewerCount: 0,
+      };
+      
+      await firestore.collection("teacher_live_sessions").doc(sessionId).set(sessionData);
+      
+      // Notify all users
+      await notifyAllUsers({
+        title: `🎥 ${teacherName} is streaming LIVE now!`,
+        body: title,
+        data: { type: 'teacher_live', sessionId, link: rtmpUrl, platform: 'camera' },
+      }, teacherId);
+      
+      console.log(`[CameraStream] ${teacherName} started camera stream: ${title}`);
+      return res.json({ success: true, session: sessionData, rtmpUrl });
+    } catch (error) {
+      console.error("[CameraStream] Start error:", error);
+      return res.status(500).json({ success: false, message: "Failed to start camera stream" });
+    }
+  });
+
   app.post("/api/teacher/live-session/upload-image", upload.single("image"), async (req, res) => {
     try {
       if (!req.file) {
