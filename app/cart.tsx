@@ -72,9 +72,14 @@ export default function CartScreen() {
   const topInset = Platform.OS === 'web' ? webTop : insets.top;
 
   const handleClear = () => {
+    if (items.length === 0) return;
+    if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     Alert.alert('Clear Cart', 'Remove all items from cart?', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Clear', style: 'destructive', onPress: () => { clearCart(); if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); } }
+      { text: 'Clear', style: 'destructive', onPress: () => { 
+        clearCart(); 
+        if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } }
     ]);
   };
 

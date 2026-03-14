@@ -48,10 +48,13 @@ export default function CheckoutScreen() {
   };
 
   const placeOrder = async () => {
+    if (placing || items.length === 0) return;
     if (!validate()) return;
     if (!profile) { Alert.alert('Error', 'Please log in to place an order'); return; }
 
     setPlacing(true);
+    if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    
     try {
       const shippingAddress = `${address}, ${city} - ${pincode}`;
       const orderPromises = items.map(item =>
