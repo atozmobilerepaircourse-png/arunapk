@@ -77,7 +77,14 @@ export default function CheckoutScreen() {
         })
       );
 
-      await Promise.all(orderPromises);
+      const results = await Promise.all(orderPromises);
+      
+      // Check if any orders failed
+      const failedOrders = results.filter((r: any) => !r.ok);
+      if (failedOrders.length > 0) {
+        const errorData = await failedOrders[0].json();
+        throw new Error(errorData.message || 'Failed to place some orders');
+      }
 
       if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
@@ -93,7 +100,8 @@ export default function CheckoutScreen() {
         }]
       );
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'Failed to place order. Please try again.');
+      console.error('[Checkout] Order error:', e);
+      Alert.alert('Error', e?.message || 'Failed to place order. Please try again.');
     } finally {
       setPlacing(false);
     }

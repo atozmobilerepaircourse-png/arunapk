@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -124,6 +125,13 @@ export default function SupplierProductsScreen() {
   }, [profile?.id]);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  // Refetch when tab comes into focus (new products added)
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData])
+  );
 
   const onRefresh = async () => {
     setRefreshing(true);
