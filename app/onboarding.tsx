@@ -54,7 +54,7 @@ const ROLES: { key: UserRole; icon: keyof typeof Ionicons.glyphMap; color: strin
   { key: 'supplier', icon: 'cube', color: '#FF9F0A' },
 ];
 
-type ScreenName = 'phone' | 'otp' | 'email' | 'google-phone' | 'details' | 'selfie' | 'skills' | 'sellType' | 'teachType' | 'businessDocs' | 'location';
+type ScreenName = 'google-phone' | 'details' | 'selfie' | 'skills' | 'sellType' | 'teachType' | 'businessDocs' | 'location';
 
 export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
@@ -124,9 +124,7 @@ export default function OnboardingScreen() {
   const needsBusinessDocs = isSupplier || isTeacher;
 
   const getScreenSequence = (): ScreenName[] => {
-    const screens: ScreenName[] = googleSignedIn
-      ? ['google-phone', 'details']
-      : ['phone', 'otp', 'email', 'details'];
+    const screens: ScreenName[] = ['google-phone', 'details'];
     if (needsSelfie) screens.push('selfie');
     if (needsSkills) screens.push('skills');
     if (needsSellType) screens.push('sellType');
@@ -372,13 +370,14 @@ export default function OnboardingScreen() {
 
     setChecking(true);
     try {
-      console.log('[checkPhone] Sending OTP to:', cleanPhone);
+      if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       
-      // Check if existing user (optional info, doesn't block OTP)
+      // Check if existing user
       try {
         const res = await apiRequest('POST', '/api/auth/check-phone', { phone: cleanPhone });
         const data = await res.json();
         if (data.success && data.exists && data.profile) {
+          // Existing user - log in directly (no OTP needed)
           const serverProfile: UserProfile = {
             id: data.profile.id,
             name: data.profile.name,
@@ -400,21 +399,18 @@ export default function OnboardingScreen() {
             createdAt: data.profile.createdAt || Date.now(),
           };
           setExistingProfile(serverProfile);
-        } else {
-          setExistingProfile(null);
+          setSessionToken(data.sessionToken || '');
+          await loginWithProfile(serverProfile, data.sessionToken);
+          router.replace(getRoleRoute(serverProfile) as any);
+          return;
         }
-      } catch (checkErr) {
-        console.warn('[checkPhone] check-phone failed (non-critical):', checkErr);
+        // New user - go to details form
         setExistingProfile(null);
+        setStep(s => s + 1);
+      } catch (checkErr) {
+        console.warn('[checkPhone] check-phone failed:', checkErr);
+        Alert.alert('Error', 'Could not verify phone. Please try again.');
       }
-
-      // Send OTP via backend (Fast2SMS) for all platforms
-      if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      await sendOtp(cleanPhone);
-      setStep(1);
-    } catch (error: any) {
-      console.error('[checkPhone] Error:', error?.message);
-      Alert.alert('Error', error?.message || 'Could not send OTP. Please try again.');
     } finally {
       setChecking(false);
     }
@@ -609,20 +605,8 @@ export default function OnboardingScreen() {
   }, [currentScreen]);
 
   const handleNext = () => {
-    if (currentScreen === 'phone') {
-      checkPhone();
-      return;
-    }
     if (currentScreen === 'google-phone') {
       handleGooglePhoneSubmit();
-      return;
-    }
-    if (currentScreen === 'otp') {
-      verifyOtp();
-      return;
-    }
-    if (currentScreen === 'email') {
-      handleEmailStep();
       return;
     }
     if (currentScreen === 'details' && !userName.trim()) {
@@ -737,124 +721,6 @@ export default function OnboardingScreen() {
 
   const renderStep = () => {
     switch (currentScreen) {
-      case 'phone':
-        return (
-          <View style={{ flex: 1, backgroundColor: '#0A0A14' }}>
-            <LinearGradient
-              colors={['#1A1A2E', '#0A0A14']}
-              style={StyleSheet.absoluteFill}
-            />
-            
-            {/* 3D Hero Image Section with Gradient Overlay - Portrait optimized */}
-            <View style={{ height: '45%', width: '100%', position: 'relative' }}>
-              <Image
-                source={require('@/assets/images/b69d6758-5343-4e4a-8b8f-6b8b379d6a85_1772630248184.jpeg')}
-                style={{ width: '100%', height: '100%' }}
-                contentFit="cover"
-              />
-              <LinearGradient
-                colors={['transparent', 'rgba(10,10,20,0.9)', '#0A0A14']}
-                style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 180 }}
-              />
-            </View>
-
-            <View style={{ paddingHorizontal: 20, flex: 1, justifyContent: 'flex-start', marginTop: -30 }}>
-              <Text style={{ 
-                fontSize: 30, 
-                fontFamily: 'Inter_700Bold', 
-                color: '#FFF', 
-                textAlign: 'left',
-                textShadowColor: 'rgba(0,0,0,0.5)',
-                textShadowOffset: { width: 0, height: 2 },
-                textShadowRadius: 4,
-                marginBottom: 6
-              }}>
-                Welcome to MOBI
-              </Text>
-              <Text style={{ 
-                fontSize: 15, 
-                color: 'rgba(255,255,255,0.7)', 
-                textAlign: 'left', 
-                marginBottom: 20, 
-                fontFamily: 'Inter_400Regular',
-                lineHeight: 20
-              }}>
-                India's technician community
-              </Text>
-
-              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
-                <View style={{
-                  backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 12,
-                  width: 60, justifyContent: 'center', alignItems: 'center',
-                  borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', height: 48,
-                }}>
-                  <Text style={{ fontSize: 16, fontFamily: 'Inter_600SemiBold', color: '#FFF' }}>+91</Text>
-                </View>
-                <TextInput
-                  style={{
-                    flex: 1, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 12,
-                    paddingHorizontal: 14, fontSize: 16, color: '#FFF',
-                    fontFamily: 'Inter_500Medium', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', height: 48,
-                  }}
-                  placeholder="Mobile number"
-                  placeholderTextColor="rgba(255,255,255,0.35)"
-                  keyboardType="phone-pad"
-                  value={phone}
-                  onChangeText={(text) => setPhone(text.replace(/\D/g, '').slice(0, 10))}
-                  maxLength={10}
-                />
-              </View>
-
-              <Pressable
-                style={({ pressed }) => ({
-                  flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-                  backgroundColor: '#FFF',
-                  borderRadius: 12, height: 48,
-                  marginBottom: 10,
-                  shadowColor: '#000',
-                  shadowOffset: { width: 0, height: 4 },
-                  shadowOpacity: 0.2,
-                  shadowRadius: 8,
-                  elevation: 5,
-                  opacity: pressed ? 0.9 : 1,
-                  transform: [{ scale: pressed ? 0.98 : 1 }]
-                })}
-                onPress={startGoogleSignIn}
-              >
-                <Ionicons name="logo-google" size={20} color="#4285F4" />
-                <Text style={{ fontSize: 16, fontFamily: 'Inter_600SemiBold', color: '#0A0A14' }}>Sign in with Google</Text>
-              </Pressable>
-
-              <View style={{ flex: 1 }} />
-
-              <Pressable
-                testID="continue-button"
-                style={({ pressed }) => ({
-                  borderRadius: 14, height: 54,
-                  overflow: 'hidden',
-                  marginBottom: Math.max(insets.bottom, 12),
-                  opacity: pressed ? 0.9 : 1,
-                  transform: [{ scale: pressed ? 0.98 : 1 }]
-                })}
-                onPress={handleNext}
-                disabled={!phone.trim() || checking}
-              >
-                <LinearGradient
-                  colors={['#4285F4', '#FFB28E']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
-                >
-                  {checking ? (
-                    <ActivityIndicator color="#FFF" size="small" />
-                  ) : (
-                    <Text style={{ fontSize: 18, fontFamily: 'Inter_700Bold', color: '#FFF', letterSpacing: 0.5 }}>Get Started</Text>
-                  )}
-                </LinearGradient>
-              </Pressable>
-            </View>
-          </View>
-        );
       case 'google-phone':
         return (
           <View style={styles.stepContent}>
@@ -886,110 +752,6 @@ export default function OnboardingScreen() {
             <Text style={{ color: C.textSecondary, fontSize: 13, marginTop: 8 }}>
               No OTP needed — Google verified your identity
             </Text>
-          </View>
-        );
-      case 'otp':
-        return (
-          <View style={styles.stepContent}>
-            <View style={styles.stepHeader}>
-              <View style={styles.stepIconContainer}>
-                <Ionicons name="shield-checkmark" size={32} color={C.primary} />
-              </View>
-              <Text style={styles.stepTitle}>Verify Your Number</Text>
-              <Text style={styles.stepSubtitle}>
-                {`OTP sent to +91${phone.replace(/\D/g, '').replace(/^91/, '').slice(-10)}`}
-              </Text>
-            </View>
-            
-            {/* Debug Info Panel */}
-            {debugInfo && (
-              <View style={{ backgroundColor: 'rgba(255,123,71,0.08)', borderRadius: 8, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(255,123,71,0.2)' }}>
-                <Text style={{ fontSize: 12, color: C.textSecondary, fontFamily: 'Inter_500Medium' }}>
-                  {debugInfo}
-                </Text>
-              </View>
-            )}
-
-            {/* Error Panel */}
-            {otpError && (
-              <View style={{ backgroundColor: 'rgba(255,59,95,0.08)', borderRadius: 8, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(255,59,95,0.3)' }}>
-                <Text style={{ fontSize: 12, color: '#FF3B5F', fontFamily: 'Inter_500Medium' }}>
-                  ⚠️ {otpError}
-                </Text>
-              </View>
-            )}
-            
-            <Text style={styles.fieldLabel}>Enter OTP</Text>
-            <TextInput
-              style={[styles.input, { textAlign: 'center', fontSize: 22, letterSpacing: 8, fontFamily: 'Inter_700Bold' }]}
-              placeholder="------"
-              placeholderTextColor={C.textTertiary}
-              value={otpCode}
-              onChangeText={(text) => {
-                const nextCode = text.replace(/\D/g, '').slice(0, 6);
-                setOtpCode(nextCode);
-                if (nextCode.length === 6) {
-                  verifyOtp();
-                }
-              }}
-              keyboardType="number-pad"
-              maxLength={6}
-              autoFocus
-            />
-            <View style={styles.otpActions}>
-              {otpRateLimitTimer > 0 ? (
-                <Text style={[styles.otpHint, { color: '#FF3B30' }]}>Wait {otpRateLimitTimer}s ({Math.ceil(otpRateLimitTimer / 60)}m) before retrying</Text>
-              ) : otpResendTimer > 0 ? (
-                <Text style={styles.otpHint}>Resend OTP in {otpResendTimer}s</Text>
-              ) : (
-                <Pressable
-                  onPress={() => sendOtp(phone.replace(/\D/g, ''))}
-                  disabled={otpSending}
-                >
-                  <Text style={[styles.otpHint, { color: C.primary }]}>
-                    {otpSending ? 'Sending...' : 'Resend OTP'}
-                  </Text>
-                </Pressable>
-              )}
-            </View>
-          </View>
-        );
-      case 'email':
-        return (
-          <View style={styles.stepContent}>
-            <View style={styles.stepHeader}>
-              <View style={styles.stepIconContainer}>
-                <Ionicons name="mail" size={32} color={C.primary} />
-              </View>
-              <Text style={styles.stepTitle}>Add Your Gmail</Text>
-              <Text style={styles.stepSubtitle}>
-                Get important updates & notifications delivered to your inbox. You can skip this step.
-              </Text>
-            </View>
-            <Text style={styles.fieldLabel}>Gmail Address (Optional)</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="yourname@gmail.com"
-              placeholderTextColor={C.textTertiary}
-              value={newUserEmail}
-              onChangeText={setNewUserEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-              autoFocus
-            />
-            <View style={{ marginTop: 16, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: C.surface, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: C.border }}>
-              <Ionicons name="checkmark-circle" size={18} color="#34C759" />
-              <Text style={{ color: C.textSecondary, fontSize: 13, fontFamily: 'Inter_400Regular', flex: 1 }}>
-                A welcome email will be sent to confirm your Mobi account
-              </Text>
-            </View>
-            <Pressable
-              onPress={() => setStep(s => s + 1)}
-              style={{ marginTop: 20, alignItems: 'center', padding: 12 }}
-            >
-              <Text style={{ color: C.textTertiary, fontSize: 14, fontFamily: 'Inter_500Medium' }}>Skip for now</Text>
-            </Pressable>
           </View>
         );
       case 'details':
