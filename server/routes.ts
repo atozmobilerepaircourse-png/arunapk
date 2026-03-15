@@ -710,11 +710,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         smsError = 'SMS provider not configured';
       }
 
+      // For testing: show OTP if SMS not sent, hide in full production
+      const showOtp = !smsSent || process.env.NODE_ENV !== 'production';
       return res.json({
         success: true,
         smsSent,
         message: smsSent ? `OTP sent to ${cleanPhone}` : `OTP generated but SMS delivery failed: ${smsError}`,
-        ...(process.env.NODE_ENV !== 'production' && { otp }),
+        ...(showOtp && { otp, tempWarning: 'For testing only - SMS not configured' }),
       });
     } catch (error: any) {
       console.error("[OTP] Send error:", error?.message || error, error?.stack?.split('\n').slice(0,3).join(' '));
