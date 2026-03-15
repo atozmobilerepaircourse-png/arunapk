@@ -25,6 +25,9 @@ import {
 import { apiRequest, getApiUrl } from '@/lib/query-client';
 import { getDeviceId } from '@/lib/device-fingerprint';
 import * as WebBrowser from 'expo-web-browser';
+import { FirebaseRecaptchaVerifierModal } from 'expo-firebase-recaptcha';
+import { signInWithPhoneNumber, ConfirmationResult } from 'firebase/auth';
+import { firebaseAuth, firebaseConfig } from '@/lib/firebase';
 
 const C = Colors.light;
 
@@ -57,7 +60,7 @@ const ROLES: { key: UserRole; icon: keyof typeof Ionicons.glyphMap; color: strin
   { key: 'supplier', icon: 'cube', color: '#FF9F0A' },
 ];
 
-type ScreenName = 'welcome' | 'google-phone' | 'details' | 'selfie' | 'skills' | 'sellType' | 'teachType' | 'businessDocs' | 'location';
+type ScreenName = 'welcome' | 'google-phone' | 'phone' | 'otp' | 'details' | 'selfie' | 'skills' | 'sellType' | 'teachType' | 'businessDocs' | 'location';
 
 export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
@@ -113,6 +116,11 @@ export default function OnboardingScreen() {
   const [otpError, setOtpError] = useState('');
   const [debugInfo, setDebugInfo] = useState('');
   const [otpRateLimitTimer, setOtpRateLimitTimer] = useState(0);
+  const [usePhoneAuth, setUsePhoneAuth] = useState(false);
+  const [otpProvider, setOtpProvider] = useState<'firebase' | 'sms'>('sms');
+  const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
+  const [otpAttempts, setOtpAttempts] = useState(0);
+  const recaptchaVerifier = useRef<FirebaseRecaptchaVerifierModal>(null);
 
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
@@ -131,7 +139,9 @@ export default function OnboardingScreen() {
       ? ['google-phone', 'details']
       : ['welcome'];
     if (!googleSignedIn && step > 0) {
-      // After welcome (guest or google), continue with normal flow
+      if (usePhoneAuth) {
+        screens.push('phone', 'otp');
+      }
       screens.push('details');
     }
     if (needsSelfie) screens.push('selfie');
@@ -145,7 +155,7 @@ export default function OnboardingScreen() {
 
   const screenSequence = getScreenSequence();
   const TOTAL_STEPS = screenSequence.length;
-  const currentScreen = screenSequence[step] || 'phone';
+  const currentScreen = screenSequence[step] || 'welcome';
 
   const toggleSkill = (skill: string) => {
     if (Platform.OS !== 'web') Haptics.selectionAsync();
@@ -201,20 +211,56 @@ export default function OnboardingScreen() {
     return () => clearInterval(interval);
   }, [otpRateLimitTimer]);
 
-  const sendOtp = async (phoneNumber: string) => {
+  const sendOtp = async (phoneNumber: string, isResend = false) => {
     setOtpSending(true);
     setOtpError('');
+    setConfirmationResult(null);
     const cleanDigits = phoneNumber.replace(/\D/g, '').replace(/^91/, '');
     setDebugInfo(`Sending OTP to +91${cleanDigits}...`);
-    try {
-      await sendBackendOTP(cleanDigits);
-    } catch (err: any) {
-      const msg = err?.message || 'Could not send OTP. Please try again.';
-      setOtpError(msg);
-      setDebugInfo(`❌ Failed`);
-      Alert.alert('OTP Error', msg);
-    } finally {
-      setOtpSending(false);
+
+    let success = false;
+
+    // PRIMARY: Try Firebase phone auth
+    if (recaptchaVerifier.current && Platform.OS !== 'web') {
+      try {
+        console.log('[OTP] Trying Firebase phone auth for: +91' + cleanDigits);
+        const result = await Promise.race([
+          signInWithPhoneNumber(firebaseAuth, `+91${cleanDigits}`, recaptchaVerifier.current),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('Firebase timeout')), 10000)
+          ),
+        ]) as ConfirmationResult;
+        setConfirmationResult(result);
+        setOtpProvider('firebase');
+        setOtpSent(true);
+        setOtpResendTimer(30);
+        setDebugInfo('OTP sent');
+        console.log('[OTP] Firebase: SMS sent successfully');
+        success = true;
+      } catch (firebaseErr: any) {
+        console.log('[OTP] Firebase failed, switching to Fast2SMS:', firebaseErr?.message);
+      }
+    }
+
+    // FALLBACK: Fast2SMS via backend
+    if (!success) {
+      try {
+        await sendBackendOTP(cleanDigits);
+        setOtpProvider('sms');
+        success = true;
+      } catch (err: any) {
+        const msg = err?.message || 'Could not send OTP. Please try again.';
+        setOtpError(msg);
+        setDebugInfo('❌ Failed');
+        Alert.alert('OTP Error', msg);
+      }
+    }
+
+    setOtpSending(false);
+
+    // Advance to OTP input screen after initial send (not resend)
+    if (success && !isResend) {
+      setStep(s => s + 1);
     }
   };
 
@@ -292,20 +338,63 @@ export default function OnboardingScreen() {
       Alert.alert('Invalid OTP', 'Please enter all 6 digits.');
       return;
     }
+    // Max 3 attempts
+    if (otpAttempts >= 3) {
+      Alert.alert('Too Many Attempts', 'You have exceeded the maximum retry limit. Please request a new OTP.');
+      setOtpError('Maximum attempts reached. Please request a new OTP.');
+      return;
+    }
+    setOtpAttempts(a => a + 1);
     setOtpVerifying(true);
     setOtpError('');
     try {
       const deviceId = await getDeviceId();
-      console.log('[OTP] Verifying code for phone:', cleanPhone);
-      const res  = await apiRequest('POST', '/api/otp/verify', { phone: cleanPhone, otp: otpCode, deviceId });
-      const data = await res.json();
-      if (!data.success) {
-        const msg = data.message || 'Invalid OTP. Please try again.';
-        setOtpError(msg);
-        Alert.alert('Verification Failed', msg);
-        return;
+
+      if (otpProvider === 'firebase' && confirmationResult) {
+        // FIREBASE VERIFICATION PATH
+        console.log('[OTP] Verifying via Firebase...');
+        let idToken: string | null = null;
+        try {
+          const credential = await confirmationResult.confirm(otpCode);
+          idToken = await credential.user.getIdToken();
+          console.log('[OTP] Firebase confirmed successfully');
+        } catch (firebaseErr: any) {
+          console.log('[OTP] Firebase confirm failed, trying backend:', firebaseErr?.message);
+          // Auto-fallback to backend verification
+          const res = await apiRequest('POST', '/api/otp/verify', { phone: cleanPhone, otp: otpCode, deviceId });
+          const data = await res.json();
+          if (!data.success) {
+            const msg = data.message || 'Invalid OTP. Please try again.';
+            setOtpError(msg);
+            Alert.alert('Verification Failed', msg);
+            return;
+          }
+          await handleOtpVerified(data, cleanPhone, deviceId);
+          return;
+        }
+        if (idToken) {
+          const res = await apiRequest('POST', '/api/auth/firebase-phone', { idToken, deviceId });
+          const data = await res.json();
+          if (!data.success) {
+            setOtpError(data.message || 'Verification failed');
+            Alert.alert('Verification Failed', data.message || 'Please try again.');
+            return;
+          }
+          await handleOtpVerified(data, cleanPhone, deviceId);
+        }
+      } else {
+        // FAST2SMS BACKEND VERIFICATION PATH
+        console.log('[OTP] Verifying via Fast2SMS backend...');
+        const res = await apiRequest('POST', '/api/otp/verify', { phone: cleanPhone, otp: otpCode, deviceId });
+        const data = await res.json();
+        if (!data.success) {
+          const msg = data.message || 'Invalid OTP. Please try again.';
+          setOtpError(msg);
+          Alert.alert('Verification Failed', msg);
+          return;
+        }
+        await handleOtpVerified(data, cleanPhone, deviceId);
       }
-      await handleOtpVerified(data, cleanPhone, deviceId);
     } catch (e: any) {
       const msg = e?.message || 'Could not verify OTP. Please try again.';
       setOtpError(msg);
@@ -791,6 +880,28 @@ export default function OnboardingScreen() {
                   <Text style={{ fontSize: 15, fontWeight: '600', color: '#1f2937' }}>Continue with Google</Text>
                 </Pressable>
 
+                {/* Sign in with Phone Button */}
+                <Pressable
+                  onPress={() => {
+                    setUsePhoneAuth(true);
+                    setStep(1);
+                  }}
+                  style={({ pressed }) => ({
+                    width: '100%',
+                    height: 48,
+                    backgroundColor: C.primary,
+                    borderRadius: 16,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 12,
+                    opacity: pressed ? 0.9 : 1,
+                  })}
+                >
+                  <Ionicons name="phone-portrait" size={20} color="#FFF" />
+                  <Text style={{ fontSize: 15, fontWeight: '600', color: '#FFF' }}>Sign in with Mobile</Text>
+                </Pressable>
+
                 {/* Continue as Guest Button */}
                 <Pressable
                   onPress={handleNext}
@@ -809,6 +920,96 @@ export default function OnboardingScreen() {
                 </Pressable>
               </View>
             </View>
+          </View>
+        );
+      case 'phone':
+        return (
+          <View style={styles.stepContent}>
+            <View style={styles.stepHeader}>
+              <View style={styles.stepIconContainer}>
+                <Ionicons name="phone-portrait" size={32} color={C.primary} />
+              </View>
+              <Text style={styles.stepTitle}>Enter Your Mobile Number</Text>
+              <Text style={styles.stepSubtitle}>We'll send you a verification code</Text>
+            </View>
+            <Text style={styles.fieldLabel}>Mobile Number</Text>
+            <View style={styles.phoneRow}>
+              <View style={styles.countryCode}>
+                <Text style={styles.countryCodeText}>+91</Text>
+              </View>
+              <TextInput
+                style={[styles.input, { flex: 1 }]}
+                placeholder="10-digit mobile number"
+                placeholderTextColor={C.textTertiary}
+                value={phone}
+                onChangeText={(text) => {
+                  setPhone(text.replace(/\D/g, '').slice(0, 10));
+                  setOtpError('');
+                }}
+                keyboardType="phone-pad"
+                maxLength={10}
+                autoFocus
+              />
+            </View>
+            {!!otpError && (
+              <Text style={{ color: '#FF3B30', fontSize: 13, marginTop: 8 }}>{otpError}</Text>
+            )}
+            {!!debugInfo && !otpError && (
+              <Text style={{ color: C.textSecondary, fontSize: 12, marginTop: 8 }}>{debugInfo}</Text>
+            )}
+            <Text style={{ color: C.textTertiary, fontSize: 12, marginTop: 12 }}>
+              OTP expires in 5 minutes • Firebase secured
+            </Text>
+          </View>
+        );
+      case 'otp':
+        return (
+          <View style={styles.stepContent}>
+            <View style={styles.stepHeader}>
+              <View style={styles.stepIconContainer}>
+                <Ionicons name="shield-checkmark" size={32} color="#34C759" />
+              </View>
+              <Text style={styles.stepTitle}>Enter Verification Code</Text>
+              <Text style={styles.stepSubtitle}>Sent to +91 {phone}</Text>
+            </View>
+            <Text style={styles.fieldLabel}>6-digit OTP</Text>
+            <TextInput
+              style={[styles.input, { textAlign: 'center', letterSpacing: 10, fontSize: 24 }]}
+              placeholder="• • • • • •"
+              placeholderTextColor={C.textTertiary}
+              value={otpCode}
+              onChangeText={(text) => {
+                setOtpCode(text.replace(/\D/g, '').slice(0, 6));
+                setOtpError('');
+              }}
+              keyboardType="number-pad"
+              maxLength={6}
+              autoFocus
+            />
+            {!!otpError && (
+              <Text style={{ color: '#FF3B30', fontSize: 13, marginTop: 8, textAlign: 'center' }}>{otpError}</Text>
+            )}
+            {!!debugInfo && !otpError && (
+              <Text style={{ color: C.textSecondary, fontSize: 12, marginTop: 8, textAlign: 'center' }}>{debugInfo}</Text>
+            )}
+            <Pressable
+              onPress={(otpResendTimer > 0 || otpRateLimitTimer > 0) ? undefined : () => sendOtp(phone, true)}
+              style={{ marginTop: 20, alignItems: 'center', paddingVertical: 8 }}
+            >
+              <Text style={{
+                color: (otpResendTimer > 0 || otpRateLimitTimer > 0) ? C.textTertiary : C.primary,
+                fontSize: 14, fontFamily: 'Inter_500Medium',
+              }}>
+                {otpRateLimitTimer > 0
+                  ? `Wait ${otpRateLimitTimer}s before requesting again`
+                  : otpResendTimer > 0
+                    ? `Resend in ${otpResendTimer}s`
+                    : 'Resend OTP'}
+              </Text>
+            </Pressable>
+            <Text style={{ color: C.textTertiary, fontSize: 11, marginTop: 4, textAlign: 'center' }}>
+              {otpAttempts > 0 ? `${3 - otpAttempts} attempt${3 - otpAttempts !== 1 ? 's' : ''} remaining` : 'Max 3 attempts allowed'}
+            </Text>
           </View>
         );
       case 'google-phone':
@@ -1231,7 +1432,7 @@ export default function OnboardingScreen() {
   const isLastStep = step === TOTAL_STEPS - 1;
 
   const getButtonText = () => {
-    if (currentScreen === 'phone') return checking ? 'Checking...' : 'Continue';
+    if (currentScreen === 'phone') return otpSending ? 'Sending...' : 'Send OTP';
     if (currentScreen === 'google-phone') return checking ? 'Verifying...' : 'Continue';
     if (currentScreen === 'otp') return otpVerifying ? 'Verifying...' : 'Verify OTP';
     if (isLastStep) return uploadingSelfie ? 'Setting up...' : 'Complete Setup';
@@ -1239,12 +1440,26 @@ export default function OnboardingScreen() {
   };
 
   const getButtonIcon = (): keyof typeof Ionicons.glyphMap => {
+    if (currentScreen === 'phone') return 'send';
     if (currentScreen === 'otp') return 'shield-checkmark';
     if (isLastStep) return 'checkmark';
     return 'arrow-forward';
   };
 
-  const handleButtonPress = () => {
+  const handleButtonPress = async () => {
+    if (currentScreen === 'phone') {
+      const cleanDigits = phone.replace(/\D/g, '');
+      if (!cleanDigits || cleanDigits.length < 10) {
+        Alert.alert('Invalid Number', 'Please enter a valid 10-digit mobile number.');
+        return;
+      }
+      await sendOtp(phone, false);
+      return;
+    }
+    if (currentScreen === 'otp') {
+      await verifyOtp();
+      return;
+    }
     if (isLastStep) {
       handleComplete();
     } else {
@@ -1253,7 +1468,7 @@ export default function OnboardingScreen() {
   };
 
   const isButtonDisabled = () => {
-    if (currentScreen === 'phone') return checking || !phone.trim();
+    if (currentScreen === 'phone') return otpSending || phone.replace(/\D/g, '').length < 10;
     if (currentScreen === 'google-phone') return checking || !phone.trim();
     if (currentScreen === 'otp') return otpVerifying || otpCode.length < 6;
     if (currentScreen === 'email') return emailSendingWelcome;
@@ -1268,7 +1483,7 @@ export default function OnboardingScreen() {
     return null;
   }
 
-  const isPhoneScreen = currentScreen === 'phone';
+  const isPhoneScreen = currentScreen === 'welcome';
 
   return (
     <View style={[styles.container, isPhoneScreen && { backgroundColor: '#0A0A14' }]}>
@@ -1304,12 +1519,21 @@ export default function OnboardingScreen() {
         <View style={[styles.bottomActions, { paddingBottom: Platform.OS === 'web' ? 34 : Math.max(insets.bottom, 16), zIndex: 9999, elevation: 9999 }]} pointerEvents="box-none">
           {step > 0 && (
             <Pressable style={styles.backBtn} onPress={() => {
+              if (currentScreen === 'phone') {
+                setPhone('');
+                setOtpError('');
+                setDebugInfo('');
+                setUsePhoneAuth(false);
+                setStep(0);
+                return;
+              }
               if (currentScreen === 'otp') {
                 setOtpCode('');
                 setOtpSent(false);
                 setOtpResendTimer(0);
                 setOtpError('');
                 setDebugInfo('');
+                setOtpAttempts(0);
               }
               setStep(s => s - 1);
             }}>
@@ -1327,7 +1551,7 @@ export default function OnboardingScreen() {
             disabled={isButtonDisabled()}
             testID="continue-button"
           >
-            {(checking || uploadingSelfie || otpVerifying) ? (
+            {(checking || uploadingSelfie || otpVerifying || otpSending) ? (
               <ActivityIndicator color="#FFF" size="small" />
             ) : (
               <>
@@ -1339,7 +1563,14 @@ export default function OnboardingScreen() {
         </View>
       )}
 
-      {/* Email link overlay removed - now using email OTP */}
+      {/* Firebase reCAPTCHA verifier — used for primary OTP via Firebase Auth */}
+      <FirebaseRecaptchaVerifierModal
+        ref={recaptchaVerifier}
+        firebaseConfig={firebaseConfig}
+        attemptInvisibleVerification={true}
+        title="Phone Verification"
+        cancelLabel="Cancel"
+      />
     </View>
   );
 }
