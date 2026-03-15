@@ -62,10 +62,10 @@ if (!fs.existsSync(uploadsDir)) {
 }
 
 const BUNNY_STORAGE_API_KEY = process.env.BUNNY_STORAGE_API_KEY || '';
-const BUNNY_STORAGE_ZONE_NAME = process.env.BUNNY_STORAGE_ZONE_NAME || '';
-const BUNNY_STORAGE_REGION = process.env.BUNNY_STORAGE_REGION || 'sg';
-const BUNNY_STORAGE_ENDPOINT = BUNNY_STORAGE_REGION === 'de' 
-  ? 'https://storage.bunnycdn.com' 
+const BUNNY_STORAGE_ZONE_NAME = process.env.BUNNY_STORAGE_ZONE_NAME || 'arun-storag';
+const BUNNY_STORAGE_REGION = process.env.BUNNY_STORAGE_REGION || 'uk';
+const BUNNY_STORAGE_ENDPOINT = BUNNY_STORAGE_REGION === 'de'
+  ? 'https://storage.bunnycdn.com'
   : `https://${BUNNY_STORAGE_REGION}.storage.bunnycdn.com`;
 const BUNNY_CDN_URL = `https://mobistorage.b-cdn.net`;
 const bunnyAvailable = !!(BUNNY_STORAGE_API_KEY && BUNNY_STORAGE_ZONE_NAME);

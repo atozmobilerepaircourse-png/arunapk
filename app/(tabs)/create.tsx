@@ -12,7 +12,7 @@ import { fetch as expoFetch } from 'expo/fetch';
 import { router } from 'expo-router';
 import Colors from '@/constants/colors';
 import { useApp } from '@/lib/context';
-import { apiRequest, getApiUrl } from '@/lib/query-client';
+import { getApiUrl } from '@/lib/query-client';
 import { PostCategory } from '@/lib/types';
 
 const C = Colors.light;
@@ -126,107 +126,78 @@ export default function CreatePostScreen() {
     setVideo(null);
   };
 
-  const uploadImage = useCallback(async (uri: string): Promise<string | null> => {
+  const uploadImage = useCallback(async (uri: string, index: number, total: number): Promise<string | null> => {
+    const baseUrl = getApiUrl();
+    const uploadUrl = new URL('/api/upload', baseUrl).toString();
+    setUploadProgress(total > 1 ? `Uploading photo ${index + 1} of ${total}...` : 'Uploading photo...');
     try {
-      const baseUrl = getApiUrl();
-
+      const formData = new FormData();
       if (Platform.OS === 'web') {
-        const uploadUrl = new URL('/api/upload', baseUrl).toString();
-        const formData = new FormData();
-        const response = await window.fetch(uri);
-        const blob = await response.blob();
+        const res = await window.fetch(uri);
+        const blob = await res.blob();
         formData.append('image', blob, 'photo.jpg');
         const uploadRes = await window.fetch(uploadUrl, { method: 'POST', body: formData });
+        if (!uploadRes.ok) throw new Error(`Server error ${uploadRes.status}`);
         const data = await uploadRes.json();
-        if (data.success && data.url) return new URL(data.url, baseUrl).toString();
+        if (data.success && data.url) return data.url;
         throw new Error(data.message || 'Upload failed');
       } else {
-        // Try FormData first
-        const uploadUrl = new URL('/api/upload', baseUrl).toString();
-        try {
-          const formData = new FormData();
-          formData.append('image', {
-            uri: uri,
-            name: 'photo.jpg',
-            type: 'image/jpeg',
-          } as any);
-          const uploadRes = await expoFetch(uploadUrl, { method: 'POST', body: formData, timeout: 30000 });
-          const data = await uploadRes.json();
-          if (data.success && data.url) return new URL(data.url, baseUrl).toString();
-          throw new Error(data.message || 'Upload failed');
-        } catch (formDataError: any) {
-          // Fallback to base64
-          console.log('[Upload] FormData failed, trying base64:', formDataError?.message);
-          const response = await expoFetch(uri);
-          const blob = await response.blob();
-          const arrayBuffer = await blob.arrayBuffer();
-          const base64 = Buffer.from(arrayBuffer).toString('base64');
-          
-          const base64Url = new URL('/api/upload-base64', baseUrl).toString();
-          const uploadRes = await expoFetch(base64Url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ base64, mimeType: 'image/jpeg' }),
-            timeout: 30000,
-          });
-          const data = await uploadRes.json();
-          if (data.success && data.url) return new URL(data.url, baseUrl).toString();
-          throw new Error(data.message || 'Base64 upload failed');
+        formData.append('image', { uri, name: 'photo.jpg', type: 'image/jpeg' } as any);
+        const uploadRes = await expoFetch(uploadUrl, { method: 'POST', body: formData });
+        if (!uploadRes.ok) {
+          const errText = await uploadRes.text().catch(() => '');
+          throw new Error(`Server error ${uploadRes.status}: ${errText.slice(0, 80)}`);
         }
+        const data = await uploadRes.json();
+        if (data.success && data.url) return data.url;
+        throw new Error(data.message || 'Upload failed');
       }
     } catch (e: any) {
-      console.error('[Upload] Failed:', e?.message || e);
-      Alert.alert('Upload Error', `Could not upload image: ${(e?.message || String(e)).slice(0, 80)}`);
-      return null;
+      console.error(`[Upload] Image ${index + 1} failed:`, e?.message || e);
+      throw e;
     }
   }, []);
 
-  const uploadVideo = async (uri: string): Promise<string | null> => {
-    try {
-      const baseUrl = getApiUrl();
-      const uploadUrl = new URL('/api/upload-video', baseUrl).toString();
-      const formData = new FormData();
+  const uploadVideo = useCallback(async (uri: string): Promise<string> => {
+    const baseUrl = getApiUrl();
+    const uploadUrl = new URL('/api/upload-video', baseUrl).toString();
+    const formData = new FormData();
 
-      if (Platform.OS === 'web') {
-        const response = await window.fetch(uri);
-        const blob = await response.blob();
-        formData.append('video', blob, 'video.mp4');
-      } else {
-        formData.append('video', {
-          uri: uri,
-          type: 'video/mp4',
-          name: 'video.mp4',
-        } as any);
-      }
-
-      return new Promise<string | null>((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open('POST', uploadUrl);
-        xhr.upload.onprogress = (e) => {
-          if (e.lengthComputable) {
-            const pct = Math.min(99, Math.round((e.loaded / e.total) * 100));
-            setUploadPercent(pct);
-            setUploadProgress(`Uploading video... ${pct}%`);
-          }
-        };
-        xhr.onload = () => {
-          setUploadPercent(100);
-          setUploadProgress('Processing video...');
-          try {
-            const data = JSON.parse(xhr.responseText);
-            if (data.success && data.url) resolve(new URL(data.url, baseUrl).toString());
-            else reject(new Error(data.message || 'Video upload failed'));
-          } catch { reject(new Error('Upload response parse error')); }
-        };
-        xhr.onerror = () => reject(new Error('Video upload failed'));
-        xhr.send(formData);
-      });
-    } catch (e) {
-      console.error('[Upload] Video failed:', e);
-      Alert.alert('Upload Error', 'Could not upload video. Please check your connection and try again.');
-      return null;
+    if (Platform.OS === 'web') {
+      const response = await window.fetch(uri);
+      const blob = await response.blob();
+      formData.append('video', blob, 'video.mp4');
+    } else {
+      formData.append('video', { uri, type: 'video/mp4', name: 'video.mp4' } as any);
     }
-  };
+
+    return new Promise<string>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', uploadUrl);
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) {
+          const pct = Math.min(99, Math.round((e.loaded / e.total) * 100));
+          setUploadPercent(pct);
+          setUploadProgress(`Uploading video... ${pct}%`);
+        }
+      };
+      xhr.onload = () => {
+        setUploadPercent(100);
+        setUploadProgress('Processing video...');
+        try {
+          const data = JSON.parse(xhr.responseText);
+          if (data.success && data.url) resolve(data.url);
+          else reject(new Error(data.message || 'Video upload failed'));
+        } catch {
+          reject(new Error('Could not parse server response'));
+        }
+      };
+      xhr.onerror = () => reject(new Error('Network error during video upload'));
+      xhr.ontimeout = () => reject(new Error('Video upload timed out'));
+      xhr.timeout = 300000; // 5 min for large videos
+      xhr.send(formData);
+    });
+  }, []);
 
   const handleSubmit = async () => {
     if (!text.trim() && images.length === 0 && !video) {
@@ -241,49 +212,59 @@ export default function CreatePostScreen() {
     setIsSubmitting(true);
     if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-    let uploadedImages: string[] = [];
-    if (images.length > 0) {
-      const results = await Promise.all(images.map(uri => uploadImage(uri)));
-      uploadedImages = results.filter((url): url is string => url !== null);
-      if (uploadedImages.length === 0 && images.length > 0) {
-        Alert.alert('Upload Failed', 'Could not upload images. Please try again.');
-        setIsSubmitting(false);
-        return;
+    try {
+      let uploadedImages: string[] = [];
+      if (images.length > 0) {
+        setUploadProgress(`Uploading ${images.length} photo${images.length > 1 ? 's' : ''}...`);
+        const results = await Promise.allSettled(images.map((uri, i) => uploadImage(uri, i, images.length)));
+        uploadedImages = results
+          .filter((r): r is PromiseFulfilledResult<string> => r.status === 'fulfilled' && typeof r.value === 'string')
+          .map(r => r.value);
+        const failed = results.filter(r => r.status === 'rejected').length;
+        if (uploadedImages.length === 0) {
+          const errMsg = results[0]?.status === 'rejected' ? (results[0] as PromiseRejectedResult).reason?.message : 'Unknown error';
+          Alert.alert('Photo Upload Failed', `Could not upload photos: ${errMsg}\n\nPlease check your connection and try again.`);
+          return;
+        }
+        if (failed > 0) {
+          Alert.alert('Partial Upload', `${uploadedImages.length} of ${images.length} photos uploaded. Posting with available photos.`);
+        }
+        setUploadProgress('');
       }
-    }
 
-    let uploadedVideoUrl = '';
-    if (video) {
-      setUploadPercent(0);
-      setUploadProgress('Uploading video... 0%');
-      const result = await uploadVideo(video);
+      let uploadedVideoUrl = '';
+      if (video) {
+        setUploadPercent(0);
+        setUploadProgress('Uploading video... 0%');
+        uploadedVideoUrl = await uploadVideo(video);
+        setUploadProgress('');
+        setUploadPercent(0);
+      }
+
+      await addPost({
+        userId: profile.id,
+        userName: profile.name,
+        userRole: profile.role,
+        userAvatar: profile.avatar || '',
+        text: text.trim(),
+        images: uploadedImages,
+        videoUrl: uploadedVideoUrl,
+        category,
+      } as any);
+
+      setText('');
+      setImages([]);
+      setVideo(null);
+      setCategory('repair');
+      router.navigate('/(tabs)');
+    } catch (e: any) {
+      console.error('[Post] Submit failed:', e?.message || e);
+      Alert.alert('Post Failed', `Something went wrong: ${(e?.message || 'Unknown error').slice(0, 120)}\n\nPlease try again.`);
+    } finally {
+      setIsSubmitting(false);
       setUploadProgress('');
       setUploadPercent(0);
-      if (!result) {
-        Alert.alert('Upload Failed', 'Could not upload video. Please try again.');
-        setIsSubmitting(false);
-        return;
-      }
-      uploadedVideoUrl = result;
     }
-
-    await addPost({
-      userId: profile.id,
-      userName: profile.name,
-      userRole: profile.role,
-      userAvatar: profile.avatar || '',
-      text: text.trim(),
-      images: uploadedImages,
-      videoUrl: uploadedVideoUrl,
-      category,
-    } as any);
-
-    setText('');
-    setImages([]);
-    setVideo(null);
-    setCategory('repair');
-    setIsSubmitting(false);
-    router.navigate('/(tabs)');
   };
 
   return (

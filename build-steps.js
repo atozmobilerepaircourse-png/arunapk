@@ -96,7 +96,11 @@ const buildConfig = {
         if (bunnyLib)           args.push('--update-env-vars', `BUNNY_STREAM_LIBRARY_ID=${bunnyLib}`);
         const openaiKey = process.env.OPENAI_API_KEY || '';
         if (openaiKey)          args.push('--update-env-vars', `OPENAI_API_KEY=${openaiKey}`);
-        
+        const bunnyStorageKey = process.env.BUNNY_STORAGE_API_KEY || '';
+        if (bunnyStorageKey)    args.push('--update-env-vars', `BUNNY_STORAGE_API_KEY=${bunnyStorageKey}`);
+        args.push('--update-env-vars', 'BUNNY_STORAGE_ZONE_NAME=arun-storag');
+        args.push('--update-env-vars', 'BUNNY_STORAGE_REGION=uk');
+
         return args;
       })(),
       timeout: '300s'
