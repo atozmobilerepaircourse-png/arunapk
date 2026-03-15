@@ -603,21 +603,28 @@ export default function AdminScreen() {
 
   // ── User management ──
   const allUsers = useMemo(() => {
-    const userMap = new Map<string, any>();
-    if (allProfiles) {
-      allProfiles.forEach(p => {
-        userMap.set(p.id, {
-          id: p.id, name: p.name || 'Unknown', role: p.role || 'customer',
-          city: p.city, isRegistered: true, fullProfile: p,
+    try {
+      const userMap = new Map<string, any>();
+      if (Array.isArray(allProfiles)) {
+        allProfiles.forEach(p => {
+          userMap.set(p.id, {
+            id: p.id, name: p.name || 'Unknown', role: p.role || 'customer',
+            city: p.city, isRegistered: true, fullProfile: p,
+          });
         });
-      });
-    }
-    posts?.forEach(post => {
-      if (!userMap.has(post.userId)) {
-        userMap.set(post.userId, { id: post.userId, name: post.userName, role: 'customer', isRegistered: false, fullProfile: null });
       }
-    });
-    return Array.from(userMap.values());
+      if (Array.isArray(posts)) {
+        posts.forEach(post => {
+          if (!userMap.has(post.userId)) {
+            userMap.set(post.userId, { id: post.userId, name: post.userName, role: 'customer', isRegistered: false, fullProfile: null });
+          }
+        });
+      }
+      return Array.from(userMap.values());
+    } catch (e) {
+      console.error('[Admin] allUsers error:', e);
+      return [];
+    }
   }, [allProfiles, posts]);
 
   const filteredUsers = useMemo(() => {
@@ -637,19 +644,20 @@ export default function AdminScreen() {
   const stats = useMemo(() => {
     try {
       const postsArray = Array.isArray(posts) ? posts : [];
+      const usersArray = Array.isArray(allUsers) ? allUsers : [];
       return {
-        totalUsers: allUsers.length,
-        registeredUsers: allUsers.filter(u => u.isRegistered).length,
+        totalUsers: usersArray.length,
+        registeredUsers: usersArray.filter(u => u?.isRegistered).length,
         totalPosts: postsArray.length,
         totalJobs: Array.isArray(jobs) ? jobs.length : 0,
         totalChats: Array.isArray(conversations) ? conversations.length : 0,
-        totalLikes: postsArray.reduce((sum, p) => sum + (Array.isArray(p.likes) ? p.likes.length : 0), 0),
-        totalComments: postsArray.reduce((sum, p) => sum + (Array.isArray(p.comments) ? p.comments.length : 0), 0),
+        totalLikes: postsArray.reduce((sum, p) => sum + (Array.isArray(p?.likes) ? p.likes.length : 0), 0),
+        totalComments: postsArray.reduce((sum, p) => sum + (Array.isArray(p?.comments) ? p.comments.length : 0), 0),
         roleBreakdown: {
-          technician: allUsers.filter(u => u.role === 'technician').length,
-          teacher: allUsers.filter(u => u.role === 'teacher').length,
-          supplier: allUsers.filter(u => u.role === 'supplier').length,
-          job_provider: allUsers.filter(u => u.role === 'job_provider').length,
+          technician: usersArray.filter(u => u?.role === 'technician').length,
+          teacher: usersArray.filter(u => u?.role === 'teacher').length,
+          supplier: usersArray.filter(u => u?.role === 'supplier').length,
+          job_provider: usersArray.filter(u => u?.role === 'job_provider').length,
         },
       };
     } catch (e) {
