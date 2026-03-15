@@ -46,8 +46,19 @@ function Stars({ rating }: { rating: number }) {
 function ProductCard({ product, onAdd, onPress }: {
   product: any; onAdd: () => void; onPress: () => void;
 }) {
-  const images = (() => { try { return JSON.parse(product.images || '[]'); } catch { return []; } })();
-  const img = images[0];
+  const images = (() => { 
+    try { 
+      const parsed = JSON.parse(product.images || '[]');
+      return Array.isArray(parsed) ? parsed : []; 
+    } catch { 
+      // Handle comma-separated string fallback
+      if (typeof product.images === 'string' && product.images.includes(',')) {
+        return product.images.split(',').filter((url: string) => url.trim());
+      }
+      return []; 
+    } 
+  })();
+  const img = images[0] || '';
   const isOut = product.inStock === 0;
   const price = parseFloat(product.price || '0');
   const isNew = Date.now() - (product.createdAt || 0) < 7 * 86400000;
