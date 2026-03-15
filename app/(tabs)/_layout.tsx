@@ -153,10 +153,10 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="support"
         options={{
-          title: "Support",
-          href: isCustomer ? null : null,
+          title: "Chat",
+          href: '/chat',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? "headset" : "headset-outline"} size={22} color={color} />
+            <Ionicons name={focused ? "chatbubble" : "chatbubble-outline"} size={22} color={color} />
           ),
         }}
       />
