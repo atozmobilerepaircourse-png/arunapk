@@ -2068,6 +2068,21 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
     }
   });
 
+  app.post("/api/posts/:id/view", async (req, res) => {
+    try {
+      const { userId } = req.body;
+      const postId = req.params.id;
+      const [post] = await db.select().from(posts).where(eq(posts.id, postId));
+      if (!post) return res.status(404).json({ success: false, message: "Post not found" });
+      const currentViews = (post.views || 0) + 1;
+      await db.update(posts).set({ views: currentViews }).where(eq(posts.id, postId));
+      return res.json({ success: true, views: currentViews });
+    } catch (error) {
+      console.error("[Posts] View error:", error);
+      return res.status(500).json({ success: false, message: "Failed to track view" });
+    }
+  });
+
   app.post("/api/posts/:id/like", async (req, res) => {
     try {
       const { userId } = req.body;

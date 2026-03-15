@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, Pressable, TextInput,
-  Platform, Alert, Modal,
+  Platform, Alert, Modal, Share,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { Video, ResizeMode } from 'expo-av';
@@ -30,28 +30,21 @@ const CAT_CONFIG: Record<string, {
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
   color: string;
-  ctaLabel: string;
-  ctaIcon: keyof typeof Ionicons.glyphMap;
 }> = {
   repair: {
     label: 'Repair', icon: 'construct', color: ACCENT_BLUE,
-    ctaLabel: 'Related', ctaIcon: 'link',
   },
   job: {
     label: 'Job', icon: 'briefcase', color: PURPLE,
-    ctaLabel: 'Apply', ctaIcon: 'paper-plane',
   },
   training: {
     label: 'Training', icon: 'school', color: ACCENT_GREEN,
-    ctaLabel: 'Learn', ctaIcon: 'book',
   },
   sell: {
     label: 'For Sale', icon: 'pricetag', color: ACCENT_ORANGE,
-    ctaLabel: 'View', ctaIcon: 'eye',
   },
   supplier: {
     label: 'Supplier', icon: 'cube', color: ACCENT_GREEN,
-    ctaLabel: 'Contact', ctaIcon: 'call',
   },
 };
 
@@ -143,6 +136,32 @@ export default function PostCard({
     if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     onLike(post.id);
   };
+
+  const handleShare = async () => {
+    try {
+      const message = `Check out this ${post.category} post by ${post.userName}:\n\n"${post.text.slice(0, 100)}${post.text.length > 100 ? '...' : ''}"\n\nhttps://mobile-repair-app-276b6.web.app`;
+      await Share.share({
+        message,
+        title: `${post.category.toUpperCase()} - ${post.userName}`,
+        url: 'https://mobile-repair-app-276b6.web.app',
+      });
+    } catch (e: any) {
+      console.log('Share error:', e.message);
+    }
+  };
+
+  // Track view on mount
+  useEffect(() => {
+    if (!currentUserId) return;
+    const trackView = async () => {
+      try {
+        await apiRequest('POST', `/api/posts/${post.id}/view`, { userId: currentUserId });
+      } catch (e) {
+        console.log('View tracking failed:', e);
+      }
+    };
+    trackView();
+  }, [post.id, currentUserId]);
 
   const handleComment = () => {
     if (!commentText.trim()) return;
@@ -310,15 +329,20 @@ export default function PostCard({
               </Text>
             </Pressable>
           </Animated.View>
+
+          <Pressable style={styles.actionBtn}>
+            <Ionicons name="eye-outline" size={13} color={TEXT_MUTED} />
+            <Text style={styles.actionBtnText}>{(post as any).views || 0}</Text>
+          </Pressable>
         </View>
 
-        {/* Category CTA */}
+        {/* Share button */}
         <Pressable
-          style={[styles.ctaBtn, { backgroundColor: catColor + '1A', borderColor: catColor + '33' }]}
-          onPress={() => { if (post.category === 'job') router.push({ pathname: '/user-profile', params: { id: post.userId } }); }}
+          style={[styles.ctaBtn, { backgroundColor: ACCENT_BLUE + '1A', borderColor: ACCENT_BLUE + '33' }]}
+          onPress={handleShare}
         >
-          <Ionicons name={cat.ctaIcon} size={11} color={catColor} />
-          <Text style={[styles.ctaBtnText, { color: catColor }]}>{cat.ctaLabel}</Text>
+          <Ionicons name="share-social" size={11} color={ACCENT_BLUE} />
+          <Text style={[styles.ctaBtnText, { color: ACCENT_BLUE }]}>Share</Text>
         </Pressable>
       </View>
 

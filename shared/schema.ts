@@ -88,6 +88,7 @@ export const posts = pgTable("posts", {
   category: text("category").notNull().default("repair"),
   likes: text("likes").notNull().default("[]"),
   comments: text("comments").notNull().default("[]"),
+  views: integer("views").notNull().default(0),
   createdAt: bigint("created_at", { mode: "number" }).notNull().default(sql`EXTRACT(EPOCH FROM NOW()) * 1000`),
 });
 
