@@ -298,7 +298,7 @@ export default function DirectoryScreen() {
         renderItem={({ item }) => {
           const prof = allProfiles.find(p => p.id === item.id);
           const phone = prof?.phone;
-          const isCustomer = item.role === 'customer';
+          const showCall = (item.role === 'supplier' || item.role === 'teacher') && phone;
           return (
           <ProfCard
             item={item}
@@ -307,7 +307,7 @@ export default function DirectoryScreen() {
               const c = await startConversation(item.id, item.name, item.role);
               if (c) router.push({ pathname: '/chat/[id]', params: { id: c } });
             } : undefined}
-            onCall={phone && !isCustomer ? () => Linking.openURL(`tel:+91${phone}`) : undefined}
+            onCall={showCall ? () => Linking.openURL(`tel:+91${phone}`) : undefined}
           />);
         }}
         ItemSeparatorComponent={() => <View style={{ height: 6 }} />}
