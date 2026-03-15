@@ -12,14 +12,14 @@ import { UserRole, ROLE_LABELS } from '@/lib/types';
 import DirectoryMap from '@/components/DirectoryMap';
 import { apiRequest, getApiUrl } from '@/lib/query-client';
 
-// UX Pilot exact design tokens
-const PRIMARY   = '#1D4ED8';
-const PRIMARY_L = '#E0E7FF';
-const BG        = '#F9FAFB';
-const CARD      = '#FFFFFF';
-const BORDER    = '#F3F4F6';
-const DARK      = '#111827';
-const GRAY      = '#6B7280';
+// Dark Theme Design Tokens
+const PRIMARY   = '#10B981';
+const PRIMARY_L = '#D1FAE5';
+const BG        = '#0A0A14';
+const CARD      = '#2A2A2A';
+const BORDER    = '#374151';
+const DARK      = '#F3F4F6';
+const GRAY      = '#9CA3AF';
 const SUCCESS   = '#10B981';
 
 
