@@ -979,10 +979,10 @@ export default function OnboardingScreen() {
                   opacity: pressed ? 0.85 : 1,
                   transform: [{ scale: pressed ? 0.98 : 1 }]
                 })}
-                onPress={() => { setEmailLinkMode(true); setStep(0); }}
+                onPress={() => { setEmailOtpMode(true); setStep(0); }}
               >
                 <Ionicons name="mail" size={20} color="#FF7B47" />
-                <Text style={{ fontSize: 16, fontFamily: 'Inter_600SemiBold', color: '#FF7B47' }}>Sign in with Email Link</Text>
+                <Text style={{ fontSize: 16, fontFamily: 'Inter_600SemiBold', color: '#FF7B47' }}>Sign in with Email</Text>
               </Pressable>
 
               <View style={{ flex: 1 }} />
@@ -1670,8 +1670,8 @@ export default function OnboardingScreen() {
     if (currentScreen === 'google-phone') return checking || !phone.trim();
     if (currentScreen === 'otp') return otpVerifying || otpCode.length < 6;
     if (currentScreen === 'email') return emailSendingWelcome;
-    if (currentScreen === 'email-link-entry') return emailLinkSending || !emailLinkEmail.trim();
-    if (currentScreen === 'email-link-sent') return emailLinkSending;
+    if (currentScreen === 'email-otp-entry') return emailOtpSending || !emailOtpEmail.trim();
+    if (currentScreen === 'email-otp-verify') return emailOtpVerifying || emailOtpCode.length < 6;
     if (currentScreen === 'details') return !userName.trim();
     if (currentScreen === 'selfie') return !selfieUri;
     if (uploadingSelfie) return true;
@@ -1717,7 +1717,7 @@ export default function OnboardingScreen() {
 
       {!isPhoneScreen && (
         <View style={[styles.bottomActions, { paddingBottom: Platform.OS === 'web' ? 34 : Math.max(insets.bottom, 16), zIndex: 9999, elevation: 9999 }]} pointerEvents="box-none">
-          {(step > 0 || emailLinkMode) && (
+          {(step > 0 || emailOtpMode) && (
             <Pressable style={styles.backBtn} onPress={() => {
               if (currentScreen === 'otp') {
                 setOtpCode('');
@@ -1726,10 +1726,13 @@ export default function OnboardingScreen() {
                 setOtpError('');
                 setDebugInfo('');
               }
-              if (emailLinkMode) {
-                setEmailLinkMode(false);
-                setEmailLinkSent(false);
-                setEmailLinkEmail('');
+              if (emailOtpMode) {
+                setEmailOtpMode(false);
+                setEmailOtpSent(false);
+                setEmailOtpEmail('');
+                setEmailOtpCode('');
+                setEmailOtpResendTimer(0);
+                setEmailOtpError('');
                 setStep(0);
                 return;
               }
@@ -1749,7 +1752,7 @@ export default function OnboardingScreen() {
             disabled={isButtonDisabled()}
             testID="continue-button"
           >
-            {(checking || uploadingSelfie || otpVerifying) ? (
+            {(checking || uploadingSelfie || otpVerifying || emailOtpVerifying) ? (
               <ActivityIndicator color="#FFF" size="small" />
             ) : (
               <>
@@ -1761,25 +1764,7 @@ export default function OnboardingScreen() {
         </View>
       )}
 
-      {/* Email Link Signing-In Overlay */}
-      {emailSigningIn && (
-        <View style={{
-          position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-          backgroundColor: 'rgba(10,10,20,0.92)',
-          alignItems: 'center', justifyContent: 'center', zIndex: 99999,
-        }}>
-          <View style={{ alignItems: 'center', gap: 20, padding: 32, backgroundColor: '#1A1A2E', borderRadius: 24, borderWidth: 1, borderColor: 'rgba(255,123,71,0.3)', maxWidth: 300 }}>
-            <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(255,123,71,0.15)', alignItems: 'center', justifyContent: 'center' }}>
-              <Ionicons name="mail" size={32} color="#FF7B47" />
-            </View>
-            <ActivityIndicator size="large" color="#FF7B47" />
-            <Text style={{ color: '#FFF', fontSize: 18, fontFamily: 'Inter_700Bold', textAlign: 'center' }}>Signing you in…</Text>
-            <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 14, fontFamily: 'Inter_400Regular', textAlign: 'center', lineHeight: 20 }}>
-              Verifying your email link with Firebase. This will only take a moment.
-            </Text>
-          </View>
-        </View>
-      )}
+      {/* Email link overlay removed - now using email OTP */}
     </View>
   );
 }
