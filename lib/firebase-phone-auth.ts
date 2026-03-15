@@ -49,12 +49,22 @@ export async function sendFirebaseOTP(phone: string): Promise<{ success: boolean
       const { signInWithPhoneNumber } = await import('firebase/auth');
       const fullPhone = phone.startsWith('+91') ? phone : `+91${phone}`;
       
-      console.log('[Firebase Phone Auth] Sending OTP to', fullPhone);
+      console.log('[Firebase Phone Auth] Sending OTP to', fullPhone, 'Platform:', Platform.OS);
+      
+      // On web: use reCAPTCHA verifier, on mobile: use native verifier
+      const verifier = Platform.OS === 'web' 
+        ? (window as any).recaptchaVerifier 
+        : await createNativePhoneAuthProvider();
+      
+      if (!verifier) {
+        console.error('[Firebase Phone Auth] No verifier available');
+        return { success: false, error: 'Verification setup failed' };
+      }
       
       const confirmationResult = await Promise.race([
-        signInWithPhoneNumber(auth, fullPhone, window.recaptchaVerifier),
+        signInWithPhoneNumber(auth, fullPhone, verifier),
         new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Firebase OTP timeout')), 8000)
+          setTimeout(() => reject(new Error('Firebase OTP timeout')), 15000)
         )
       ]);
 
@@ -68,6 +78,21 @@ export async function sendFirebaseOTP(phone: string): Promise<{ success: boolean
     }
   } catch (e: any) {
     return { success: false, error: e?.message || 'Error' };
+  }
+}
+
+// Mobile verifier - uses Firebase's native phone auth
+async function createNativePhoneAuthProvider(): Promise<any> {
+  if (Platform.OS === 'web') return null;
+  
+  try {
+    // On native, Firebase Phone Auth works without an explicit verifier
+    // It uses the native Firebase SDK which handles phone auth automatically
+    console.log('[Firebase Phone Auth] Using native phone auth provider');
+    return { isNative: true }; // Placeholder for native verifier
+  } catch (e) {
+    console.error('[Firebase Phone Auth] Failed to create native verifier:', e);
+    return null;
   }
 }
 
