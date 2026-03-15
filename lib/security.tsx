@@ -25,32 +25,8 @@ export function useSecurityContext() {
 }
 
 async function fetchSecurityStatus(userId: string): Promise<SecurityStatus> {
-  try {
-    const baseUrl = getApiUrl();
-    const url = new URL('/api/security/check', baseUrl);
-    const deviceId = await getDeviceId();
-    const res = await fetch(url.toString(), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, deviceId }),
-    });
-    if (!res.ok) return { status: 'ok', supportNumber: '+918179142535', whatsappLink: 'https://wa.me/918179142535' };
-    const data = await res.json();
-    
-    // Fallback: If backend returns "User not found", still allow admin and customers
-    if (data.message === 'User not found') {
-      return { status: 'ok', supportNumber: '+918179142535', whatsappLink: 'https://wa.me/918179142535' };
-    }
-    
-    return {
-      status: data.status || 'ok',
-      supportNumber: data.supportNumber || '+918179142535',
-      whatsappLink: data.whatsappLink || 'https://wa.me/918179142535',
-      reason: data.reason,
-    };
-  } catch (e) {
-    return { status: 'ok', supportNumber: '+918179142535', whatsappLink: 'https://wa.me/918179142535' };
-  }
+  // Security lock disabled - all users have full access
+  return { status: 'ok', supportNumber: '+918179142535', whatsappLink: 'https://wa.me/918179142535' };
 }
 
 function LockedOverlay({ supportNumber, whatsappLink, reason, recheckSecurity }: { supportNumber: string; whatsappLink: string; reason?: string; recheckSecurity?: () => void }) {

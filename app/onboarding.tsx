@@ -1084,7 +1084,7 @@ export default function OnboardingScreen() {
               placeholder="12-digit Aadhaar number"
               placeholderTextColor={C.textTertiary}
               value={aadhaarNumber}
-              onChangeText={setAadhaarNumber}
+              onChangeText={(text) => setAadhaarNumber(text.replace(/\D/g, '').slice(0, 12))}
               keyboardType="number-pad"
               maxLength={12}
             />
