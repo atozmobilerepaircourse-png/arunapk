@@ -1,28 +1,25 @@
-// Firebase configuration - intentionally delayed initialization
+// Firebase configuration - completely lazy initialization
 let firebaseApp: any = null;
 let firebaseAuth: any = null;
 let firebaseInitAttempted = false;
 let firebaseAvailable = false;
 
-export const firebaseConfig = {
-  apiKey: typeof process !== 'undefined' ? process.env.EXPO_PUBLIC_FIREBASE_API_KEY : undefined,
-  authDomain: typeof process !== 'undefined' ? process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN : undefined,
-  projectId: typeof process !== 'undefined' ? process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID : undefined,
-  storageBucket: typeof process !== 'undefined' ? (process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET || 'mobile-repair-app-276b6.appspot.com') : undefined,
-  appId: typeof process !== 'undefined' ? process.env.EXPO_PUBLIC_FIREBASE_APP_ID : undefined,
-  messagingSenderId: typeof process !== 'undefined' ? process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID : undefined,
-};
-
-const hasRequiredConfig = !!(firebaseConfig.apiKey && firebaseConfig.authDomain && firebaseConfig.projectId);
-
-if (typeof process !== 'undefined') {
-  console.log('[Firebase] Config check:', {
-    hasApiKey: !!firebaseConfig.apiKey,
-    hasAuthDomain: !!firebaseConfig.authDomain,
-    hasProjectId: !!firebaseConfig.projectId,
-    isConfigValid: hasRequiredConfig,
-  });
+// Get config lazily - don't process at module load time
+function getFirebaseConfig() {
+  if (typeof process === 'undefined') return null;
+  return {
+    apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
+    authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
+    projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
+    storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET || 'mobile-repair-app-276b6.appspot.com',
+    appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
+    messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  };
 }
+
+export const firebaseConfig = getFirebaseConfig();
+
+const hasRequiredConfig = !!(firebaseConfig?.apiKey && firebaseConfig?.authDomain && firebaseConfig?.projectId);
 
 // Lazy initialization function - called only when Firebase is actually needed
 function initializeFirebase() {
@@ -30,32 +27,37 @@ function initializeFirebase() {
   firebaseInitAttempted = true;
 
   if (!hasRequiredConfig) {
-    console.warn('[Firebase] Skipping initialization — missing required config');
+    if (typeof process !== 'undefined' && (process.env as any).NODE_ENV !== 'production') {
+      console.warn('[Firebase] Skipping initialization — missing required config');
+    }
     return false;
   }
 
   try {
-    const { initializeApp, getApps } = require('firebase/app');
+    // Use require to avoid module-level initialization
+    const firebase = require('firebase/app');
+    const { initializeApp, getApps } = firebase;
     
     // Check if already initialized safely
-    let apps;
+    let apps: any[] = [];
     try {
       apps = getApps();
-    } catch {
-      apps = [];
+    } catch (e) {
+      // Ignore errors from getApps
     }
     
     if (apps.length === 0) {
       firebaseApp = initializeApp(firebaseConfig);
+      console.log('[Firebase] App initialized successfully');
     } else {
       firebaseApp = apps[0];
+      console.log('[Firebase] Using existing app instance');
     }
     
     firebaseAvailable = true;
-    console.log('[Firebase] App initialized successfully');
     return true;
   } catch (error: any) {
-    console.error('[Firebase] Initialization failed:', error?.message || error);
+    console.error('[Firebase] Initialization failed:', error?.message || error?.toString?.());
     firebaseApp = null;
     firebaseAvailable = false;
     return false;
