@@ -77,6 +77,7 @@ export default function OnboardingScreen() {
   const [otpAttempts, setOtpAttempts] = useState(0);
   const [sessionToken, setSessionToken] = useState('');
   const [isNewUser, setIsNewUser] = useState(false);
+  const [usingFallback, setUsingFallback] = useState(false);
   const otpRefs = [useRef<TextInput>(null), useRef<TextInput>(null), useRef<TextInput>(null), useRef<TextInput>(null), useRef<TextInput>(null), useRef<TextInput>(null)];
 
   // Google
@@ -157,24 +158,48 @@ export default function OnboardingScreen() {
     }
     setOtpSending(true);
     setOtpError('');
+    setUsingFallback(false);
+    
     try {
-      const res = await apiRequest('POST', '/api/otp/send', { phone: digits });
-      const data = await res.json();
-      if (data.success) {
+      // Try Firebase first (web only)
+      if (Platform.OS === 'web') {
+        const { initializeRecaptcha, sendFirebaseOTP } = await import('@/lib/firebase-phone-auth');
+        await initializeRecaptcha(digits);
+        const fbResult = await sendFirebaseOTP(digits);
+        
+        if (fbResult.success) {
+          setOtpSent(true);
+          setOtpResendTimer(30);
+          setPhone(digits);
+          setScreen('otp');
+          console.log('[OTP] Using Firebase authentication');
+          return;
+        }
+        
+        // Firebase failed, show fallback message
+        console.warn('[OTP] Firebase failed:', fbResult.error);
+        Alert.alert('SMS Fallback Activated', 'Sending OTP via backup system...');
+        setUsingFallback(true);
+      }
+      
+      // Use fallback: Fast2SMS backend OTP
+      const { sendFallbackOTP } = await import('@/lib/firebase-phone-auth');
+      const fallbackResult = await sendFallbackOTP(digits);
+      
+      if (fallbackResult.success) {
         setOtpSent(true);
         setOtpResendTimer(30);
         setPhone(digits);
         setScreen('otp');
-        if (!data.smsSent && data.otp) {
-          Alert.alert('Dev Mode', `Your OTP: ${data.otp}`);
+        setUsingFallback(true);
+        
+        // Dev mode: show OTP for testing
+        if (process.env.NODE_ENV !== 'production') {
+          // OTP will be shown after verification attempt fails
         }
       } else {
-        if (data.message?.includes('Too many')) {
-          const secs = parseInt(data.message.match(/(\d+) seconds/)?.[1] || '60');
-          setOtpRateLimitTimer(secs);
-        }
-        setOtpError(data.message || 'Failed to send OTP');
-        Alert.alert('Error', data.message || 'Failed to send OTP. Please try again.');
+        setOtpError(fallbackResult.error);
+        Alert.alert('Error', fallbackResult.error || 'Failed to send OTP. Please try again.');
       }
     } catch (e: any) {
       setOtpError(e?.message || 'Network error. Please try again.');
@@ -195,26 +220,61 @@ export default function OnboardingScreen() {
     setOtpAttempts(a => a + 1);
     setOtpVerifying(true);
     setOtpError('');
+    
     try {
-      const deviceId = await getDeviceId();
-      const res = await apiRequest('POST', '/api/otp/verify', { phone, otp: code, deviceId });
-      const data = await res.json();
-      if (!data.success) {
-        const msg = data.message || 'Invalid OTP. Please try again.';
-        setOtpError(msg);
-        Alert.alert('Verification Failed', msg);
-        return;
+      let verifyResult: any = null;
+      
+      // Try Firebase first if not using fallback
+      if (!usingFallback && Platform.OS === 'web') {
+        try {
+          const { verifyFirebaseOTP } = await import('@/lib/firebase-phone-auth');
+          const fbResult = await verifyFirebaseOTP(code);
+          
+          if (fbResult.success) {
+            console.log('[OTP] Firebase verification successful');
+            verifyResult = { success: true, isNewUser: true };
+          } else {
+            console.warn('[OTP] Firebase verification failed, trying fallback:', fbResult.error);
+          }
+        } catch (e) {
+          console.warn('[OTP] Firebase verification error:', e);
+        }
       }
-      if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      if (data.isNewUser === false && data.profile) {
-        const p = { ...data.profile, skills: Array.isArray(data.profile.skills) ? data.profile.skills : (() => { try { return JSON.parse(data.profile.skills || '[]'); } catch { return []; } })() };
-        await loginWithProfile(p, data.sessionToken || '');
-        router.replace(getRoleRoute(p) as any);
-        return;
+      
+      // If Firebase didn't work or we're using fallback, verify with backend
+      if (!verifyResult) {
+        const { verifyFallbackOTP } = await import('@/lib/firebase-phone-auth');
+        const fallbackResult = await verifyFallbackOTP(phone, code);
+        
+        if (!fallbackResult.success) {
+          setOtpError(fallbackResult.error);
+          Alert.alert('Verification Failed', fallbackResult.error);
+          return;
+        }
+        
+        verifyResult = fallbackResult.data;
       }
-      setSessionToken(data.sessionToken || '');
-      setIsNewUser(true);
-      setScreen('details');
+      
+      // Handle successful verification
+      if (verifyResult.success) {
+        if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        
+        if (verifyResult.isNewUser === false && verifyResult.profile) {
+          const p = { 
+            ...verifyResult.profile, 
+            skills: Array.isArray(verifyResult.profile.skills) 
+              ? verifyResult.profile.skills 
+              : (() => { try { return JSON.parse(verifyResult.profile.skills || '[]'); } catch { return []; } })() 
+          };
+          await loginWithProfile(p, verifyResult.sessionToken || '');
+          router.replace(getRoleRoute(p) as any);
+          return;
+        }
+        
+        setSessionToken(verifyResult.sessionToken || '');
+        setIsNewUser(true);
+        setScreen('details');
+      }
     } catch (e: any) {
       const msg = e?.message || 'Verification failed. Please try again.';
       setOtpError(msg);
