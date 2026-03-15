@@ -329,11 +329,6 @@ export default function PostCard({
               </Text>
             </Pressable>
           </Animated.View>
-
-          <Pressable style={styles.actionBtn}>
-            <Ionicons name="eye-outline" size={13} color={TEXT_MUTED} />
-            <Text style={styles.actionBtnText}>{(post as any).views || 0}</Text>
-          </Pressable>
         </View>
 
         {/* Share button */}
