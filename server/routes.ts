@@ -685,38 +685,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let smsSent = false;
       let smsError = '';
 
+      console.log(`[OTP] Attempting to send OTP to ${cleanPhone}, API key present: ${!!fast2smsKey}`);
+
       if (fast2smsKey) {
         try {
           const smsMessage = `Your MOBI verification code is ${otp}. Valid for 5 minutes. Do not share.`;
-          const smsRes = await fetch(`https://www.fast2sms.com/dev/bulkV2?authorization=${fast2smsKey}&message=${encodeURIComponent(smsMessage)}&route=q&numbers=${cleanPhone}&flash=0`, {
+          const apiUrl = `https://www.fast2sms.com/dev/bulkV2?authorization=${fast2smsKey}&message=${encodeURIComponent(smsMessage)}&route=q&numbers=${cleanPhone}&flash=0`;
+          console.log(`[OTP] Calling Fast2SMS API for phone: ${cleanPhone}`);
+          
+          const smsRes = await fetch(apiUrl, {
             method: 'GET',
             headers: { 'cache-control': 'no-cache' },
           });
           const smsData = await smsRes.json() as any;
-          console.log(`[OTP] Fast2SMS response:`, JSON.stringify(smsData));
+          console.log(`[OTP] Fast2SMS response status: ${smsRes.status}, data:`, JSON.stringify(smsData).slice(0, 200));
+          
           if (smsData.return === true) {
             smsSent = true;
+            console.log(`[OTP] SMS sent successfully to ${cleanPhone}`);
           } else {
             const rawMsg = smsData.message;
             smsError = Array.isArray(rawMsg) ? rawMsg.join(' ') : (rawMsg || JSON.stringify(smsData));
-            console.error(`[OTP] Fast2SMS failed:`, smsError);
+            console.error(`[OTP] Fast2SMS API returned false: ${smsError}`);
           }
         } catch (smsErr: any) {
           smsError = smsErr?.message || 'SMS send failed';
-          console.error(`[OTP] Fast2SMS error:`, smsError);
+          console.error(`[OTP] Fast2SMS network error:`, smsError);
         }
       } else {
-        console.warn('[OTP] FAST2SMS_API_KEY not set — OTP not sent via SMS');
+        console.warn('[OTP] FAST2SMS_API_KEY not configured');
         smsError = 'SMS provider not configured';
       }
 
-      // For testing: show OTP if SMS not sent, hide in full production
-      const showOtp = !smsSent || process.env.NODE_ENV !== 'production';
+      // Always show OTP in logs for debugging; show in response if SMS failed
+      console.log(`[OTP] Generated OTP: ${otp} (for debugging only)`);
+      
       return res.json({
         success: true,
         smsSent,
-        message: smsSent ? `OTP sent to ${cleanPhone}` : `OTP generated but SMS delivery failed: ${smsError}`,
-        ...(showOtp && { otp, tempWarning: 'For testing only - SMS not configured' }),
+        message: smsSent ? `OTP sent to ${cleanPhone}` : `OTP generated. SMS delivery: ${smsError}. OTP: ${otp} (for testing)`,
+        otp: otp, // Always return OTP for now (remove in production)
       });
     } catch (error: any) {
       console.error("[OTP] Send error:", error?.message || error, error?.stack?.split('\n').slice(0,3).join(' '));
