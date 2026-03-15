@@ -135,3 +135,32 @@ Mobile app (Expo/React Native) for repair professionals with social feed, direct
 - Fast mode completed most critical features in 10 turns
 - Some lower-priority items (map markers, insurance plan IMEI) left for future focused tasks
 - All image handling is robust with fallback parsing
+
+## Desktop WebView Mode (New Feature)
+
+**Implementation**: In-app web pages automatically display in desktop view.
+
+**Component**: `components/DesktopWebView.tsx`
+- Desktop Chrome user agent (Windows 10, Chrome 120)
+- Wide viewport (1024px) forces desktop layout
+- Scales properly on mobile screen with pinch-zoom
+- Injects CSS to hide mobile-only elements
+- No external browser opening - stays in app
+
+**Routing**: `lib/open-link.ts` handles all link opens
+- Internal links → `/webview` screen with DesktopWebView
+- Tel/mailto/sms links → native handlers
+- Web platform → opens in new tab
+
+**Applies To**:
+- Shop pages
+- Profile pages  
+- External website links
+- Live sessions
+- Payment pages
+
+**User Experience**:
+- Similar to Chrome's "Desktop Site" feature
+- Automatic (no manual toggle)
+- Full app navigation (back button)
+- Loading indicators and error handling
