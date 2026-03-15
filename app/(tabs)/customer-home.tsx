@@ -255,7 +255,7 @@ function TechCard({ tech }: { tech: any }) {
   const eta      = distNum != null ? etaFromDist(distNum) : `${15 + Math.floor(seededRandom(tech.id + 'eta') * 20)} mins`;
   const rating   = techRating(tech.id ?? '0');
   const reviews  = techReviews(tech.id ?? '0');
-  const isVerified = tech.blocked !== 1;
+  const isVerified = true;
 
   const handleChat = async () => {
     if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);

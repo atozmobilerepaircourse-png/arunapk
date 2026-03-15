@@ -104,9 +104,8 @@ function ActionButton({ label, onPress, color = PRIMARY, loading = false, icon, 
 }
 
 // ─── UserDetailCard ───────────────────────────────────────────────────────────
-function UserDetailCard({ user, onBlock, onVerify, onDelete }: {
+function UserDetailCard({ user, onVerify, onDelete }: {
   user: any;
-  onBlock: (id: string, name: string, blocked: boolean) => void;
   onVerify: (id: string, name: string, verified: boolean) => void;
   onDelete: (id: string, name: string) => void;
 }) {
@@ -117,7 +116,6 @@ function UserDetailCard({ user, onBlock, onVerify, onDelete }: {
   const { refreshData } = useApp();
   const roleColor = ROLE_COLORS[user.role as UserRole] || C.textSecondary;
   const profile = user.fullProfile;
-  const isBlocked = profile?.blocked === 1;
   const isVerified = profile?.verified === 1;
 
   const changeRole = async (newRole: UserRole) => {
@@ -144,21 +142,18 @@ function UserDetailCard({ user, onBlock, onVerify, onDelete }: {
   const ROLES_LIST: UserRole[] = ['admin', 'technician', 'teacher', 'supplier', 'customer', 'job_provider'];
 
   return (
-    <View style={[ss.userCard, isBlocked && { borderColor: '#FF3B30', borderWidth: 1.5 }]}>
+    <View style={ss.userCard}>
       <Pressable onPress={() => { setShowRolePicker(false); setExpanded(!expanded); }}>
         <View style={ss.userCardTop}>
           {profile?.avatar
-            ? <Image source={{ uri: profile.avatar }} style={[ss.userAvatarImg, isBlocked && { opacity: 0.5 }]} contentFit="cover" />
-            : <View style={[ss.userAvatar, { backgroundColor: roleColor + '20' }, isBlocked && { opacity: 0.5 }]}>
+            ? <Image source={{ uri: profile.avatar }} style={ss.userAvatarImg} contentFit="cover" />
+            : <View style={[ss.userAvatar, { backgroundColor: roleColor + '20' }]}>
               <Text style={[ss.userAvatarText, { color: roleColor }]}>{getInitials(user.name)}</Text>
             </View>}
           <View style={ss.userCardInfo}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <Text style={ss.userName} numberOfLines={1}>{user.name}</Text>
               {isVerified && <Ionicons name="checkmark-circle" size={14} color="#34C759" />}
-              {isBlocked && <View style={{ backgroundColor: '#FF3B3020', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4 }}>
-                <Text style={{ fontSize: 9, color: '#FF3B30', fontFamily: 'Inter_700Bold' }}>BLOCKED</Text>
-              </View>}
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
               <View style={[ss.roleBadge, { backgroundColor: roleColor + '20' }]}>
@@ -205,13 +200,6 @@ function UserDetailCard({ user, onBlock, onVerify, onDelete }: {
             >
               {changingRole ? <ActivityIndicator size="small" color={PRIMARY} /> : <Ionicons name="swap-horizontal" size={13} color={PRIMARY} />}
               <Text style={{ fontSize: 12, color: PRIMARY, fontFamily: 'Inter_600SemiBold' }}>Change Role</Text>
-            </Pressable>
-            <Pressable
-              onPress={() => onBlock(user.id, user.name, !isBlocked)}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: isBlocked ? '#34C75915' : '#FF3B3015', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: isBlocked ? '#34C75940' : '#FF3B3040' }}
-            >
-              <Ionicons name={isBlocked ? 'lock-open-outline' : 'ban-outline'} size={13} color={isBlocked ? '#34C759' : '#FF3B30'} />
-              <Text style={{ fontSize: 12, color: isBlocked ? '#34C759' : '#FF3B30', fontFamily: 'Inter_600SemiBold' }}>{isBlocked ? 'Unblock' : 'Block'}</Text>
             </Pressable>
             <Pressable
               onPress={() => onVerify(user.id, user.name, !isVerified)}
@@ -677,21 +665,6 @@ export default function AdminScreen() {
     ]);
   };
 
-  const executeBlockUser = async (userId: string, userName: string, block: boolean) => {
-    try {
-      const res = await apiRequest('POST', '/api/admin/block-user', { userId, blocked: block });
-      if (!res.ok) throw new Error('API error');
-      const data = await res.json();
-      if (data.success) {
-        Alert.alert('Success', `${userName} has been ${block ? 'blocked' : 'unblocked'}.`);
-        refreshData().catch(e => console.log('Refresh failed:', e));
-      } else { 
-        Alert.alert('Error', data.message || 'Failed to block user'); 
-      }
-    } catch (e: any) { 
-      Alert.alert('Error', 'Failed to block user. Check your connection.'); 
-    }
-  };
 
   const executeVerifyUser = async (userId: string, userName: string, verify: boolean) => {
     try {
@@ -758,15 +731,6 @@ export default function AdminScreen() {
     }
   };
 
-  const handleBlockUser = (userId: string, userName: string, block: boolean) => {
-    Alert.alert(block ? 'Block User' : 'Unblock User',
-      block ? `Block ${userName}? They won't be able to log in.` : `Unblock ${userName}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: block ? 'Block' : 'Unblock', style: block ? 'destructive' : 'default', onPress: () => executeBlockUser(userId, userName, block) },
-      ]
-    );
-  };
 
   const downloadUsersCSV = () => openLink(`${getApiUrl()}/api/admin/export-users`, 'Export');
 
@@ -1008,7 +972,7 @@ export default function AdminScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: Platform.OS === 'web' ? 34 : 40, paddingHorizontal: 16 }}
         renderItem={({ item }) => (
-          <UserDetailCard user={item} onBlock={handleBlockUser} onVerify={executeVerifyUser} onDelete={handleDeleteUser} />
+          <UserDetailCard user={item} onVerify={executeVerifyUser} onDelete={handleDeleteUser} />
         )}
         ListEmptyComponent={
           <View style={{ alignItems: 'center', padding: 40 }}>
@@ -1065,7 +1029,7 @@ export default function AdminScreen() {
           contentContainerStyle={{ paddingBottom: 40, paddingHorizontal: 16 }}
           renderItem={({ item }) => (
             <UserDetailCard user={{ id: item.id, name: item.name || 'Unknown', role: item.role, city: item.city, isRegistered: true, fullProfile: item }}
-              onBlock={handleBlockUser} onVerify={executeVerifyUser} onDelete={handleDeleteUser} />
+              onVerify={executeVerifyUser} onDelete={handleDeleteUser} />
           )}
           ListEmptyComponent={
             <View style={{ alignItems: 'center', padding: 40 }}>

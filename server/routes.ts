@@ -5104,17 +5104,6 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
     }
   });
 
-  app.post("/api/admin/block-user", async (req, res) => {
-    try {
-      const { userId, blocked } = req.body;
-      if (!userId) return res.status(400).json({ success: false, message: "userId required" });
-      await db.update(profiles).set({ blocked: blocked ? 1 : 0 }).where(eq(profiles.id, userId));
-      return res.json({ success: true, message: blocked ? "User blocked" : "User unblocked" });
-    } catch (error) {
-      console.error("[Admin] Block user error:", error);
-      return res.status(500).json({ success: false, message: "Failed to update user" });
-    }
-  });
 
   app.post("/api/admin/delete-user", async (req, res) => {
     try {
