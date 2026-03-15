@@ -7,7 +7,7 @@ let firebaseAvailable = false;
 // Get config lazily - don't process at module load time
 function getFirebaseConfig() {
   if (typeof process === 'undefined') return null;
-  return {
+  const config = {
     apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
     authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
     projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
@@ -15,6 +15,11 @@ function getFirebaseConfig() {
     appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
     messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
   };
+  // Only log if all config exists
+  if (config.apiKey && config.authDomain && config.projectId) {
+    // Silent initialization
+  }
+  return config;
 }
 
 export const firebaseConfig = getFirebaseConfig();

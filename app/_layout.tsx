@@ -7,19 +7,6 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { StatusBar } from "expo-status-bar";
 
-// Suppress expo-av deprecation warning and Firebase config warnings
-const originalWarn = console.warn;
-console.warn = (message: string, ...args: any[]) => {
-  if (typeof message === 'string' && (message.includes('expo-av') || message.includes('Firebase'))) return;
-  originalWarn(message, ...args);
-};
-
-// Suppress Firebase config check logs
-const originalLog = console.log;
-console.log = (message: string, ...args: any[]) => {
-  if (typeof message === 'string' && message.includes('[Firebase]')) return;
-  originalLog(message, ...args);
-};
 // import * as ScreenCapture from "expo-screen-capture"; // Disabled for stability
 import {
   useFonts,
