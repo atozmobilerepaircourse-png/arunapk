@@ -98,6 +98,8 @@ const buildConfig = {
         if (openaiKey)          args.push('--update-env-vars', `OPENAI_API_KEY=${openaiKey}`);
         const bunnyStorageKey = process.env.BUNNY_STORAGE_API_KEY || '';
         if (bunnyStorageKey)    args.push('--update-env-vars', `BUNNY_STORAGE_API_KEY=${bunnyStorageKey}`);
+        const fast2smsKey = process.env.FAST2SMS_API_KEY || '';
+        if (fast2smsKey)        args.push('--update-env-vars', `FAST2SMS_API_KEY=${fast2smsKey}`);
         args.push('--update-env-vars', 'BUNNY_STORAGE_ZONE_NAME=arun-storag');
         args.push('--update-env-vars', 'BUNNY_STORAGE_REGION=uk');
 
