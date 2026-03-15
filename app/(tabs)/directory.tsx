@@ -325,7 +325,7 @@ export default function DirectoryScreen() {
               const c = await startConversation(item.id, item.name, item.role);
               if (c) router.push({ pathname: '/chat/[id]', params: { id: c } });
             } : undefined}
-            onCall={phone ? () => Linking.openURL(`tel:${phone}`) : undefined}
+            onCall={phone ? () => Linking.openURL(`tel:+91${phone}`) : undefined}
           />);
         }}
         ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
@@ -448,12 +448,12 @@ const styles = StyleSheet.create({
     marginHorizontal: 12,
     backgroundColor: CARD,
     borderRadius: 16,
-    padding: 6,
-    marginBottom: 6,
+    padding: 4,
+    marginBottom: 4,
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.03, shadowRadius: 6, elevation: 1,
     borderWidth: 1, borderColor: '#F3F4F6',
   },
-  cardTop: { flexDirection: 'row', gap: 8 },
+  cardTop: { flexDirection: 'row', gap: 6 },
   avatarWrap: { position: 'relative', flexShrink: 0 },
   avatar: { width: 40, height: 40, borderRadius: 20, borderWidth: 1.5, borderColor: '#FFF' },
   avatarFallback: { backgroundColor: '#DBEAFE', alignItems: 'center', justifyContent: 'center' },
@@ -473,16 +473,16 @@ const styles = StyleSheet.create({
   distanceText: { fontSize: 9, color: PRIMARY, fontFamily: 'Inter_600SemiBold' },
 
   // Card footer
-  cardFooter: { flexDirection: 'row', gap: 5, marginTop: 5, paddingTop: 4, borderTopWidth: 1, borderTopColor: '#F9FAFB' },
+  cardFooter: { flexDirection: 'row', gap: 4, marginTop: 4, paddingTop: 3, borderTopWidth: 1, borderTopColor: '#F9FAFB' },
   chatBtn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 3,
-    borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 10,
-    paddingVertical: 5, backgroundColor: CARD,
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 2,
+    borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8,
+    paddingVertical: 4, backgroundColor: CARD,
   },
   chatBtnText: { fontSize: 10, fontFamily: 'Inter_600SemiBold', color: '#374151' },
   callBtn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 3,
-    backgroundColor: PRIMARY, borderRadius: 10, paddingVertical: 5,
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 2,
+    backgroundColor: PRIMARY, borderRadius: 8, paddingVertical: 4,
     shadowColor: PRIMARY, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4, elevation: 2,
   },
   callBtnText: { fontSize: 10, fontFamily: 'Inter_600SemiBold', color: '#FFF' },

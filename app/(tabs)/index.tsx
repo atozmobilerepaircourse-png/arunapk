@@ -441,10 +441,10 @@ export default function FeedScreen() {
             </HeaderButton>
           ) : null}
 
-          {/* Chat */}
-          <HeaderButton delay={240} onPress={() => router.push('/chats')}>
+          {/* Notifications → Chat */}
+          <HeaderButton delay={240} onPress={() => router.push('/(tabs)/profile')}>
             <View style={styles.bellBtn}>
-              <Ionicons name="chatbubble-ellipses-outline" size={18} color={TEXT} />
+              <Ionicons name="notifications" size={18} color={TEXT} />
               {totalUnread > 0 && <View style={styles.redDot} />}
             </View>
           </HeaderButton>
