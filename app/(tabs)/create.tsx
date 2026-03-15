@@ -221,6 +221,9 @@ export default function CreatePostScreen() {
         if (uploadedImages.length === 0) {
           const errMsg = results[0]?.status === 'rejected' ? (results[0] as PromiseRejectedResult).reason?.message : 'Unknown error';
           Alert.alert('Photo Upload Failed', `Could not upload photos: ${errMsg}\n\nPlease check your connection and try again.`);
+          setIsSubmitting(false);
+          setUploadProgress('');
+          setUploadPercent(0);
           return;
         }
         if (failed > 0) {
@@ -235,7 +238,9 @@ export default function CreatePostScreen() {
         setUploadProgress('Preparing video upload...');
         try {
           uploadedVideoUrl = await uploadVideo(video);
+          console.log('[CreatePost] Video uploaded successfully:', uploadedVideoUrl);
         } catch (videoError: any) {
+          console.error('[CreatePost] Video upload error:', videoError);
           Alert.alert('Video Upload Failed', videoError.message || 'Could not upload video. Please try again.');
           setIsSubmitting(false);
           setUploadProgress('');
@@ -245,6 +250,7 @@ export default function CreatePostScreen() {
       }
 
       setUploadProgress('Creating post...');
+      console.log('[CreatePost] Calling addPost with video URL:', uploadedVideoUrl);
       await addPost({
         userId: profile.id,
         userName: profile.name,
@@ -265,9 +271,10 @@ export default function CreatePostScreen() {
       
       // Brief delay to show success message
       await new Promise(r => setTimeout(r, 500));
+      console.log('[CreatePost] Post successful, navigating to feed');
       router.navigate('/(tabs)');
     } catch (e: any) {
-      console.error('[Post] Submit failed:', e?.message || e);
+      console.error('[CreatePost] Submit failed:', e instanceof Error ? e.message : String(e));
       Alert.alert('Post Failed', `Something went wrong: ${(e?.message || 'Unknown error').slice(0, 120)}\n\nPlease try again.`);
     } finally {
       setIsSubmitting(false);

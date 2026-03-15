@@ -491,6 +491,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }).filter(u => u !== '');
       }
 
+      console.log('[Posts] Creating post with data:', { userId: postData.userId, text: postData.text.length, images: finalImages.length, videoUrl: (postData as any).videoUrl });
       const res = await apiRequest('POST', '/api/posts', {
         userId: postData.userId,
         userName: postData.userName,
@@ -502,11 +503,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
         category: postData.category,
       });
       const data = await res.json();
+      console.log('[Posts] API response:', { success: data.success, hasPost: !!data.post });
       if (data.success && data.post) {
+        console.log('[Posts] Post created successfully, ID:', data.post.id);
         setPosts(prev => [data.post, ...prev]);
+      } else {
+        throw new Error(data.message || 'Server did not return post');
       }
     } catch (e) {
-      console.error('[Posts] Failed to create:', e);
+      console.error('[Posts] Failed to create:', e instanceof Error ? e.message : String(e));
+      throw e;
     }
   }, [uploadLocalImage]);
 
