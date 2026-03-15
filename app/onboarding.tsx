@@ -11,6 +11,7 @@ import * as Haptics from 'expo-haptics';
 import * as Crypto from 'expo-crypto';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
+import * as Clipboard from 'expo-clipboard';
 import { fetch as expoFetch } from 'expo/fetch';
 import { router, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -490,6 +491,29 @@ export default function OnboardingScreen() {
     if (!digits && idx > 0) otpRefs[idx - 1]?.current?.focus();
   };
 
+  // Auto-detect OTP from clipboard
+  useEffect(() => {
+    if (screen === 'otp') {
+      const checkClipboard = async () => {
+        try {
+          const text = await Clipboard.getStringAsync();
+          if (text) {
+            const digits = text.replace(/\D/g, '').slice(0, 6);
+            if (digits.length === 6 && digits !== otpCode) {
+              setOtpCode(digits);
+              console.log('[OTP] Auto-detected from clipboard:', digits);
+            }
+          }
+        } catch (e) {
+          // Clipboard access may be denied on some platforms
+        }
+      };
+      checkClipboard();
+      const interval = setInterval(checkClipboard, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [screen, otpCode]);
+
   const topInset = Platform.OS === 'web' ? 67 : insets.top;
   const botInset = Platform.OS === 'web' ? 34 : insets.bottom;
 
@@ -597,10 +621,18 @@ export default function OnboardingScreen() {
           <Pressable style={s.backBtn} onPress={() => setScreen('welcome')}>
             <Ionicons name="chevron-back" size={24} color="#374151" />
           </Pressable>
-          <View style={[s.formHeader, { marginBottom: 0 }]}>
-            <Text style={s.formTitle}>Enter 6-digit code</Text>
-            <Text style={s.formSubtitle}>We sent a verification code to your phone <Text style={{ color: '#2563EB', fontWeight: '600' }}>+91 {phone}</Text></Text>
+          <View style={[s.formHeader, { marginBottom: 12 }]}>
+            <Text style={s.formTitle}>Enter code</Text>
+            <Text style={s.formSubtitle}>Check your SMS for the 6-digit code <Text style={{ color: '#10B981', fontWeight: '600' }}>+91 {phone}</Text></Text>
           </View>
+
+          {/* Auto-paste indicator */}
+          {otpCode.replace(/\D/g, '').length === 6 && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#F0FDF4', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, marginBottom: 16, marginHorizontal: 16 }}>
+              <Ionicons name="checkmark-circle" size={16} color="#10B981" style={{ marginRight: 8 }} />
+              <Text style={{ color: '#10B981', fontSize: 13, fontWeight: '500' }}>Code auto-detected</Text>
+            </View>
+          )}
 
           <View style={s.otpContainer}>
             <View style={s.otpRow}>
@@ -632,18 +664,19 @@ export default function OnboardingScreen() {
             )}
 
             <View style={s.resendArea}>
-              <Text style={s.resendText}>Didn't receive the code?</Text>
+              <Text style={s.resendText}>Didn't receive code?</Text>
               <Pressable
-                style={[s.resendBtn, otpResendTimer > 0 && { opacity: 0.6 }]}
+                style={[s.resendBtn, otpResendTimer > 0 && { opacity: 0.5 }]}
                 onPress={() => otpResendTimer === 0 && sendOtp(phone)}
                 disabled={otpResendTimer > 0 || otpSending}
               >
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                  <Ionicons name="reload" size={14} color={otpResendTimer > 0 ? '#9CA3AF' : '#3B82F6'} style={{ marginRight: 6 }} />
                   <Text style={[s.resendBtnText, otpResendTimer > 0 && { color: '#9CA3AF' }]}>
-                    {otpSending ? 'Sending...' : 'Resend code'}
+                    {otpSending ? 'Sending...' : 'Resend'}
                   </Text>
                   {otpResendTimer > 0 && (
-                    <Text style={s.timerText}>({otpResendTimer.toString().padStart(2, '0')}s)</Text>
+                    <Text style={s.timerText}> ({otpResendTimer}s)</Text>
                   )}
                 </View>
               </Pressable>
@@ -655,7 +688,7 @@ export default function OnboardingScreen() {
             onPress={verifyOtp}
             disabled={otpVerifying || otpCode.replace(/\D/g, '').length < 6}
           >
-            {otpVerifying ? <ActivityIndicator color="#FFF" size="small" /> : <Text style={s.primaryBtnText}>Continue</Text>}
+            {otpVerifying ? <ActivityIndicator color="#FFF" size="small" /> : <Text style={s.primaryBtnText}>Verify & Continue</Text>}
           </Pressable>
         </View>
       </KeyboardAvoidingView>
