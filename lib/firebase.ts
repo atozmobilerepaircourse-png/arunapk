@@ -23,12 +23,15 @@ console.log('[Firebase] Config check:', {
 
 let firebaseApp: any = null;
 let firebaseAuth: Auth | null = null;
+let initialized = false;
 
 try {
   if (hasRequiredConfig) {
     firebaseApp = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-    firebaseAuth = getAuth(firebaseApp);
-    console.log('[Firebase] Initialized successfully');
+    // DO NOT call getAuth() here - it causes hook errors at module initialization
+    // Delay getAuth() until it's actually needed
+    console.log('[Firebase] App initialized, auth will be loaded on demand');
+    initialized = true;
   } else {
     console.warn('[Firebase] Skipping initialization — missing required config');
   }
@@ -37,12 +40,39 @@ try {
 }
 
 export { firebaseApp };
-export { firebaseAuth };
 
-// Provide optional auth — returns null if Firebase isn't ready
+// Lazy-load Firebase Auth only when needed
 export function getFirebaseAuth(): Auth | null {
-  return firebaseAuth;
+  try {
+    if (!initialized || !firebaseApp) return null;
+    if (!firebaseAuth) {
+      firebaseAuth = getAuth(firebaseApp);
+    }
+    return firebaseAuth;
+  } catch (error: any) {
+    console.error('[Firebase] Failed to get auth:', error?.message);
+    return null;
+  }
 }
 
-export const firebaseStorage = firebaseApp ? getStorage(firebaseApp) : null;
-export const firestoreDb = firebaseApp ? getFirestore(firebaseApp) : null;
+// Lazy-load Firebase Storage only when needed
+export function getFirebaseStorage() {
+  try {
+    if (!firebaseApp) return null;
+    return getStorage(firebaseApp);
+  } catch (error: any) {
+    console.error('[Firebase] Failed to get storage:', error?.message);
+    return null;
+  }
+}
+
+// Lazy-load Firestore only when needed
+export function getFirestoreDb() {
+  try {
+    if (!firebaseApp) return null;
+    return getFirestore(firebaseApp);
+  } catch (error: any) {
+    console.error('[Firebase] Failed to get firestore:', error?.message);
+    return null;
+  }
+}
