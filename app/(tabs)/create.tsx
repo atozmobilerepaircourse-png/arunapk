@@ -209,8 +209,8 @@ export default function CreatePostScreen() {
         }
       };
       xhr.onerror = () => reject(new Error('Network error during video upload'));
-      xhr.ontimeout = () => reject(new Error('Video upload timed out'));
-      xhr.timeout = 300000; // 5 min for large videos
+      xhr.ontimeout = () => reject(new Error('Video upload timed out. The file may be too large or your connection is slow.'));
+      xhr.timeout = 600000; // 10 min for large videos
       xhr.send(formData);
     });
   }, []);

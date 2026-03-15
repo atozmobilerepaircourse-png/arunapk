@@ -234,11 +234,13 @@ export async function uploadToBunnyStream(
 export async function waitForBunnyEncoding(
   videoId: string,
   onProgress?: ProgressCallback,
-  timeoutMs = 10 * 60 * 1000,
+  timeoutMs = 30 * 60 * 1000, // 30 minutes for large videos
 ): Promise<string> {
   const start = Date.now();
+  let pollingCount = 0;
   while (Date.now() - start < timeoutMs) {
-    await new Promise(r => setTimeout(r, 4000));
+    pollingCount++;
+    await new Promise(r => setTimeout(r, pollingCount > 20 ? 10000 : 4000)); // Slower polling after initial checks
     try {
       const res = await apiRequest('GET', `/api/bunny/video-status/${videoId}`);
       const data = await res.json();
@@ -257,7 +259,7 @@ export async function waitForBunnyEncoding(
       if (e?.message?.startsWith('Bunny encoding failed')) throw e;
     }
   }
-  throw new Error('Encoding timed out');
+  throw new Error('Encoding timed out after 30 minutes. The video may be too large or taking longer than expected to process.');
 }
 
 export async function uploadVideoToBunnyStream(
