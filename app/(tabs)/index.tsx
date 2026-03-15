@@ -398,6 +398,24 @@ export default function FeedScreen() {
             </View>
           </HeaderButton>
 
+          {/* Schematics */}
+          <HeaderButton delay={100} onPress={() => {
+            if (schematicsUrl) {
+              if (isTech && profile?.subscriptionEnd && profile.subscriptionEnd < Date.now()) {
+                Alert.alert('Subscription Required', 'Subscribe to access Schematics.');
+                return;
+              }
+              router.push({ pathname: '/webview', params: { url: schematicsUrl, title: 'Schematics' } });
+            } else {
+              Alert.alert('Coming Soon', 'Schematics not configured yet.');
+            }
+          }}>
+            <View style={styles.schBtn}>
+              <Ionicons name="document-text" size={14} color="#000" />
+              <Text style={styles.schBtnText}>SCH</Text>
+            </View>
+          </HeaderButton>
+
           {/* Live Chat - blue pill with ping */}
           <HeaderButton delay={80} onPress={() => router.push('/live-chat')}>
             <View style={styles.liveChatBtn}>
