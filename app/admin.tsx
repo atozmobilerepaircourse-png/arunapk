@@ -46,6 +46,7 @@ export default function AdminScreen() {
   const { profile, posts, allProfiles, refreshData } = useApp();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
+  const [profileLoaded, setProfileLoaded] = useState(false);
 
   const isAdmin = useMemo(() => {
     if (!profile) return false;
@@ -58,13 +59,17 @@ export default function AdminScreen() {
     );
   }, [profile]);
 
+  // Only mark profile as loaded once (don't redirect on subsequent renders)
   useEffect(() => {
-    if (profile && !isAdmin) {
-      Alert.alert('Access Denied', 'Admin access required', [
-        { text: 'Go Back', onPress: () => router.back() }
-      ]);
+    if (profile && !profileLoaded) {
+      setProfileLoaded(true);
+      if (!isAdmin) {
+        Alert.alert('Access Denied', 'Admin access required', [
+          { text: 'Go Back', onPress: () => router.back() }
+        ]);
+      }
     }
-  }, [isAdmin, profile, router]);
+  }, [isAdmin, profile, profileLoaded, router]);
 
   useEffect(() => {
     setTimeout(() => setLoading(false), 500);
