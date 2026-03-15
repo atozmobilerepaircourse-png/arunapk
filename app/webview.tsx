@@ -3,8 +3,8 @@ import { View, Text, StyleSheet, Pressable, Platform, ActivityIndicator, Linking
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { WebView } from 'react-native-webview';
 import Colors from '@/constants/colors';
+import DesktopWebView from '@/components/DesktopWebView';
 
 const C = Colors.light;
 
@@ -90,26 +90,15 @@ export default function WebViewScreen() {
           </Pressable>
         </View>
       ) : (
-        <WebView
-          ref={webViewRef}
-          source={{ uri: url || '' }}
-          style={styles.webview}
-          originWhitelist={['*']}
+        <DesktopWebView
+          uri={url || ''}
           onLoadStart={() => { setLoading(true); setWebError(false); }}
-          onLoadEnd={() => setLoading(false)}
+          onLoad={() => setLoading(false)}
           onError={() => {
             setLoading(false);
             setWebError(true);
           }}
-          onHttpError={() => { setLoading(false); }}
-          javaScriptEnabled
-          domStorageEnabled
-          allowsInlineMediaPlayback
-          mediaPlaybackRequiresUserAction={false}
-          startInLoadingState={false}
-          scalesPageToFit
-          allowsLinkPreview={false}
-          mixedContentMode="always"
+          style={styles.webview}
         />
       )}
 
