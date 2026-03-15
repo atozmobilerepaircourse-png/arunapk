@@ -83,7 +83,7 @@ function LivePing() {
 interface ProfCardProps {
   item: {
     id: string; name: string; role: UserRole; city: string;
-    skills: string[]; avatar: string; isOnline: boolean; phone?: string;
+    skills: string[]; avatar: string; isOnline: boolean;
   };
   onChat?: () => void;
   onCall?: () => void;
@@ -130,6 +130,9 @@ function ProfCard({ item, onChat, onCall, onPress }: ProfCardProps) {
             </View>
           </View>
 
+          {item.skills.length > 0 ? (
+            <Text style={styles.locationText} numberOfLines={1}>{item.skills.slice(0, 2).join(' · ')}</Text>
+          ) : null}
         </View>
       </View>
 
@@ -139,7 +142,7 @@ function ProfCard({ item, onChat, onCall, onPress }: ProfCardProps) {
           <Ionicons name="chatbubble-outline" size={13} color="#374151" />
           <Text style={styles.chatBtnText}>Chat</Text>
         </Pressable>
-        <Pressable style={styles.callBtn} onPress={() => Linking.openURL(`tel:${item.phone || ''}`)}>
+        <Pressable style={styles.callBtn} onPress={onCall}>
           <Ionicons name="call" size={13} color="#FFF" />
           <Text style={styles.callBtnText}>Call</Text>
         </Pressable>
@@ -182,7 +185,7 @@ export default function DirectoryScreen() {
     return allProfiles.map(p => ({
       id: p.id, name: p.name, role: p.role as UserRole,
       city: p.city || '', skills: Array.isArray(p.skills) ? p.skills : [],
-      avatar: p.avatar || '', phone: p.phone || '',
+      avatar: p.avatar || '',
       isOnline: !!(p as any).lastSeen && now - (p as any).lastSeen < THR,
       latitude:  (p as any).latitude  ? parseFloat((p as any).latitude)  : null,
       longitude: (p as any).longitude ? parseFloat((p as any).longitude) : null,
