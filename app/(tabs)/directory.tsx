@@ -12,14 +12,14 @@ import { UserRole, ROLE_LABELS } from '@/lib/types';
 import DirectoryMap from '@/components/DirectoryMap';
 import { apiRequest, getApiUrl } from '@/lib/query-client';
 
-// Dark Theme Design Tokens
+// Light Theme Design Tokens
 const PRIMARY   = '#10B981';
 const PRIMARY_L = '#D1FAE5';
-const BG        = '#0A0A14';
-const CARD      = '#2A2A2A';
-const BORDER    = '#374151';
-const DARK      = '#F3F4F6';
-const GRAY      = '#9CA3AF';
+const BG        = '#FFFFFF';
+const CARD      = '#F9FAFB';
+const BORDER    = '#E5E7EB';
+const DARK      = '#111827';
+const GRAY      = '#6B7280';
 const SUCCESS   = '#10B981';
 
 
@@ -121,6 +121,9 @@ function ProfCard({ item, onChat, onCall, onPress }: ProfCardProps) {
   const avatarUri = item.avatar
     ? (item.avatar.startsWith('http') ? item.avatar : `${getApiUrl()}${item.avatar}`)
     : null;
+  
+  // Only show Chat/Call buttons for Supplier and Teacher - Customer and Technician click to profile
+  const showButtons = item.role === 'supplier' || item.role === 'teacher';
 
   return (
     <Pressable style={styles.card} onPress={onPress}>
@@ -161,20 +164,32 @@ function ProfCard({ item, onChat, onCall, onPress }: ProfCardProps) {
         </View>
       </View>
 
-      {/* Footer buttons */}
-      <View style={styles.cardFooter}>
-        <Pressable style={styles.chatBtn} onPress={onChat}>
-          <Ionicons name="chatbubble-outline" size={13} color="#374151" />
-          <Text style={styles.chatBtnText}>Chat</Text>
-        </Pressable>
-        <Pressable style={styles.callBtn} onPress={onCall}>
-          <Ionicons name="call" size={13} color="#FFF" />
-          <Text style={styles.callBtnText}>Call</Text>
-        </Pressable>
-        <Pressable style={styles.chevronBtn} onPress={onPress}>
-          <Ionicons name="chevron-forward" size={13} color={GRAY} />
-        </Pressable>
-      </View>
+      {/* Footer buttons - Only show for Supplier and Teacher */}
+      {showButtons ? (
+        <View style={styles.cardFooter}>
+          <Pressable style={styles.chatBtn} onPress={onChat}>
+            <Ionicons name="chatbubble-outline" size={13} color={DARK} />
+            <Text style={styles.chatBtnText}>Chat</Text>
+          </Pressable>
+          <Pressable style={styles.callBtn} onPress={onCall}>
+            <Ionicons name="call" size={13} color="#FFF" />
+            <Text style={styles.callBtnText}>Call</Text>
+          </Pressable>
+          <Pressable style={styles.chevronBtn} onPress={onPress}>
+            <Ionicons name="chevron-forward" size={13} color={GRAY} />
+          </Pressable>
+        </View>
+      ) : (
+        <View style={styles.cardFooter}>
+          <Pressable style={[styles.chatBtn, { flex: 1 }]} onPress={onPress}>
+            <Ionicons name="chatbubble-outline" size={13} color={DARK} />
+            <Text style={styles.chatBtnText}>View Profile</Text>
+          </Pressable>
+          <Pressable style={styles.chevronBtn} onPress={onPress}>
+            <Ionicons name="chevron-forward" size={13} color={GRAY} />
+          </Pressable>
+        </View>
+      )}
     </Pressable>
   );
 }
