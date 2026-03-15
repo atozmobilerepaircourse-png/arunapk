@@ -1858,22 +1858,53 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
 
   app.delete("/api/products/:id", async (req, res) => {
     try {
-      const result = await db.select().from(products).where(eq(products.id, req.params.id));
+      const productId = req.params.id;
+      const result = await db.select().from(products).where(eq(products.id, productId));
+      
       if (result.length > 0) {
         try {
-          const imgs: string[] = JSON.parse(result[0].images);
+          const imgs: string[] = JSON.parse(result[0].images || '[]');
           for (const imgUrl of imgs) {
             if (imgUrl.startsWith('/uploads/')) {
+              // Delete local uploads
               const filePath = path.resolve(process.cwd(), imgUrl.slice(1));
-              if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+              if (fs.existsSync(filePath)) {
+                try {
+                  fs.unlinkSync(filePath);
+                  console.log(`[Products] Deleted local file: ${filePath}`);
+                } catch (e) {
+                  console.warn(`[Products] Could not delete local file: ${filePath}`, e);
+                }
+              }
+            } else if (imgUrl.includes('bunnycdn.net') || imgUrl.includes('arun-storage')) {
+              // Delete from Bunny CDN - extract filename from URL
+              try {
+                const urlParts = imgUrl.split('/');
+                const filename = urlParts.slice(urlParts.length - 2).join('/');
+                if (bunnyAvailable && filename) {
+                  const deleteUrl = `${BUNNY_STORAGE_ENDPOINT}/${BUNNY_STORAGE_ZONE_NAME}/${filename}`;
+                  await fetch(deleteUrl, {
+                    method: 'DELETE',
+                    headers: { 'AccessKey': BUNNY_STORAGE_API_KEY }
+                  });
+                  console.log(`[Products] Deleted from Bunny: ${filename}`);
+                }
+              } catch (e) {
+                console.warn(`[Products] Could not delete Bunny file: ${imgUrl}`, e);
+              }
             }
           }
-        } catch (e) {}
+        } catch (e) {
+          console.warn(`[Products] Error processing images for deletion:`, e);
+        }
       }
-      await db.delete(products).where(eq(products.id, req.params.id));
-      return res.json({ success: true });
+      
+      await db.delete(products).where(eq(products.id, productId));
+      console.log(`[Products] Deleted product: ${productId}`);
+      return res.json({ success: true, message: 'Product deleted successfully' });
     } catch (error) {
-      return res.status(500).json({ success: false });
+      console.error(`[Products] Delete error:`, error);
+      return res.status(500).json({ success: false, message: 'Failed to delete product' });
     }
   });
 
