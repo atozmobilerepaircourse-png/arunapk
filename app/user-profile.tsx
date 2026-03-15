@@ -92,11 +92,6 @@ export default function UserProfileScreen() {
     }
   };
 
-  const handleBookService = () => {
-    if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    router.push('/select-brand' as any);
-  };
-
   const handleLike = async (postId: string) => {
     if (!myProfile) return;
     try {
@@ -233,12 +228,6 @@ export default function UserProfileScreen() {
               )}
               <Text style={s.chatBtnText}>Chat</Text>
             </Pressable>
-            {isTechnician && (
-              <Pressable style={s.bookBtn} onPress={handleBookService}>
-                <Ionicons name="calendar-outline" size={18} color="#fff" />
-                <Text style={s.bookBtnText}>Book Service</Text>
-              </Pressable>
-            )}
           </View>
         )}
 
@@ -415,12 +404,6 @@ const s = StyleSheet.create({
     paddingVertical: 13, gap: 8,
   },
   chatBtnText: { color: '#fff', fontFamily: 'Inter_700Bold', fontSize: 15 },
-  bookBtn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: '#E8704A', borderRadius: 12,
-    paddingVertical: 13, gap: 8,
-  },
-  bookBtnText: { color: '#fff', fontFamily: 'Inter_700Bold', fontSize: 15 },
 
   statsRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
