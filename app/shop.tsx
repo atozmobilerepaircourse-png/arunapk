@@ -77,7 +77,26 @@ function ProductCard({ product, onAddToCart, onPress }: {
   onAddToCart: () => void;
   onPress: () => void;
 }) {
-  const images = (() => { try { return JSON.parse(product.images || '[]'); } catch { return []; } })();
+  const images = (() => {
+    // If already an array, return it
+    if (Array.isArray(product.images)) {
+      return product.images.filter((url: any) => typeof url === 'string' && url.length > 0);
+    }
+    // Try JSON parsing if it's a string
+    if (typeof product.images === 'string') {
+      try {
+        const parsed = JSON.parse(product.images);
+        return Array.isArray(parsed) ? parsed.filter((url: any) => typeof url === 'string' && url.length > 0) : [];
+      } catch {
+        // Fallback: comma-separated string
+        if (product.images.includes(',')) {
+          return product.images.split(',').filter((url: string) => url.trim().length > 0);
+        }
+        return product.images.trim().length > 0 ? [product.images.trim()] : [];
+      }
+    }
+    return [];
+  })();
   const img = images[0];
   const isOutOfStock = product.inStock === 0;
   const price = parseFloat(product.price || '0');
