@@ -5,7 +5,7 @@ import { db } from "./db";
 import OpenAI from "openai";
 import { notifyAllUsers, notifyNewPost, notifyUser } from "./push-notifications";
 import { profiles, conversations, messages, posts, jobs, reels, products, orders, subscriptionSettings, courses, courseChapters, courseVideos, courseEnrollments, dubbedVideos, ads, liveChatMessages, liveClasses, courseNotices, sessions, payments, teacherPayouts, appSettings, videoProgress, livePolls, livePollVotes, emailCampaigns, otpTokens, adminNotifications, repairBookings } from "@shared/schema";
-import { sendWelcomeEmail } from "./lib/sendEmail";
+import { sendWelcomeEmail, sendOtpEmail } from "./lib/sendEmail";
 import { eq, or, and, desc, gt, lt, sql, ne, isNotNull } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import multer from "multer";
@@ -736,21 +736,96 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/otp/verify", async (req, res) => {
+  app.post("/api/otp/send-email", async (req, res) => {
     try {
-      const { phone, otp, deviceId } = req.body;
-      if (!phone || !otp) {
-        return res.status(400).json({ success: false, message: "Phone and OTP are required" });
+      const { email } = req.body;
+      if (!email || typeof email !== "string") {
+        return res.status(400).json({ success: false, message: "Valid email address is required" });
       }
 
-      const cleanPhone = phone.replace(/\D/g, "");
+      const cleanEmail = email.trim().toLowerCase();
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(cleanEmail)) {
+        return res.status(400).json({ success: false, message: "Invalid email address format" });
+      }
+
+      const rateCheck = checkOtpRateLimit(`email:${cleanEmail}`);
+      if (!rateCheck.allowed) {
+        const secondsLeft = Math.ceil(rateCheck.retryAfterMs / 1000);
+        return res.status(429).json({
+          success: false,
+          message: `Too many OTP requests. Please wait ${secondsLeft} seconds before trying again.`,
+        });
+      }
+
+      const otp = generateOTP();
+      const expiresAt = Date.now() + 5 * 60 * 1000;
+
+      const identifier = `email:${cleanEmail}`;
+      await db.delete(otpTokens).where(eq(otpTokens.phone, identifier));
+      await db.insert(otpTokens).values({ phone: identifier, otp, expiresAt });
+
+      console.log(`[EmailOTP] Generated for ${cleanEmail}: ${otp}`);
+
+      const result = await sendOtpEmail(cleanEmail, otp);
+
+      return res.json({
+        success: true,
+        emailSent: result.sent,
+        message: result.sent ? `OTP sent to ${cleanEmail}` : `OTP generated but email delivery failed: ${result.error}`,
+        ...(process.env.NODE_ENV !== 'production' && { otp }),
+      });
+    } catch (error: any) {
+      console.error("[EmailOTP] Send error:", error?.message || error);
+      return res.status(500).json({ success: false, message: "Failed to send email OTP" });
+    }
+  });
+
+  app.post("/api/auth/check-email", async (req, res) => {
+    try {
+      const { email } = req.body;
+      if (!email || typeof email !== "string") {
+        return res.status(400).json({ success: false, message: "Email is required" });
+      }
+      const cleanEmail = email.trim().toLowerCase();
+      const allProfilesList = await db.select().from(profiles);
+      let existingProfile = allProfilesList.find(p => (p.email || "").toLowerCase() === cleanEmail && p.role === 'admin');
+      if (!existingProfile) {
+        existingProfile = allProfilesList.find(p => (p.email || "").toLowerCase() === cleanEmail);
+      }
+      if (existingProfile && existingProfile.blocked === 1) {
+        return res.json({ success: false, message: "Your account has been blocked. Please contact admin for support." });
+      }
+      return res.json({
+        success: true,
+        exists: !!existingProfile,
+        profile: existingProfile || null,
+      });
+    } catch (error: any) {
+      console.error("[CheckEmail] Error:", error?.message);
+      return res.status(500).json({ success: false, message: "Failed to check email" });
+    }
+  });
+
+  app.post("/api/otp/verify", async (req, res) => {
+    try {
+      const { phone, email, otp, deviceId } = req.body;
+      const isEmailVerification = !!email && !phone;
+      const identifier = isEmailVerification ? `email:${email.trim().toLowerCase()}` : (phone || "").replace(/\D/g, "");
+
+      if ((!phone && !email) || !otp) {
+        return res.status(400).json({ success: false, message: "Phone or email and OTP are required" });
+      }
+
+      const cleanPhone = isEmailVerification ? "" : identifier;
+      const cleanEmail = isEmailVerification ? email.trim().toLowerCase() : "";
+      const lookupKey = isEmailVerification ? `email:${cleanEmail}` : cleanPhone;
 
       // Super admin bypass for testing (8179142535 accepts any OTP)
       const isSuperAdminBypass = cleanPhone === '8179142535' && !!otp;
 
       if (!isSuperAdminBypass) {
-        // Fetch OTP from database and validate
-        const storedRows = await db.select().from(otpTokens).where(eq(otpTokens.phone, cleanPhone));
+        const storedRows = await db.select().from(otpTokens).where(eq(otpTokens.phone, lookupKey));
         const stored = storedRows[0];
 
         if (!stored) {
@@ -758,7 +833,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         if (Date.now() > stored.expiresAt) {
-          await db.delete(otpTokens).where(eq(otpTokens.phone, cleanPhone));
+          await db.delete(otpTokens).where(eq(otpTokens.phone, lookupKey));
           return res.status(400).json({ success: false, message: "OTP has expired. Please request a new one." });
         }
 
@@ -766,17 +841,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(400).json({ success: false, message: "Invalid OTP. Please try again." });
         }
 
-        // Clean up OTP token after successful verification
-        await db.delete(otpTokens).where(eq(otpTokens.phone, cleanPhone));
+        await db.delete(otpTokens).where(eq(otpTokens.phone, lookupKey));
       } else {
         console.log(`[OTP] Super admin bypass accepted for ${cleanPhone}`);
       }
 
       const allProfilesList = await db.select().from(profiles);
-      // Prioritize admin role if multiple profiles exist
-      let existingProfile = allProfilesList.find(p => p.phone.replace(/\D/g, "") === cleanPhone && p.role === 'admin');
-      if (!existingProfile) {
-        existingProfile = allProfilesList.find(p => p.phone.replace(/\D/g, "") === cleanPhone);
+
+      let existingProfile;
+      if (isEmailVerification) {
+        existingProfile = allProfilesList.find(p => (p.email || "").toLowerCase() === cleanEmail && p.role === 'admin');
+        if (!existingProfile) {
+          existingProfile = allProfilesList.find(p => (p.email || "").toLowerCase() === cleanEmail);
+        }
+      } else {
+        existingProfile = allProfilesList.find(p => p.phone.replace(/\D/g, "") === cleanPhone && p.role === 'admin');
+        if (!existingProfile) {
+          existingProfile = allProfilesList.find(p => p.phone.replace(/\D/g, "") === cleanPhone);
+        }
       }
 
       if (existingProfile && existingProfile.blocked === 1) {
@@ -795,15 +877,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      const sessionPhone = isEmailVerification ? (existingProfile?.phone || `email:${cleanEmail}`) : cleanPhone;
       const sessionToken = randomUUID();
-      await db.delete(sessions).where(eq(sessions.phone, cleanPhone));
+      await db.delete(sessions).where(eq(sessions.phone, sessionPhone));
       await db.insert(sessions).values({
-        phone: cleanPhone,
+        phone: sessionPhone,
         sessionToken,
       });
 
-      // Return profile if existing user, otherwise it's a new user
-      const response: any = { success: true, message: "Phone number verified successfully", sessionToken };
+      const response: any = {
+        success: true,
+        message: isEmailVerification ? "Email verified successfully" : "Phone number verified successfully",
+        sessionToken,
+        isEmailVerification,
+        ...(isEmailVerification && { emailPhone: sessionPhone }),
+      };
       if (existingProfile) {
         response.isNewUser = false;
         response.profile = existingProfile;

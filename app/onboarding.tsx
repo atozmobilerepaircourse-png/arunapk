@@ -55,7 +55,7 @@ const ROLES: { key: UserRole; icon: keyof typeof Ionicons.glyphMap; color: strin
   { key: 'supplier', icon: 'cube', color: '#FF9F0A' },
 ];
 
-type ScreenName = 'phone' | 'otp' | 'email' | 'google-phone' | 'details' | 'selfie' | 'skills' | 'sellType' | 'teachType' | 'businessDocs' | 'location' | 'email-link-entry' | 'email-link-sent';
+type ScreenName = 'phone' | 'otp' | 'email' | 'google-phone' | 'details' | 'selfie' | 'skills' | 'sellType' | 'teachType' | 'businessDocs' | 'location' | 'email-otp-entry' | 'email-otp-verify';
 
 export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
@@ -112,14 +112,17 @@ export default function OnboardingScreen() {
   const [debugInfo, setDebugInfo] = useState('');
   const [otpRateLimitTimer, setOtpRateLimitTimer] = useState(0);
 
-  // Email Link (passwordless) auth state
-  const [emailLinkMode, setEmailLinkMode] = useState(false);
-  const [emailLinkEmail, setEmailLinkEmail] = useState('');
-  const [emailLinkSending, setEmailLinkSending] = useState(false);
-  const [emailLinkSent, setEmailLinkSent] = useState(false);
-  const [emailLinkSignedIn, setEmailLinkSignedIn] = useState(false);
-  const [emailSigningIn, setEmailSigningIn] = useState(false);
-  const [emailLinkPhone, setEmailLinkPhone] = useState('');
+  // Email OTP auth state
+  const [emailOtpMode, setEmailOtpMode] = useState(false);
+  const [emailOtpEmail, setEmailOtpEmail] = useState('');
+  const [emailOtpSending, setEmailOtpSending] = useState(false);
+  const [emailOtpSent, setEmailOtpSent] = useState(false);
+  const [emailOtpVerified, setEmailOtpVerified] = useState(false);
+  const [emailOtpCode, setEmailOtpCode] = useState('');
+  const [emailOtpVerifying, setEmailOtpVerifying] = useState(false);
+  const [emailOtpPhone, setEmailOtpPhone] = useState('');
+  const [emailOtpResendTimer, setEmailOtpResendTimer] = useState(0);
+  const [emailOtpError, setEmailOtpError] = useState('');
 
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
@@ -134,12 +137,10 @@ export default function OnboardingScreen() {
   const needsBusinessDocs = isSupplier || isTeacher;
 
   const getScreenSequence = (): ScreenName[] => {
-    // Email link mode: user clicked "Sign in with Email" button
-    if (emailLinkMode && !emailLinkSignedIn) {
-      return ['email-link-entry', 'email-link-sent'];
+    if (emailOtpMode && !emailOtpVerified) {
+      return ['email-otp-entry', 'email-otp-verify'];
     }
-    // Email link signed-in new user: skip phone/OTP, go straight to profile setup
-    const screens: ScreenName[] = emailLinkSignedIn
+    const screens: ScreenName[] = emailOtpVerified
       ? ['details']
       : googleSignedIn
         ? ['google-phone', 'details']
@@ -187,60 +188,16 @@ export default function OnboardingScreen() {
 
   const pendingGoogleTokenRef = useRef<string | null>(null);
 
-  // Detect Firebase Email Link on page load (web only)
   useEffect(() => {
-    if (Platform.OS !== 'web') return;
-    const detectEmailLink = async () => {
-      try {
-        const { isSignInWithEmailLink, signInWithEmailLink } = await import('firebase/auth');
-        if (!isSignInWithEmailLink(firebaseAuth, window.location.href)) return;
-
-        setEmailSigningIn(true);
-        let savedEmail = '';
-        try { savedEmail = window.localStorage.getItem('emailForSignIn') || ''; } catch {}
-        if (!savedEmail) {
-          setEmailSigningIn(false);
-          Alert.alert('Complete Sign-In', 'Please re-open the app and try the email sign-in link again.');
-          return;
-        }
-
-        const result = await signInWithEmailLink(firebaseAuth, savedEmail, window.location.href);
-        try { window.localStorage.removeItem('emailForSignIn'); } catch {}
-
-        const idToken = await result.user.getIdToken();
-        const deviceId = await getDeviceId();
-        const res = await apiRequest('POST', '/api/auth/firebase-email', { idToken, deviceId });
-        const data = await res.json();
-
-        if (data.success) {
-          if (!data.isNewUser && data.profile) {
-            Alert.alert('✅ Login Successful', `Welcome back, ${data.profile.name || savedEmail}!`);
-            await loginWithProfile(data.profile, data.sessionToken);
-          } else {
-            // New user — continue to profile setup
-            setEmailLinkEmail(savedEmail);
-            setEmailLinkSignedIn(true);
-            setEmailLinkMode(false);
-            setEmailLinkPhone(data.emailPhone || `email:${savedEmail}`);
-            setSessionToken(data.sessionToken);
-            if (data.name) setUserName(data.name);
-            setStep(0);
-            Alert.alert('✅ Email Verified!', 'Please complete your profile to finish sign-up.');
-          }
-        } else {
-          Alert.alert('Sign-In Failed', data.message || 'Could not complete email sign-in.');
-        }
-      } catch (err: any) {
-        console.error('[EmailLink] Complete sign-in error:', err?.message);
-        if (err?.code !== 'auth/invalid-action-code') {
-          Alert.alert('Error', err?.message || 'Failed to complete email sign-in. Please try again.');
-        }
-      } finally {
-        setEmailSigningIn(false);
-      }
-    };
-    detectEmailLink();
-  }, []);
+    if (emailOtpResendTimer <= 0) return;
+    const interval = setInterval(() => {
+      setEmailOtpResendTimer(t => {
+        if (t <= 1) { clearInterval(interval); return 0; }
+        return t - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [emailOtpResendTimer]);
 
   useEffect(() => {
     if (otpResendTimer <= 0) return;
@@ -491,10 +448,10 @@ export default function OnboardingScreen() {
     }
   };
 
-  const sendEmailLink = async () => {
-    const trimmed = emailLinkEmail.trim();
+  const sendEmailOtp = async () => {
+    const trimmed = emailOtpEmail.trim();
     if (!trimmed) {
-      Alert.alert('Email Required', 'Please enter your Gmail address.');
+      Alert.alert('Email Required', 'Please enter your email address.');
       return;
     }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -502,22 +459,100 @@ export default function OnboardingScreen() {
       Alert.alert('Invalid Email', 'Please enter a valid email address.');
       return;
     }
-    setEmailLinkSending(true);
+    setEmailOtpSending(true);
+    setEmailOtpError('');
     try {
-      const { sendSignInLinkToEmail } = await import('firebase/auth');
-      const actionCodeSettings = {
-        url: 'https://mobile-repair-app-276b6.web.app/onboarding',
-        handleCodeInApp: true,
-      };
-      await sendSignInLinkToEmail(firebaseAuth, trimmed, actionCodeSettings);
-      try { window.localStorage.setItem('emailForSignIn', trimmed); } catch {}
-      setEmailLinkSent(true);
-      setStep(s => s + 1);
+      try {
+        const checkRes = await apiRequest('POST', '/api/auth/check-email', { email: trimmed });
+        const checkData = await checkRes.json();
+        if (checkData.success && checkData.exists && checkData.profile) {
+          setExistingProfile(checkData.profile);
+        } else {
+          setExistingProfile(null);
+        }
+      } catch (checkErr) {
+        setExistingProfile(null);
+      }
+
+      const res = await apiRequest('POST', '/api/otp/send-email', { email: trimmed });
+      const data = await res.json();
+      if (data.success) {
+        setEmailOtpSent(true);
+        setEmailOtpResendTimer(30);
+        if (!data.emailSent && data.otp) {
+          Alert.alert('Dev Mode', `Email delivery failed, but your code is: ${data.otp}`);
+        }
+        setStep(s => s + 1);
+      } else {
+        const msg = data.message || 'Failed to send OTP.';
+        setEmailOtpError(msg);
+        Alert.alert('Error', msg);
+      }
     } catch (err: any) {
-      console.error('[EmailLink] Send error:', err?.message);
-      Alert.alert('Error', err?.message || 'Could not send email link. Please try again.');
+      console.error('[EmailOTP] Send error:', err?.message);
+      Alert.alert('Error', err?.message || 'Could not send email OTP. Please try again.');
     } finally {
-      setEmailLinkSending(false);
+      setEmailOtpSending(false);
+    }
+  };
+
+  const verifyEmailOtp = async () => {
+    if (emailOtpCode.length < 6) {
+      Alert.alert('Invalid OTP', 'Please enter all 6 digits.');
+      return;
+    }
+    setEmailOtpVerifying(true);
+    setEmailOtpError('');
+    try {
+      const deviceId = await getDeviceId();
+      const cleanEmail = emailOtpEmail.trim().toLowerCase();
+      const res = await apiRequest('POST', '/api/otp/verify', { email: cleanEmail, otp: emailOtpCode, deviceId });
+      const data = await res.json();
+      if (!data.success) {
+        const msg = data.message || 'Invalid OTP. Please try again.';
+        setEmailOtpError(msg);
+        Alert.alert('Verification Failed', msg);
+        return;
+      }
+
+      if (!data.isNewUser && data.profile) {
+        Alert.alert('Welcome Back!', `Logged in as ${data.profile.name || cleanEmail}`);
+        await loginWithProfile(data.profile, data.sessionToken);
+      } else {
+        setEmailOtpVerified(true);
+        setEmailOtpMode(false);
+        setEmailOtpPhone(data.emailPhone || `email:${cleanEmail}`);
+        setSessionToken(data.sessionToken);
+        setStep(0);
+        Alert.alert('Email Verified!', 'Please complete your profile to finish sign-up.');
+      }
+    } catch (e: any) {
+      const msg = e?.message || 'Could not verify OTP. Please try again.';
+      setEmailOtpError(msg);
+      Alert.alert('Error', msg);
+    } finally {
+      setEmailOtpVerifying(false);
+    }
+  };
+
+  const resendEmailOtp = async () => {
+    setEmailOtpSending(true);
+    setEmailOtpError('');
+    try {
+      const res = await apiRequest('POST', '/api/otp/send-email', { email: emailOtpEmail.trim() });
+      const data = await res.json();
+      if (data.success) {
+        setEmailOtpResendTimer(30);
+        if (!data.emailSent && data.otp) {
+          Alert.alert('Dev Mode', `Code: ${data.otp}`);
+        }
+      } else {
+        setEmailOtpError(data.message || 'Failed to resend.');
+      }
+    } catch (err: any) {
+      setEmailOtpError(err?.message || 'Resend failed.');
+    } finally {
+      setEmailOtpSending(false);
     }
   };
 
@@ -726,13 +761,12 @@ export default function OnboardingScreen() {
       handleEmailStep();
       return;
     }
-    if (currentScreen === 'email-link-entry') {
-      sendEmailLink();
+    if (currentScreen === 'email-otp-entry') {
+      sendEmailOtp();
       return;
     }
-    if (currentScreen === 'email-link-sent') {
-      // Nothing to do — the link click handles completion automatically
-      // Let user re-send if needed
+    if (currentScreen === 'email-otp-verify') {
+      verifyEmailOtp();
       return;
     }
     if (currentScreen === 'details' && !userName.trim()) {
@@ -801,8 +835,8 @@ export default function OnboardingScreen() {
     const profile: UserProfile = {
       id: Crypto.randomUUID(),
       name: userName.trim(),
-      phone: emailLinkSignedIn ? emailLinkPhone : phone.replace(/\D/g, '').trim(),
-      email: emailLinkSignedIn ? emailLinkEmail : (googleEmail || newUserEmail.trim() || undefined),
+      phone: emailOtpVerified ? emailOtpPhone : phone.replace(/\D/g, '').trim(),
+      email: emailOtpVerified ? emailOtpEmail : (googleEmail || newUserEmail.trim() || undefined),
       role,
       skills: selectedSkills,
       city: city.trim(),
@@ -1118,7 +1152,7 @@ export default function OnboardingScreen() {
             </Pressable>
           </View>
         );
-      case 'email-link-entry':
+      case 'email-otp-entry':
         return (
           <View style={styles.stepContent}>
             <View style={styles.stepHeader}>
@@ -1127,86 +1161,98 @@ export default function OnboardingScreen() {
               </View>
               <Text style={styles.stepTitle}>Sign in with Email</Text>
               <Text style={styles.stepSubtitle}>
-                Enter your Gmail address and we'll send a secure one-click sign-in link — no password needed.
+                Enter your email address and we'll send a 6-digit verification code to your inbox.
               </Text>
             </View>
-            <Text style={styles.fieldLabel}>Gmail Address</Text>
+            <Text style={styles.fieldLabel}>Email Address</Text>
             <TextInput
               style={styles.input}
               placeholder="yourname@gmail.com"
               placeholderTextColor={C.textTertiary}
-              value={emailLinkEmail}
-              onChangeText={setEmailLinkEmail}
+              value={emailOtpEmail}
+              onChangeText={setEmailOtpEmail}
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
               autoFocus
             />
+            {emailOtpError ? (
+              <View style={{ backgroundColor: 'rgba(255,59,95,0.08)', borderRadius: 8, padding: 12, marginTop: 12, borderWidth: 1, borderColor: 'rgba(255,59,95,0.3)' }}>
+                <Text style={{ fontSize: 12, color: '#FF3B5F', fontFamily: 'Inter_500Medium' }}>
+                  {emailOtpError}
+                </Text>
+              </View>
+            ) : null}
             <View style={{ marginTop: 14, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(255,123,71,0.08)', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: 'rgba(255,123,71,0.2)' }}>
               <Ionicons name="shield-checkmark" size={18} color="#34C759" />
               <Text style={{ color: C.textSecondary, fontSize: 13, fontFamily: 'Inter_400Regular', flex: 1 }}>
-                Firebase sends a secure magic link. Click it and you're logged in — no OTP, no password!
+                A 6-digit OTP code will be sent to your email. Check your inbox (and spam) for the code.
               </Text>
             </View>
             <Pressable
-              onPress={() => { setEmailLinkMode(false); setStep(0); }}
+              onPress={() => { setEmailOtpMode(false); setStep(0); }}
               style={{ marginTop: 16, alignItems: 'center', padding: 10 }}
             >
-              <Text style={{ color: C.textTertiary, fontSize: 14, fontFamily: 'Inter_500Medium' }}>← Back to other sign-in options</Text>
+              <Text style={{ color: C.textTertiary, fontSize: 14, fontFamily: 'Inter_500Medium' }}>{'<'}- Back to other sign-in options</Text>
             </Pressable>
           </View>
         );
-      case 'email-link-sent':
+      case 'email-otp-verify':
         return (
           <View style={styles.stepContent}>
             <View style={styles.stepHeader}>
               <View style={[styles.stepIconContainer, { backgroundColor: 'rgba(52,199,89,0.15)' }]}>
-                <Ionicons name="checkmark-circle" size={32} color="#34C759" />
+                <Ionicons name="keypad" size={32} color="#34C759" />
               </View>
-              <Text style={styles.stepTitle}>Check Your Inbox!</Text>
+              <Text style={styles.stepTitle}>Enter Verification Code</Text>
               <Text style={styles.stepSubtitle}>
-                A sign-in link has been sent to{'\n'}
-                <Text style={{ color: '#FF7B47', fontFamily: 'Inter_600SemiBold' }}>{emailLinkEmail}</Text>
+                We sent a 6-digit code to{'\n'}
+                <Text style={{ color: '#FF7B47', fontFamily: 'Inter_600SemiBold' }}>{emailOtpEmail}</Text>
               </Text>
             </View>
-            <View style={{ backgroundColor: C.surface, borderRadius: 16, padding: 20, borderWidth: 1, borderColor: C.border, gap: 16 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#4285F420', alignItems: 'center', justifyContent: 'center' }}>
-                  <Ionicons name="logo-google" size={22} color="#4285F4" />
+            <Text style={styles.fieldLabel}>Verification Code</Text>
+            <View style={styles.otpRow}>
+              {[0, 1, 2, 3, 4, 5].map(i => (
+                <View key={i} style={[styles.otpBox, emailOtpCode.length === i && styles.otpBoxActive]}>
+                  <Text style={styles.otpDigit}>{emailOtpCode[i] || ''}</Text>
                 </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: C.text, fontFamily: 'Inter_600SemiBold', fontSize: 15 }}>1. Open Gmail</Text>
-                  <Text style={{ color: C.textSecondary, fontSize: 13 }}>Find the email from Firebase/Mobi</Text>
-                </View>
-              </View>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#FF7B4720', alignItems: 'center', justifyContent: 'center' }}>
-                  <Ionicons name="link" size={22} color="#FF7B47" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: C.text, fontFamily: 'Inter_600SemiBold', fontSize: 15 }}>2. Tap "Sign in to Mobi"</Text>
-                  <Text style={{ color: C.textSecondary, fontSize: 13 }}>The magic link logs you in instantly</Text>
-                </View>
-              </View>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#34C75920', alignItems: 'center', justifyContent: 'center' }}>
-                  <Ionicons name="checkmark-circle" size={22} color="#34C759" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: C.text, fontFamily: 'Inter_600SemiBold', fontSize: 15 }}>3. You're in!</Text>
-                  <Text style={{ color: C.textSecondary, fontSize: 13 }}>Return to this screen — it'll log in automatically</Text>
-                </View>
-              </View>
+              ))}
             </View>
+            <TextInput
+              style={styles.hiddenInput}
+              value={emailOtpCode}
+              onChangeText={t => {
+                const digits = t.replace(/\D/g, '').slice(0, 6);
+                setEmailOtpCode(digits);
+                setEmailOtpError('');
+              }}
+              keyboardType="number-pad"
+              maxLength={6}
+              autoFocus
+              caretHidden
+            />
+            {emailOtpError ? (
+              <View style={{ backgroundColor: 'rgba(255,59,95,0.08)', borderRadius: 8, padding: 12, marginTop: 12, borderWidth: 1, borderColor: 'rgba(255,59,95,0.3)' }}>
+                <Text style={{ fontSize: 12, color: '#FF3B5F', fontFamily: 'Inter_500Medium' }}>
+                  {emailOtpError}
+                </Text>
+              </View>
+            ) : null}
             <Pressable
-              onPress={sendEmailLink}
-              disabled={emailLinkSending}
+              onPress={resendEmailOtp}
+              disabled={emailOtpResendTimer > 0 || emailOtpSending}
               style={{ marginTop: 20, alignItems: 'center', padding: 12 }}
             >
-              <Text style={{ color: emailLinkSending ? C.textTertiary : C.primary, fontSize: 14, fontFamily: 'Inter_500Medium' }}>
-                {emailLinkSending ? 'Resending...' : "Didn't receive it? Resend link"}
+              <Text style={{ color: (emailOtpResendTimer > 0 || emailOtpSending) ? C.textTertiary : C.primary, fontSize: 14, fontFamily: 'Inter_500Medium' }}>
+                {emailOtpSending ? 'Resending...' : emailOtpResendTimer > 0 ? `Resend code in ${emailOtpResendTimer}s` : 'Resend code'}
               </Text>
             </Pressable>
+            <View style={{ marginTop: 14, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(255,123,71,0.08)', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: 'rgba(255,123,71,0.2)' }}>
+              <Ionicons name="information-circle" size={18} color="#FF7B47" />
+              <Text style={{ color: C.textSecondary, fontSize: 13, fontFamily: 'Inter_400Regular', flex: 1 }}>
+                Check your spam/junk folder if you don't see the email.
+              </Text>
+            </View>
           </View>
         );
       case 'details':
@@ -1599,8 +1645,8 @@ export default function OnboardingScreen() {
     if (currentScreen === 'phone') return checking ? 'Checking...' : 'Continue';
     if (currentScreen === 'google-phone') return checking ? 'Verifying...' : 'Continue';
     if (currentScreen === 'otp') return otpVerifying ? 'Verifying...' : 'Verify OTP';
-    if (currentScreen === 'email-link-entry') return emailLinkSending ? 'Sending...' : 'Send Login Link';
-    if (currentScreen === 'email-link-sent') return emailLinkSending ? 'Resending...' : 'Resend Link';
+    if (currentScreen === 'email-otp-entry') return emailOtpSending ? 'Sending...' : 'Send Code';
+    if (currentScreen === 'email-otp-verify') return emailOtpVerifying ? 'Verifying...' : 'Verify Code';
     if (isLastStep) return uploadingSelfie ? 'Setting up...' : 'Complete Setup';
     return 'Continue';
   };
