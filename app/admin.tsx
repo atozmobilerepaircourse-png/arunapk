@@ -2150,8 +2150,15 @@ export default function AdminScreen() {
 
       {/* Content */}
       <View style={{ flex: 1 }}>
-        {activeTab === 'dashboard' && renderDashboard()}
-        {activeTab === 'users' && renderUsers()}
+        {!allUsers || allUsers.length === 0 ? (
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            <ActivityIndicator size="large" color={PRIMARY} />
+            <Text style={{ marginTop: 12, color: C.textSecondary }}>Loading admin data...</Text>
+          </View>
+        ) : (
+          <>
+            {activeTab === 'dashboard' && renderDashboard()}
+            {activeTab === 'users' && renderUsers()}
         {activeTab === 'customers' && renderRoleUsers('customer', 'Customer', 'person-outline', '#FF2D55')}
         {activeTab === 'technicians' && renderRoleUsers('technician', 'Technician', 'construct-outline', '#34C759')}
         {activeTab === 'teachers' && renderRoleUsers('teacher', 'Teacher', 'school-outline', '#FFD60A')}
@@ -2172,6 +2179,8 @@ export default function AdminScreen() {
         {activeTab === 'notifications' && renderNotifications()}
         {activeTab === 'email' && renderEmail()}
         {activeTab === 'payouts' && renderPayouts()}
+            </>
+        )}
       </View>
     </View>
   );
