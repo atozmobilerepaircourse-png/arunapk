@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TextInput, Pressable, Platform,
-  RefreshControl, ScrollView, Animated,
+  RefreshControl, ScrollView, Animated, Linking,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -83,7 +83,7 @@ interface ProfCardProps {
   onPress?: () => void;
 }
 
-function ProfCard({ item, onChat, onPress }: ProfCardProps) {
+function ProfCard({ item, onChat, onCall, onPress }: ProfCardProps) {
   const badge = ROLE_BADGE[item.role] ?? { bg: '#F3F4F6', text: '#374151' };
   const skillLabel = item.skills[0] || ROLE_LABELS[item.role] || item.role;
   const avatarUri = item.avatar
@@ -124,7 +124,7 @@ function ProfCard({ item, onChat, onPress }: ProfCardProps) {
           </View>
 
           <View style={styles.locationRow}>
-            <Ionicons name="location-dot" size={10} color={GRAY} />
+            <Ionicons name="location-outline" size={10} color={GRAY} />
             <Text style={styles.locationText} numberOfLines={1}>{item.city || 'India'}</Text>
             <View style={styles.distancePill}>
               <Ionicons name="navigate" size={9} color={PRIMARY} />
@@ -140,7 +140,7 @@ function ProfCard({ item, onChat, onPress }: ProfCardProps) {
           <Ionicons name="chatbubble-outline" size={13} color="#374151" />
           <Text style={styles.chatBtnText}>Chat</Text>
         </Pressable>
-        <Pressable style={styles.callBtn} onPress={() => {}}>
+        <Pressable style={styles.callBtn} onPress={onCall}>
           <Ionicons name="call" size={13} color="#FFF" />
           <Text style={styles.callBtnText}>Call</Text>
         </Pressable>
@@ -315,7 +315,10 @@ export default function DirectoryScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={PRIMARY} colors={[PRIMARY]} />}
         contentContainerStyle={{ paddingBottom: Platform.OS === 'web' ? 118 : 100 }}
-        renderItem={({ item }) => (
+        renderItem={({ item }) => {
+          const prof = allProfiles.find(p => p.id === item.id);
+          const phone = prof?.phone;
+          return (
           <ProfCard
             item={item}
             onPress={() => router.push({ pathname: '/user-profile', params: { id: item.id } })}
@@ -323,8 +326,9 @@ export default function DirectoryScreen() {
               const c = await startConversation(item.id, item.name, item.role);
               if (c) router.push({ pathname: '/chat/[id]', params: { id: c } });
             } : undefined}
-          />
-        )}
+            onCall={phone ? () => Linking.openURL(`tel:${phone}`) : undefined}
+          />);
+        }}
         ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
         ListEmptyComponent={
           <View style={styles.empty}>

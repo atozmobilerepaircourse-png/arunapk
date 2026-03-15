@@ -375,9 +375,23 @@ export default function FeedScreen() {
     <View style={styles.container}>
       {/* ── Header ── */}
       <View style={[styles.header, { paddingTop: topPad }]}>
-        {/* App icon - yellow gradient */}
-        <View style={styles.logoBox}>
-          <Ionicons name="phone-portrait" size={22} color="#FFF" />
+        {/* Profile avatar + App icon */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <Pressable onPress={() => router.push('/profile' as any)}>
+            {profile?.avatar ? (
+              <Image
+                source={{ uri: profile.avatar }}
+                style={{ width: 38, height: 38, borderRadius: 19, borderWidth: 2, borderColor: PRIMARY + '40' }}
+              />
+            ) : (
+              <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: PRIMARY + '20', alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="person" size={18} color={PRIMARY} />
+              </View>
+            )}
+          </Pressable>
+          <View style={styles.logoBox}>
+            <Ionicons name="phone-portrait" size={22} color="#FFF" />
+          </View>
         </View>
 
         <View style={styles.headerActions}>

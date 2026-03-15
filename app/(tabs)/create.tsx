@@ -24,6 +24,19 @@ const CATEGORIES: { key: PostCategory; label: string; icon: keyof typeof Ionicon
   { key: 'supplier', label: 'Supplier', icon: 'cube', color: '#FF6B2C' },
 ];
 
+const QUICK_ISSUES = [
+  'Screen Broken',
+  'Battery Issue',
+  'Not Charging',
+  'Water Damage',
+  'Camera Not Working',
+  'Speaker Issue',
+  'Mic Not Working',
+  'Touch Not Responding',
+  'Software Issue',
+  'Back Panel Broken',
+];
+
 export default function CreatePostScreen() {
   const insets = useSafeAreaInsets();
   const { profile, addPost } = useApp();
@@ -318,6 +331,33 @@ export default function CreatePostScreen() {
           </Pressable>
         ))}
       </View>
+
+      {category === 'repair' && profile?.role === 'customer' && (
+        <>
+          <Text style={styles.label}>Quick Issue</Text>
+          <View style={styles.quickIssueGrid}>
+            {QUICK_ISSUES.map(issue => {
+              const selected = text.includes(issue);
+              return (
+                <Pressable
+                  key={issue}
+                  style={[styles.quickIssueChip, selected && styles.quickIssueChipActive]}
+                  onPress={() => {
+                    if (selected) {
+                      setText(text.replace(issue, '').replace(/\s+/g, ' ').trim());
+                    } else {
+                      setText(prev => (prev ? `${prev.trim()} ${issue}` : issue));
+                    }
+                    if (Platform.OS !== 'web') Haptics.selectionAsync();
+                  }}
+                >
+                  <Text style={[styles.quickIssueText, selected && styles.quickIssueTextActive]}>{issue}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </>
+      )}
 
       <Text style={styles.label}>Content</Text>
       <View style={styles.textInputContainer}>
@@ -691,5 +731,32 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_700Bold',
     textAlign: 'center',
     marginTop: 4,
+  },
+  quickIssueGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 24,
+  },
+  quickIssueChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: C.surface,
+    borderWidth: 1,
+    borderColor: C.border,
+  },
+  quickIssueChipActive: {
+    backgroundColor: '#34C759' + '18',
+    borderColor: '#34C759',
+  },
+  quickIssueText: {
+    fontSize: 13,
+    fontFamily: 'Inter_500Medium',
+    color: C.textSecondary,
+  },
+  quickIssueTextActive: {
+    color: '#34C759',
+    fontFamily: 'Inter_600SemiBold',
   },
 });

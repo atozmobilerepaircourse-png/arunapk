@@ -199,6 +199,19 @@ export default function MarketplaceTab() {
     }
   }, [items, addToCart, updateQuantity]);
 
+  const suppliers = useMemo(() => {
+    const map = new Map<string, { id: string; name: string; productCount: number; avatar?: string }>();
+    for (const p of rawProducts) {
+      if (!map.has(p.userId)) {
+        const images = (() => { try { return JSON.parse(p.images || '[]'); } catch { return []; } })();
+        map.set(p.userId, { id: p.userId, name: p.userName || 'Supplier', productCount: 1, avatar: p.userAvatar });
+      } else {
+        map.get(p.userId)!.productCount++;
+      }
+    }
+    return Array.from(map.values());
+  }, [rawProducts]);
+
   const isSupplier = profile?.role === 'supplier';
   const isTeacher = profile?.role === 'teacher';
 
@@ -279,22 +292,38 @@ export default function MarketplaceTab() {
         </ScrollView>
       </View>
 
+      {/* ── Suppliers Row ── */}
+      {!viewingSupplier && suppliers.length > 0 && (
+        <View style={styles.suppliersSection}>
+          <Text style={styles.suppliersTitle}>Suppliers</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.suppliersScroll}>
+            {suppliers.map(s => (
+              <Pressable
+                key={s.id}
+                style={styles.supplierChip}
+                onPress={() => router.push({ pathname: '/user-profile', params: { id: s.id } } as any)}
+              >
+                <View style={styles.supplierAvatar}>
+                  {s.avatar ? (
+                    <Image source={{ uri: s.avatar }} style={{ width: 36, height: 36, borderRadius: 18 }} contentFit="cover" />
+                  ) : (
+                    <Ionicons name="person" size={16} color={MH.primary} />
+                  )}
+                </View>
+                <Text style={styles.supplierName} numberOfLines={1}>{s.name}</Text>
+                <Text style={styles.supplierCount}>{s.productCount} items</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </View>
+      )}
+
       {/* ── Results Bar ── */}
       <View style={styles.resultsBar}>
         <Text style={styles.resultsTxt}>
           {isLoading ? '...' : `${products.length} result${products.length !== 1 ? 's' : ''}`}
           {search ? ` for "${search}"` : ''}
         </Text>
-        <View style={styles.resultsActions}>
-          <Pressable onPress={() => setShowFilters(true)} style={styles.filterBtn}>
-            <Ionicons name="options-outline" size={15} color={MH.textSub} />
-            <Text style={styles.filterTxt}>Filters</Text>
-          </Pressable>
-          <Pressable onPress={() => setShowSort(true)} style={styles.sortBtn}>
-            <Text style={styles.sortTxt}>Sort</Text>
-            <Ionicons name="chevron-down" size={13} color={MH.textSub} />
-          </Pressable>
-        </View>
       </View>
 
       {/* ── Grid ── */}
@@ -504,4 +533,12 @@ const styles = StyleSheet.create({
   roleSub: { fontSize: 14, color: MH.textMuted, textAlign: 'center', marginTop: 8, lineHeight: 20, fontFamily: 'Inter_400Regular' },
   roleBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: MH.primary, paddingHorizontal: 24, paddingVertical: 14, borderRadius: 14, marginTop: 20 },
   roleBtnTxt: { color: '#FFF', fontFamily: 'Inter_700Bold', fontSize: 16 },
+
+  suppliersSection: { backgroundColor: MH.surface, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: MH.border },
+  suppliersTitle: { fontSize: 14, fontFamily: 'Inter_700Bold', color: MH.text, paddingHorizontal: 16, marginBottom: 8 },
+  suppliersScroll: { paddingHorizontal: 16, gap: 10 },
+  supplierChip: { alignItems: 'center', width: 80, gap: 4 },
+  supplierAvatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: MH.primaryLight, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  supplierName: { fontSize: 11, fontFamily: 'Inter_600SemiBold', color: MH.text, textAlign: 'center' },
+  supplierCount: { fontSize: 10, fontFamily: 'Inter_400Regular', color: MH.textMuted },
 });

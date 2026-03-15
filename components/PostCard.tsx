@@ -254,8 +254,10 @@ export default function PostCard({
       {/* ── Video ── */}
       {post.videoUrl && !post.images.length && (
         <Pressable style={styles.videoThumb} onPress={() => setViewerMedia({ type: 'video', url: post.videoUrl! })}>
-          <Ionicons name="play-circle" size={48} color="#FFF" />
-          <Text style={styles.videoLabel}>Play Video</Text>
+          <View style={styles.videoPlayOverlay}>
+            <Ionicons name="play-circle" size={48} color="#FFF" />
+          </View>
+          <Text style={styles.videoLabel}>Tap to play video</Text>
         </Pressable>
       )}
 
@@ -526,15 +528,24 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_700Bold',
   },
   videoThumb: {
-    height: 160,
+    height: 200,
     borderRadius: 12,
-    backgroundColor: '#000',
+    backgroundColor: '#1A1A2E',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
     gap: 8,
     borderWidth: 1,
     borderColor: BORDER_DARK,
+    overflow: 'hidden',
+  },
+  videoPlayOverlay: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   videoLabel: {
     color: '#FFF',

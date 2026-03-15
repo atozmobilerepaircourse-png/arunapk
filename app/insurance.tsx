@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, Pressable, Platform, ScrollView, ActivityIndicator, Alert,
+  View, Text, StyleSheet, Pressable, Platform, ScrollView, ActivityIndicator, Alert, TextInput,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -54,6 +54,9 @@ export default function InsuranceScreen() {
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(true);
   const [subEnd, setSubEnd] = useState<number | null>(null);
+  const [mobileModel, setMobileModel] = useState('');
+  const [imeiNumber, setImeiNumber] = useState('');
+  const [agreedTerms, setAgreedTerms] = useState(false);
 
   const topInset  = Platform.OS === 'web' ? 67 : insets.top;
   const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom + 20;
@@ -73,6 +76,20 @@ export default function InsuranceScreen() {
 
   const handleSubscribe = async () => {
     if (!profile?.id) { router.push('/onboarding'); return; }
+    if (!subActive) {
+      if (!mobileModel.trim()) {
+        Alert.alert('Required', 'Please enter your mobile model.');
+        return;
+      }
+      if (!imeiNumber.trim() || imeiNumber.trim().length < 15) {
+        Alert.alert('Required', 'Please enter a valid 15-digit IMEI number.');
+        return;
+      }
+      if (!agreedTerms) {
+        Alert.alert('Terms Required', 'Please agree to the Terms & Conditions before proceeding.');
+        return;
+      }
+    }
     if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setLoading(true);
     try {
@@ -202,6 +219,53 @@ export default function InsuranceScreen() {
           ))}
         </View>
 
+        {/* Device Details */}
+        {!subActive && (
+          <>
+            <Text style={styles.sectionTitle}>Device Details</Text>
+            <View style={[styles.stepsCard, { gap: 12 }]}>
+              <View>
+                <Text style={styles.inputLabel}>Mobile Model</Text>
+                <TextInput
+                  style={styles.inputField}
+                  placeholder="e.g. Samsung Galaxy S24, iPhone 15"
+                  placeholderTextColor={MUTED}
+                  value={mobileModel}
+                  onChangeText={setMobileModel}
+                />
+              </View>
+              <View>
+                <Text style={styles.inputLabel}>IMEI Number</Text>
+                <TextInput
+                  style={styles.inputField}
+                  placeholder="15-digit IMEI number"
+                  placeholderTextColor={MUTED}
+                  value={imeiNumber}
+                  onChangeText={setImeiNumber}
+                  keyboardType="numeric"
+                  maxLength={15}
+                />
+                <Text style={{ fontSize: 11, color: MUTED, marginTop: 4 }}>Dial *#06# to find your IMEI</Text>
+              </View>
+            </View>
+
+            <Pressable
+              style={styles.termsRow}
+              onPress={() => setAgreedTerms(!agreedTerms)}
+            >
+              <View style={[styles.checkbox, agreedTerms && styles.checkboxChecked]}>
+                {agreedTerms && <Ionicons name="checkmark" size={14} color="#FFF" />}
+              </View>
+              <Text style={styles.termsLabel}>
+                I agree to the{' '}
+                <Text style={{ color: PRIMARY, textDecorationLine: 'underline' }}>Terms & Conditions</Text>
+                {' '}and{' '}
+                <Text style={{ color: PRIMARY, textDecorationLine: 'underline' }}>Privacy Policy</Text>
+              </Text>
+            </Pressable>
+          </>
+        )}
+
         {/* How it works */}
         <Text style={styles.sectionTitle}>How It Works</Text>
         <View style={styles.stepsCard}>
@@ -330,4 +394,24 @@ const styles = StyleSheet.create({
   },
   ctaBtnText: { fontSize: 16, fontFamily: 'Inter_700Bold', color: '#FFF' },
   termsText: { fontSize: 12, color: MUTED },
+
+  inputLabel: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: DARK, marginBottom: 6 },
+  inputField: {
+    backgroundColor: '#F9F9F9', borderRadius: 12, borderWidth: 1, borderColor: '#E5E5E5',
+    paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, fontFamily: 'Inter_400Regular',
+    color: DARK,
+  },
+  termsRow: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 24, marginTop: 16,
+  },
+  checkbox: {
+    width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: '#D1D5DB',
+    alignItems: 'center', justifyContent: 'center', marginTop: 1,
+  },
+  checkboxChecked: {
+    backgroundColor: PRIMARY, borderColor: PRIMARY,
+  },
+  termsLabel: {
+    flex: 1, fontSize: 13, fontFamily: 'Inter_400Regular', color: DARK, lineHeight: 20,
+  },
 });
