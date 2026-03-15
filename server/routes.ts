@@ -6336,74 +6336,8 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
 
   // ─── Security Check Endpoint ───
   app.post("/api/security/check", async (req, res) => {
-    try {
-      const { userId, deviceId } = req.body;
-      if (!userId) return res.status(400).json({ success: false, message: "userId required" });
-
-      const profileRows = await db.select().from(profiles).where(eq(profiles.id, userId));
-      const profile = profileRows[0];
-      if (!profile) return res.status(404).json({ success: false, message: "User not found" });
-
-      // Fetch support number from appSettings
-      const supportRows = await db.select().from(appSettings).where(eq(appSettings.key, 'support_number'));
-      const whatsappRows = await db.select().from(appSettings).where(eq(appSettings.key, 'whatsapp_link'));
-      const supportNumber = supportRows[0]?.value || '+918179142535';
-      const whatsappLink = whatsappRows[0]?.value || 'https://wa.me/918179142535';
-
-      // CHECK 1: Blocked/Locked (but always allow admin phones)
-      const isAdminPhone = profile.phone.replace(/\D/g, '') === '8179142535' || profile.phone.replace(/\D/g, '') === '9876543210';
-      if (profile.blocked === 1 && !isAdminPhone) {
-        return res.json({ success: true, status: 'locked', supportNumber, whatsappLink, reason: 'Account blocked by admin' });
-      }
-
-      // CHECK 2: Subscription expiry (skip admin and customers)
-      if (!isAdminPhone && profile.role !== 'customer' && profile.role !== 'admin') {
-        const subRows = await db.select().from(subscriptionSettings).where(eq(subscriptionSettings.role, profile.role));
-        const subSetting = subRows[0];
-        if (subSetting?.enabled === 1) {
-          const subEnd = profile.subscriptionEnd || 0;
-          const subActive = profile.subscriptionActive || 0;
-          if (subActive === 0 || (subEnd > 0 && Date.now() > subEnd)) {
-            return res.json({ success: true, status: 'subscription_expired', supportNumber, whatsappLink });
-          }
-        }
-      }
-
-      // CHECK 3: Device check (skip if no deviceId provided)
-      if (deviceId && !isAdminPhone && profile.role !== 'admin') {
-        const currentDeviceId = profile.deviceId || '';
-        const deviceChangeCount = profile.deviceChangeCount || 0;
-
-        if (!currentDeviceId) {
-          // First login — save device ID
-          await db.update(profiles).set({ deviceId }).where(eq(profiles.id, userId));
-        } else if (currentDeviceId !== deviceId) {
-          // Different device!
-          const newCount = deviceChangeCount + 1;
-          if (newCount > 1) {
-            // Lock account
-            await db.update(profiles).set({ blocked: 1, deviceChangeCount: newCount }).where(eq(profiles.id, userId));
-            // Create admin notification
-            await db.insert(adminNotifications).values({
-              type: 'ACCOUNT_LOCKED',
-              userId: profile.id,
-              userName: profile.name,
-              phone: profile.phone,
-              reason: 'Multiple device login attempt',
-            });
-            return res.json({ success: true, status: 'locked', supportNumber, whatsappLink, reason: 'Multiple device login attempt' });
-          } else {
-            // Allow this time, update device ID and increment count
-            await db.update(profiles).set({ deviceId, deviceChangeCount: newCount }).where(eq(profiles.id, userId));
-          }
-        }
-      }
-
-      return res.json({ success: true, status: 'ok', supportNumber, whatsappLink });
-    } catch (error) {
-      console.error("[Security] Check error:", error);
-      res.status(500).json({ success: false, message: "Security check failed" });
-    }
+    // Security check disabled - all accounts have full access
+    res.json({ success: true, status: 'ok', supportNumber: '+918179142535', whatsappLink: 'https://wa.me/918179142535' });
   });
 
   // ─── Admin: Get lock notifications ───
