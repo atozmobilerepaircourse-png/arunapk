@@ -359,6 +359,29 @@ export default function AdminScreen() {
 
   if (!isAdmin) return null;
 
+  // ── Safe render wrapper to prevent crashes ──
+  const [renderError, setRenderError] = useState<string | null>(null);
+
+  if (renderError) {
+    return (
+      <View style={{ flex: 1, backgroundColor: C.bg, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+        <Ionicons name="alert-circle-outline" size={48} color={C.textTertiary} />
+        <Text style={{ fontSize: 16, fontFamily: 'Inter_600SemiBold', color: C.text, marginTop: 16, textAlign: 'center' }}>
+          Admin Panel Error
+        </Text>
+        <Text style={{ fontSize: 13, fontFamily: 'Inter_400Regular', color: C.textSecondary, marginTop: 8, textAlign: 'center' }}>
+          {renderError}
+        </Text>
+        <Pressable
+          onPress={() => { setRenderError(null); refreshData?.(); }}
+          style={{ backgroundColor: PRIMARY, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 8, marginTop: 20 }}
+        >
+          <Text style={{ color: '#fff', fontFamily: 'Inter_600SemiBold' }}>Retry</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
   // ── Fetch functions ──
   const fetchRepairBookings = useCallback(async () => {
     setRepairLoading(true);
