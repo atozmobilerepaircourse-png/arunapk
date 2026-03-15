@@ -165,8 +165,13 @@ export default function OnboardingScreen() {
       if (Platform.OS === 'web') {
         console.log('[OTP] PRIMARY: Attempting Firebase Phone Auth');
         const { initializeRecaptcha, sendFirebaseOTP } = await import('@/lib/firebase-phone-auth');
-        await initializeRecaptcha(digits);
-        const fbResult = await sendFirebaseOTP(digits);
+        initializeRecaptcha(digits).catch(() => {}); // Initialize in background, don't wait
+        const fbResult = await Promise.race([
+          sendFirebaseOTP(digits),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Firebase slow, using SMS')), 6000)
+          )
+        ]).catch(() => ({ success: false, error: 'Firebase timeout' }));
         
         if (fbResult.success) {
           console.log('[OTP] ✓ Firebase OTP sent successfully');
@@ -177,7 +182,7 @@ export default function OnboardingScreen() {
           Alert.alert('OTP Sent', 'Check your SMS for the verification code');
           return;
         }
-        console.warn('[OTP] Firebase failed:', fbResult.error);
+        console.warn('[OTP] Firebase failed, using SMS');
       }
       
       // FALLBACK: Use backend OTP (Fast2SMS)

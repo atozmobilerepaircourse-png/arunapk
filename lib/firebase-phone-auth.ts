@@ -54,7 +54,7 @@ export async function sendFirebaseOTP(phone: string): Promise<{ success: boolean
       const confirmationResult = await Promise.race([
         signInWithPhoneNumber(auth, fullPhone, window.recaptchaVerifier),
         new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Firebase OTP timeout after 15s')), 15000)
+          setTimeout(() => reject(new Error('Firebase OTP timeout')), 8000)
         )
       ]);
 
@@ -90,7 +90,7 @@ export async function verifyFirebaseOTP(code: string): Promise<{ success: boolea
       await Promise.race([
         signInWithCredential(auth, credential),
         new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Verification timeout')), 5000)
+          setTimeout(() => reject(new Error('Verification timeout')), 3000)
         )
       ]);
 
