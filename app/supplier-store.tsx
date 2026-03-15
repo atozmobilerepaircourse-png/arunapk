@@ -200,7 +200,9 @@ export default function SupplierStoreScreen() {
 
   const renderProduct = ({ item, index }: { item: any; index: number }) => {
     const imgs = getProductImages(item);
-    const img = imgs[0] ? getImgUri(imgs[0]) : '';
+    let img = imgs[0] ? getImgUri(imgs[0]) : '';
+    // Add cache-busting to prevent stale images
+    if (img) img += (img.includes('?') ? '&' : '?') + 't=' + Date.now();
     const price = parseFloat(item.price) || 0;
     const inCart = isInCart(item.id);
     const fakeDiscount = (item.views || 0) > 30 ? Math.floor((item.views || 0) % 25) + 5 : 0;
@@ -213,9 +215,14 @@ export default function SupplierStoreScreen() {
       >
         <View style={styles.productImgWrap}>
           {img ? (
-            <Image source={{ uri: img }} style={styles.productImg} contentFit="cover" />
+            <Image 
+              source={{ uri: img }} 
+              style={styles.productImg} 
+              contentFit="cover"
+              cachePolicy="reload"
+            />
           ) : (
-            <View style={[styles.productImg, { backgroundColor: T.cardSurface, alignItems: 'center', justifyContent: 'center' }]}>
+            <View style={[styles.productImg, { backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' }]}>
               <Ionicons name="cube-outline" size={32} color={T.muted} />
             </View>
           )}
