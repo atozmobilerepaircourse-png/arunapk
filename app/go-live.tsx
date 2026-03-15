@@ -494,6 +494,11 @@ export default function GoLiveScreen() {
                 />
 
                 <Text style={styles.fieldLabel}>Stream Link</Text>
+                <Text style={styles.fieldLabel}>Thumbnail (optional)</Text>
+                <Pressable style={styles.pickerBtn} onPress={pickThumbnail} disabled={uploadingThumbnail}>
+                  <Ionicons name="image-outline" size={18} color={RED} />
+                  <Text style={styles.pickerBtnText}>{thumbnailUri ? "Change thumbnail" : "Pick thumbnail"}</Text>
+                </Pressable>
                 <TextInput
                   style={styles.input}
                   value={link}
@@ -603,6 +608,8 @@ const styles = StyleSheet.create({
   goLiveDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#FFF' },
   goLiveBtnText: { fontSize: 16, fontFamily: 'Inter_700Bold', color: '#FFF' },
   goLiveSubNote: { fontSize: 11, color: 'rgba(255,255,255,0.7)', fontFamily: 'Inter_400Regular' },
+  pickerBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: "#F3F4F6", borderRadius: 12, paddingVertical: 14, marginBottom: 16, borderWidth: 1, borderColor: "#E5E7EB" },
+  pickerBtnText: { fontSize: 15, fontFamily: "Inter_600SemiBold", color: DARK },
 
   // Active session
   activeBanner: {
@@ -649,3 +656,5 @@ const styles = StyleSheet.create({
   },
   endBtnText: { color: RED, fontSize: 15, fontFamily: 'Inter_600SemiBold' },
 });
+
+// Adding styles (appending to end)
