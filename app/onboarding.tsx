@@ -597,42 +597,65 @@ export default function OnboardingScreen() {
           <Pressable style={s.backBtn} onPress={() => setScreen('welcome')}>
             <Ionicons name="chevron-back" size={24} color="#374151" />
           </Pressable>
-          <View style={[s.formHeader, { marginBottom: 16 }]}>
-            <Text style={s.formTitle}>Verify your number</Text>
-            <Text style={s.formSubtitle}>Enter the 6-digit OTP sent to +91 {phone}</Text>
+          <View style={[s.formHeader, { marginBottom: 0 }]}>
+            <Text style={s.formTitle}>Enter 6-digit code</Text>
+            <Text style={s.formSubtitle}>We sent a verification code to your phone <Text style={{ color: '#2563EB', fontWeight: '600' }}>+91 {phone}</Text></Text>
           </View>
-          <View style={s.otpRow}>
-            {[0, 1, 2, 3, 4, 5].map(i => (
-              <TextInput
-                key={i}
-                ref={otpRefs[i]}
-                style={[s.otpBox, otpCode[i] ? s.otpBoxFilled : null]}
-                value={otpCode[i] || ''}
-                onChangeText={(v) => handleOtpDigit(v, i)}
-                keyboardType="number-pad"
-                maxLength={6}
-                selectTextOnFocus
-                autoFocus={i === 0}
-                placeholderTextColor="#D1D5DB"
-              />
-            ))}
+
+          <View style={s.otpContainer}>
+            <View style={s.otpRow}>
+              {[0, 1, 2, 3, 4, 5].map((i) => (
+                <React.Fragment key={i}>
+                  <TextInput
+                    ref={otpRefs[i]}
+                    style={[s.otpBox, otpCode[i] ? s.otpBoxFilled : null, otpError ? s.otpBoxError : null]}
+                    value={otpCode[i] || ''}
+                    onChangeText={(v) => handleOtpDigit(v, i)}
+                    keyboardType="number-pad"
+                    maxLength={1}
+                    selectTextOnFocus
+                    autoFocus={i === 0}
+                    editable={!otpVerifying}
+                  />
+                  {i === 2 && <Text style={s.otpDivider}>-</Text>}
+                </React.Fragment>
+              ))}
+            </View>
+
+            {otpError && (
+              <View style={{ marginBottom: 16 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                  <Ionicons name="alert-circle" size={16} color="#EF4444" style={{ marginRight: 8 }} />
+                  <Text style={{ color: '#EF4444', fontSize: 14 }}>{otpError}</Text>
+                </View>
+              </View>
+            )}
+
+            <View style={s.resendArea}>
+              <Text style={s.resendText}>Didn't receive the code?</Text>
+              <Pressable
+                style={[s.resendBtn, otpResendTimer > 0 && { opacity: 0.6 }]}
+                onPress={() => otpResendTimer === 0 && sendOtp(phone)}
+                disabled={otpResendTimer > 0 || otpSending}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Text style={[s.resendBtnText, otpResendTimer > 0 && { color: '#9CA3AF' }]}>
+                    {otpSending ? 'Sending...' : 'Resend code'}
+                  </Text>
+                  {otpResendTimer > 0 && (
+                    <Text style={s.timerText}>({otpResendTimer.toString().padStart(2, '0')}s)</Text>
+                  )}
+                </View>
+              </Pressable>
+            </View>
           </View>
-          {otpError ? <Text style={s.errorText}>{otpError}</Text> : null}
+
           <Pressable
-            style={({ pressed }) => [s.primaryBtn, { marginHorizontal: 20, marginTop: 8, opacity: pressed ? 0.85 : 1 }]}
+            style={({ pressed }) => [s.primaryBtn, { marginHorizontal: 16, marginTop: 'auto', marginBottom: 24, opacity: (pressed || otpVerifying) ? 0.85 : 1 }]}
             onPress={verifyOtp}
             disabled={otpVerifying || otpCode.replace(/\D/g, '').length < 6}
           >
-            {otpVerifying ? <ActivityIndicator color="#FFF" /> : <Text style={s.primaryBtnText}>Verify OTP</Text>}
-          </Pressable>
-          <Pressable
-            style={[s.resendBtn, otpResendTimer > 0 && { opacity: 0.5 }]}
-            onPress={() => otpResendTimer === 0 && sendOtp(phone)}
-            disabled={otpResendTimer > 0 || otpSending}
-          >
-            <Text style={s.resendBtnText}>
-              {otpResendTimer > 0 ? `Resend OTP in ${otpResendTimer}s` : 'Resend OTP'}
-            </Text>
+            {otpVerifying ? <ActivityIndicator color="#FFF" size="small" /> : <Text style={s.primaryBtnText}>Continue</Text>}
           </Pressable>
         </View>
       </KeyboardAvoidingView>
@@ -998,12 +1021,19 @@ const s = StyleSheet.create({
   formSubtitle: { fontSize: 15, color: '#6B7280', lineHeight: 22 },
   backBtn: { marginBottom: 24, width: 36, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 10, backgroundColor: '#F3F4F6' },
   // OTP
-  otpRow: { flexDirection: 'row', justifyContent: 'center', gap: 10, marginVertical: 40, paddingHorizontal: 20 },
-  otpBox: { width: 50, height: 60, borderWidth: 2, borderColor: '#E5E7EB', borderRadius: 14, textAlign: 'center', fontSize: 26, fontWeight: '700', color: '#111827', backgroundColor: '#FAFAFA', padding: 0 },
+  otpContainer: { marginVertical: 32, paddingHorizontal: 16 },
+  otpRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, marginBottom: 24 },
+  otpBox: { width: 56, height: 68, borderWidth: 2, borderColor: '#E5E7EB', borderRadius: 12, textAlign: 'center', fontSize: 28, fontWeight: '700', color: '#111827', backgroundColor: '#FFFFFF', padding: 0, justifyContent: 'center' },
   otpBoxFilled: { borderColor: '#2563EB', backgroundColor: '#EFF6FF', borderWidth: 2 },
-  errorText: { color: '#EF4444', fontSize: 13, marginTop: 16, marginBottom: 20, textAlign: 'center' },
-  resendBtn: { marginTop: 24, alignSelf: 'center', paddingVertical: 12, paddingHorizontal: 20 },
+  otpBoxError: { borderColor: '#EF4444', backgroundColor: '#FEE2E2', borderWidth: 2 },
+  otpDivider: { fontSize: 24, color: '#D1D5DB', marginHorizontal: 4, fontWeight: '600' },
+  errorText: { color: '#EF4444', fontSize: 14, marginTop: 0, marginBottom: 16, textAlign: 'center', flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
+  errorIcon: { marginRight: 8 },
+  resendArea: { marginBottom: 24, alignItems: 'center' },
+  resendText: { fontSize: 14, color: '#6B7280', marginBottom: 8 },
+  resendBtn: { paddingVertical: 8, paddingHorizontal: 16 },
   resendBtnText: { color: '#3B82F6', fontSize: 15, fontWeight: '600' },
+  timerText: { color: '#9CA3AF', fontSize: 14, fontWeight: '400', marginLeft: 4 },
   // Details
   field: { marginBottom: 18 },
   label: { fontSize: 13, fontWeight: '600', color: '#6B7280', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 },
