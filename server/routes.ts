@@ -1859,52 +1859,77 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
   app.delete("/api/products/:id", async (req, res) => {
     try {
       const productId = req.params.id;
+      console.log(`[Products] DELETE request for product: ${productId}`);
+      
       const result = await db.select().from(products).where(eq(products.id, productId));
       
-      if (result.length > 0) {
-        try {
-          const imgs: string[] = JSON.parse(result[0].images || '[]');
-          for (const imgUrl of imgs) {
-            if (imgUrl.startsWith('/uploads/')) {
-              // Delete local uploads
-              const filePath = path.resolve(process.cwd(), imgUrl.slice(1));
-              if (fs.existsSync(filePath)) {
-                try {
-                  fs.unlinkSync(filePath);
-                  console.log(`[Products] Deleted local file: ${filePath}`);
-                } catch (e) {
-                  console.warn(`[Products] Could not delete local file: ${filePath}`, e);
-                }
-              }
-            } else if (imgUrl.includes('bunnycdn.net') || imgUrl.includes('arun-storage')) {
-              // Delete from Bunny CDN - extract filename from URL
-              try {
-                const urlParts = imgUrl.split('/');
-                const filename = urlParts.slice(urlParts.length - 2).join('/');
-                if (bunnyAvailable && filename) {
-                  const deleteUrl = `${BUNNY_STORAGE_ENDPOINT}/${BUNNY_STORAGE_ZONE_NAME}/${filename}`;
-                  await fetch(deleteUrl, {
-                    method: 'DELETE',
-                    headers: { 'AccessKey': BUNNY_STORAGE_API_KEY }
-                  });
-                  console.log(`[Products] Deleted from Bunny: ${filename}`);
-                }
-              } catch (e) {
-                console.warn(`[Products] Could not delete Bunny file: ${imgUrl}`, e);
-              }
-            }
-          }
-        } catch (e) {
-          console.warn(`[Products] Error processing images for deletion:`, e);
-        }
+      if (result.length === 0) {
+        console.warn(`[Products] Product not found: ${productId}`);
+        return res.status(404).json({ success: false, message: 'Product not found' });
       }
       
+      // Handle image deletion
+      try {
+        let imgs: string[] = [];
+        const imagesRaw = result[0].images || '[]';
+        
+        // Try parsing as JSON array
+        try {
+          imgs = JSON.parse(imagesRaw);
+        } catch {
+          // Fallback: handle comma-separated or plain string
+          if (typeof imagesRaw === 'string' && imagesRaw.length > 0) {
+            imgs = imagesRaw.includes(',') 
+              ? imagesRaw.split(',').filter(url => url.trim().length > 0)
+              : [imagesRaw.trim()];
+          }
+        }
+        
+        console.log(`[Products] Processing ${imgs.length} images for deletion`);
+        
+        for (const imgUrl of imgs) {
+          if (!imgUrl || typeof imgUrl !== 'string') continue;
+          
+          if (imgUrl.startsWith('/uploads/')) {
+            // Delete local uploads
+            const filePath = path.resolve(process.cwd(), imgUrl.slice(1));
+            if (fs.existsSync(filePath)) {
+              try {
+                fs.unlinkSync(filePath);
+                console.log(`[Products] Deleted local file: ${filePath}`);
+              } catch (e) {
+                console.warn(`[Products] Could not delete local file: ${filePath}`, e);
+              }
+            }
+          } else if (imgUrl.includes('bunnycdn.net') || imgUrl.includes('arun-storage')) {
+            // Delete from Bunny CDN
+            try {
+              const urlParts = imgUrl.split('/');
+              const filename = urlParts.slice(urlParts.length - 2).join('/');
+              if (bunnyAvailable && filename) {
+                const deleteUrl = `${BUNNY_STORAGE_ENDPOINT}/${BUNNY_STORAGE_ZONE_NAME}/${filename}`;
+                const deleteRes = await fetch(deleteUrl, {
+                  method: 'DELETE',
+                  headers: { 'AccessKey': BUNNY_STORAGE_API_KEY }
+                });
+                console.log(`[Products] Bunny delete response: ${deleteRes.status} for ${filename}`);
+              }
+            } catch (e) {
+              console.warn(`[Products] Could not delete Bunny file: ${imgUrl}`, e);
+            }
+          }
+        }
+      } catch (e) {
+        console.warn(`[Products] Error processing images for deletion:`, e);
+      }
+      
+      // Delete product from database
       await db.delete(products).where(eq(products.id, productId));
-      console.log(`[Products] Deleted product: ${productId}`);
+      console.log(`[Products] ✅ Successfully deleted product: ${productId}`);
       return res.json({ success: true, message: 'Product deleted successfully' });
     } catch (error) {
-      console.error(`[Products] Delete error:`, error);
-      return res.status(500).json({ success: false, message: 'Failed to delete product' });
+      console.error(`[Products] ❌ Delete failed:`, error);
+      return res.status(500).json({ success: false, message: `Delete failed: ${error instanceof Error ? error.message : 'Unknown error'}` });
     }
   });
 
