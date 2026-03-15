@@ -90,13 +90,14 @@ function LiveCountPills({ stats }: { stats: OnlineStats | null }) {
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.liveCountsContainer} style={{ backgroundColor: CARD, paddingVertical: 6, marginBottom: 0 }}>
       {roles.map(role => {
-        const count = stats?.[role.key]?.online || 0;
+        const online = stats?.[role.key]?.online || 0;
+        const registered = stats?.[role.key]?.registered || 0;
         return (
           <View key={role.key} style={[styles.liveCountPill, { borderLeftColor: role.color }]}>
             <Ionicons name={role.icon} size={13} color={role.color} />
             <Text style={styles.liveCountLabel}>{role.label}</Text>
             <View style={styles.liveCountDot} />
-            <Text style={styles.liveCountNumber}>{count}</Text>
+            <Text style={styles.liveCountNumber}>{online}/{registered}</Text>
           </View>
         );
       })}
@@ -253,13 +254,6 @@ export default function DirectoryScreen() {
     <View style={styles.container}>
       {/* Fixed Header Section */}
       <View style={[styles.fixedHeader, { paddingTop: topPad }]}>
-        {/* Menu button */}
-        <View style={styles.headerRow}>
-          <Pressable style={styles.menuBtn} onPress={() => {}}>
-            <Ionicons name="menu" size={18} color={GRAY} />
-          </Pressable>
-        </View>
-
         {/* Search bar + Map button */}
         <View style={styles.searchContainer}>
           <View style={styles.searchBar}>
@@ -304,6 +298,7 @@ export default function DirectoryScreen() {
         renderItem={({ item }) => {
           const prof = allProfiles.find(p => p.id === item.id);
           const phone = prof?.phone;
+          const isCustomer = item.role === 'customer';
           return (
           <ProfCard
             item={item}
@@ -312,7 +307,7 @@ export default function DirectoryScreen() {
               const c = await startConversation(item.id, item.name, item.role);
               if (c) router.push({ pathname: '/chat/[id]', params: { id: c } });
             } : undefined}
-            onCall={phone ? () => Linking.openURL(`tel:+91${phone}`) : undefined}
+            onCall={phone && !isCustomer ? () => Linking.openURL(`tel:+91${phone}`) : undefined}
           />);
         }}
         ItemSeparatorComponent={() => <View style={{ height: 6 }} />}
