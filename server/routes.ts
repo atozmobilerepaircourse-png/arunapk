@@ -129,8 +129,18 @@ async function uploadToStorage(buffer: Buffer, filename: string): Promise<string
     // Bunny.net is required in production — if we reach here the upload failed
     throw new Error('Bunny.net upload failed and no local storage is available in production');
   }
-  const protocol = 'http';
-  const host = process.env.REPLIT_DEV_DOMAIN || 'localhost:5000';
+  const protocol = 'https';
+  // In Cloud Run: use hardcoded Cloud Run URL or env var
+  // In dev: use REPLIT_DEV_DOMAIN or fallback to localhost
+  let host = 'localhost:5000';
+  if (process.env.REPLIT_DEV_DOMAIN) {
+    host = process.env.REPLIT_DEV_DOMAIN;
+  } else if (process.env.CLOUD_RUN_URL) {
+    host = process.env.CLOUD_RUN_URL;
+  } else if (process.env.NODE_ENV === 'production') {
+    // Default Cloud Run URL if nothing else is set
+    host = 'repair-backend-3siuld7gbq-el.a.run.app';
+  }
   return `${protocol}://${host}/uploads/${localFilename}`;
 }
 
@@ -2585,7 +2595,10 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
         console.log(`[Upload] Video streamed to Bunny: ${videoUrl} (${fileSize} bytes)`);
         return res.json({ success: true, url: videoUrl });
       } else {
-        const videoUrl = `/uploads/${req.file.filename}`;
+        // Return full URL for video stored locally
+        const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
+        const host = process.env.REPLIT_DEV_DOMAIN || 'localhost:5000';
+        const videoUrl = `${protocol}://${host}/uploads/${req.file.filename}`;
         console.log(`[Upload] Video saved locally: ${videoUrl} (${req.file.size} bytes)`);
         return res.json({ success: true, url: videoUrl });
       }
