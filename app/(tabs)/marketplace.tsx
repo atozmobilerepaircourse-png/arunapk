@@ -14,18 +14,18 @@ import { useApp } from '@/lib/context';
 import { useCart } from '@/lib/cart-context';
 import { getApiUrl } from '@/lib/query-client';
 
-// ─── Dark Theme Design Tokens ─────────────────────────────────────────────────
+// ─── Light Theme Design Tokens ─────────────────────────────────────────────────
 const MH = {
   primary: '#10B981',
   primaryMid: '#059669',
   primaryLight: '#D1FAE5',
   accent: '#10B981',
-  bg: '#0A0A14',
-  surface: '#2A2A2A',
-  border: '#374151',
-  text: '#F3F4F6',
-  textSub: '#E5E7EB',
-  textMuted: '#9CA3AF',
+  bg: '#FFFFFF',
+  surface: '#F9FAFB',
+  border: '#E5E7EB',
+  text: '#111827',
+  textSub: '#4B5563',
+  textMuted: '#6B7280',
   sale: '#DC2626',
   new: '#2563EB',
   star: '#F59E0B',
