@@ -103,7 +103,7 @@ export default function PostCard({
   const [editText, setEditText] = useState(post.text);
   const [editSaving, setEditSaving] = useState(false);
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
-  const [videoPlaying, setVideoPlaying] = useState(false);
+  const [fullscreenVideoUrl, setFullscreenVideoUrl] = useState<string | null>(null);
 
   const isLiked = currentUserId ? post.likes.includes(currentUserId) : false;
   const isOwn   = currentUserId === post.userId;
@@ -232,31 +232,23 @@ export default function PostCard({
       {/* ── Images or Video ── */}
       {(post.images.length > 0 || post.videoUrl) && (
         <View style={styles.imageWrap}>
-          {/* Video: plays inline in card like Instagram */}
+          {/* Video: 4:3 thumbnail with play button */}
           {post.videoUrl && !post.images.length ? (
-            <View style={styles.videoCardContainer}>
-              <Video
-                source={{ uri: post.videoUrl }}
-                style={[styles.singleImage, { backgroundColor: '#000' }]}
-                useNativeControls={videoPlaying}
-                resizeMode={ResizeMode.CONTAIN}
-                shouldPlay={videoPlaying}
-                isLooping={false}
-                isMuted={false}
-                progressUpdateIntervalMillis={500}
-              />
+            <Pressable 
+              style={styles.videoCardContainer}
+              onPress={() => setFullscreenVideoUrl(post.videoUrl)}
+            >
+              {/* Black background for video thumbnail */}
+              <View style={styles.videoThumbnailBg}>
+                <Ionicons name="play-circle" size={72} color="#FFFFFF" />
+              </View>
               {/* Play button overlay */}
-              {!videoPlaying && (
-                <Pressable 
-                  style={styles.videoPlayOverlay}
-                  onPress={() => setVideoPlaying(true)}
-                >
-                  <View style={styles.playButtonCenter}>
-                    <Ionicons name="play-circle" size={64} color="#FFFFFF" />
-                  </View>
-                </Pressable>
-              )}
-            </View>
+              <View style={styles.videoPlayOverlay}>
+                <View style={styles.playButtonCenter}>
+                  <Ionicons name="play-circle" size={64} color="#FFFFFF" />
+                </View>
+              </View>
+            </Pressable>
           ) : null}
 
           {/* Images grid */}
@@ -397,6 +389,35 @@ export default function PostCard({
           </View>
         </View>
       </Modal>
+
+      {/* ── Fullscreen video player modal ── */}
+      {fullscreenVideoUrl && (
+        <Modal
+          visible={!!fullscreenVideoUrl}
+          transparent={false}
+          animationType="fade"
+          onRequestClose={() => setFullscreenVideoUrl(null)}
+        >
+          <View style={styles.fullscreenVideoContainer}>
+            <Pressable 
+              style={styles.fullscreenCloseBtn}
+              onPress={() => setFullscreenVideoUrl(null)}
+            >
+              <Ionicons name="close" size={24} color="#FFFFFF" />
+            </Pressable>
+            <Video
+              source={{ uri: fullscreenVideoUrl }}
+              style={styles.fullscreenVideo}
+              useNativeControls
+              resizeMode={ResizeMode.CONTAIN}
+              shouldPlay={true}
+              isLooping={false}
+              isMuted={false}
+              progressUpdateIntervalMillis={500}
+            />
+          </View>
+        </Modal>
+      )}
     </View>
   );
 }
@@ -553,10 +574,16 @@ const styles = StyleSheet.create({
   videoCardContainer: {
     position: 'relative',
     width: '100%',
-    height: 220,
+    aspectRatio: 4 / 3,
     backgroundColor: '#000',
     borderRadius: 12,
     overflow: 'hidden',
+  },
+  videoThumbnailBg: {
+    flex: 1,
+    backgroundColor: '#000',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   videoContainer: {
     borderRadius: 12,
@@ -584,6 +611,25 @@ const styles = StyleSheet.create({
   playButtonContainer: {
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  fullscreenVideoContainer: {
+    flex: 1,
+    backgroundColor: '#000',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fullscreenVideo: {
+    width: '100%',
+    height: '100%',
+  },
+  fullscreenCloseBtn: {
+    position: 'absolute',
+    top: 20,
+    right: 20,
+    zIndex: 10,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    padding: 8,
+    borderRadius: 999,
   },
   tags: {
     flexDirection: 'row',
