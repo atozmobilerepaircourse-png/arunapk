@@ -49,6 +49,8 @@ export default function GoLiveScreen() {
   const [loadingSession, setLoadingSession] = useState(true);
   const [isUploading, setIsUploading]   = useState(false);
   const [streamKeyInfo, setStreamKeyInfo] = useState<{ rtmpUrl: string; streamKey: string } | null>(null);
+  const [thumbnailUri, setThumbnailUri]   = useState<string | null>(null);
+  const [uploadingThumbnail, setUploadingThumbnail] = useState(false);
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
 
@@ -82,13 +84,20 @@ export default function GoLiveScreen() {
       return;
     }
     setSubmitting(true);
+    let thumbnailUrl = '';
     try {
+      if (thumbnailUri) {
+        setUploadingThumbnail(true);
+        thumbnailUrl = await uploadThumbnail(thumbnailUri) || '';
+        setUploadingThumbnail(false);
+      }
       const res  = await apiRequest('POST', '/api/teacher/bunny-live/start', {
         teacherId:    profile?.id,
         teacherName:  profile?.name,
         teacherAvatar: profile?.avatar,
         title:        title.trim(),
         description:  description.trim(),
+        thumbnailUrl,
       });
       const data = await res.json();
       if (data.success) {
@@ -96,6 +105,7 @@ export default function GoLiveScreen() {
         setStreamKeyInfo({ rtmpUrl: data.rtmpUrl, streamKey: data.streamKey });
         setTitle('');
         setDescription('');
+        setThumbnailUri(null);
       } else {
         Alert.alert('Error', data.message || 'Failed to start stream');
       }
@@ -103,6 +113,7 @@ export default function GoLiveScreen() {
       Alert.alert('Error', 'Connection failed. Please try again.');
     } finally {
       setSubmitting(false);
+      setUploadingThumbnail(false);
     }
   };
 
@@ -117,7 +128,13 @@ export default function GoLiveScreen() {
       return;
     }
     setSubmitting(true);
+    let thumbnailUrl = '';
     try {
+      if (thumbnailUri) {
+        setUploadingThumbnail(true);
+        thumbnailUrl = await uploadThumbnail(thumbnailUri) || '';
+        setUploadingThumbnail(false);
+      }
       const res  = await apiRequest('POST', '/api/teacher/go-live', {
         teacherId:    profile?.id,
         teacherName:  profile?.name,
@@ -126,6 +143,7 @@ export default function GoLiveScreen() {
         description:  description.trim(),
         platform:     linkPlatform,
         link:         link.trim(),
+        thumbnailUrl,
       });
       const data = await res.json();
       if (data.success) {
@@ -133,6 +151,7 @@ export default function GoLiveScreen() {
         setTitle('');
         setDescription('');
         setLink('');
+        setThumbnailUri(null);
         Alert.alert('You are LIVE!', 'All users have been notified.');
       } else {
         Alert.alert('Error', data.message || 'Failed to go live');
@@ -141,6 +160,7 @@ export default function GoLiveScreen() {
       Alert.alert('Error', 'Connection failed. Please try again.');
     } finally {
       setSubmitting(false);
+      setUploadingThumbnail(false);
     }
   };
 
@@ -162,6 +182,31 @@ export default function GoLiveScreen() {
         },
       },
     ]);
+  };
+
+  const pickThumbnail = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.8 });
+    if (!result.canceled && result.assets?.[0]?.uri) {
+      setThumbnailUri(result.assets[0].uri);
+    }
+  };
+
+  const uploadThumbnail = async (uri: string): Promise<string | null> => {
+    try {
+      const formData = new FormData();
+      if (Platform.OS === 'web') {
+        const blob = await (await globalThis.fetch(uri)).blob();
+        formData.append('image', blob, 'thumbnail.jpg');
+      } else {
+        const name = uri.split('/').pop() || 'thumbnail.jpg';
+        formData.append('image', { uri, name, type: 'image/jpeg' } as any);
+      }
+      const res = await globalThis.fetch(new URL('/api/upload', getApiUrl()).toString(), { method: 'POST', body: formData });
+      const data = await res.json();
+      return data.success && data.url ? data.url : null;
+    } catch {
+      return null;
+    }
   };
 
   const handleShareImage = async () => {
@@ -383,6 +428,12 @@ export default function GoLiveScreen() {
                   numberOfLines={3}
                   maxLength={200}
                 />
+
+                <Text style={styles.fieldLabel}>Thumbnail (optional)</Text>
+                <Pressable style={styles.pickerBtn} onPress={pickThumbnail} disabled={uploadingThumbnail}>
+                  <Ionicons name="image-outline" size={18} color={BUNNY_COLOR} />
+                  <Text style={styles.pickerBtnText}>{thumbnailUri ? 'Change thumbnail' : 'Pick thumbnail'}</Text>
+                </Pressable>
 
                 <Pressable
                   style={[styles.goLiveBtn, { backgroundColor: BUNNY_COLOR }, submitting && { opacity: 0.6 }]}
