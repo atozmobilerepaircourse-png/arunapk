@@ -1971,17 +1971,33 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
   // ========== Posts routes ==========
   app.get("/api/posts", async (_req, res) => {
     try {
+      console.log("[Posts] Fetching all posts...");
       const allPosts = await db.select().from(posts).orderBy(desc(posts.createdAt));
-      const parsed = allPosts.map(p => ({
-        ...p,
-        images: JSON.parse(p.images),
-        likes: JSON.parse(p.likes),
-        comments: JSON.parse(p.comments),
-      }));
+      console.log("[Posts] Found", allPosts.length, "posts");
+      const parsed = allPosts.map(p => {
+        try {
+          return {
+            ...p,
+            images: JSON.parse(p.images || '[]'),
+            likes: JSON.parse(p.likes || '[]'),
+            comments: JSON.parse(p.comments || '[]'),
+          };
+        } catch (parseErr) {
+          console.warn("[Posts] Parse error for post", p.id, ":", parseErr);
+          return {
+            ...p,
+            images: [],
+            likes: [],
+            comments: [],
+          };
+        }
+      });
+      console.log("[Posts] Returning", parsed.length, "parsed posts");
       return res.json(parsed);
     } catch (error) {
-      console.error("[Posts] List error:", error);
-      return res.status(500).json({ success: false, message: "Failed to get posts" });
+      console.error("[Posts] List error:", error instanceof Error ? error.message : error);
+      console.error("[Posts] Full error:", error);
+      return res.status(500).json({ success: false, message: "Failed to get posts", error: error instanceof Error ? error.message : String(error) });
     }
   });
 
