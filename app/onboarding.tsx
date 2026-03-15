@@ -27,7 +27,7 @@ import { getDeviceId } from '@/lib/device-fingerprint';
 import * as WebBrowser from 'expo-web-browser';
 import { FirebaseRecaptchaVerifierModal } from 'expo-firebase-recaptcha';
 import { signInWithPhoneNumber, ConfirmationResult } from 'firebase/auth';
-import { firebaseAuth, firebaseConfig } from '@/lib/firebase';
+import { firebaseAuth, firebaseConfig, getFirebaseAuth } from '@/lib/firebase';
 
 const C = Colors.light;
 
@@ -220,12 +220,13 @@ export default function OnboardingScreen() {
 
     let success = false;
 
-    // PRIMARY: Try Firebase phone auth
-    if (recaptchaVerifier.current && Platform.OS !== 'web') {
+    // PRIMARY: Try Firebase phone auth (native only, if available)
+    const auth = getFirebaseAuth();
+    if (auth && recaptchaVerifier.current && Platform.OS !== 'web') {
       try {
         console.log('[OTP] Trying Firebase phone auth for: +91' + cleanDigits);
         const result = await Promise.race([
-          signInWithPhoneNumber(firebaseAuth, `+91${cleanDigits}`, recaptchaVerifier.current),
+          signInWithPhoneNumber(auth, `+91${cleanDigits}`, recaptchaVerifier.current),
           new Promise<never>((_, reject) =>
             setTimeout(() => reject(new Error('Firebase timeout')), 10000)
           ),

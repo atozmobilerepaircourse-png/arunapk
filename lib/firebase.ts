@@ -1,9 +1,9 @@
 import { initializeApp, getApps } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { getAuth, Auth } from 'firebase/auth';
 import { getStorage } from 'firebase/storage';
 import { getFirestore } from 'firebase/firestore';
 
-const firebaseConfig = {
+export const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
   projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
@@ -12,16 +12,37 @@ const firebaseConfig = {
   messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
 };
 
-console.log('[Firebase] Initializing with config:', {
-  apiKey: firebaseConfig.apiKey ? firebaseConfig.apiKey.substring(0, 10) + '...' : 'MISSING',
-  authDomain: firebaseConfig.authDomain || 'MISSING',
-  projectId: firebaseConfig.projectId || 'MISSING',
-  appId: firebaseConfig.appId ? firebaseConfig.appId.substring(0, 10) + '...' : 'MISSING',
-  messagingSenderId: firebaseConfig.messagingSenderId || 'MISSING',
+const hasRequiredConfig = !!(firebaseConfig.apiKey && firebaseConfig.authDomain && firebaseConfig.projectId);
+
+console.log('[Firebase] Config check:', {
+  hasApiKey: !!firebaseConfig.apiKey,
+  hasAuthDomain: !!firebaseConfig.authDomain,
+  hasProjectId: !!firebaseConfig.projectId,
+  isConfigValid: hasRequiredConfig,
 });
 
-export const firebaseApp = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-export const firebaseAuth = getAuth(firebaseApp);
-export const firebaseStorage = getStorage(firebaseApp);
-export const firestoreDb = getFirestore(firebaseApp);
-export { firebaseConfig };
+let firebaseApp: any = null;
+let firebaseAuth: Auth | null = null;
+
+try {
+  if (hasRequiredConfig) {
+    firebaseApp = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+    firebaseAuth = getAuth(firebaseApp);
+    console.log('[Firebase] Initialized successfully');
+  } else {
+    console.warn('[Firebase] Skipping initialization — missing required config');
+  }
+} catch (error: any) {
+  console.error('[Firebase] Initialization failed:', error?.message);
+}
+
+export { firebaseApp };
+export { firebaseAuth };
+
+// Provide optional auth — returns null if Firebase isn't ready
+export function getFirebaseAuth(): Auth | null {
+  return firebaseAuth;
+}
+
+export const firebaseStorage = firebaseApp ? getStorage(firebaseApp) : null;
+export const firestoreDb = firebaseApp ? getFirestore(firebaseApp) : null;
