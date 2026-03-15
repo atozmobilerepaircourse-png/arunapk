@@ -593,11 +593,11 @@ export default function OnboardingScreen() {
     return (
       <KeyboardAvoidingView style={s.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <StatusBar style="dark" />
-        <View style={[s.formScreen, { paddingTop: topInset + 20, paddingBottom: Math.max(botInset, 20) }]}>
+        <View style={[s.formScreen, { paddingTop: topInset + 20, paddingBottom: Math.max(botInset, 20), justifyContent: 'center' }]}>
           <Pressable style={s.backBtn} onPress={() => setScreen('welcome')}>
             <Ionicons name="chevron-back" size={24} color="#374151" />
           </Pressable>
-          <View style={s.formHeader}>
+          <View style={[s.formHeader, { marginBottom: 16 }]}>
             <Text style={s.formTitle}>Verify your number</Text>
             <Text style={s.formSubtitle}>Enter the 6-digit OTP sent to +91 {phone}</Text>
           </View>
@@ -613,12 +613,13 @@ export default function OnboardingScreen() {
                 maxLength={6}
                 selectTextOnFocus
                 autoFocus={i === 0}
+                placeholderTextColor="#D1D5DB"
               />
             ))}
           </View>
           {otpError ? <Text style={s.errorText}>{otpError}</Text> : null}
           <Pressable
-            style={({ pressed }) => [s.primaryBtn, { marginTop: 24, opacity: pressed ? 0.85 : 1 }]}
+            style={({ pressed }) => [s.primaryBtn, { marginHorizontal: 20, marginTop: 8, opacity: pressed ? 0.85 : 1 }]}
             onPress={verifyOtp}
             disabled={otpVerifying || otpCode.replace(/\D/g, '').length < 6}
           >
@@ -997,12 +998,12 @@ const s = StyleSheet.create({
   formSubtitle: { fontSize: 15, color: '#6B7280', lineHeight: 22 },
   backBtn: { marginBottom: 24, width: 36, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 10, backgroundColor: '#F3F4F6' },
   // OTP
-  otpRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 8 },
-  otpBox: { flex: 1, aspectRatio: 1, maxHeight: 54, borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 12, textAlign: 'center', fontSize: 22, fontWeight: '700', color: '#111827', backgroundColor: '#FAFAFA' },
-  otpBoxFilled: { borderColor: '#2563EB', backgroundColor: '#EFF6FF' },
-  errorText: { color: '#EF4444', fontSize: 13, marginTop: 10, textAlign: 'center' },
-  resendBtn: { marginTop: 16, alignSelf: 'center', paddingVertical: 10 },
-  resendBtnText: { color: '#3B82F6', fontSize: 14, fontWeight: '600' },
+  otpRow: { flexDirection: 'row', justifyContent: 'center', gap: 10, marginVertical: 40, paddingHorizontal: 20 },
+  otpBox: { width: 50, height: 60, borderWidth: 2, borderColor: '#E5E7EB', borderRadius: 14, textAlign: 'center', fontSize: 26, fontWeight: '700', color: '#111827', backgroundColor: '#FAFAFA', padding: 0 },
+  otpBoxFilled: { borderColor: '#2563EB', backgroundColor: '#EFF6FF', borderWidth: 2 },
+  errorText: { color: '#EF4444', fontSize: 13, marginTop: 16, marginBottom: 20, textAlign: 'center' },
+  resendBtn: { marginTop: 24, alignSelf: 'center', paddingVertical: 12, paddingHorizontal: 20 },
+  resendBtnText: { color: '#3B82F6', fontSize: 15, fontWeight: '600' },
   // Details
   field: { marginBottom: 18 },
   label: { fontSize: 13, fontWeight: '600', color: '#6B7280', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 },
