@@ -18,14 +18,14 @@ import { PostCategory } from '@/lib/types';
 import PostCard from '@/components/PostCard';
 import { apiRequest } from '@/lib/query-client';
 
-// ─── MarketHub Light Theme ───────────────────────────────────────────────────
-const BG        = '#F9FAFB';
-const CARD      = '#FFFFFF';
-const SURFACE   = '#FFFFFF';
-const BORDER    = '#E5E7EB';
-const TEXT      = '#111827';
+// ─── Dark Theme ───────────────────────────────────────────────────────────────
+const BG        = '#0A0A14';
+const CARD      = '#2A2A2A';
+const SURFACE   = '#1A1A1A';
+const BORDER    = '#374151';
+const TEXT      = '#F3F4F6';
 const MUTED     = '#9CA3AF';
-const PRIMARY   = '#1B4D3E';
+const PRIMARY   = '#10B981';
 const BLUE      = '#3B82F6';
 const GREEN     = '#10B981';
 const AMBER     = '#F59E0B';

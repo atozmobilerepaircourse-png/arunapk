@@ -14,17 +14,17 @@ import { useApp } from '@/lib/context';
 import { useCart } from '@/lib/cart-context';
 import { getApiUrl } from '@/lib/query-client';
 
-// ─── MarketHub Design Tokens ─────────────────────────────────────────────────
+// ─── Dark Theme Design Tokens ─────────────────────────────────────────────────
 const MH = {
-  primary: '#1B4D3E',
-  primaryMid: '#2D6A4F',
+  primary: '#10B981',
+  primaryMid: '#059669',
   primaryLight: '#D1FAE5',
   accent: '#10B981',
-  bg: '#F9FAFB',
-  surface: '#FFFFFF',
-  border: '#E5E7EB',
-  text: '#111827',
-  textSub: '#4B5563',
+  bg: '#0A0A14',
+  surface: '#2A2A2A',
+  border: '#374151',
+  text: '#F3F4F6',
+  textSub: '#E5E7EB',
   textMuted: '#9CA3AF',
   sale: '#DC2626',
   new: '#2563EB',
