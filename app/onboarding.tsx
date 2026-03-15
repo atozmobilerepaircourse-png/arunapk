@@ -27,7 +27,7 @@ import { getDeviceId } from '@/lib/device-fingerprint';
 import * as WebBrowser from 'expo-web-browser';
 import { FirebaseRecaptchaVerifierModal } from 'expo-firebase-recaptcha';
 import { signInWithPhoneNumber, ConfirmationResult } from 'firebase/auth';
-import { firebaseAuth, firebaseConfig, getFirebaseAuth } from '@/lib/firebase';
+import { firebaseConfig, getFirebaseAuth } from '@/lib/firebase';
 
 const C = Colors.light;
 
@@ -227,23 +227,25 @@ export default function OnboardingScreen() {
     let success = false;
 
     // PRIMARY: Try Firebase phone auth (native only, if available)
-    const auth = getFirebaseAuth();
-    if (auth && recaptchaVerifier.current && Platform.OS !== 'web') {
+    if (firebaseAvailable && recaptchaVerifier.current && Platform.OS !== 'web') {
       try {
-        console.log('[OTP] Trying Firebase phone auth for: +91' + cleanDigits);
-        const result = await Promise.race([
-          signInWithPhoneNumber(auth, `+91${cleanDigits}`, recaptchaVerifier.current),
-          new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error('Firebase timeout')), 10000)
-          ),
-        ]) as ConfirmationResult;
-        setConfirmationResult(result);
-        setOtpProvider('firebase');
-        setOtpSent(true);
-        setOtpResendTimer(30);
-        setDebugInfo('OTP sent');
-        console.log('[OTP] Firebase: SMS sent successfully');
-        success = true;
+        const auth = getFirebaseAuth();
+        if (auth) {
+          console.log('[OTP] Trying Firebase phone auth for: +91' + cleanDigits);
+          const result = await Promise.race([
+            signInWithPhoneNumber(auth, `+91${cleanDigits}`, recaptchaVerifier.current),
+            new Promise<never>((_, reject) =>
+              setTimeout(() => reject(new Error('Firebase timeout')), 10000)
+            ),
+          ]) as ConfirmationResult;
+          setConfirmationResult(result);
+          setOtpProvider('firebase');
+          setOtpSent(true);
+          setOtpResendTimer(30);
+          setDebugInfo('OTP sent');
+          console.log('[OTP] Firebase: SMS sent successfully');
+          success = true;
+        }
       } catch (firebaseErr: any) {
         console.log('[OTP] Firebase failed, switching to Fast2SMS:', firebaseErr?.message);
         // Clear Firebase state on error to avoid stale references
