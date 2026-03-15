@@ -19,6 +19,8 @@ import { useApp } from '@/lib/context';
 import { getApiUrl, apiRequest } from '@/lib/query-client';
 import { ROLE_LABELS, SKILLS_LIST, UserRole, ADMIN_PHONE } from '@/lib/types';
 
+const SUPER_ADMIN_EMAIL = 'atozmobilerepaircourse@gmail.com';
+
 function parseSellPost(text: string): { title: string; price: string; condition: string; description: string } | null {
   try {
     const lines = text.split('\n');
@@ -48,16 +50,23 @@ const CONDITIONS = ['Like New', 'Good', 'Fair', 'Used'];
 const C = Colors.light;
 
 // ── Role switching rules ──────────────────────────────────────
-// ONLY ADMIN (ADMIN_PHONE) can switch ANY user's role
+// ONLY ADMIN can switch ANY user's role
 // Non-admin users CANNOT switch roles
-function getAllowedRoles(currentRole: UserRole, userPhone?: string): UserRole[] {
-  // ONLY Admin phone (8179142535) can switch roles
+function getAllowedRoles(currentRole: UserRole, userPhone?: string, userEmail?: string): UserRole[] {
+  // Admin role can switch roles
+  if (currentRole === 'admin') {
+    return ['teacher', 'technician', 'supplier', 'customer', 'job_provider'];
+  }
+  
+  // Super admin phone can switch roles
   const cleanPhone = userPhone?.replace(/\D/g, '') || '';
   const last10 = cleanPhone.slice(-10);
-  const isAdminPhone = last10 === '8179142535' || last10 === '9876543210';
+  if (last10 === '8179142535' || last10 === '9876543210') {
+    return ['teacher', 'technician', 'supplier', 'customer', 'job_provider'];
+  }
   
-  // Only admin can switch roles - all other users get empty list
-  if (currentRole === 'admin' || isAdminPhone) {
+  // Super admin email can switch roles
+  if (userEmail === SUPER_ADMIN_EMAIL) {
     return ['teacher', 'technician', 'supplier', 'customer', 'job_provider'];
   }
   
@@ -229,7 +238,7 @@ function CustomerProfileScreen() {
   const handleChangeRole = async (newRole: string) => {
     if (!profile?.id || changingRole) return;
     
-    const allowed = getAllowedRoles(profile.role, profile.phone);
+    const allowed = getAllowedRoles(profile.role, profile.phone, profile.email);
     if (!allowed.includes(newRole as UserRole)) {
       Alert.alert(
         'Cannot Switch',
@@ -488,7 +497,7 @@ function CustomerProfileScreen() {
           <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: '#DDD', alignSelf: 'center', marginTop: 10, marginBottom: 4 }} />
           <Text style={{ fontSize: 17, fontWeight: '800', color: '#1A1A1A', textAlign: 'center', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' }}>Switch Role</Text>
           {(() => {
-            const allowed = getAllowedRoles(profile?.role || 'customer', profile?.phone);
+            const allowed = getAllowedRoles(profile?.role || 'customer', profile?.phone, profile?.email);
             const availableRoles = allowed.length > 0 ? allowed : [profile?.role || 'customer'];
             return availableRoles.map(r => (
               <Pressable
@@ -543,7 +552,7 @@ export default function ProfileScreen() {
   const handleChangeRole = async (newRole: string) => {
     if (!profile?.id || changingRole) return;
     
-    const allowed = getAllowedRoles(profile.role, profile.phone);
+    const allowed = getAllowedRoles(profile.role, profile.phone, profile.email);
     if (!allowed.includes(newRole as UserRole)) {
       Alert.alert(
         'Cannot Switch',
@@ -1268,7 +1277,7 @@ export default function ProfileScreen() {
               <View style={styles.settingsDivider} />
             </>
           )}
-          {getAllowedRoles(profile.role, profile.phone).length > 0 && (
+          {getAllowedRoles(profile.role, profile.phone, profile.email).length > 0 && (
             <>
               <Pressable
                 style={styles.settingsRow}
@@ -1344,7 +1353,7 @@ export default function ProfileScreen() {
           <View style={rolePickerStyles.sheet}>
             <Text style={rolePickerStyles.title}>Switch Role</Text>
             <Text style={rolePickerStyles.subtitle}>Select a role to switch to</Text>
-            {getAllowedRoles(profile?.role || 'customer', profile?.phone).map(r => (
+            {getAllowedRoles(profile?.role || 'customer', profile?.phone, profile?.email).map(r => (
               <Pressable
                 key={r}
                 style={[rolePickerStyles.roleRow, profile?.role === r && rolePickerStyles.roleRowActive]}
