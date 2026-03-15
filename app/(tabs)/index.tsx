@@ -403,24 +403,6 @@ export default function FeedScreen() {
             </View>
           </HeaderButton>
 
-          {/* Schematics */}
-          <HeaderButton delay={100} onPress={() => {
-            if (schematicsUrl) {
-              if (isTech && profile?.subscriptionEnd && profile.subscriptionEnd < Date.now()) {
-                Alert.alert('Subscription Required', 'Subscribe to access Schematics.');
-                return;
-              }
-              router.push({ pathname: '/webview', params: { url: schematicsUrl, title: 'Schematics' } });
-            } else {
-              Alert.alert('Coming Soon', 'Schematics not configured yet.');
-            }
-          }}>
-            <View style={styles.schBtn}>
-              <Ionicons name="document-text" size={14} color="#000" />
-              <Text style={styles.schBtnText}>SCH</Text>
-            </View>
-          </HeaderButton>
-
           {/* Live Chat - blue pill with ping */}
           <HeaderButton delay={80} onPress={() => router.push('/live-chat')}>
             <View style={styles.liveChatBtn}>
@@ -441,21 +423,13 @@ export default function FeedScreen() {
             </HeaderButton>
           ) : null}
 
-          {/* Notifications → Chat */}
-          <HeaderButton delay={240} onPress={() => router.push('/(tabs)/profile')}>
+          {/* Messages/Chat */}
+          <HeaderButton delay={160} onPress={() => router.push('/chats')}>
             <View style={styles.bellBtn}>
-              <Ionicons name="notifications" size={18} color={TEXT} />
+              <Ionicons name="chatbubbles" size={18} color={TEXT} />
               {totalUnread > 0 && <View style={styles.redDot} />}
             </View>
           </HeaderButton>
-        </View>
-      </View>
-
-      {/* ── Search bar ── */}
-      <View style={styles.searchRow}>
-        <View style={styles.searchBar}>
-          <Ionicons name="search" size={15} color={MUTED} />
-          <Text style={styles.searchPlaceholder}>Search repairs, techs, or issues...</Text>
         </View>
       </View>
 

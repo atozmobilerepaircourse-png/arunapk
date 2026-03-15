@@ -252,9 +252,9 @@ export default function PostCard({
         </View>
       )}
 
-      {/* ── Video (inline playback) ── */}
+      {/* ── Video (inline playback with play button) ── */}
       {post.videoUrl && (
-        <Pressable onPress={() => setViewerMedia({ type: 'video', url: post.videoUrl! })} style={styles.videoContainer}>
+        <View style={styles.videoContainer}>
           <Video
             source={{ uri: post.videoUrl }}
             style={styles.inlineVideo}
@@ -265,7 +265,12 @@ export default function PostCard({
             isMuted={true}
             progressUpdateIntervalMillis={500}
           />
-        </Pressable>
+          <Pressable style={styles.videoPlayOverlay} onPress={() => {/* Video has native controls */}}>
+            <View style={styles.playButtonContainer}>
+              <Ionicons name="play-circle" size={56} color="#FFFFFF" />
+            </View>
+          </Pressable>
+        </View>
       )}
 
       {/* ── Hashtag pills ── */}
@@ -547,6 +552,20 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 240,
     backgroundColor: '#000',
+  },
+  videoPlayOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+  },
+  playButtonContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   tags: {
     flexDirection: 'row',
