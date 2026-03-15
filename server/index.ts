@@ -302,10 +302,13 @@ function setupErrorHandler(app: express.Application) {
 
   // Ensure required tables exist (startup migration)
   try {
+    if (!process.env.DATABASE_URL) {
+      throw new Error("DATABASE_URL environment variable is not set. Check Cloud Run environment variables.");
+    }
     const pg = await import("pg");
     const pool = new pg.default.Pool({
       connectionString: process.env.DATABASE_URL,
-      ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
+      ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : undefined,
     });
     await pool.query(`
       CREATE TABLE IF NOT EXISTS otp_tokens (
