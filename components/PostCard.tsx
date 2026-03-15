@@ -274,7 +274,7 @@ export default function PostCard({
           {post.images.length > 0 ? (
             post.images.length === 1 ? (
               <Pressable onPress={() => setViewerMedia({ type: 'image', url: post.images[0] })}>
-                <Image source={{ uri: post.images[0] }} style={styles.singleImage} contentFit="cover" />
+                <Image source={{ uri: post.images[0] }} style={styles.singleImage} contentFit="contain" />
               </Pressable>
             ) : (
               <View style={styles.imageGrid}>
@@ -563,7 +563,8 @@ const styles = StyleSheet.create({
   },
   singleImage: {
     width: '100%',
-    aspectRatio: 1,
+    maxHeight: 300,
+    backgroundColor: '#000',
   },
   imageGrid: {
     flexDirection: 'row',
