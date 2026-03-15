@@ -110,3 +110,13 @@ export function getFirestoreDb() {
     return null;
   }
 }
+
+// Export for backward compatibility with live-chat.tsx
+// This is a lazy getter that doesn't cause module-load errors
+export const firestoreDb = {
+  _db: null as any,
+  getDb() {
+    if (!this._db) this._db = getFirestoreDb();
+    return this._db;
+  }
+} as any;

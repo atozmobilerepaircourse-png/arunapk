@@ -29,7 +29,7 @@ import * as Haptics from 'expo-haptics';
 import { playNotificationSound } from '@/lib/notification-sound';
 import { openLink } from '@/lib/open-link';
 import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
-import { firestoreDb } from '@/lib/firebase';
+import { getFirestoreDb } from '@/lib/firebase';
 
 const PRIMARY = '#4F46E5';
 const BG = '#0F0F0F';
@@ -569,8 +569,18 @@ export default function LiveChatScreen() {
     // Firestore real-time listener
     let unsubscribe: (() => void) | null = null;
     try {
+      const db = getFirestoreDb();
+      if (!db) {
+        console.warn('[LiveChat] Firestore not available, using REST API');
+        apiRequest('GET', '/api/live-chat/messages?limit=60')
+          .then(res => res.json())
+          .then(data => { if (Array.isArray(data)) setMessages(data.map(normalizeMsg)); })
+          .catch(() => {})
+          .finally(() => setIsLoading(false));
+        return;
+      }
       const q = query(
-        collection(firestoreDb, 'live_chat_messages'),
+        collection(db, 'live_chat_messages'),
         orderBy('createdAt', 'desc'),
         limit(60)
       );
