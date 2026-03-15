@@ -240,6 +240,8 @@ export default function OnboardingScreen() {
         success = true;
       } catch (firebaseErr: any) {
         console.log('[OTP] Firebase failed, switching to Fast2SMS:', firebaseErr?.message);
+        // Clear Firebase state on error to avoid stale references
+        recaptchaVerifier.current = null;
       }
     }
 
@@ -1547,14 +1549,16 @@ export default function OnboardingScreen() {
         </View>
       )}
 
-      {/* Firebase reCAPTCHA verifier — used for primary OTP via Firebase Auth */}
-      <FirebaseRecaptchaVerifierModal
-        ref={recaptchaVerifier}
-        firebaseConfig={firebaseConfig}
-        attemptInvisibleVerification={true}
-        title="Phone Verification"
-        cancelLabel="Cancel"
-      />
+      {/* Firebase reCAPTCHA verifier — used for primary OTP via Firebase Auth (only render if Firebase is available) */}
+      {getFirebaseAuth() && (
+        <FirebaseRecaptchaVerifierModal
+          ref={recaptchaVerifier}
+          firebaseConfig={firebaseConfig}
+          attemptInvisibleVerification={true}
+          title="Phone Verification"
+          cancelLabel="Cancel"
+        />
+      )}
     </View>
   );
 }
