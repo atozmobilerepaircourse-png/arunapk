@@ -78,11 +78,13 @@ async function syncProfileToServer(profile: UserProfile, deviceId?: string) {
 
 async function fetchPostsFromServer(): Promise<Post[]> {
   try {
-    const baseUrl = getApiUrl();
-    const url = new URL('/api/posts', baseUrl);
-    const res = await fetch(url.toString());
-    if (!res.ok) return [];
-    return await res.json() as Post[];
+    const res = await apiRequest('GET', '/api/posts');
+    if (!res.ok) {
+      console.warn('[Posts] API returned status:', res.status);
+      return [];
+    }
+    const data = await res.json();
+    return (Array.isArray(data) ? data : data.posts || []) as Post[];
   } catch (e) {
     console.warn('[Posts] Failed to fetch from server:', e);
     return [];
@@ -91,11 +93,10 @@ async function fetchPostsFromServer(): Promise<Post[]> {
 
 async function fetchJobsFromServer(): Promise<Job[]> {
   try {
-    const baseUrl = getApiUrl();
-    const url = new URL('/api/jobs', baseUrl);
-    const res = await fetch(url.toString());
+    const res = await apiRequest('GET', '/api/jobs');
     if (!res.ok) return [];
-    return await res.json() as Job[];
+    const data = await res.json();
+    return (Array.isArray(data) ? data : data.jobs || []) as Job[];
   } catch (e) {
     console.warn('[Jobs] Failed to fetch from server:', e);
     return [];
@@ -104,11 +105,10 @@ async function fetchJobsFromServer(): Promise<Job[]> {
 
 async function fetchProfilesFromServer(): Promise<UserProfile[]> {
   try {
-    const baseUrl = getApiUrl();
-    const url = new URL('/api/profiles', baseUrl);
-    const res = await fetch(url.toString());
+    const res = await apiRequest('GET', '/api/profiles');
     if (!res.ok) return [];
-    return await res.json() as UserProfile[];
+    const data = await res.json();
+    return (Array.isArray(data) ? data : data.profiles || []) as UserProfile[];
   } catch (e) {
     console.warn('[Profiles] Failed to fetch from server:', e);
     return [];
