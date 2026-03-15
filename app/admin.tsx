@@ -250,8 +250,19 @@ function UserDetailCard({ user, onVerify, onDelete }: {
   );
 }
 
-// ─── Main AdminScreen ──────────────────────────────────────────────────────────
+// ─── Admin Access Wrapper ──────────────────────────────────────────────────────
 export default function AdminScreen() {
+  const { profile } = useApp();
+  const cleanProfilePhone = (profile?.phone || '').replace(/\D/g, '');
+  const isAdmin = profile?.role === 'admin' || cleanProfilePhone === '8179142535' || cleanProfilePhone === '9876543210' || profile?.email === 'atozmobilerepaircourse@gmail.com';
+
+  if (!isAdmin) return null;
+
+  return <AdminDashboard />;
+}
+
+// ─── Main AdminDashboard ────────────────────────────────────────────────────────
+function AdminDashboard() {
   const insets = useSafeAreaInsets();
   const { profile, posts, jobs, conversations, deletePost, allProfiles, refreshData } = useApp();
   const [activeTab, setActiveTab] = useState<AdminTab>('dashboard');
@@ -343,24 +354,13 @@ export default function AdminScreen() {
   const [assigningBooking, setAssigningBooking] = useState<any>(null);
   const [technicianSearch, setTechnicianSearch] = useState('');
 
-  // ── Safe render wrapper to prevent crashes (MUST be before conditional returns) ──
+  // ── Safe render wrapper to prevent crashes ──
   const [renderError, setRenderError] = useState<string | null>(null);
 
   const webTopInset = Platform.OS === 'web' ? 67 : insets.top;
   const isMobile = Platform.OS !== 'web' || (typeof window !== 'undefined' && window.innerWidth < 768);
 
-  // ── Admin check ──
-  const cleanProfilePhone = (profile?.phone || '').replace(/\D/g, '');
-  const isAdmin = profile?.role === 'admin' || cleanProfilePhone === '8179142535' || cleanProfilePhone === '9876543210' || profile?.email === 'atozmobilerepaircourse@gmail.com';
-
-  useEffect(() => {
-    if (profile && !isAdmin) {
-      Alert.alert('Access Denied', 'You do not have admin access.');
-      router.back();
-    }
-  }, [isAdmin, profile]);
-
-  // ── Fetch functions ── (ALL hooks must be above any conditional returns)
+  // ── Fetch functions ──
   const fetchRepairBookings = useCallback(async () => {
     setRepairLoading(true);
     try {
@@ -838,9 +838,7 @@ export default function AdminScreen() {
     finally { setEmailSending(false); }
   }, [emailSubject, emailBody, emailTargetRole, emailScheduleDate, emailScheduleTime, fetchEmailStats]);
 
-  // ── Conditional returns MUST come after ALL hooks ──
-  if (!isAdmin) return null;
-
+  // ── Error fallback UI ──
   if (renderError) {
     return (
       <View style={{ flex: 1, backgroundColor: C.bg, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
