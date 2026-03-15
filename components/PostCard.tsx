@@ -253,18 +253,19 @@ export default function PostCard({
       )}
 
       {/* ── Video (inline playback) ── */}
-      {post.videoUrl && !post.images.length && (
-        <View style={styles.videoContainer}>
+      {post.videoUrl && (
+        <Pressable onPress={() => setViewerMedia({ type: 'video', url: post.videoUrl! })} style={styles.videoContainer}>
           <Video
             source={{ uri: post.videoUrl }}
             style={styles.inlineVideo}
             useNativeControls
-            resizeMode={ResizeMode.COVER}
+            resizeMode={ResizeMode.CONTAIN}
             shouldPlay={false}
-            isLooping
-            isMuted={false}
+            isLooping={false}
+            isMuted={true}
+            progressUpdateIntervalMillis={500}
           />
-        </View>
+        </Pressable>
       )}
 
       {/* ── Hashtag pills ── */}
@@ -391,7 +392,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: 12,
     marginHorizontal: 10,
-    marginBottom: 8,
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: BORDER_DARK + '4D',
     position: 'relative',
@@ -492,10 +493,11 @@ const styles = StyleSheet.create({
   },
   postText: {
     color: TEXT_MAIN,
-    fontSize: 13,
-    lineHeight: 20,
+    fontSize: 14,
+    lineHeight: 21,
     fontFamily: 'Inter_400Regular',
     marginBottom: 12,
+    fontWeight: '500',
   },
   imageWrap: {
     borderRadius: 12,
@@ -506,7 +508,7 @@ const styles = StyleSheet.create({
   },
   singleImage: {
     width: '100%',
-    height: 240,
+    height: 220,
   },
   imageGrid: {
     flexDirection: 'row',
@@ -515,7 +517,7 @@ const styles = StyleSheet.create({
   },
   gridCell: {
     width: '49%' as any,
-    height: 120,
+    height: 110,
     position: 'relative',
   },
   gridImage: {
@@ -543,7 +545,8 @@ const styles = StyleSheet.create({
   },
   inlineVideo: {
     width: '100%',
-    height: 260,
+    height: 240,
+    backgroundColor: '#000',
   },
   tags: {
     flexDirection: 'row',
