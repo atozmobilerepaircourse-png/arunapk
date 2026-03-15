@@ -1817,8 +1817,6 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
       const result = await db.select().from(products).where(eq(products.id, req.params.id));
       if (result.length === 0) return res.status(404).json({ success: false, message: "Not found" });
       const p = result[0];
-      await db.update(products).set({ views: (p.views || 0) + 1 }).where(eq(products.id, req.params.id));
-      return res.json({ ...p, images: JSON.parse(p.images), likes: JSON.parse(p.likes), views: (p.views || 0) + 1 });
     } catch (error) {
       return res.status(500).json({ success: false });
     }
@@ -2098,9 +2096,6 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
       const postId = req.params.id;
       const [post] = await db.select().from(posts).where(eq(posts.id, postId));
       if (!post) return res.status(404).json({ success: false, message: "Post not found" });
-      const currentViews = (post.views || 0) + 1;
-      await db.update(posts).set({ views: currentViews }).where(eq(posts.id, postId));
-      return res.json({ success: true, views: currentViews });
     } catch (error) {
       console.error("[Posts] View error:", error);
       return res.status(500).json({ success: false, message: "Failed to track view" });
@@ -2489,14 +2484,12 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
         thumbnailUrl: thumbnailUrl || "",
         likes: "[]",
         comments: "[]",
-        views: 0,
         createdAt: now,
       });
 
       const reel = {
         id, userId, userName: userName || "", userAvatar: userAvatar || "",
         title: title || "", description: description || "", videoUrl,
-        thumbnailUrl: thumbnailUrl || "", likes: [], comments: [], views: 0, createdAt: now,
       };
 
       return res.json({ success: true, reel });
