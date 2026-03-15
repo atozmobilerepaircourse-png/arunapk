@@ -27,7 +27,6 @@ const CATEGORY_CHIPS = ['Mobile repair', 'AC technician', 'Plumbing', 'Electrici
 const ROLE_FILTERS: { key: UserRole | 'all'; label: string }[] = [
   { key: 'all',          label: 'All' },
   { key: 'technician',   label: 'Technicians' },
-  { key: 'customer',     label: 'Customers' },
   { key: 'teacher',      label: 'Teachers' },
   { key: 'supplier',     label: 'Suppliers' },
   { key: 'job_provider', label: 'Jobs' },
@@ -131,11 +130,8 @@ function ProfCard({ item, onChat, onCall, onPress }: ProfCardProps) {
             </View>
           </View>
 
-          {item.city ? (
-            <View style={styles.locationRow}>
-              <Ionicons name="location-outline" size={10} color={GRAY} />
-              <Text style={styles.locationText} numberOfLines={1}>{item.city}</Text>
-            </View>
+          {item.skills.length > 0 ? (
+            <Text style={styles.locationText} numberOfLines={1}>{item.skills.slice(0, 2).join(' · ')}</Text>
           ) : null}
         </View>
       </View>

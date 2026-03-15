@@ -272,7 +272,7 @@ function ClassicTabLayout() {
 export default function TabLayout() {
   const { profile } = useApp();
   const cleanPhone = profile?.phone?.replace(/\D/g, "");
-  const isAdmin = profile?.role === 'admin' || cleanPhone === "8179142535" || cleanPhone === "9876543210";
+  const isAdmin = profile?.role === 'admin' || cleanPhone === "8179142535" || cleanPhone === "9876543210" || profile?.email === 'atozmobilerepaircourse@gmail.com';
   const needsSub = (profile?.role === 'technician' || profile?.role === 'supplier' || profile?.role === 'teacher') && !isAdmin;
 
   const tabs = isLiquidGlassAvailable() ? <NativeTabLayout /> : <ClassicTabLayout />;

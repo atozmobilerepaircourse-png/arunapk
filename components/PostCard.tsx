@@ -259,9 +259,10 @@ export default function PostCard({
             source={{ uri: post.videoUrl }}
             style={styles.inlineVideo}
             useNativeControls
-            resizeMode={ResizeMode.CONTAIN}
+            resizeMode={ResizeMode.COVER}
             shouldPlay={false}
-            isLooping={false}
+            isLooping
+            isMuted={false}
           />
         </View>
       )}
@@ -387,10 +388,10 @@ export default function PostCard({
 const styles = StyleSheet.create({
   card: {
     backgroundColor: CARD_CHARCOAL,
-    borderRadius: 16,
-    padding: 16,
-    marginHorizontal: 16,
-    marginBottom: 12,
+    borderRadius: 14,
+    padding: 12,
+    marginHorizontal: 10,
+    marginBottom: 8,
     borderWidth: 1,
     borderColor: BORDER_DARK + '4D',
     position: 'relative',
@@ -414,7 +415,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 8,
     paddingRight: 80,
     gap: 10,
   },
@@ -505,7 +506,7 @@ const styles = StyleSheet.create({
   },
   singleImage: {
     width: '100%',
-    height: 160,
+    height: 240,
   },
   imageGrid: {
     flexDirection: 'row',
@@ -542,7 +543,7 @@ const styles = StyleSheet.create({
   },
   inlineVideo: {
     width: '100%',
-    height: 220,
+    height: 260,
   },
   tags: {
     flexDirection: 'row',

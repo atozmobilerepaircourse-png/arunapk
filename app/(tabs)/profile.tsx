@@ -52,25 +52,18 @@ const C = Colors.light;
 // ── Role switching rules ──────────────────────────────────────
 // ONLY ADMIN can switch ANY user's role
 // Non-admin users CANNOT switch roles
-function getAllowedRoles(currentRole: UserRole, userPhone?: string, userEmail?: string): UserRole[] {
-  // Admin role can switch roles
-  if (currentRole === 'admin') {
-    return ['teacher', 'technician', 'supplier', 'customer', 'job_provider'];
-  }
-  
-  // Super admin phone can switch roles
+function isSuperAdmin(userPhone?: string, userEmail?: string): boolean {
   const cleanPhone = userPhone?.replace(/\D/g, '') || '';
   const last10 = cleanPhone.slice(-10);
-  if (last10 === '8179142535' || last10 === '9876543210') {
-    return ['teacher', 'technician', 'supplier', 'customer', 'job_provider'];
+  if (last10 === '8179142535' || last10 === '9876543210') return true;
+  if (userEmail === SUPER_ADMIN_EMAIL) return true;
+  return false;
+}
+
+function getAllowedRoles(currentRole: UserRole, userPhone?: string, userEmail?: string): UserRole[] {
+  if (currentRole === 'admin' || isSuperAdmin(userPhone, userEmail)) {
+    return ['admin', 'teacher', 'technician', 'supplier', 'customer', 'job_provider'];
   }
-  
-  // Super admin email can switch roles
-  if (userEmail === SUPER_ADMIN_EMAIL) {
-    return ['teacher', 'technician', 'supplier', 'customer', 'job_provider'];
-  }
-  
-  // Non-admin users CANNOT switch roles
   return [];
 }
 
@@ -132,6 +125,7 @@ const ROLE_COLORS: Record<UserRole, string> = {
   supplier: '#FF6B2C',
   job_provider: '#5E8BFF',
   customer: '#FF2D55',
+  admin: '#8B5CF6',
 };
 
 function getInitials(name: string | undefined): string {
@@ -237,7 +231,13 @@ function CustomerProfileScreen() {
 
   const handleChangeRole = async (newRole: string) => {
     if (!profile?.id || changingRole) return;
-    
+
+    if (newRole === 'admin') {
+      setShowRolePicker(false);
+      router.push('/admin' as any);
+      return;
+    }
+
     const allowed = getAllowedRoles(profile.role, profile.phone, profile.email);
     if (!allowed.includes(newRole as UserRole)) {
       Alert.alert(
@@ -507,7 +507,7 @@ function CustomerProfileScreen() {
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                   <Ionicons
-                    name={r === 'technician' ? 'construct-outline' : r === 'teacher' ? 'school-outline' : r === 'supplier' ? 'cube-outline' : r === 'job_provider' ? 'briefcase-outline' : 'person-outline'}
+                    name={r === 'admin' ? 'shield-outline' : r === 'technician' ? 'construct-outline' : r === 'teacher' ? 'school-outline' : r === 'supplier' ? 'cube-outline' : r === 'job_provider' ? 'briefcase-outline' : 'person-outline'}
                     size={20}
                     color={profile?.role === r ? ORANGE : '#555'}
                   />
@@ -551,7 +551,13 @@ export default function ProfileScreen() {
 
   const handleChangeRole = async (newRole: string) => {
     if (!profile?.id || changingRole) return;
-    
+
+    if (newRole === 'admin') {
+      setShowRolePicker(false);
+      router.push('/admin' as any);
+      return;
+    }
+
     const allowed = getAllowedRoles(profile.role, profile.phone, profile.email);
     if (!allowed.includes(newRole as UserRole)) {
       Alert.alert(

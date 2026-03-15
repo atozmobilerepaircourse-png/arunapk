@@ -38,7 +38,6 @@ const ROLE_COLORS_LEGEND = [
   { role: 'Technician', color: '#34C759' },
   { role: 'Teacher', color: '#FFD60A' },
   { role: 'Supplier', color: '#FF6B2C' },
-  { role: 'Customer', color: '#FF2D55' },
 ];
 
 function getInitials(name: string) {

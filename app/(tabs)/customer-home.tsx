@@ -157,8 +157,8 @@ export default function CustomerHomeScreen() {
           <Text style={styles.greetText}>{getGreeting()}</Text>
           <Text style={styles.nameText}>Hello, {firstName}!</Text>
         </View>
-        <Pressable style={styles.bellBtn} onPress={() => go('/notification-preferences')}>
-          <Ionicons name="notifications-outline" size={22} color={FORE} />
+        <Pressable style={styles.bellBtn} onPress={() => go('/chats')}>
+          <Ionicons name="chatbubble-ellipses-outline" size={22} color={FORE} />
           <View style={styles.bellDot} />
         </Pressable>
       </View>

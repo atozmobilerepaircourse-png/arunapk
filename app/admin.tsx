@@ -348,7 +348,7 @@ export default function AdminScreen() {
 
   // ── Admin check ──
   const cleanProfilePhone = (profile?.phone || '').replace(/\D/g, '');
-  const isAdmin = profile?.role === 'admin' || cleanProfilePhone === '8179142535' || cleanProfilePhone === '9876543210';
+  const isAdmin = profile?.role === 'admin' || cleanProfilePhone === '8179142535' || cleanProfilePhone === '9876543210' || profile?.email === 'atozmobilerepaircourse@gmail.com';
 
   useEffect(() => {
     if (profile && !isAdmin) {
