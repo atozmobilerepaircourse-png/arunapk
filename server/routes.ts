@@ -6363,14 +6363,6 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
   });
 
   // ─── Admin: Mark notification as read ───
-  app.patch("/api/admin/lock-notifications/:id/read", adminMiddleware, async (req, res) => {
-    try {
-      await db.update(adminNotifications).set({ read: 1 }).where(eq(adminNotifications.id, req.params.id));
-      res.json({ success: true });
-    } catch (error) {
-      res.status(500).json({ success: false });
-    }
-  });
 
   // ─── Admin: Unlock user ───
   app.post("/api/admin/unlock-user", adminMiddleware, async (req, res) => {
