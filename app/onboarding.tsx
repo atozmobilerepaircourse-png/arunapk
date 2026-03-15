@@ -158,16 +158,36 @@ export default function OnboardingScreen() {
     }
     setOtpSending(true);
     setOtpError('');
-    setUsingFallback(true);
+    setUsingFallback(false);
     
     try {
-      // PRIMARY: Fast2SMS backend OTP - RELIABLE
-      console.log('[OTP] Sending OTP via SMS Gateway');
+      // PRIMARY: Try Firebase Phone Auth (web only)
+      if (Platform.OS === 'web') {
+        console.log('[OTP] PRIMARY: Attempting Firebase Phone Auth');
+        const { initializeRecaptcha, sendFirebaseOTP } = await import('@/lib/firebase-phone-auth');
+        await initializeRecaptcha(digits);
+        const fbResult = await sendFirebaseOTP(digits);
+        
+        if (fbResult.success) {
+          console.log('[OTP] ✓ Firebase OTP sent successfully');
+          setOtpSent(true);
+          setOtpResendTimer(30);
+          setPhone(digits);
+          setScreen('otp');
+          Alert.alert('OTP Sent', 'Check your SMS for the verification code');
+          return;
+        }
+        console.warn('[OTP] Firebase failed:', fbResult.error);
+      }
+      
+      // FALLBACK: Use backend OTP (Fast2SMS)
+      console.log('[OTP] FALLBACK: Using SMS Gateway');
+      setUsingFallback(true);
       const { sendFallbackOTP } = await import('@/lib/firebase-phone-auth');
       const result = await sendFallbackOTP(digits);
       
       if (result.success) {
-        console.log('[OTP] ✓ OTP sent successfully');
+        console.log('[OTP] ✓ OTP sent via SMS Gateway');
         setOtpSent(true);
         setOtpResendTimer(30);
         setPhone(digits);
@@ -201,20 +221,43 @@ export default function OnboardingScreen() {
     
     try {
       console.log('[OTP] Verifying code:', code);
-      const { verifyFallbackOTP } = await import('@/lib/firebase-phone-auth');
-      const result = await verifyFallbackOTP(phone, code);
+      let verifyResult: any = null;
       
-      if (!result.success) {
-        console.error('[OTP] Verification failed:', result.error);
-        setOtpError(result.error);
-        Alert.alert('Verification Failed', result.error);
-        return;
+      // PRIMARY: Try Firebase if not using fallback
+      if (!usingFallback) {
+        try {
+          console.log('[OTP] PRIMARY: Verifying with Firebase');
+          const { verifyFirebaseOTP } = await import('@/lib/firebase-phone-auth');
+          const fbResult = await verifyFirebaseOTP(code);
+          
+          if (fbResult.success) {
+            console.log('[OTP] ✓ Firebase verification successful');
+            verifyResult = { success: true, isNewUser: true };
+          } else {
+            console.warn('[OTP] Firebase verification failed, trying fallback');
+          }
+        } catch (e) {
+          console.warn('[OTP] Firebase verification error, trying fallback');
+        }
+      }
+      
+      // FALLBACK: Verify via backend
+      if (!verifyResult) {
+        console.log('[OTP] FALLBACK: Verifying via backend');
+        const { verifyFallbackOTP } = await import('@/lib/firebase-phone-auth');
+        const result = await verifyFallbackOTP(phone, code);
+        
+        if (!result.success) {
+          console.error('[OTP] Verification failed:', result.error);
+          setOtpError(result.error);
+          Alert.alert('Verification Failed', result.error);
+          return;
+        }
+        verifyResult = result.data;
       }
       
       console.log('[OTP] ✓ Verification successful');
       if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      
-      const verifyResult = result.data;
       
       if (verifyResult.isNewUser === false && verifyResult.profile) {
         const p = { 
@@ -450,6 +493,7 @@ export default function OnboardingScreen() {
     return (
       <View style={s.screen}>
         <StatusBar style="light" />
+        {Platform.OS === 'web' && <View nativeID="recaptcha-container" style={{ position: 'absolute', zIndex: -9999, opacity: 0, width: 1, height: 1 }} />}
         <View style={s.heroContainer}>
           <Image source={{ uri: HERO_IMAGE }} style={StyleSheet.absoluteFill} contentFit="cover" />
           <LinearGradient colors={['transparent', 'rgba(0,0,0,0.1)', 'rgba(255,255,255,0.95)', '#FFFFFF']} style={s.heroGradient} />
