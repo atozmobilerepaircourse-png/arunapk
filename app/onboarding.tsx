@@ -121,6 +121,12 @@ export default function OnboardingScreen() {
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
   const [otpAttempts, setOtpAttempts] = useState(0);
   const recaptchaVerifier = useRef<FirebaseRecaptchaVerifierModal>(null);
+  // Check if Firebase is configured via env vars
+  const firebaseAvailable = !!(
+    process.env.EXPO_PUBLIC_FIREBASE_API_KEY &&
+    process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN &&
+    process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID
+  );
 
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
