@@ -360,29 +360,7 @@ export default function AdminScreen() {
     }
   }, [isAdmin, profile]);
 
-  if (!isAdmin) return null;
-
-  if (renderError) {
-    return (
-      <View style={{ flex: 1, backgroundColor: C.bg, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
-        <Ionicons name="alert-circle-outline" size={48} color={C.textTertiary} />
-        <Text style={{ fontSize: 16, fontFamily: 'Inter_600SemiBold', color: C.text, marginTop: 16, textAlign: 'center' }}>
-          Admin Panel Error
-        </Text>
-        <Text style={{ fontSize: 13, fontFamily: 'Inter_400Regular', color: C.textSecondary, marginTop: 8, textAlign: 'center' }}>
-          {renderError}
-        </Text>
-        <Pressable
-          onPress={() => { setRenderError(null); refreshData?.(); }}
-          style={{ backgroundColor: PRIMARY, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 8, marginTop: 20 }}
-        >
-          <Text style={{ color: '#fff', fontFamily: 'Inter_600SemiBold' }}>Retry</Text>
-        </Pressable>
-      </View>
-    );
-  }
-
-  // ── Fetch functions ──
+  // ── Fetch functions ── (ALL hooks must be above any conditional returns)
   const fetchRepairBookings = useCallback(async () => {
     setRepairLoading(true);
     try {
@@ -859,6 +837,29 @@ export default function AdminScreen() {
     } catch { setEmailResult('❌ Network error'); }
     finally { setEmailSending(false); }
   }, [emailSubject, emailBody, emailTargetRole, emailScheduleDate, emailScheduleTime, fetchEmailStats]);
+
+  // ── Conditional returns MUST come after ALL hooks ──
+  if (!isAdmin) return null;
+
+  if (renderError) {
+    return (
+      <View style={{ flex: 1, backgroundColor: C.bg, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+        <Ionicons name="alert-circle-outline" size={48} color={C.textTertiary} />
+        <Text style={{ fontSize: 16, fontFamily: 'Inter_600SemiBold', color: C.text, marginTop: 16, textAlign: 'center' }}>
+          Admin Panel Error
+        </Text>
+        <Text style={{ fontSize: 13, fontFamily: 'Inter_400Regular', color: C.textSecondary, marginTop: 8, textAlign: 'center' }}>
+          {renderError}
+        </Text>
+        <Pressable
+          onPress={() => { setRenderError(null); refreshData?.(); }}
+          style={{ backgroundColor: PRIMARY, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 8, marginTop: 20 }}
+        >
+          <Text style={{ color: '#fff', fontFamily: 'Inter_600SemiBold' }}>Retry</Text>
+        </Pressable>
+      </View>
+    );
+  }
 
   // ── Tabs config ──
   const tabs: { key: AdminTab; label: string; icon: keyof typeof Ionicons.glyphMap; group?: string }[] = [
