@@ -296,14 +296,6 @@ export default function DirectoryScreen() {
             <Text style={styles.emptyText}>Try changing your filters or search term</Text>
           </View>
         }
-        ListFooterComponent={
-          filtered.length > 0 ? (
-            <Pressable style={styles.loadMore}>
-              <Text style={styles.loadMoreText}>Load More</Text>
-              <Ionicons name="chevron-down" size={12} color={PRIMARY} />
-            </Pressable>
-          ) : null
-        }
       />
     </View>
   );
@@ -448,15 +440,8 @@ const styles = StyleSheet.create({
   callBtnText: { fontSize: 10, fontFamily: 'Inter_600SemiBold', color: '#FFF' },
   chevronBtn: { width: 30, backgroundColor: '#F3F4F6', borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
 
-  // Empty + load more
+  // Empty
   empty: { alignItems: 'center', justifyContent: 'center', paddingTop: 60, gap: 10 },
   emptyTitle: { fontSize: 16, fontFamily: 'Inter_600SemiBold', color: DARK },
   emptyText: { fontSize: 13, color: GRAY, fontFamily: 'Inter_400Regular', textAlign: 'center', paddingHorizontal: 32 },
-  loadMore: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    marginHorizontal: 16, marginTop: 8, marginBottom: 8,
-    paddingVertical: 12, borderRadius: 24,
-    borderWidth: 1, borderColor: `${PRIMARY}33`,
-  },
-  loadMoreText: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: PRIMARY },
 });
