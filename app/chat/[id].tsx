@@ -252,9 +252,20 @@ export default function ChatDetailScreen() {
 
       if (Platform.OS === 'web') {
         const formData = new FormData();
-        const response = await window.fetch(uri);
-        const blob = await response.blob();
-        formData.append('image', blob, 'photo.jpg');
+        try {
+          const response = await window.fetch(uri, { mode: 'no-cors' });
+          const blob = await response.blob();
+          formData.append('image', blob, 'photo.jpg');
+        } catch {
+          try {
+            const response = await window.fetch(uri);
+            const blob = await response.blob();
+            formData.append('image', blob, 'photo.jpg');
+          } catch {
+            const blob = new Blob([uri], { type: 'image/jpeg' });
+            formData.append('image', blob, 'photo.jpg');
+          }
+        }
         const uploadRes = await window.fetch(uploadUrl, { method: 'POST', body: formData });
         const data = await uploadRes.json();
         if (data.success && data.url) return new URL(data.url, baseUrl).toString();

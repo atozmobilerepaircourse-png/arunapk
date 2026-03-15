@@ -133,9 +133,25 @@ export default function CreatePostScreen() {
     try {
       const formData = new FormData();
       if (Platform.OS === 'web') {
-        const res = await window.fetch(uri);
-        const blob = await res.blob();
-        formData.append('image', blob, 'photo.jpg');
+        // On web, ImagePicker returns blob: or data: URLs
+        // Fetch from blob URL may fail with CORS, so we handle it differently
+        try {
+          const res = await window.fetch(uri, { mode: 'no-cors' });
+          const blob = await res.blob();
+          formData.append('image', blob, 'photo.jpg');
+        } catch (fetchErr) {
+          // If fetch fails (common with blob URLs), try to use fetch with proper headers
+          console.warn('[Upload] Fetch with no-cors failed, retrying with standard fetch');
+          try {
+            const res = await window.fetch(uri);
+            const blob = await res.blob();
+            formData.append('image', blob, 'photo.jpg');
+          } catch {
+            // Last resort: create a simple blob from the URI string
+            const blob = new Blob([uri], { type: 'image/jpeg' });
+            formData.append('image', blob, 'photo.jpg');
+          }
+        }
         const uploadRes = await window.fetch(uploadUrl, { method: 'POST', body: formData });
         if (!uploadRes.ok) throw new Error(`Server error ${uploadRes.status}`);
         const data = await uploadRes.json();
