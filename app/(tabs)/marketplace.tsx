@@ -92,7 +92,7 @@ function ProductCard({ product, onAdd, onPress }: {
       {/* Image */}
       <View style={styles.cardImgWrap}>
         {img ? (
-          <Image source={{ uri: img }} style={styles.cardImg} contentFit="contain" />
+          <Image source={{ uri: img }} style={styles.cardImg} contentFit="cover" />
         ) : (
           <View style={[styles.cardImg, styles.cardImgEmpty]}>
             <Ionicons name="cube-outline" size={32} color={MH.textMuted} />
@@ -419,9 +419,9 @@ const styles = StyleSheet.create({
   badge: { position: 'absolute', top: 8, left: 8, paddingHorizontal: 6, paddingVertical: 3, borderRadius: 4, zIndex: 2 },
   badgeTxt: { color: '#FFF', fontSize: 8, fontFamily: 'Inter_700Bold', letterSpacing: 0.3 },
   heartBtn: { position: 'absolute', top: 8, right: 8, zIndex: 2, width: 26, height: 26, borderRadius: 13, backgroundColor: 'rgba(255,255,255,0.9)', alignItems: 'center', justifyContent: 'center' },
-  cardImgWrap: { width: '100%', height: 100, backgroundColor: MH.bg, alignItems: 'center', justifyContent: 'center' },
+  cardImgWrap: { width: '100%', aspectRatio: 1, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center', borderBottomWidth: 1, borderBottomColor: MH.border },
   cardImg: { width: '100%', height: '100%' },
-  cardImgEmpty: { alignItems: 'center', justifyContent: 'center' },
+  cardImgEmpty: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#F3F4F6' },
   cardBody: { padding: 8, gap: 2 },
   cardTitle: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: MH.text, lineHeight: 17, marginTop: 1 },
   cardSeller: { fontSize: 11, color: MH.textMuted, fontFamily: 'Inter_400Regular' },
