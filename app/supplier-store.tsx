@@ -28,8 +28,17 @@ function getImgUri(img: string) {
 function getProductImages(product: any): string[] {
   try {
     if (Array.isArray(product.images)) return product.images;
-    return JSON.parse(product.images || '[]');
-  } catch { return []; }
+    const parsed = JSON.parse(product.images || '[]');
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    // Fallback: handle comma-separated strings
+    if (typeof product.images === 'string' && product.images.length > 0) {
+      return product.images.includes(',')
+        ? product.images.split(',').filter((url: string) => url.trim().length > 0)
+        : [product.images.trim()];
+    }
+    return [];
+  }
 }
 
 function StarRating({ rating }: { rating: number }) {
@@ -246,9 +255,7 @@ export default function SupplierStoreScreen() {
           <Ionicons name="arrow-back" size={22} color={T.text} />
         </Pressable>
         <Text style={styles.headerTitle} numberOfLines={1}>{displayName}</Text>
-        <Pressable onPress={() => router.push('/cart')} style={styles.cartBtn}>
-          <Ionicons name="cart-outline" size={22} color={T.text} />
-        </Pressable>
+        <View style={{ width: 38 }} />
       </View>
 
       {!supplier ? (
@@ -284,11 +291,10 @@ export default function SupplierStoreScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0A0A14' },
-  headerBar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: T.border, backgroundColor: '#0A0A14' },
-  backBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: T.card, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { flex: 1, textAlign: 'center', fontSize: 17, fontFamily: 'Inter_700Bold', color: T.text },
-  cartBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: T.card, alignItems: 'center', justifyContent: 'center' },
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  headerBar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#E5E7EB', backgroundColor: '#FFFFFF' },
+  backBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { flex: 1, textAlign: 'center', fontSize: 17, fontFamily: 'Inter_700Bold', color: '#111827' },
   banner: { padding: 24, paddingTop: 28, paddingBottom: 32 },
   bannerOverlay: { alignItems: 'center' },
   avatarWrap: { position: 'relative', marginBottom: 12 },
