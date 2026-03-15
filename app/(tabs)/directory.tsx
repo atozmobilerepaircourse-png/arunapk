@@ -317,7 +317,14 @@ export default function DirectoryScreen() {
           return (
           <ProfCard
             item={item}
-            onPress={() => router.push({ pathname: '/user-profile', params: { id: item.id } })}
+            onPress={() => {
+              // Route suppliers/teachers to shop, others to profile
+              if (item.role === 'supplier' || item.role === 'teacher') {
+                router.push({ pathname: '/supplier-store', params: { supplierId: item.id, supplierName: item.name } });
+              } else {
+                router.push({ pathname: '/user-profile', params: { id: item.id } });
+              }
+            }}
             onChat={item.id !== profile?.id && item.role !== 'customer' ? async () => {
               const c = await startConversation(item.id, item.name, item.role);
               if (c) router.push({ pathname: '/chat/[id]', params: { id: c } });
