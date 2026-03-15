@@ -208,6 +208,15 @@ function UserDetailCard({ user, onVerify, onDelete }: {
               <Ionicons name={isVerified ? 'close-circle-outline' : 'checkmark-circle-outline'} size={13} color={isVerified ? '#5E8BFF' : '#34C759'} />
               <Text style={{ fontSize: 12, color: isVerified ? '#5E8BFF' : '#34C759', fontFamily: 'Inter_600SemiBold' }}>{isVerified ? 'Unverify' : 'Verify'}</Text>
             </Pressable>
+            {profile?.blocked === 1 && (
+              <Pressable
+                onPress={() => executeUnblockUser(user.id, user.name)}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#34C75915', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: '#34C75940' }}
+              >
+                <Ionicons name="lock-open-outline" size={13} color="#34C759" />
+                <Text style={{ fontSize: 12, color: '#34C759', fontFamily: 'Inter_600SemiBold' }}>Unlock</Text>
+              </Pressable>
+            )}
             <Pressable
               onPress={() => Alert.alert('Delete User', `Delete ${user.name}? This cannot be undone.`, [
                 { text: 'Cancel', style: 'cancel' },
@@ -679,6 +688,22 @@ export default function AdminScreen() {
       }
     } catch (e: any) { 
       Alert.alert('Error', e.message || 'Failed to verify user. Check your connection.'); 
+    }
+  };
+
+  const executeUnblockUser = async (userId: string, userName: string) => {
+    try {
+      const res = await apiRequest('POST', '/api/admin/unblock-user', { userId });
+      if (!res.ok) throw new Error('API error');
+      const data = await res.json();
+      if (data.success) {
+        Alert.alert('Success', `${userName} has been unlocked.`);
+        refreshData().catch(e => console.log('Refresh failed:', e));
+      } else {
+        Alert.alert('Error', data.message || 'Failed to unlock user');
+      }
+    } catch (e: any) { 
+      Alert.alert('Error', e.message || 'Failed to unlock user. Check your connection.'); 
     }
   };
 

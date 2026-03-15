@@ -5105,6 +5105,18 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
   });
 
 
+  app.post("/api/admin/unblock-user", adminMiddleware, async (req, res) => {
+    try {
+      const { userId } = req.body;
+      if (!userId) return res.status(400).json({ success: false, message: "userId required" });
+      await db.update(profiles).set({ blocked: 0 }).where(eq(profiles.id, userId));
+      return res.json({ success: true, message: "User unlocked" });
+    } catch (error) {
+      console.error("[Admin] Unblock user error:", error);
+      return res.status(500).json({ success: false, message: "Failed to unlock user" });
+    }
+  });
+
   app.post("/api/admin/delete-user", async (req, res) => {
     try {
       const { userId } = req.body;

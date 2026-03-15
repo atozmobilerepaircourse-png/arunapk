@@ -29,16 +29,19 @@ import * as WebBrowser from 'expo-web-browser';
 const C = Colors.light;
 
 const SUPER_ADMIN_PHONE = '8179142535';
+const SUPER_ADMIN_EMAIL = 'atozmobilerepaircourse@gmail.com';
 
 function getRoleRoute(profile: { role?: string; phone?: string; email?: string }): string {
   if (!profile) return '/(tabs)';
   
-  // Super admin (phone-based only) ALWAYS gets admin panel
+  // Super admin (phone or email) ALWAYS gets admin panel
   const phone = profile.phone || '';
+  const email = profile.email || '';
   const isEmailBased = phone.startsWith('email:');
   const cleanPhone = phone.replace(/\D/g, '').slice(-10);
   
   if (!isEmailBased && cleanPhone === SUPER_ADMIN_PHONE) return '/admin';
+  if (email === SUPER_ADMIN_EMAIL) return '/admin';
   // Regular admin role goes to admin panel
   if (profile.role === 'admin') return '/admin';
   // Customer goes to customer home
