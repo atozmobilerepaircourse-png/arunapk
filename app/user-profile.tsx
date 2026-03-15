@@ -265,27 +265,7 @@ export default function UserProfileScreen() {
           </View>
         )}
 
-        {/* Services Section (Technicians only) */}
-        {isTechnician && (
-          <View style={s.section}>
-            <Text style={s.sectionTitle}>Services & Pricing</Text>
-            <View style={s.servicesGrid}>
-              {TECH_SERVICES.map(svc => (
-                <Pressable
-                  key={svc.id}
-                  style={s.serviceCard}
-                  onPress={handleBookService}
-                >
-                  <View style={s.serviceIconWrap}>
-                    <Ionicons name={svc.icon} size={22} color={PRIMARY} />
-                  </View>
-                  <Text style={s.serviceLabel}>{svc.label}</Text>
-                  <Text style={s.servicePrice}>Starting {svc.price}</Text>
-                </Pressable>
-              ))}
-            </View>
-          </View>
-        )}
+        {/* Services Section Disabled - Booking removed */}
 
         {/* Bio */}
         {user.bio ? (
