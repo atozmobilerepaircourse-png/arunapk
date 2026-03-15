@@ -901,23 +901,6 @@ export default function OnboardingScreen() {
                   <Ionicons name="phone-portrait" size={20} color="#FFF" />
                   <Text style={{ fontSize: 15, fontWeight: '600', color: '#FFF' }}>Sign in with Mobile</Text>
                 </Pressable>
-
-                {/* Continue as Guest Button */}
-                <Pressable
-                  onPress={handleNext}
-                  style={({ pressed }) => ({
-                    width: '100%',
-                    height: 48,
-                    backgroundColor: 'transparent',
-                    borderRadius: 16,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    opacity: pressed ? 0.7 : 1,
-                  })}
-                >
-                  <Text style={{ fontSize: 15, fontWeight: '600', color: '#3b82f6' }}>Continue as Guest</Text>
-                </Pressable>
               </View>
             </View>
           </View>
