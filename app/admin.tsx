@@ -4,7 +4,16 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '@/lib/context';
-import { PRIMARY, C } from '@/lib/theme';
+
+const PRIMARY = '#0084FF';
+const C = {
+  bg: '#FFFFFF',
+  surface: '#F9FAFB',
+  text: '#111827',
+  textSecondary: '#6B7280',
+  textTertiary: '#9CA3AF',
+  border: '#E5E7EB',
+};
 
 export default function AdminScreen() {
   const { profile } = useApp();
