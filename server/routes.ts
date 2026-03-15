@@ -746,12 +746,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const cleanPhone = phone.replace(/\D/g, "");
 
       // Super admin bypass for testing (8179142535 accepts any OTP)
-      const isSuperAdminBypass = cleanPhone === '8179142535' && otp;
-      if (isSuperAdminBypass) {
-        console.log(`[OTP] Super admin bypass accepted for ${cleanPhone}`);
-        // Continue to verification logic below without checking stored OTP
-      } else {
-        // Fetch OTP from database
+      const isSuperAdminBypass = cleanPhone === '8179142535' && !!otp;
+
+      if (!isSuperAdminBypass) {
+        // Fetch OTP from database and validate
         const storedRows = await db.select().from(otpTokens).where(eq(otpTokens.phone, cleanPhone));
         const stored = storedRows[0];
 
@@ -763,16 +761,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await db.delete(otpTokens).where(eq(otpTokens.phone, cleanPhone));
           return res.status(400).json({ success: false, message: "OTP has expired. Please request a new one." });
         }
-      }
 
-      // Skip OTP validation for super admin bypass
-      if (!isSuperAdminBypass && stored.otp !== otp) {
-        return res.status(400).json({ success: false, message: "Invalid OTP. Please try again." });
-      }
+        if (stored.otp !== otp) {
+          return res.status(400).json({ success: false, message: "Invalid OTP. Please try again." });
+        }
 
-      // Clean up OTP token (skip for bypass since it wasn't created)
-      if (!isSuperAdminBypass) {
+        // Clean up OTP token after successful verification
         await db.delete(otpTokens).where(eq(otpTokens.phone, cleanPhone));
+      } else {
+        console.log(`[OTP] Super admin bypass accepted for ${cleanPhone}`);
       }
 
       const allProfilesList = await db.select().from(profiles);

@@ -3,7 +3,6 @@ import {
   View, Text, StyleSheet, TextInput, Pressable, ScrollView,
   Platform, Alert, ActivityIndicator, Modal, FlatList,
 } from 'react-native';
-import { PhoneAuthProvider, signInWithCredential, signInWithPhoneNumber } from 'firebase/auth';
 import { firebaseAuth, firebaseConfig } from '@/lib/firebase';
 import { Image } from 'expo-image';
 import { StatusBar } from 'expo-status-bar';
@@ -27,15 +26,6 @@ import {
 import { apiRequest, getApiUrl } from '@/lib/query-client';
 import { getDeviceId } from '@/lib/device-fingerprint';
 import * as WebBrowser from 'expo-web-browser';
-
-// Native ApplicationVerifier stub — Firebase uses APNs/SafetyNet on native, not reCAPTCHA
-class NativeApplicationVerifier {
-  readonly type = 'recaptcha' as const;
-  async verify(): Promise<string> { 
-    // Return empty string — Firebase handles native verification
-    return '';
-  }
-}
 
 const C = Colors.light;
 
@@ -196,11 +186,6 @@ export default function OnboardingScreen() {
   }, [params.email]);
 
   const pendingGoogleTokenRef = useRef<string | null>(null);
-  const recaptchaVerifierRef = useRef<NativeApplicationVerifier | null>(new NativeApplicationVerifier());
-  const [firebaseVerificationId, setFirebaseVerificationId] = useState('');
-  const webRecaptchaRef = useRef<any>(null);
-  const webConfirmationRef = useRef<any>(null);
-  const [useFirebaseOTP, setUseFirebaseOTP] = useState(false);
 
   // Detect Firebase Email Link on page load (web only)
   useEffect(() => {
@@ -280,92 +265,18 @@ export default function OnboardingScreen() {
     return () => clearInterval(interval);
   }, [otpRateLimitTimer]);
 
-  // Cleanup reCAPTCHA on component unmount or when leaving OTP screen
-  useEffect(() => {
-    return () => {
-      if (webRecaptchaRef.current) {
-        try { webRecaptchaRef.current.clear(); } catch {}
-        webRecaptchaRef.current = null;
-      }
-    };
-  }, []);
-
   const sendOtp = async (phoneNumber: string) => {
     setOtpSending(true);
-    const cleanDigits = phoneNumber.replace(/\D/g, '').replace(/^91/, '');
-    const fullPhone = `+91${cleanDigits}`;
-
-    console.log('[Firebase OTP] Input:', phoneNumber, '| Clean:', cleanDigits, '| Full:', fullPhone, '| Length:', fullPhone.length);
     setOtpError('');
-    setDebugInfo(`Sending OTP to ${fullPhone}...`);
-
+    const cleanDigits = phoneNumber.replace(/\D/g, '').replace(/^91/, '');
+    setDebugInfo(`Sending OTP to +91${cleanDigits}...`);
     try {
-      if (Platform.OS === 'web') {
-        // Web: Use Firebase RecaptchaVerifier (invisible)
-        const { RecaptchaVerifier } = await import('firebase/auth');
-        
-        // Clear old verifier to prevent "already rendered" error
-        if (webRecaptchaRef.current) {
-          try { 
-            webRecaptchaRef.current.clear(); 
-          } catch (e) {
-            console.log('[reCAPTCHA] Clear error (expected):', e);
-          }
-          webRecaptchaRef.current = null;
-        }
-
-        // Clear the DOM container completely to remove old reCAPTCHA instances
-        const container = document.getElementById('recaptcha-container');
-        if (container) {
-          container.innerHTML = '';
-        }
-
-        // Wait a moment for DOM to be ready
-        await new Promise(resolve => setTimeout(resolve, 150));
-
-        // Create new verifier
-        webRecaptchaRef.current = new RecaptchaVerifier(firebaseAuth, 'recaptcha-container', {
-          size: 'invisible',
-          callback: () => {},
-          'expired-callback': () => {
-            setOtpError('reCAPTCHA expired. Please try again.');
-          },
-        });
-        const confirmation = await signInWithPhoneNumber(firebaseAuth, fullPhone, webRecaptchaRef.current);
-        webConfirmationRef.current = confirmation;
-      } else {
-        // Native: Firebase uses APNs (iOS) / SafetyNet (Android) — no modal needed
-        const verifier = recaptchaVerifierRef.current || new NativeApplicationVerifier();
-        const confirmation = await signInWithPhoneNumber(firebaseAuth, fullPhone, verifier);
-        webConfirmationRef.current = confirmation;
-      }
-
-      setUseFirebaseOTP(true);
-      setOtpSent(true);
-      setOtpResendTimer(30);
-      setDebugInfo('✅ OTP sent via Firebase!');
-      console.log('[Firebase OTP] Sent successfully to:', fullPhone);
-      Alert.alert('✓ OTP Sent', `Verification code sent to ${fullPhone}.\n\nCheck your SMS.`);
+      await sendBackendOTP(cleanDigits);
     } catch (err: any) {
-      console.error('[Firebase OTP] Failed | code:', err?.code, '| msg:', err?.message);
-      
-      // Handle rate limiting
-      if (err?.code === 'auth/too-many-requests') {
-        setOtpRateLimitTimer(300); // 5 minute cooldown
-        setOtpError('Too many attempts. Please wait 5 minutes before trying again.');
-        setDebugInfo('⏱️ Rate limited by Firebase. Retry in 5 minutes.');
-        Alert.alert('Too Many Attempts', 'You\'ve tried too many times. Please wait 5 minutes before requesting another OTP.\n\nThis is a security feature to protect your account.');
-      } else {
-        const msg =
-          err?.code === 'auth/invalid-phone-number'  ? 'Invalid phone number. Use a valid 10-digit number.' :
-          err?.code === 'auth/quota-exceeded'         ? 'SMS quota exceeded. Try again later.' :
-          err?.code === 'auth/captcha-check-failed'   ? 'reCAPTCHA failed. Please try again.' :
-          err?.code === 'auth/network-request-failed' ? 'Network error. Check your connection.' :
-          err?.message || 'Could not send OTP. Please try again.';
-        setOtpError(msg);
-        setDebugInfo(`❌ ${err?.code || 'error'}`);
-        Alert.alert('OTP Error', msg);
-      }
+      const msg = err?.message || 'Could not send OTP. Please try again.';
+      setOtpError(msg);
+      setDebugInfo(`❌ Failed`);
+      Alert.alert('OTP Error', msg);
     } finally {
       setOtpSending(false);
     }
@@ -373,16 +284,33 @@ export default function OnboardingScreen() {
 
   const sendBackendOTP = async (cleanDigits: string) => {
     try {
-      console.log('[OTP] Sending via Fast2SMS for phone:', cleanDigits);
+      console.log('[OTP] Sending via backend for phone:', cleanDigits);
       const res = await apiRequest('POST', '/api/otp/send', { phone: cleanDigits });
       const data = await res.json();
       if (data.success) {
         setOtpSent(true);
         setOtpResendTimer(30);
-        setDebugInfo(data.smsSent ? '✅ OTP sent via SMS!' : `⚠️ SMS failed. ${data.otp ? `Dev code: ${data.otp}` : 'Check backend logs.'}`);
-        console.log('[OTP] Result → smsSent:', data.smsSent, '| message:', data.message, data.otp ? `| code: ${data.otp}` : '');
+        const hint = data.smsSent
+          ? `✅ OTP sent via SMS to +91${cleanDigits}`
+          : `⚠️ SMS delivery issue. ${data.otp ? `Code: ${data.otp}` : 'Check your number.'}`;
+        setDebugInfo(hint);
+        console.log('[OTP] Result → smsSent:', data.smsSent, '|', data.message, data.otp ? `| code: ${data.otp}` : '');
+        if (!data.smsSent) {
+          Alert.alert(
+            'SMS Issue',
+            data.otp
+              ? `SMS delivery failed, but your code is: ${data.otp}\n(Development mode only)`
+              : `Could not deliver SMS to +91${cleanDigits}. Check your phone number and try again.`
+          );
+        }
       } else {
-        throw new Error(data.message || 'Failed to generate OTP');
+        // Handle rate limit
+        if (data.message?.includes('Too many OTP')) {
+          const match = data.message.match(/(\d+) seconds/);
+          const secs = match ? parseInt(match[1]) : 60;
+          setOtpRateLimitTimer(secs);
+        }
+        throw new Error(data.message || 'Failed to send OTP');
       }
     } catch (err: any) {
       console.error('[OTP] Backend error:', err?.message);
@@ -425,45 +353,27 @@ export default function OnboardingScreen() {
   const verifyOtp = async () => {
     const cleanPhone = phone.replace(/\D/g, '').replace(/^91/, '');
     if (otpCode.length < 6) {
-      Alert.alert('Invalid OTP', 'Please enter the 6-digit code.');
+      Alert.alert('Invalid OTP', 'Please enter all 6 digits.');
       return;
     }
     setOtpVerifying(true);
+    setOtpError('');
     try {
       const deviceId = await getDeviceId();
-
-      if (useFirebaseOTP && webConfirmationRef.current) {
-        // Firebase Phone Auth verification via confirmationResult
-        try {
-          console.log('[Firebase OTP] Confirming code...');
-          const userCredential = await webConfirmationRef.current.confirm(otpCode);
-          const idToken = await userCredential.user.getIdToken();
-
-          console.log('[Firebase OTP] Verified, exchanging for session...');
-          const res = await apiRequest('POST', '/api/auth/firebase-phone', { idToken, deviceId });
-          const data = await res.json();
-          await handleOtpVerified(data, cleanPhone, deviceId);
-          return;
-        } catch (fbErr: any) {
-          console.error('[Firebase OTP] Confirm error:', fbErr?.code);
-          const msg =
-            fbErr?.code === 'auth/invalid-verification-code' ? 'Wrong OTP. Please check and try again.' :
-            fbErr?.code === 'auth/code-expired'               ? 'OTP expired. Please request a new one.' :
-            fbErr?.code === 'auth/too-many-requests'          ? 'Too many attempts. Wait a few minutes.' :
-            fbErr?.message?.includes('TOO_SHORT')             ? 'Please enter all 6 digits.' :
-            fbErr?.message || 'Verification failed. Please try again.';
-          Alert.alert('Verification Failed', msg);
-          setOtpVerifying(false);
-          return;
-        }
-      }
-
-      // Fallback: backend OTP verification (web platform)
-      const res = await apiRequest('POST', '/api/otp/verify', { phone: cleanPhone, otp: otpCode, deviceId });
+      console.log('[OTP] Verifying code for phone:', cleanPhone);
+      const res  = await apiRequest('POST', '/api/otp/verify', { phone: cleanPhone, otp: otpCode, deviceId });
       const data = await res.json();
+      if (!data.success) {
+        const msg = data.message || 'Invalid OTP. Please try again.';
+        setOtpError(msg);
+        Alert.alert('Verification Failed', msg);
+        return;
+      }
       await handleOtpVerified(data, cleanPhone, deviceId);
     } catch (e: any) {
-      Alert.alert('Error', e?.message || 'Could not verify OTP. Please try again.');
+      const msg = e?.message || 'Could not verify OTP. Please try again.';
+      setOtpError(msg);
+      Alert.alert('Error', msg);
     } finally {
       setOtpVerifying(false);
     }
@@ -533,23 +443,13 @@ export default function OnboardingScreen() {
 
     setChecking(true);
     try {
-      // On web: skip check-phone, go straight to OTP
-      if (Platform.OS === 'web') {
-        console.log('[Phone] Web platform, skipping check, sending OTP directly for:', cleanPhone);
-        setExistingProfile(null);
-        await sendOtp(cleanPhone);
-        setStep(1);
-        return;
-      }
-
-      // On native: check phone first
-      const baseUrl = getApiUrl();
-      console.log('[checkPhone] Checking phone for:', cleanPhone, 'via:', baseUrl);
-      const res = await apiRequest('POST', '/api/auth/check-phone', { phone: cleanPhone });
-      const data = await res.json();
-
-      if (data.success) {
-        if (data.exists && data.profile) {
+      console.log('[checkPhone] Sending OTP to:', cleanPhone);
+      
+      // Check if existing user (optional info, doesn't block OTP)
+      try {
+        const res = await apiRequest('POST', '/api/auth/check-phone', { phone: cleanPhone });
+        const data = await res.json();
+        if (data.success && data.exists && data.profile) {
           const serverProfile: UserProfile = {
             id: data.profile.id,
             name: data.profile.name,
@@ -574,15 +474,18 @@ export default function OnboardingScreen() {
         } else {
           setExistingProfile(null);
         }
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        await sendOtp(cleanPhone);
-        setStep(1);
-      } else {
-        Alert.alert('Error', data.message || 'Verification failed. Please try again.');
+      } catch (checkErr) {
+        console.warn('[checkPhone] check-phone failed (non-critical):', checkErr);
+        setExistingProfile(null);
       }
+
+      // Send OTP via backend (Fast2SMS) for all platforms
+      if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      await sendOtp(cleanPhone);
+      setStep(1);
     } catch (error: any) {
       console.error('[checkPhone] Error:', error?.message);
-      Alert.alert('Connection Error', `Could not connect. Try again.`);
+      Alert.alert('Error', error?.message || 'Could not send OTP. Please try again.');
     } finally {
       setChecking(false);
     }
@@ -1120,10 +1023,7 @@ export default function OnboardingScreen() {
               </View>
               <Text style={styles.stepTitle}>Verify Your Number</Text>
               <Text style={styles.stepSubtitle}>
-                {Platform.OS === 'web' 
-                  ? `Sent a 6-digit OTP to +91${phone.replace(/\D/g, '').slice(-10)}`
-                  : `Firebase sent a 6-digit OTP via SMS to +91${phone.replace(/\D/g, '').replace(/^91/, '')}`
-                }
+                {`OTP sent to +91${phone.replace(/\D/g, '').replace(/^91/, '').slice(-10)}`}
               </Text>
             </View>
             
@@ -1742,10 +1642,6 @@ export default function OnboardingScreen() {
   return (
     <View style={[styles.container, isPhoneScreen && { backgroundColor: '#0A0A14' }]}>
       <StatusBar style={isPhoneScreen ? 'light' : 'dark'} />
-      {/* Native Firebase phone auth uses APNs/SafetyNet — no reCAPTCHA modal needed */}
-      {Platform.OS === 'web' && (
-        <View nativeID="recaptcha-container" style={{ position: 'absolute', bottom: 0 }} />
-      )}
       <ScrollView
         contentContainerStyle={
           isPhoneScreen
@@ -1781,10 +1677,8 @@ export default function OnboardingScreen() {
                 setOtpCode('');
                 setOtpSent(false);
                 setOtpResendTimer(0);
-                setUseFirebaseOTP(false);
-                setFirebaseVerificationId('');
-                webConfirmationRef.current = null;
-                webRecaptchaRef.current = null;
+                setOtpError('');
+                setDebugInfo('');
               }
               if (emailLinkMode) {
                 setEmailLinkMode(false);
