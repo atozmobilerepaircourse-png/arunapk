@@ -1445,9 +1445,6 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
       const foundByPhone = allProfiles.find(p => p.phone.replace(/\D/g, "") === cleanPhone);
 
       if (foundByEmail) {
-        if (foundByEmail.blocked) {
-          return res.json({ success: false, message: "Your account has been blocked by admin." });
-        }
         const sToken = require("crypto").randomBytes(32).toString("hex");
         await db.insert(sessions).values({ phone: foundByEmail.phone, sessionToken: sToken, createdAt: Date.now() });
         let parsedSkills = [];
@@ -1465,9 +1462,6 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
       }
 
       if (foundByPhone) {
-        if (foundByPhone.blocked) {
-          return res.json({ success: false, message: "Your account has been blocked by admin." });
-        }
         if (!foundByPhone.email) {
           await db.update(profiles).set({ email }).where(eq(profiles.id, foundByPhone.id));
         }
