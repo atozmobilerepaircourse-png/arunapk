@@ -2101,6 +2101,7 @@ export default function AdminScreen() {
   };
 
   // ── MAIN RENDER ──
+  try {
   return (
     <View style={{ flex: 1, backgroundColor: C.background }}>
       {/* Header */}
@@ -2174,6 +2175,26 @@ export default function AdminScreen() {
       </View>
     </View>
   );
+  } catch (e: any) {
+    console.error('[Admin] Render error:', e);
+    return (
+      <View style={{ flex: 1, backgroundColor: C.bg, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+        <Ionicons name="alert-circle-outline" size={48} color="#FF3B30" />
+        <Text style={{ fontSize: 16, fontFamily: 'Inter_600SemiBold', color: C.text, marginTop: 16 }}>
+          Admin Panel Error
+        </Text>
+        <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: C.textSecondary, marginTop: 8, textAlign: 'center' }}>
+          {e?.message || 'Something went wrong'}
+        </Text>
+        <Pressable
+          onPress={() => router.back()}
+          style={{ backgroundColor: PRIMARY, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 8, marginTop: 20 }}
+        >
+          <Text style={{ color: '#fff', fontFamily: 'Inter_600SemiBold' }}>Go Back</Text>
+        </Pressable>
+      </View>
+    );
+  }
 }
 
 // ─── STYLES ───────────────────────────────────────────────────────────────────
