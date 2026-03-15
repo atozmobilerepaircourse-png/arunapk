@@ -14,6 +14,7 @@ import Colors from '@/constants/colors';
 import { useApp } from '@/lib/context';
 import { getApiUrl } from '@/lib/query-client';
 import { PostCategory } from '@/lib/types';
+import { uploadVideoToBunnyStream } from '@/lib/bunny-stream';
 
 const C = Colors.light;
 
@@ -175,44 +176,24 @@ export default function CreatePostScreen() {
   }, []);
 
   const uploadVideo = useCallback(async (uri: string): Promise<string> => {
-    const baseUrl = getApiUrl();
-    const uploadUrl = new URL('/api/upload-video', baseUrl).toString();
-    const formData = new FormData();
-
-    if (Platform.OS === 'web') {
-      const response = await window.fetch(uri);
-      const blob = await response.blob();
-      formData.append('video', blob, 'video.mp4');
-    } else {
-      formData.append('video', { uri, type: 'video/mp4', name: 'video.mp4' } as any);
+    try {
+      // Use Bunny Stream with real progress tracking
+      const videoUrl = await uploadVideoToBunnyStream(
+        uri,
+        `post_${Date.now()}`,
+        (progress) => {
+          setUploadPercent(progress.percent);
+          setUploadProgress(progress.message);
+        },
+        undefined, // cancelSignal
+        true, // waitForEncoding - wait for Bunny to process
+      );
+      setUploadPercent(100);
+      setUploadProgress('Video ready!');
+      return videoUrl.playbackUrl;
+    } catch (e: any) {
+      throw new Error(e.message || 'Video upload failed');
     }
-
-    return new Promise<string>((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      xhr.open('POST', uploadUrl);
-      xhr.upload.onprogress = (e) => {
-        if (e.lengthComputable) {
-          const pct = Math.min(99, Math.round((e.loaded / e.total) * 100));
-          setUploadPercent(pct);
-          setUploadProgress(`Uploading video... ${pct}%`);
-        }
-      };
-      xhr.onload = () => {
-        setUploadPercent(100);
-        setUploadProgress('Processing video...');
-        try {
-          const data = JSON.parse(xhr.responseText);
-          if (data.success && data.url) resolve(data.url);
-          else reject(new Error(data.message || 'Video upload failed'));
-        } catch {
-          reject(new Error('Could not parse server response'));
-        }
-      };
-      xhr.onerror = () => reject(new Error('Network error during video upload'));
-      xhr.ontimeout = () => reject(new Error('Video upload timed out. The file may be too large or your connection is slow.'));
-      xhr.timeout = 600000; // 10 min for large videos
-      xhr.send(formData);
-    });
   }, []);
 
   const handleSubmit = async () => {
@@ -251,12 +232,19 @@ export default function CreatePostScreen() {
       let uploadedVideoUrl = '';
       if (video) {
         setUploadPercent(0);
-        setUploadProgress('Uploading video... 0%');
-        uploadedVideoUrl = await uploadVideo(video);
-        setUploadProgress('');
-        setUploadPercent(0);
+        setUploadProgress('Preparing video upload...');
+        try {
+          uploadedVideoUrl = await uploadVideo(video);
+        } catch (videoError: any) {
+          Alert.alert('Video Upload Failed', videoError.message || 'Could not upload video. Please try again.');
+          setIsSubmitting(false);
+          setUploadProgress('');
+          setUploadPercent(0);
+          return;
+        }
       }
 
+      setUploadProgress('Creating post...');
       await addPost({
         userId: profile.id,
         userName: profile.name,
@@ -272,6 +260,11 @@ export default function CreatePostScreen() {
       setImages([]);
       setVideo(null);
       setCategory('repair');
+      setUploadProgress('Post created!');
+      setUploadPercent(100);
+      
+      // Brief delay to show success message
+      await new Promise(r => setTimeout(r, 500));
       router.navigate('/(tabs)');
     } catch (e: any) {
       console.error('[Post] Submit failed:', e?.message || e);
