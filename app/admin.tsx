@@ -343,6 +343,9 @@ export default function AdminScreen() {
   const [assigningBooking, setAssigningBooking] = useState<any>(null);
   const [technicianSearch, setTechnicianSearch] = useState('');
 
+  // ── Safe render wrapper to prevent crashes (MUST be before conditional returns) ──
+  const [renderError, setRenderError] = useState<string | null>(null);
+
   const webTopInset = Platform.OS === 'web' ? 67 : insets.top;
   const isMobile = Platform.OS !== 'web' || (typeof window !== 'undefined' && window.innerWidth < 768);
 
@@ -358,9 +361,6 @@ export default function AdminScreen() {
   }, [isAdmin, profile]);
 
   if (!isAdmin) return null;
-
-  // ── Safe render wrapper to prevent crashes ──
-  const [renderError, setRenderError] = useState<string | null>(null);
 
   if (renderError) {
     return (
