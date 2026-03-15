@@ -4,7 +4,13 @@ set -e
 echo "=== Deploying Frontend to Firebase Hosting ==="
 
 echo "[1/3] Building Expo web export..."
-EXPO_PUBLIC_DOMAIN=repair-backend-3siuld7gbq-el.a.run.app npx expo export --platform web --output-dir dist
+EXPO_PUBLIC_DOMAIN=repair-backend-3siuld7gbq-el.a.run.app \
+EXPO_PUBLIC_FIREBASE_API_KEY="$EXPO_PUBLIC_FIREBASE_API_KEY" \
+EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN="$EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN" \
+EXPO_PUBLIC_FIREBASE_PROJECT_ID="$EXPO_PUBLIC_FIREBASE_PROJECT_ID" \
+EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID="$EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID" \
+EXPO_PUBLIC_FIREBASE_APP_ID="$EXPO_PUBLIC_FIREBASE_APP_ID" \
+npx expo export --platform web --output-dir dist
 
 echo "[2/3] Copying fonts..."
 mkdir -p dist/_expo/static/fonts
