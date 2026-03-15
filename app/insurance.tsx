@@ -93,11 +93,11 @@ export default function InsuranceScreen() {
     if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setLoading(true);
     try {
-      const planPrice = insuranceSettings.protectionPlanPrice;
       const res = await apiRequest('POST', '/api/customer/subscription/create-order', {
         userId: profile.id,
         planId: 'premium',
-        amount: planPrice * 100,
+        mobileModel: mobileModel.trim(),
+        imeiNumber: imeiNumber.trim(),
       });
       const data = await res.json();
       if (!data.success) {
@@ -105,13 +105,13 @@ export default function InsuranceScreen() {
         else Alert.alert('Error', data.message || 'Failed to create order');
         return;
       }
-      const { orderId, keyId, amount } = data;
+      const { orderId, keyId, amount, displayAmount } = data;
       const url = new URL('/api/subscription/checkout', getApiUrl());
       url.searchParams.set('orderId', orderId);
       url.searchParams.set('amount', String(amount));
       url.searchParams.set('keyId', keyId);
       url.searchParams.set('role', 'customer');
-      url.searchParams.set('displayAmount', String(planPrice));
+      url.searchParams.set('displayAmount', String(displayAmount || data.displayAmount || insuranceSettings.protectionPlanPrice));
       url.searchParams.set('userId', profile.id);
       url.searchParams.set('userName', profile.name || '');
       url.searchParams.set('userPhone', profile.phone || '');

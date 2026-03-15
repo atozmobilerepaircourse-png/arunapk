@@ -3931,19 +3931,30 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
       if (!razorpayAvailable || !razorpayInstance) {
         return res.status(503).json({ success: false, message: "Payment gateway not configured" });
       }
-      const { userId } = req.body;
+      const { userId, mobileModel, imeiNumber } = req.body;
       if (!userId) return res.status(400).json({ success: false, message: "userId required" });
       const [user] = await db.select().from(profiles).where(eq(profiles.id, userId));
       if (!user) return res.status(404).json({ success: false, message: "User not found" });
-      const PROTECTION_PLAN_PRICE = 50;
-      const amountInPaise = PROTECTION_PLAN_PRICE * 100; // ₹50
+
+      // Read admin-configured price from appSettings
+      const priceRows = await db.select().from(appSettings).where(eq(appSettings.key, 'insurance_plan_price'));
+      const adminPrice = priceRows[0] ? parseInt(priceRows[0].value || '50', 10) : 50;
+      const planPrice = adminPrice > 0 ? adminPrice : 50;
+      const amountInPaise = planPrice * 100;
+
       const options = {
         amount: amountInPaise, currency: "INR",
         receipt: `cust_sub_${Date.now()}`,
-        notes: { userId, role: 'customer', type: 'customer_subscription' },
+        notes: {
+          userId,
+          role: 'customer',
+          type: 'customer_subscription',
+          mobileModel: mobileModel || '',
+          imeiNumber: imeiNumber || '',
+        },
       };
       const order = await razorpayInstance.orders.create(options);
-      return res.json({ success: true, orderId: order.id, amount: amountInPaise, currency: "INR", keyId: razorpayKeyId, displayAmount: String(PROTECTION_PLAN_PRICE) });
+      return res.json({ success: true, orderId: order.id, amount: amountInPaise, currency: "INR", keyId: razorpayKeyId, displayAmount: String(planPrice) });
     } catch (error) {
       console.error("[Customer Sub] Create order error:", error);
       return res.status(500).json({ success: false, message: "Failed to create order" });
@@ -3990,7 +4001,7 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
     
     const baseUrl = process.env.APP_DOMAIN || "https://repair-backend-us-456751858632.us-central1.run.app";
 
-    const roleLabel = role === 'technician' ? 'Technician' : role === 'supplier' ? 'Supplier' : String(role);
+    const roleLabel = role === 'technician' ? 'Technician' : role === 'supplier' ? 'Supplier' : role === 'teacher' ? 'Teacher' : role === 'customer' ? 'Mobile Protection' : String(role);
 
     const html = `<!DOCTYPE html>
 <html>
