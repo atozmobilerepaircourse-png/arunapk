@@ -22,7 +22,6 @@ const DARK      = '#111827';
 const GRAY      = '#6B7280';
 const SUCCESS   = '#10B981';
 
-const CATEGORY_CHIPS = ['Mobile repair', 'AC technician', 'Plumbing', 'Electrician', 'Carpentry'];
 
 const ROLE_FILTERS: { key: UserRole | 'all'; label: string }[] = [
   { key: 'all',          label: 'All' },
@@ -160,7 +159,6 @@ export default function DirectoryScreen() {
   const { allProfiles, profile, startConversation, refreshData } = useApp();
   const [search, setSearch]         = useState('');
   const [roleFilter, setRoleFilter] = useState<UserRole | 'all'>('all');
-  const [chipFilter, setChipFilter] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [stats, setStats]           = useState<OnlineStats | null>(null);
   const [viewMode, setViewMode]     = useState<'list' | 'map'>(params.view === 'map' ? 'map' : 'list');
@@ -196,10 +194,9 @@ export default function DirectoryScreen() {
   const filtered = useMemo(() => {
     let list = directory;
     if (roleFilter !== 'all') list = list.filter(e => e.role === roleFilter);
-    if (chipFilter) { const q = chipFilter.toLowerCase(); list = list.filter(e => e.skills.some(s => s.toLowerCase().includes(q))); }
     if (search.trim()) { const q = search.toLowerCase(); list = list.filter(e => e.name.toLowerCase().includes(q) || e.city.toLowerCase().includes(q) || e.skills.some(s => s.toLowerCase().includes(q))); }
     return list;
-  }, [directory, roleFilter, chipFilter, search]);
+  }, [directory, roleFilter, search]);
 
   const mapProfiles = useMemo(() => filtered.filter(p => p.latitude && p.longitude && !isNaN(p.latitude!) && !isNaN(p.longitude!) && (p.role !== 'customer' || p.locationSharing === 'true')).map(p => ({ id: p.id, latitude: p.latitude!, longitude: p.longitude!, name: p.name, role: ROLE_LABELS[p.role] || p.role, roleKey: p.role, city: p.city, skills: p.skills, color: ROLE_MAP_COLORS[p.role] || '#1D4ED8', avatar: p.avatar, isOnline: p.isOnline, lastSeen: 0 })), [filtered]);
 
@@ -255,46 +252,9 @@ export default function DirectoryScreen() {
           </Pressable>
         </View>
 
-        {/* Category chips */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips} style={styles.chipsScroll}>
-          {CATEGORY_CHIPS.map(chip => (
-            <Pressable key={chip} style={[styles.chip, chipFilter === chip && styles.chipActive]} onPress={() => setChipFilter(chipFilter === chip ? '' : chip)}>
-              <Text style={[styles.chipText, chipFilter === chip && styles.chipTextActive]}>{chip}</Text>
-            </Pressable>
-          ))}
-        </ScrollView>
-
-        {/* Stats Cards - Fixed */}
-        {stats && (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.statsScroll} style={{ backgroundColor: BG }}>
-            {STAT_CONFIG.map(cfg => {
-                  const s = stats[cfg.key];
-                  if (!s) return null;
-                  return (
-                    <View key={cfg.key} style={styles.statCard}>
-                      {/* Corner decoration */}
-                      <View style={[styles.statCorner, { backgroundColor: cfg.cornerBg }]} />
-                      <View style={styles.statInner}>
-                        <View style={styles.statTopRow}>
-                          <View style={[styles.statIcon, { backgroundColor: cfg.iconBg }]}>
-                            <Ionicons name={cfg.icon} size={18} color={cfg.iconColor} />
-                          </View>
-                          <View style={styles.liveChip}>
-                            <LivePing />
-                            <Text style={styles.liveText}>{s.online} Live</Text>
-                          </View>
-                        </View>
-                        <Text style={styles.statLabel}>{cfg.label}</Text>
-                        <Text style={styles.statCount}>{s.registered.toLocaleString()}</Text>
-                      </View>
-                    </View>
-                  );
-            })}
-          </ScrollView>
-        )}
 
         {/* Role Filter Tabs - Fixed */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs} style={{ backgroundColor: BG, paddingVertical: 8 }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs} style={{ backgroundColor: BG, paddingVertical: 6 }}>
           {ROLE_FILTERS.map(f => (
             <Pressable
               key={f.key}
@@ -328,7 +288,7 @@ export default function DirectoryScreen() {
             onCall={phone ? () => Linking.openURL(`tel:+91${phone}`) : undefined}
           />);
         }}
-        ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+        ItemSeparatorComponent={() => <View style={{ height: 6 }} />}
         ListEmptyComponent={
           <View style={styles.empty}>
             <Ionicons name="people-outline" size={48} color={GRAY} />
@@ -356,7 +316,7 @@ const styles = StyleSheet.create({
   fixedHeader: {
     backgroundColor: CARD,
     paddingHorizontal: 16,
-    paddingBottom: 12,
+    paddingBottom: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
@@ -366,8 +326,8 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 24,
     zIndex: 100,
   },
-  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', marginBottom: 12 },
-  searchContainer: { flexDirection: 'row', gap: 8, alignItems: 'center', marginBottom: 12 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', marginBottom: 8 },
+  searchContainer: { flexDirection: 'row', gap: 8, alignItems: 'center', marginBottom: 8 },
 
   // Header
   header: {
@@ -432,7 +392,7 @@ const styles = StyleSheet.create({
   statCount: { fontSize: 24, fontFamily: 'Inter_700Bold', color: DARK, marginTop: 2 },
 
   // Tabs
-  tabs: { paddingHorizontal: 16, gap: 8 },
+  tabs: { paddingHorizontal: 16, gap: 6 },
   tab: {
     paddingHorizontal: 18, paddingVertical: 8,
     borderRadius: 20, backgroundColor: CARD,
@@ -448,8 +408,8 @@ const styles = StyleSheet.create({
     marginHorizontal: 12,
     backgroundColor: CARD,
     borderRadius: 16,
-    padding: 4,
-    marginBottom: 4,
+    padding: 3,
+    marginBottom: 3,
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.03, shadowRadius: 6, elevation: 1,
     borderWidth: 1, borderColor: '#F3F4F6',
   },
@@ -473,7 +433,7 @@ const styles = StyleSheet.create({
   distanceText: { fontSize: 9, color: PRIMARY, fontFamily: 'Inter_600SemiBold' },
 
   // Card footer
-  cardFooter: { flexDirection: 'row', gap: 4, marginTop: 4, paddingTop: 3, borderTopWidth: 1, borderTopColor: '#F9FAFB' },
+  cardFooter: { flexDirection: 'row', gap: 3, marginTop: 2, paddingTop: 2, borderTopWidth: 1, borderTopColor: '#F9FAFB' },
   chatBtn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 2,
     borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8,
