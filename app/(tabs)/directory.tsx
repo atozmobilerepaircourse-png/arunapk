@@ -249,9 +249,6 @@ export default function DirectoryScreen() {
               value={search}
               onChangeText={setSearch}
             />
-            <Pressable style={styles.filterBtn}>
-              <Ionicons name="options" size={14} color="#FFF" />
-            </Pressable>
           </View>
           <Pressable style={styles.mapBtn} onPress={() => setViewMode('map')}>
             <Ionicons name="map-outline" size={16} color={PRIMARY} />
