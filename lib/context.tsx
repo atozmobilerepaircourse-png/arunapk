@@ -78,7 +78,10 @@ async function syncProfileToServer(profile: UserProfile, deviceId?: string) {
 
 async function fetchPostsFromServer(): Promise<Post[]> {
   try {
-    const res = await apiRequest('GET', '/api/posts');
+    // /api/posts is public - use direct fetch without auth
+    const baseUrl = getApiUrl();
+    const url = new URL('/api/posts', baseUrl);
+    const res = await fetch(url.toString());
     if (!res.ok) {
       console.warn('[Posts] API returned status:', res.status);
       return [];
@@ -93,7 +96,10 @@ async function fetchPostsFromServer(): Promise<Post[]> {
 
 async function fetchJobsFromServer(): Promise<Job[]> {
   try {
-    const res = await apiRequest('GET', '/api/jobs');
+    // /api/jobs is public - use direct fetch without auth
+    const baseUrl = getApiUrl();
+    const url = new URL('/api/jobs', baseUrl);
+    const res = await fetch(url.toString());
     if (!res.ok) return [];
     const data = await res.json();
     return (Array.isArray(data) ? data : data.jobs || []) as Job[];
@@ -105,7 +111,10 @@ async function fetchJobsFromServer(): Promise<Job[]> {
 
 async function fetchProfilesFromServer(): Promise<UserProfile[]> {
   try {
-    const res = await apiRequest('GET', '/api/profiles');
+    // /api/profiles is public - use direct fetch without auth
+    const baseUrl = getApiUrl();
+    const url = new URL('/api/profiles', baseUrl);
+    const res = await fetch(url.toString());
     if (!res.ok) return [];
     const data = await res.json();
     return (Array.isArray(data) ? data : data.profiles || []) as UserProfile[];
