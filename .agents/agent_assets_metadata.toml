@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "P5-9hf8DGLqo62cdSaoBR"
+uri = "file://mobi-source.zip"
+type = "unspecified"
+title = "Mobi App - Complete Updated Project (91 MB)"
