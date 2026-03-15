@@ -103,6 +103,7 @@ export default function PostCard({
   const [editText, setEditText] = useState(post.text);
   const [editSaving, setEditSaving] = useState(false);
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
+  const [videoPlaying, setVideoPlaying] = useState(false);
 
   const isLiked = currentUserId ? post.likes.includes(currentUserId) : false;
   const isOwn   = currentUserId === post.userId;
@@ -228,43 +229,57 @@ export default function PostCard({
         <Text style={styles.postText}>{displayText}</Text>
       )}
 
-      {/* ── Images ── */}
-      {post.images.length > 0 && (
+      {/* ── Images or Video ── */}
+      {(post.images.length > 0 || post.videoUrl) && (
         <View style={styles.imageWrap}>
-          {post.images.length === 1 ? (
-            <Pressable onPress={() => setViewerMedia({ type: 'image', url: post.images[0] })}>
-              <Image source={{ uri: post.images[0] }} style={styles.singleImage} contentFit="cover" />
-            </Pressable>
-          ) : (
-            <View style={styles.imageGrid}>
-              {post.images.slice(0, 4).map((img, i) => (
-                <Pressable key={i} style={styles.gridCell} onPress={() => setViewerMedia({ type: 'image', url: img })}>
-                  <Image source={{ uri: img }} style={styles.gridImage} contentFit="cover" />
-                  {i === 3 && post.images.length > 4 && (
-                    <View style={styles.moreOverlay}>
-                      <Text style={styles.moreText}>+{post.images.length - 4}</Text>
-                    </View>
-                  )}
+          {/* Video: plays inline in card like Instagram */}
+          {post.videoUrl && !post.images.length ? (
+            <View style={styles.videoCardContainer}>
+              <Video
+                source={{ uri: post.videoUrl }}
+                style={[styles.singleImage, { backgroundColor: '#000' }]}
+                useNativeControls={videoPlaying}
+                resizeMode={ResizeMode.CONTAIN}
+                shouldPlay={videoPlaying}
+                isLooping={false}
+                isMuted={false}
+                progressUpdateIntervalMillis={500}
+              />
+              {/* Play button overlay */}
+              {!videoPlaying && (
+                <Pressable 
+                  style={styles.videoPlayOverlay}
+                  onPress={() => setVideoPlaying(true)}
+                >
+                  <View style={styles.playButtonCenter}>
+                    <Ionicons name="play-circle" size={64} color="#FFFFFF" />
+                  </View>
                 </Pressable>
-              ))}
+              )}
             </View>
-          )}
-        </View>
-      )}
+          ) : null}
 
-      {/* ── Video (inline playback with native controls) ── */}
-      {post.videoUrl && (
-        <View style={styles.videoContainer}>
-          <Video
-            source={{ uri: post.videoUrl }}
-            style={styles.inlineVideo}
-            useNativeControls
-            resizeMode={ResizeMode.CONTAIN}
-            shouldPlay={false}
-            isLooping={false}
-            isMuted={false}
-            progressUpdateIntervalMillis={500}
-          />
+          {/* Images grid */}
+          {post.images.length > 0 ? (
+            post.images.length === 1 ? (
+              <Pressable onPress={() => setViewerMedia({ type: 'image', url: post.images[0] })}>
+                <Image source={{ uri: post.images[0] }} style={styles.singleImage} contentFit="cover" />
+              </Pressable>
+            ) : (
+              <View style={styles.imageGrid}>
+                {post.images.slice(0, 4).map((img, i) => (
+                  <Pressable key={i} style={styles.gridCell} onPress={() => setViewerMedia({ type: 'image', url: img })}>
+                    <Image source={{ uri: img }} style={styles.gridImage} contentFit="cover" />
+                    {i === 3 && post.images.length > 4 && (
+                      <View style={styles.moreOverlay}>
+                        <Text style={styles.moreText}>+{post.images.length - 4}</Text>
+                      </View>
+                    )}
+                  </Pressable>
+                ))}
+              </View>
+            )
+          ) : null}
         </View>
       )}
 
@@ -535,6 +550,14 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontFamily: 'Inter_700Bold',
   },
+  videoCardContainer: {
+    position: 'relative',
+    width: '100%',
+    height: 220,
+    backgroundColor: '#000',
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
   videoContainer: {
     borderRadius: 12,
     overflow: 'hidden',
@@ -549,14 +572,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#000',
   },
   videoPlayOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+  },
+  playButtonCenter: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   playButtonContainer: {
     alignItems: 'center',
