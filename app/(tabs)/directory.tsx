@@ -79,6 +79,31 @@ function LivePing() {
   );
 }
 
+function LiveCountPills({ stats }: { stats: OnlineStats | null }) {
+  const roles = [
+    { key: 'technician', label: 'Technicians', icon: 'construct' as const, color: '#2563EB' },
+    { key: 'teacher', label: 'Teachers', icon: 'school' as const, color: '#EA580C' },
+    { key: 'supplier', label: 'Suppliers', icon: 'cube' as const, color: '#0D9488' },
+    { key: 'customer', label: 'Customers', icon: 'people' as const, color: '#7C3AED' },
+  ];
+
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.liveCountsContainer} style={{ backgroundColor: CARD, paddingVertical: 6, marginBottom: 0 }}>
+      {roles.map(role => {
+        const count = stats?.[role.key]?.online || 0;
+        return (
+          <View key={role.key} style={[styles.liveCountPill, { borderLeftColor: role.color }]}>
+            <Ionicons name={role.icon} size={13} color={role.color} />
+            <Text style={styles.liveCountLabel}>{role.label}</Text>
+            <View style={styles.liveCountDot} />
+            <Text style={styles.liveCountNumber}>{count}</Text>
+          </View>
+        );
+      })}
+    </ScrollView>
+  );
+}
+
 interface ProfCardProps {
   item: {
     id: string; name: string; role: UserRole; city: string;
@@ -252,6 +277,8 @@ export default function DirectoryScreen() {
           </Pressable>
         </View>
 
+        {/* Live Count Pills */}
+        <LiveCountPills stats={stats} />
 
         {/* Role Filter Tabs - Fixed */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs} style={{ backgroundColor: BG, paddingVertical: 6 }}>
@@ -439,6 +466,19 @@ const styles = StyleSheet.create({
   },
   callBtnText: { fontSize: 10, fontFamily: 'Inter_600SemiBold', color: '#FFF' },
   chevronBtn: { width: 30, backgroundColor: '#F3F4F6', borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+
+  // Live Count Pills
+  liveCountsContainer: { paddingHorizontal: 16, gap: 6 },
+  liveCountPill: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    height: 32, paddingHorizontal: 10, paddingVertical: 0,
+    backgroundColor: '#F9FAFB', borderRadius: 16,
+    borderWidth: 1, borderColor: '#E5E7EB', borderLeftWidth: 3,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 2, elevation: 1,
+  },
+  liveCountLabel: { fontSize: 11, fontFamily: 'Inter_600SemiBold', color: DARK },
+  liveCountDot: { width: 5, height: 5, borderRadius: 2.5, backgroundColor: SUCCESS, marginHorizontal: 2 },
+  liveCountNumber: { fontSize: 11, fontFamily: 'Inter_700Bold', color: SUCCESS, minWidth: 18 },
 
   // Empty
   empty: { alignItems: 'center', justifyContent: 'center', paddingTop: 60, gap: 10 },
