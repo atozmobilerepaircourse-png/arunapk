@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TextInput, Pressable, ScrollView,
-  Platform, Alert, ActivityIndicator, Modal, FlatList,
+  Platform, Alert, ActivityIndicator, Modal, FlatList, KeyboardAvoidingView,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { StatusBar } from 'expo-status-bar';
@@ -11,11 +11,11 @@ import * as Haptics from 'expo-haptics';
 import * as Crypto from 'expo-crypto';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { openLink } from '@/lib/open-link';
 import { fetch as expoFetch } from 'expo/fetch';
 import { router, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import { openLink } from '@/lib/open-link';
+import * as WebBrowser from 'expo-web-browser';
 import Colors from '@/constants/colors';
 import { useApp } from '@/lib/context';
 import {
@@ -24,57 +24,67 @@ import {
 } from '@/lib/types';
 import { apiRequest, getApiUrl } from '@/lib/query-client';
 import { getDeviceId } from '@/lib/device-fingerprint';
-import * as WebBrowser from 'expo-web-browser';
-import { FirebaseRecaptchaVerifierModal } from 'expo-firebase-recaptcha';
-import { signInWithPhoneNumber, ConfirmationResult } from 'firebase/auth';
-import { firebaseConfig, getFirebaseAuth } from '@/lib/firebase';
 
 const C = Colors.light;
 
 const SUPER_ADMIN_PHONE = '8179142535';
 const SUPER_ADMIN_EMAIL = 'atozmobilerepaircourse@gmail.com';
+const HERO_IMAGE = 'https://storage.googleapis.com/uxpilot-auth.appspot.com/c69a9c90be-00b03d5f25bcd43e70a8.png';
 
 function getRoleRoute(profile: { role?: string; phone?: string; email?: string }): string {
   if (!profile) return '/(tabs)';
-  
-  // Super admin (phone or email) ALWAYS gets admin panel
   const phone = profile.phone || '';
   const email = profile.email || '';
   const isEmailBased = phone.startsWith('email:');
   const cleanPhone = phone.replace(/\D/g, '').slice(-10);
-  
   if (!isEmailBased && cleanPhone === SUPER_ADMIN_PHONE) return '/admin';
   if (email === SUPER_ADMIN_EMAIL) return '/admin';
-  // Regular admin role goes to admin panel
   if (profile.role === 'admin') return '/admin';
-  // Customer goes to customer home
   if (profile.role === 'customer') return '/(tabs)/customer-home';
-  // Everyone else goes to main app
   return '/(tabs)';
 }
 
-const ROLES: { key: UserRole; icon: keyof typeof Ionicons.glyphMap; color: string }[] = [
-  { key: 'customer', icon: 'person', color: '#FF375F' },
-  { key: 'technician', icon: 'construct', color: '#32D74B' },
-  { key: 'teacher', icon: 'school', color: '#FFD60A' },
-  { key: 'supplier', icon: 'cube', color: '#FF9F0A' },
+const ROLES: { key: UserRole; label: string; icon: keyof typeof Ionicons.glyphMap; color: string; bg: string }[] = [
+  { key: 'customer', label: 'Customer', icon: 'person', color: '#EF4444', bg: '#FEF2F2' },
+  { key: 'technician', label: 'Technician', icon: 'construct', color: '#22C55E', bg: '#F0FDF4' },
+  { key: 'teacher', label: 'Teacher', icon: 'school', color: '#F59E0B', bg: '#FFFBEB' },
+  { key: 'supplier', label: 'Supplier', icon: 'cube', color: '#3B82F6', bg: '#EFF6FF' },
 ];
 
-type ScreenName = 'welcome' | 'google-phone' | 'phone' | 'otp' | 'details' | 'selfie' | 'skills' | 'sellType' | 'teachType' | 'businessDocs' | 'location';
+type Screen = 'welcome' | 'phone' | 'otp' | 'google-phone' | 'details' | 'selfie' | 'skills' | 'sellType' | 'teachType' | 'businessDocs' | 'location';
 
 export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ email?: string; name?: string; google?: string; error?: string }>();
   const { completeOnboarding, loginWithProfile, isOnboarded, profile } = useApp();
-  
-  // If user is already onboarded (logged in), redirect immediately
+
   useEffect(() => {
     if (isOnboarded && profile?.id) {
       router.replace(getRoleRoute(profile) as any);
     }
   }, [isOnboarded, profile?.id]);
-  const [step, setStep] = useState(0);
+
+  // Flow state
+  const [screen, setScreen] = useState<Screen>('welcome');
   const [phone, setPhone] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+  const [otpSending, setOtpSending] = useState(false);
+  const [otpVerifying, setOtpVerifying] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpError, setOtpError] = useState('');
+  const [otpResendTimer, setOtpResendTimer] = useState(0);
+  const [otpRateLimitTimer, setOtpRateLimitTimer] = useState(0);
+  const [otpAttempts, setOtpAttempts] = useState(0);
+  const [sessionToken, setSessionToken] = useState('');
+  const [isNewUser, setIsNewUser] = useState(false);
+  const otpRefs = [useRef<TextInput>(null), useRef<TextInput>(null), useRef<TextInput>(null), useRef<TextInput>(null), useRef<TextInput>(null), useRef<TextInput>(null)];
+
+  // Google
+  const [googleEmail, setGoogleEmail] = useState('');
+  const [googleSignedIn, setGoogleSignedIn] = useState(false);
+  const pendingGoogleTokenRef = useRef<string | null>(null);
+
+  // Profile fields
   const [userName, setUserName] = useState('');
   const [role, setRole] = useState<UserRole>('technician');
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
@@ -83,276 +93,103 @@ export default function OnboardingScreen() {
   const [showStatePicker, setShowStatePicker] = useState(false);
   const [experience, setExperience] = useState('');
   const [shopName, setShopName] = useState('');
-  const [checking, setChecking] = useState(false);
   const [selfieUri, setSelfieUri] = useState('');
   const [uploadingSelfie, setUploadingSelfie] = useState(false);
-  const [otpCode, setOtpCode] = useState('');
-  const [otpSending, setOtpSending] = useState(false);
-  const [otpVerifying, setOtpVerifying] = useState(false);
-  const [otpSent, setOtpSent] = useState(false);
-  const [otpResendTimer, setOtpResendTimer] = useState(0);
-  const [googleEmail, setGoogleEmail] = useState('');
-  const [googleSignedIn, setGoogleSignedIn] = useState(false);
   const [sellTypes, setSellTypes] = useState<string[]>([]);
   const [teachType, setTeachType] = useState('');
   const [shopAddress, setShopAddress] = useState('');
   const [gstNumber, setGstNumber] = useState('');
   const [aadhaarNumber, setAadhaarNumber] = useState('');
   const [panNumber, setPanNumber] = useState('');
-  const [existingProfile, setExistingProfile] = useState<UserProfile | null>(null);
-  const [sessionToken, setSessionToken] = useState('');
   const [latitude, setLatitude] = useState('');
   const [longitude, setLongitude] = useState('');
-  const [locationSharing, setLocationSharing] = useState('true');
-  const [gettingLocation, setGettingLocation] = useState(false);
   const [locationGot, setLocationGot] = useState(false);
-  const [showDevicePayment, setShowDevicePayment] = useState(false);
-  const [devicePaymentUrl, setDevicePaymentUrl] = useState('');
-  const [devicePaymentPrice, setDevicePaymentPrice] = useState(0);
-  const [pendingDeviceId, setPendingDeviceId] = useState('');
-  const [isNewUser, setIsNewUser] = useState(false);
-  const [newUserEmail, setNewUserEmail] = useState('');
-  const [emailSendingWelcome, setEmailSendingWelcome] = useState(false);
-  const [otpError, setOtpError] = useState('');
-  const [debugInfo, setDebugInfo] = useState('');
-  const [otpRateLimitTimer, setOtpRateLimitTimer] = useState(0);
-  const [usePhoneAuth, setUsePhoneAuth] = useState(false);
-  const [otpProvider, setOtpProvider] = useState<'firebase' | 'sms'>('sms');
-  const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
-  const [otpAttempts, setOtpAttempts] = useState(0);
-  const recaptchaVerifier = useRef<FirebaseRecaptchaVerifierModal>(null);
-  // Check if Firebase is configured via env vars
-  const firebaseAvailable = !!(
-    process.env.EXPO_PUBLIC_FIREBASE_API_KEY &&
-    process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN &&
-    process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID
-  );
-
-  const webTopInset = Platform.OS === 'web' ? 67 : 0;
+  const [gettingLocation, setGettingLocation] = useState(false);
+  const [checking, setChecking] = useState(false);
 
   const isCustomer = role === 'customer';
   const isSupplier = role === 'supplier';
   const isTeacher = role === 'teacher';
   const isTechnician = role === 'technician';
-  const needsSelfie = !isCustomer;
-  const needsSkills = isTechnician;
-  const needsSellType = isSupplier;
-  const needsTeachType = isTeacher;
-  const needsBusinessDocs = isSupplier || isTeacher;
 
-  const getScreenSequence = (): ScreenName[] => {
-    const screens: ScreenName[] = googleSignedIn
-      ? ['google-phone', 'details']
-      : ['welcome'];
-    if (!googleSignedIn && step > 0) {
-      if (usePhoneAuth) {
-        screens.push('phone', 'otp');
-      }
-      screens.push('details');
-    }
-    if (needsSelfie) screens.push('selfie');
-    if (needsSkills) screens.push('skills');
-    if (needsSellType) screens.push('sellType');
-    if (needsTeachType) screens.push('teachType');
-    if (needsBusinessDocs) screens.push('businessDocs');
-    screens.push('location');
-    return screens;
-  };
-
-  const screenSequence = getScreenSequence();
-  const TOTAL_STEPS = screenSequence.length;
-  const currentScreen = screenSequence[step] || 'welcome';
-
-  const toggleSkill = (skill: string) => {
-    if (Platform.OS !== 'web') Haptics.selectionAsync();
-    setSelectedSkills(prev =>
-      prev.includes(skill) ? prev.filter(s => s !== skill) : [...prev, skill]
-    );
-  };
-
+  // Handle Google redirect params
   useEffect(() => {
-    if (params.error) {
-      Alert.alert('Error', params.error);
-    }
+    if (params.error) Alert.alert('Error', params.error);
   }, [params.error]);
 
   useEffect(() => {
-    const checkGoogleRedirect = async () => {
-      if (params.email && !googleSignedIn) {
-        console.log('[Google] Redirect detected with email:', params.email);
-        setGoogleEmail(params.email);
-        setGoogleSignedIn(true);
-        if (params.name) setUserName(params.name);
-        setStep(0);
-        // Clear params from URL without refreshing
-        router.setParams({ email: undefined, name: undefined, google: undefined });
-      }
-    };
-    checkGoogleRedirect();
+    if (params.email && !googleSignedIn) {
+      setGoogleEmail(params.email);
+      setGoogleSignedIn(true);
+      if (params.name) setUserName(params.name);
+      setScreen('google-phone');
+      router.setParams({ email: undefined, name: undefined, google: undefined });
+    }
   }, [params.email]);
 
-  const pendingGoogleTokenRef = useRef<string | null>(null);
-
-
+  // OTP timers
   useEffect(() => {
     if (otpResendTimer <= 0) return;
-    const interval = setInterval(() => {
-      setOtpResendTimer(t => {
-        if (t <= 1) { clearInterval(interval); return 0; }
-        return t - 1;
-      });
-    }, 1000);
-    return () => clearInterval(interval);
+    const t = setInterval(() => setOtpResendTimer(v => v <= 1 ? (clearInterval(t), 0) : v - 1), 1000);
+    return () => clearInterval(t);
   }, [otpResendTimer]);
 
-  // Rate limit cooldown timer
   useEffect(() => {
     if (otpRateLimitTimer <= 0) return;
-    const interval = setInterval(() => {
-      setOtpRateLimitTimer(t => {
-        if (t <= 1) { clearInterval(interval); return 0; }
-        return t - 1;
-      });
-    }, 1000);
-    return () => clearInterval(interval);
+    const t = setInterval(() => setOtpRateLimitTimer(v => v <= 1 ? (clearInterval(t), 0) : v - 1), 1000);
+    return () => clearInterval(t);
   }, [otpRateLimitTimer]);
 
-  const sendOtp = async (phoneNumber: string, isResend = false) => {
+  // Location auto-capture
+  useEffect(() => {
+    if (screen === 'location' && !locationGot) captureLocation();
+  }, [screen]);
+
+  const sendOtp = async (phoneNumber: string) => {
+    const digits = phoneNumber.replace(/\D/g, '').replace(/^91/, '');
+    if (digits.length !== 10) {
+      Alert.alert('Invalid Number', 'Please enter a valid 10-digit mobile number.');
+      return;
+    }
+    if (otpRateLimitTimer > 0) {
+      Alert.alert('Please wait', `Try again in ${otpRateLimitTimer} seconds.`);
+      return;
+    }
     setOtpSending(true);
     setOtpError('');
-    setConfirmationResult(null);
-    const cleanDigits = phoneNumber.replace(/\D/g, '').replace(/^91/, '');
-    setDebugInfo(`Sending OTP to +91${cleanDigits}...`);
-
-    let success = false;
-
-    // PRIMARY: Try Firebase phone auth (native only, if available)
-    if (firebaseAvailable && recaptchaVerifier.current && Platform.OS !== 'web') {
-      try {
-        const auth = getFirebaseAuth();
-        if (auth) {
-          console.log('[OTP] Trying Firebase phone auth for: +91' + cleanDigits);
-          const result = await Promise.race([
-            signInWithPhoneNumber(auth, `+91${cleanDigits}`, recaptchaVerifier.current),
-            new Promise<never>((_, reject) =>
-              setTimeout(() => reject(new Error('Firebase timeout')), 10000)
-            ),
-          ]) as ConfirmationResult;
-          setConfirmationResult(result);
-          setOtpProvider('firebase');
-          setOtpSent(true);
-          setOtpResendTimer(30);
-          setDebugInfo('OTP sent');
-          console.log('[OTP] Firebase: SMS sent successfully');
-          success = true;
-        }
-      } catch (firebaseErr: any) {
-        console.log('[OTP] Firebase failed, switching to Fast2SMS:', firebaseErr?.message);
-        // Clear Firebase state on error to avoid stale references
-        recaptchaVerifier.current = null;
-      }
-    }
-
-    // FALLBACK: Fast2SMS via backend
-    if (!success) {
-      try {
-        await sendBackendOTP(cleanDigits);
-        setOtpProvider('sms');
-        success = true;
-      } catch (err: any) {
-        const msg = err?.message || 'Could not send OTP. Please try again.';
-        setOtpError(msg);
-        setDebugInfo('❌ Failed');
-        Alert.alert('OTP Error', msg);
-      }
-    }
-
-    setOtpSending(false);
-
-    // Advance to OTP input screen after initial send (not resend)
-    if (success && !isResend) {
-      setStep(s => s + 1);
-    }
-  };
-
-  const sendBackendOTP = async (cleanDigits: string) => {
     try {
-      console.log('[OTP] Sending via backend for phone:', cleanDigits);
-      const res = await apiRequest('POST', '/api/otp/send', { phone: cleanDigits });
+      const res = await apiRequest('POST', '/api/otp/send', { phone: digits });
       const data = await res.json();
       if (data.success) {
         setOtpSent(true);
         setOtpResendTimer(30);
-        const hint = data.smsSent
-          ? `✅ OTP sent via SMS to +91${cleanDigits}`
-          : `⚠️ SMS delivery issue. ${data.otp ? `Code: ${data.otp}` : 'Check your number.'}`;
-        setDebugInfo(hint);
-        console.log('[OTP] Result → smsSent:', data.smsSent, '|', data.message, data.otp ? `| code: ${data.otp}` : '');
-        if (!data.smsSent) {
-          Alert.alert(
-            'SMS Issue',
-            data.otp
-              ? `SMS delivery failed, but your code is: ${data.otp}\n(Development mode only)`
-              : `Could not deliver SMS to +91${cleanDigits}. Check your phone number and try again.`
-          );
+        setPhone(digits);
+        setScreen('otp');
+        if (!data.smsSent && data.otp) {
+          Alert.alert('Dev Mode', `Your OTP: ${data.otp}`);
         }
       } else {
-        // Handle rate limit
-        if (data.message?.includes('Too many OTP')) {
-          const match = data.message.match(/(\d+) seconds/);
-          const secs = match ? parseInt(match[1]) : 60;
+        if (data.message?.includes('Too many')) {
+          const secs = parseInt(data.message.match(/(\d+) seconds/)?.[1] || '60');
           setOtpRateLimitTimer(secs);
         }
-        throw new Error(data.message || 'Failed to send OTP');
+        setOtpError(data.message || 'Failed to send OTP');
+        Alert.alert('Error', data.message || 'Failed to send OTP. Please try again.');
       }
-    } catch (err: any) {
-      console.error('[OTP] Backend error:', err?.message);
-      throw err;
+    } catch (e: any) {
+      setOtpError(e?.message || 'Network error. Please try again.');
+      Alert.alert('Error', 'Could not connect. Please check your internet and try again.');
+    } finally {
+      setOtpSending(false);
     }
-  };
-
-  const handleOtpVerified = async (sessionData: { success: boolean; sessionToken?: string; message?: string; isNewUser?: boolean; profile?: any }, cleanPhone: string, deviceId: string) => {
-    if (!sessionData.success) {
-      Alert.alert('Verification Failed', sessionData.message || 'Invalid OTP. Please try again.');
-      return;
-    }
-
-    // EXISTING USER - Log in directly
-    if (sessionData.isNewUser === false && sessionData.profile) {
-      console.log('[Auth] Existing user:', sessionData.profile.name);
-      const p = {
-        ...sessionData.profile,
-        skills: Array.isArray(sessionData.profile.skills)
-          ? sessionData.profile.skills
-          : (() => { try { return JSON.parse(sessionData.profile.skills || '[]'); } catch { return []; } })(),
-      };
-      await loginWithProfile(p, sessionData.sessionToken || '');
-      if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setTimeout(() => {
-        router.replace(getRoleRoute(p) as any);
-      }, 300);
-      return;
-    }
-
-    // NEW USER - Continue to registration
-    console.log('[Auth] New user, starting registration...');
-    setSessionToken(sessionData.sessionToken || '');
-    setPhone(cleanPhone);
-    setIsNewUser(true);
-    if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    setStep(s => s + 1);
   };
 
   const verifyOtp = async () => {
-    const cleanPhone = phone.replace(/\D/g, '').replace(/^91/, '');
-    if (otpCode.length < 6) {
-      Alert.alert('Invalid OTP', 'Please enter all 6 digits.');
-      return;
-    }
-    // Max 3 attempts
+    const code = otpCode.replace(/\D/g, '');
+    if (code.length < 6) { Alert.alert('Incomplete', 'Please enter all 6 digits.'); return; }
     if (otpAttempts >= 3) {
-      Alert.alert('Too Many Attempts', 'You have exceeded the maximum retry limit. Please request a new OTP.');
-      setOtpError('Maximum attempts reached. Please request a new OTP.');
+      Alert.alert('Too Many Attempts', 'Please request a new OTP.');
+      setOtpError('Maximum attempts reached.');
       return;
     }
     setOtpAttempts(a => a + 1);
@@ -360,54 +197,26 @@ export default function OnboardingScreen() {
     setOtpError('');
     try {
       const deviceId = await getDeviceId();
-
-      if (otpProvider === 'firebase' && confirmationResult) {
-        // FIREBASE VERIFICATION PATH
-        console.log('[OTP] Verifying via Firebase...');
-        let idToken: string | null = null;
-        try {
-          const credential = await confirmationResult.confirm(otpCode);
-          idToken = await credential.user.getIdToken();
-          console.log('[OTP] Firebase confirmed successfully');
-        } catch (firebaseErr: any) {
-          console.log('[OTP] Firebase confirm failed, trying backend:', firebaseErr?.message);
-          // Auto-fallback to backend verification
-          const res = await apiRequest('POST', '/api/otp/verify', { phone: cleanPhone, otp: otpCode, deviceId });
-          const data = await res.json();
-          if (!data.success) {
-            const msg = data.message || 'Invalid OTP. Please try again.';
-            setOtpError(msg);
-            Alert.alert('Verification Failed', msg);
-            return;
-          }
-          await handleOtpVerified(data, cleanPhone, deviceId);
-          return;
-        }
-        if (idToken) {
-          const res = await apiRequest('POST', '/api/auth/firebase-phone', { idToken, deviceId });
-          const data = await res.json();
-          if (!data.success) {
-            setOtpError(data.message || 'Verification failed');
-            Alert.alert('Verification Failed', data.message || 'Please try again.');
-            return;
-          }
-          await handleOtpVerified(data, cleanPhone, deviceId);
-        }
-      } else {
-        // FAST2SMS BACKEND VERIFICATION PATH
-        console.log('[OTP] Verifying via Fast2SMS backend...');
-        const res = await apiRequest('POST', '/api/otp/verify', { phone: cleanPhone, otp: otpCode, deviceId });
-        const data = await res.json();
-        if (!data.success) {
-          const msg = data.message || 'Invalid OTP. Please try again.';
-          setOtpError(msg);
-          Alert.alert('Verification Failed', msg);
-          return;
-        }
-        await handleOtpVerified(data, cleanPhone, deviceId);
+      const res = await apiRequest('POST', '/api/otp/verify', { phone, otp: code, deviceId });
+      const data = await res.json();
+      if (!data.success) {
+        const msg = data.message || 'Invalid OTP. Please try again.';
+        setOtpError(msg);
+        Alert.alert('Verification Failed', msg);
+        return;
       }
+      if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (data.isNewUser === false && data.profile) {
+        const p = { ...data.profile, skills: Array.isArray(data.profile.skills) ? data.profile.skills : (() => { try { return JSON.parse(data.profile.skills || '[]'); } catch { return []; } })() };
+        await loginWithProfile(p, data.sessionToken || '');
+        router.replace(getRoleRoute(p) as any);
+        return;
+      }
+      setSessionToken(data.sessionToken || '');
+      setIsNewUser(true);
+      setScreen('details');
     } catch (e: any) {
-      const msg = e?.message || 'Could not verify OTP. Please try again.';
+      const msg = e?.message || 'Verification failed. Please try again.';
       setOtpError(msg);
       Alert.alert('Error', msg);
     } finally {
@@ -415,200 +224,74 @@ export default function OnboardingScreen() {
     }
   };
 
-  const startDevicePayment = async (phoneNumber: string, deviceId: string, price: number) => {
-    try {
-      const res = await apiRequest('POST', '/api/device-change/create-order', { phone: phoneNumber, deviceId });
-      const data = await res.json();
-      if (data.success && data.orderId) {
-        const baseUrl = getApiUrl();
-        const params = new URLSearchParams({
-          orderId: data.orderId,
-          amount: String(data.amount * 100),
-          phone: phoneNumber,
-          deviceId,
-        });
-        const checkoutUrl = `${baseUrl}/api/device-change/checkout?${params.toString()}`;
-
-        if (Platform.OS === 'web') {
-          const payWindow = window.open(checkoutUrl, '_blank', 'width=500,height=700');
-          const checkInterval = setInterval(() => {
-            try {
-              if (payWindow?.closed) {
-                clearInterval(checkInterval);
-                Alert.alert('Payment', 'If payment was successful, please try logging in again.');
-              }
-            } catch (e) {}
-          }, 1000);
-        } else {
-          openLink(checkoutUrl, 'Checkout');
-        }
-      } else {
-        Alert.alert('Error', data.message || 'Could not start payment');
-      }
-    } catch (e) {
-      Alert.alert('Error', 'Could not start payment. Please try again.');
-    }
-  };
-
-  const handleEmailStep = async () => {
-    const trimmedEmail = newUserEmail.trim();
-    if (trimmedEmail) {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(trimmedEmail)) {
-        Alert.alert('Invalid Email', 'Please enter a valid email address.');
-        return;
-      }
-      setEmailSendingWelcome(true);
-      try {
-        await apiRequest('POST', '/api/auth/send-welcome-email', { email: trimmedEmail, name: userName || 'there' });
-      } catch (e) {
-        console.warn('[Onboarding] Welcome email failed:', e);
-      } finally {
-        setEmailSendingWelcome(false);
-      }
-    }
-    setStep(s => s + 1);
-  };
-
-  const checkPhone = async () => {
-    const cleanPhone = phone.replace(/\D/g, '');
-    if (cleanPhone.length !== 10) {
-      Alert.alert('Invalid Number', 'Please enter a valid 10-digit mobile number.');
-      return;
-    }
-
-    setChecking(true);
-    try {
-      if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      
-      // Check if existing user
-      try {
-        const res = await apiRequest('POST', '/api/auth/check-phone', { phone: cleanPhone });
-        const data = await res.json();
-        if (data.success && data.exists && data.profile) {
-          // Existing user - log in directly (no OTP needed)
-          const serverProfile: UserProfile = {
-            id: data.profile.id,
-            name: data.profile.name,
-            phone: data.profile.phone,
-            role: data.profile.role,
-            skills: data.profile.skills || [],
-            city: data.profile.city || '',
-            state: data.profile.state || '',
-            experience: data.profile.experience || '',
-            shopName: data.profile.shopName || undefined,
-            bio: data.profile.bio || '',
-            avatar: data.profile.avatar || undefined,
-            sellType: data.profile.sellType || undefined,
-            teachType: data.profile.teachType || undefined,
-            shopAddress: data.profile.shopAddress || undefined,
-            gstNumber: data.profile.gstNumber || undefined,
-            aadhaarNumber: data.profile.aadhaarNumber || undefined,
-            panNumber: data.profile.panNumber || undefined,
-            createdAt: data.profile.createdAt || Date.now(),
-          };
-          setExistingProfile(serverProfile);
-          setSessionToken(data.sessionToken || '');
-          await loginWithProfile(serverProfile, data.sessionToken);
-          router.replace(getRoleRoute(serverProfile) as any);
-          return;
-        }
-        // New user - go to details form
-        setExistingProfile(null);
-        setStep(s => s + 1);
-      } catch (checkErr) {
-        console.warn('[checkPhone] check-phone failed:', checkErr);
-        Alert.alert('Error', 'Could not verify phone. Please try again.');
-      }
-    } finally {
-      setChecking(false);
-    }
-  };
-
   const startGoogleSignIn = async () => {
     try {
       const clientToken = Crypto.randomUUID();
       const baseUrl = getApiUrl();
-
       if (Platform.OS === 'web') {
         const returnUrl = window.location.origin + '/onboarding';
-        console.log('[Google] Starting web sign-in with returnUrl:', returnUrl);
         await apiRequest('POST', '/api/auth/google/set-return-url', { token: clientToken, returnUrl });
         const urlRes = await apiRequest('POST', '/api/auth/google/get-login-url', { token: clientToken });
         const urlData = await urlRes.json();
         if (!urlData.success || !urlData.url) {
-          Alert.alert('Setup Required', urlData.message || 'Google Sign-In is not yet configured. Please contact support or use phone verification.');
+          Alert.alert('Google Sign-In Unavailable', 'Please use phone number to sign in.');
           return;
         }
         window.location.href = urlData.url;
         return;
       }
-
       await apiRequest('POST', '/api/auth/google/set-return-url', { token: clientToken, returnUrl: `${baseUrl}/api/auth/google/done` });
       const urlRes = await apiRequest('POST', '/api/auth/google/get-login-url', { token: clientToken });
       const urlData = await urlRes.json();
       if (!urlData.success || !urlData.url) {
-        Alert.alert('Setup Required', urlData.message || 'Google Sign-In is not yet configured. Please contact support or use phone verification.');
+        Alert.alert('Google Sign-In Unavailable', 'Please use phone number to sign in.');
         return;
       }
       pendingGoogleTokenRef.current = clientToken;
       await WebBrowser.openBrowserAsync(urlData.url);
-      const tokenToExchange = pendingGoogleTokenRef.current;
+      const tok = pendingGoogleTokenRef.current;
       pendingGoogleTokenRef.current = null;
-      if (tokenToExchange) {
+      if (tok) {
         try {
-          const exchRes = await apiRequest('POST', '/api/auth/google/exchange', { token: tokenToExchange });
+          const exchRes = await apiRequest('POST', '/api/auth/google/exchange', { token: tok });
           const exchData = await exchRes.json();
           if (exchData.success && exchData.email) {
             setGoogleEmail(exchData.email);
             setGoogleSignedIn(true);
             if (exchData.name) setUserName(exchData.name);
-            setStep(0);
+            setScreen('google-phone');
           }
-        } catch (e) {
-          console.warn('[Google] Exchange failed after browser:', e);
-        }
+        } catch {}
       }
-    } catch (e) {
-      Alert.alert('Error', 'Could not start Google sign-in. Please try again or use phone verification.');
-      console.warn('[Google] Sign-in error:', e);
+    } catch {
+      Alert.alert('Error', 'Could not start Google sign-in. Please use phone number instead.');
     }
   };
 
   const handleGooglePhoneSubmit = async () => {
-    const cleanPhone = phone.replace(/\D/g, '');
-    // Take last 10 digits to handle country code (+91)
-    const phoneToSend = cleanPhone.length > 10 ? cleanPhone.slice(-10) : cleanPhone;
-    if (phoneToSend.length !== 10) {
-      Alert.alert('Invalid Number', 'Please enter a valid 10-digit mobile number.');
-      return;
-    }
+    const digits = phone.replace(/\D/g, '');
+    const phoneToSend = digits.length > 10 ? digits.slice(-10) : digits;
+    if (phoneToSend.length !== 10) { Alert.alert('Invalid Number', 'Please enter a valid 10-digit mobile number.'); return; }
     setChecking(true);
     try {
       const deviceId = await getDeviceId();
-      console.log('[GooglePhoneSubmit] Submitting:', { email: googleEmail, phone: phoneToSend, deviceId });
       const res = await apiRequest('POST', '/api/auth/google-phone-login', { email: googleEmail, phone: phoneToSend, deviceId });
       const data = await res.json();
-      console.log('[GooglePhoneSubmit] Response:', data);
       if (data.success) {
-        const token = data.sessionToken || '';
-        setSessionToken(token);
         if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         if (data.exists && data.profile) {
-          console.log('[GooglePhoneSubmit] Existing user, logging in');
-          await loginWithProfile(data.profile, token);
-          setTimeout(() => {
-            router.replace(getRoleRoute(data.profile) as any);
-          }, 100);
+          await loginWithProfile(data.profile, data.sessionToken || '');
+          router.replace(getRoleRoute(data.profile) as any);
           return;
         }
-        console.log('[GooglePhoneSubmit] New user, moving to next step');
-        setStep(s => s + 1);
+        setSessionToken(data.sessionToken || '');
+        setPhone(phoneToSend);
+        setIsNewUser(true);
+        setScreen('details');
       } else {
         Alert.alert('Error', data.message || 'Login failed');
       }
     } catch (e: any) {
-      console.error('[GooglePhoneSubmit] Error:', e);
       Alert.alert('Error', e?.message || 'Could not connect to server.');
     } finally {
       setChecking(false);
@@ -617,60 +300,35 @@ export default function OnboardingScreen() {
 
   const takeSelfie = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Camera Required', 'Please allow camera access to take your profile photo.');
-      return;
-    }
-
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.7,
-      cameraType: ImagePicker.CameraType.front,
-    });
-
-    if (!result.canceled && result.assets[0]) {
-      if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setSelfieUri(result.assets[0].uri);
-    }
+    if (status !== 'granted') { Alert.alert('Camera Required', 'Please allow camera access.'); return; }
+    const result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.7, cameraType: ImagePicker.CameraType.front });
+    if (!result.canceled && result.assets[0]) setSelfieUri(result.assets[0].uri);
   };
 
-  const retakeSelfie = () => {
-    setSelfieUri('');
-    takeSelfie();
+  const pickPhoto = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.7 });
+    if (!result.canceled && result.assets[0]) setSelfieUri(result.assets[0].uri);
   };
 
-  const uploadSelfie = async (localUri: string): Promise<string | null> => {
+  const uploadSelfie = async (uri: string): Promise<string | null> => {
     try {
       const baseUrl = getApiUrl();
       const uploadUrl = new URL('/api/upload', baseUrl).toString();
-
       if (Platform.OS === 'web') {
-        const response = await globalThis.fetch(localUri);
-        const blob = await response.blob();
-        const formData = new FormData();
-        formData.append('image', blob, 'selfie.jpg');
-        const uploadRes = await globalThis.fetch(uploadUrl, { method: 'POST', body: formData });
-        const data = await uploadRes.json();
-        if (data.url) return new URL(data.url, baseUrl).toString();
-        return null;
+        const blob = await (await globalThis.fetch(uri)).blob();
+        const fd = new FormData();
+        fd.append('image', blob, 'selfie.jpg');
+        const r = await globalThis.fetch(uploadUrl, { method: 'POST', body: fd });
+        const d = await r.json();
+        return d.url ? new URL(d.url, baseUrl).toString() : null;
       } else {
-        const formData = new FormData();
-        formData.append('image', {
-          uri: localUri,
-          name: 'selfie.jpg',
-          type: 'image/jpeg',
-        } as any);
-        const uploadRes = await expoFetch(uploadUrl, { method: 'POST', body: formData });
-        const data = await uploadRes.json();
-        if (data.url) return new URL(data.url, baseUrl).toString();
-        return null;
+        const fd = new FormData();
+        fd.append('image', { uri, name: 'selfie.jpg', type: 'image/jpeg' } as any);
+        const r = await expoFetch(uploadUrl, { method: 'POST', body: fd });
+        const d = await r.json();
+        return d.url ? new URL(d.url, baseUrl).toString() : null;
       }
-    } catch (e) {
-      console.warn('[Onboarding] Selfie upload failed:', e);
-      return null;
-    }
+    } catch { return null; }
   };
 
   const captureLocation = async () => {
@@ -678,1388 +336,627 @@ export default function OnboardingScreen() {
     setGettingLocation(true);
     try {
       if (Platform.OS === 'web') {
-        if (!navigator.geolocation) { setGettingLocation(false); return; }
-        await new Promise<void>((resolve) => {
-          navigator.geolocation.getCurrentPosition(
-            (position) => {
-              setLatitude(position.coords.latitude.toString());
-              setLongitude(position.coords.longitude.toString());
-              setLocationGot(true);
-              resolve();
-            },
-            () => resolve(),
-            { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 }
-          );
-        });
-        setGettingLocation(false);
-        return;
+        if (!navigator.geolocation) return;
+        await new Promise<void>((res) => navigator.geolocation.getCurrentPosition(
+          (p) => { setLatitude(p.coords.latitude.toString()); setLongitude(p.coords.longitude.toString()); setLocationGot(true); res(); },
+          () => res(),
+          { timeout: 8000 }
+        ));
+      } else {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') return;
+        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        setLatitude(loc.coords.latitude.toString());
+        setLongitude(loc.coords.longitude.toString());
+        setLocationGot(true);
       }
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') { setGettingLocation(false); return; }
-      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      setLatitude(loc.coords.latitude.toString());
-      setLongitude(loc.coords.longitude.toString());
-      setLocationGot(true);
-    } catch (e) {
-      console.warn('[Location] Failed to get location:', e);
-    } finally {
-      setGettingLocation(false);
-    }
-  };
-
-  useEffect(() => {
-    if (currentScreen === 'location' && !locationGot) {
-      captureLocation();
-    }
-  }, [currentScreen]);
-
-  const handleNext = () => {
-    if (currentScreen === 'welcome') {
-      // Continue as Guest - skip to details
-      setStep(s => s + 1);
-      return;
-    }
-    if (currentScreen === 'google-phone') {
-      handleGooglePhoneSubmit();
-      return;
-    }
-    if (currentScreen === 'details' && !userName.trim()) {
-      Alert.alert('Required', 'Please enter your name.');
-      return;
-    }
-    if (currentScreen === 'selfie' && !selfieUri) {
-      Alert.alert('Photo Required', 'Please take a selfie to continue. Your photo will be shown on your profile.');
-      return;
-    }
-    if (currentScreen === 'skills' && selectedSkills.length === 0) {
-      Alert.alert('Required', 'Please select at least one skill.');
-      return;
-    }
-    if (currentScreen === 'sellType' && sellTypes.length === 0) {
-      Alert.alert('Required', 'Please select what you sell.');
-      return;
-    }
-    if (currentScreen === 'teachType' && !teachType) {
-      Alert.alert('Required', 'Please select what you teach.');
-      return;
-    }
-    if (currentScreen === 'businessDocs') {
-      if (isSupplier && !shopAddress.trim()) {
-        Alert.alert('Required', 'Please enter your shop address.');
-        return;
-      }
-      if (!aadhaarNumber.trim()) {
-        Alert.alert('Required', 'Please enter your Aadhaar number.');
-        return;
-      }
-      if (!panNumber.trim()) {
-        Alert.alert('Required', 'Please enter your PAN number.');
-        return;
-      }
-    }
-    if (currentScreen === 'location' && (!city.trim() || !userState.trim())) {
-      Alert.alert('Required', 'Please enter your city and state.');
-      return;
-    }
-    if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setStep(s => s + 1);
+    } catch {} finally { setGettingLocation(false); }
   };
 
   const handleComplete = async () => {
-    if (!city.trim() || !userState.trim()) {
-      Alert.alert('Required', 'Please enter your city and state.');
-      return;
-    }
-
+    if (!city.trim() || !userState.trim()) { Alert.alert('Required', 'Please enter your city and state.'); return; }
     setUploadingSelfie(true);
     let avatarUrl = '';
-
     if (selfieUri) {
       const uploaded = await uploadSelfie(selfieUri);
-      if (uploaded) {
-        avatarUrl = uploaded;
-      } else {
-        Alert.alert('Upload Failed', 'Could not upload your photo. Please check your connection and try again.');
-        setUploadingSelfie(false);
-        return;
-      }
+      if (uploaded) { avatarUrl = uploaded; }
+      else { Alert.alert('Upload Failed', 'Could not upload your photo. Please try again.'); setUploadingSelfie(false); return; }
     }
-
     if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    const profile: UserProfile = {
+    const p: UserProfile = {
       id: Crypto.randomUUID(),
       name: userName.trim(),
       phone: phone.replace(/\D/g, '').trim(),
-      email: googleEmail || newUserEmail.trim() || undefined,
-      role,
-      skills: selectedSkills,
-      city: city.trim(),
-      state: userState.trim(),
+      email: googleEmail || undefined,
+      role, skills: selectedSkills,
+      city: city.trim(), state: userState.trim(),
       experience: experience.trim(),
-      shopName: shopName.trim() || undefined,
-      bio: '',
+      shopName: shopName.trim() || undefined, bio: '',
       avatar: avatarUrl || undefined,
       sellType: isSupplier ? sellTypes.join(', ') : undefined,
       teachType: isTeacher ? teachType : undefined,
       shopAddress: isSupplier ? shopAddress.trim() : undefined,
       gstNumber: isSupplier ? gstNumber.trim() : undefined,
-      aadhaarNumber: needsBusinessDocs ? aadhaarNumber.trim() : undefined,
-      panNumber: needsBusinessDocs ? panNumber.trim() : undefined,
-      latitude: latitude || undefined,
-      longitude: longitude || undefined,
-      locationSharing: locationSharing,
-      createdAt: Date.now(),
+      aadhaarNumber: (isSupplier || isTeacher) ? aadhaarNumber.trim() : undefined,
+      panNumber: (isSupplier || isTeacher) ? panNumber.trim() : undefined,
+      latitude: latitude || undefined, longitude: longitude || undefined,
+      locationSharing: 'true', createdAt: Date.now(),
     };
-    await completeOnboarding(profile, sessionToken);
-
+    await completeOnboarding(p, sessionToken);
     try {
-      const isCustomerRole = role === 'customer';
-      const welcomeText = isCustomerRole
-        ? `Hey technicians! I just joined Mobi. This app is very useful to repair my electronics and mobile.\nBased in ${city.trim()}, ${userState.trim()}.`
-        : `Hi, I'm ${userName.trim()}, a ${ROLE_LABELS[role] || role} from ${city.trim()}, ${userState.trim()}. I'm using Mobi app! Feel free to connect with me.`;
-      await apiRequest('POST', '/api/posts', {
-        userId: profile.id,
-        userName: profile.name,
-        userRole: profile.role,
-        text: welcomeText,
-        images: [],
-        category: 'repair',
-      });
-    } catch (e) {
-      console.warn('[Onboarding] Auto welcome post failed:', e);
-    }
-
+      const welcomeText = isCustomer
+        ? `Hey technicians! I just joined Mobi. Based in ${city.trim()}, ${userState.trim()}.`
+        : `Hi, I'm ${userName.trim()}, a ${ROLE_LABELS[role] || role} from ${city.trim()}, ${userState.trim()}. I'm using Mobi app!`;
+      await apiRequest('POST', '/api/posts', { userId: p.id, userName: p.name, userRole: p.role, text: welcomeText, images: [], category: 'repair' });
+    } catch {}
     setUploadingSelfie(false);
-    router.replace(getRoleRoute({ role, phone }) as any);
+    router.replace(getRoleRoute(p) as any);
   };
 
-  const renderStep = () => {
-    switch (currentScreen) {
-      case 'welcome':
-        return (
-          <View style={{ flex: 1, backgroundColor: '#FFF' }}>
-            {/* Hero Image */}
-            <View style={{ height: '55%', width: '100%', position: 'relative', overflow: 'hidden' }}>
-              <Image
-                source={{ uri: 'https://storage.googleapis.com/uxpilot-auth.appspot.com/dd3bf1e2c1-260bee728f899a29be1e.png' }}
-                style={{ width: '100%', height: '100%' }}
-                contentFit="cover"
-              />
-              <LinearGradient
-                colors={['transparent', 'rgba(255,255,255,0.8)', '#FFFFFF']}
-                style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 120 }}
-              />
-            </View>
-
-            {/* Content Section */}
-            <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 32, justifyContent: 'space-between' }}>
-              {/* Typography */}
-              <View style={{ marginBottom: 'auto' }}>
-                <Text style={{ fontSize: 28, fontWeight: '700', color: '#111827', textAlign: 'center', lineHeight: 36, marginBottom: 16 }}>
-                  Welcome to {'\n'}Mobi Mobile {'\n'}Repair Technician {'\n'}Community
-                </Text>
-                <Text style={{ fontSize: 15, color: '#6b7280', textAlign: 'center', lineHeight: 22 }}>
-                  Network, Learn & Grow with technicians across India.
-                </Text>
-              </View>
-
-              {/* Action Buttons */}
-              <View style={{ gap: 12, marginBottom: Math.max(insets.bottom, 12) }}>
-                {/* Google Sign-In Button */}
-                <Pressable
-                  onPress={startGoogleSignIn}
-                  style={({ pressed }) => ({
-                    width: '100%',
-                    height: 48,
-                    backgroundColor: '#FFF',
-                    borderWidth: 1,
-                    borderColor: '#d1d5db',
-                    borderRadius: 16,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 12,
-                    opacity: pressed ? 0.9 : 1,
-                    shadowColor: '#000',
-                    shadowOffset: { width: 0, height: 2 },
-                    shadowOpacity: 0.05,
-                    shadowRadius: 4,
-                    elevation: 2,
-                  })}
-                >
-                  <Ionicons name="logo-google" size={20} color="#1f2937" />
-                  <Text style={{ fontSize: 15, fontWeight: '600', color: '#1f2937' }}>Continue with Google</Text>
-                </Pressable>
-
-                {/* Sign in with Phone Button */}
-                <Pressable
-                  onPress={() => {
-                    setUsePhoneAuth(true);
-                    setStep(1);
-                  }}
-                  style={({ pressed }) => ({
-                    width: '100%',
-                    height: 48,
-                    backgroundColor: C.primary,
-                    borderRadius: 16,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 12,
-                    opacity: pressed ? 0.9 : 1,
-                  })}
-                >
-                  <Ionicons name="phone-portrait" size={20} color="#FFF" />
-                  <Text style={{ fontSize: 15, fontWeight: '600', color: '#FFF' }}>Sign in with Mobile</Text>
-                </Pressable>
-              </View>
-            </View>
-          </View>
-        );
-      case 'phone':
-        return (
-          <View style={styles.stepContent}>
-            <View style={styles.stepHeader}>
-              <View style={styles.stepIconContainer}>
-                <Ionicons name="phone-portrait" size={32} color={C.primary} />
-              </View>
-              <Text style={styles.stepTitle}>Enter Your Mobile Number</Text>
-              <Text style={styles.stepSubtitle}>We'll send you a verification code</Text>
-            </View>
-            <Text style={styles.fieldLabel}>Mobile Number</Text>
-            <View style={styles.phoneRow}>
-              <View style={styles.countryCode}>
-                <Text style={styles.countryCodeText}>+91</Text>
-              </View>
-              <TextInput
-                style={[styles.input, { flex: 1 }]}
-                placeholder="10-digit mobile number"
-                placeholderTextColor={C.textTertiary}
-                value={phone}
-                onChangeText={(text) => {
-                  setPhone(text.replace(/\D/g, '').slice(0, 10));
-                  setOtpError('');
-                }}
-                keyboardType="phone-pad"
-                maxLength={10}
-                autoFocus
-              />
-            </View>
-            {!!otpError && (
-              <Text style={{ color: '#FF3B30', fontSize: 13, marginTop: 8 }}>{otpError}</Text>
-            )}
-            {!!debugInfo && !otpError && (
-              <Text style={{ color: C.textSecondary, fontSize: 12, marginTop: 8 }}>{debugInfo}</Text>
-            )}
-            <Text style={{ color: C.textTertiary, fontSize: 12, marginTop: 12 }}>
-              OTP expires in 5 minutes • Firebase secured
-            </Text>
-          </View>
-        );
-      case 'otp':
-        return (
-          <View style={styles.stepContent}>
-            <View style={styles.stepHeader}>
-              <View style={styles.stepIconContainer}>
-                <Ionicons name="shield-checkmark" size={32} color="#34C759" />
-              </View>
-              <Text style={styles.stepTitle}>Enter Verification Code</Text>
-              <Text style={styles.stepSubtitle}>Sent to +91 {phone}</Text>
-            </View>
-            <Text style={styles.fieldLabel}>6-digit OTP</Text>
-            <TextInput
-              style={[styles.input, { textAlign: 'center', letterSpacing: 10, fontSize: 24 }]}
-              placeholder="• • • • • •"
-              placeholderTextColor={C.textTertiary}
-              value={otpCode}
-              onChangeText={(text) => {
-                setOtpCode(text.replace(/\D/g, '').slice(0, 6));
-                setOtpError('');
-              }}
-              keyboardType="number-pad"
-              maxLength={6}
-              autoFocus
-            />
-            {!!otpError && (
-              <Text style={{ color: '#FF3B30', fontSize: 13, marginTop: 8, textAlign: 'center' }}>{otpError}</Text>
-            )}
-            {!!debugInfo && !otpError && (
-              <Text style={{ color: C.textSecondary, fontSize: 12, marginTop: 8, textAlign: 'center' }}>{debugInfo}</Text>
-            )}
-            <Pressable
-              onPress={(otpResendTimer > 0 || otpRateLimitTimer > 0) ? undefined : () => sendOtp(phone, true)}
-              style={{ marginTop: 20, alignItems: 'center', paddingVertical: 8 }}
-            >
-              <Text style={{
-                color: (otpResendTimer > 0 || otpRateLimitTimer > 0) ? C.textTertiary : C.primary,
-                fontSize: 14, fontFamily: 'Inter_500Medium',
-              }}>
-                {otpRateLimitTimer > 0
-                  ? `Wait ${otpRateLimitTimer}s before requesting again`
-                  : otpResendTimer > 0
-                    ? `Resend in ${otpResendTimer}s`
-                    : 'Resend OTP'}
-              </Text>
-            </Pressable>
-            <Text style={{ color: C.textTertiary, fontSize: 11, marginTop: 4, textAlign: 'center' }}>
-              {otpAttempts > 0 ? `${3 - otpAttempts} attempt${3 - otpAttempts !== 1 ? 's' : ''} remaining` : 'Max 3 attempts allowed'}
-            </Text>
-          </View>
-        );
-      case 'google-phone':
-        return (
-          <View style={styles.stepContent}>
-            <View style={styles.stepHeader}>
-              <View style={styles.stepIconContainer}>
-                <Ionicons name="checkmark-circle" size={32} color="#34C759" />
-              </View>
-              <Text style={styles.stepTitle}>Google Verified</Text>
-              <Text style={styles.stepSubtitle}>
-                Signed in as {googleEmail}
-              </Text>
-            </View>
-            <Text style={styles.fieldLabel}>WhatsApp Number</Text>
-            <View style={styles.phoneRow}>
-              <View style={styles.countryCode}>
-                <Text style={styles.countryCodeText}>+91</Text>
-              </View>
-              <TextInput
-                style={[styles.input, { flex: 1 }]}
-                placeholder="Enter your WhatsApp number"
-                placeholderTextColor={C.textTertiary}
-                value={phone}
-                onChangeText={(text) => setPhone(text.replace(/\D/g, '').slice(0, 10))}
-                keyboardType="phone-pad"
-                maxLength={10}
-                autoFocus
-              />
-            </View>
-            <Text style={{ color: C.textSecondary, fontSize: 13, marginTop: 8 }}>
-              No OTP needed — Google verified your identity
-            </Text>
-          </View>
-        );
-      case 'details':
-        return (
-          <View style={styles.stepContent}>
-            <View style={styles.stepHeader}>
-              <View style={styles.stepIconContainer}>
-                <Ionicons name="person" size={32} color={C.primary} />
-              </View>
-              <Text style={styles.stepTitle}>Your Details</Text>
-              <Text style={styles.stepSubtitle}>Tell us about yourself</Text>
-            </View>
-            <Text style={styles.fieldLabel}>Full Name</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Enter your full name"
-              placeholderTextColor={C.textTertiary}
-              value={userName}
-              onChangeText={setUserName}
-              autoCapitalize="words"
-              autoFocus
-            />
-            <Text style={styles.fieldLabel}>Who are you?</Text>
-            <View style={styles.rolesGrid}>
-              {ROLES.map(r => (
-                <Pressable
-                  key={r.key}
-                  style={[
-                    styles.roleCard,
-                    role === r.key && { borderColor: r.color, backgroundColor: r.color + '12' },
-                  ]}
-                  onPress={() => {
-                    setRole(r.key);
-                    if (Platform.OS !== 'web') Haptics.selectionAsync();
-                  }}
-                >
-                  <View style={[styles.roleIcon, { backgroundColor: r.color + '20' }]}>
-                    <Ionicons name={r.icon} size={24} color={r.color} />
-                  </View>
-                  <Text style={[styles.roleLabel, role === r.key && { color: r.color }]}>
-                    {ROLE_LABELS[r.key]}
-                  </Text>
-                  {role === r.key && (
-                    <View style={[styles.checkMark, { backgroundColor: r.color }]}>
-                      <Ionicons name="checkmark" size={14} color="#FFF" />
-                    </View>
-                  )}
-                </Pressable>
-              ))}
-            </View>
-          </View>
-        );
-      case 'selfie':
-        return (
-          <View style={styles.stepContent}>
-            <View style={styles.stepHeader}>
-              <View style={styles.stepIconContainer}>
-                <Ionicons name="camera" size={32} color={C.primary} />
-              </View>
-              <Text style={styles.stepTitle}>Take a Selfie</Text>
-              <Text style={styles.stepSubtitle}>Your photo will be displayed on your profile</Text>
-            </View>
-
-            {selfieUri ? (
-              <View style={styles.selfiePreviewContainer}>
-                <View style={styles.selfieImageWrap}>
-                  <Image
-                    source={{ uri: selfieUri }}
-                    style={styles.selfiePreview}
-                    contentFit="cover"
-                  />
-                  <View style={styles.selfieCheckBadge}>
-                    <Ionicons name="checkmark-circle" size={28} color="#34C759" />
-                  </View>
-                </View>
-                <Text style={styles.selfieGoodText}>Looking good!</Text>
-                <Pressable style={styles.retakeBtn} onPress={retakeSelfie}>
-                  <Ionicons name="camera-reverse-outline" size={20} color={C.primary} />
-                  <Text style={styles.retakeBtnText}>Retake Photo</Text>
-                </Pressable>
-              </View>
-            ) : (
-              <View style={styles.selfiePromptContainer}>
-                <Pressable style={styles.selfieCaptureBtn} onPress={takeSelfie}>
-                  <View style={styles.selfieCaptureInner}>
-                    <Ionicons name="camera" size={40} color={C.primary} />
-                  </View>
-                </Pressable>
-                <Text style={styles.selfieTapText}>Tap to open camera</Text>
-                <Text style={styles.selfieHint}>Use the front camera for a clear selfie</Text>
-              </View>
-            )}
-          </View>
-        );
-      case 'skills':
-        return (
-          <View style={styles.stepContent}>
-            <View style={styles.stepHeader}>
-              <Text style={styles.stepTitle}>Your Skills</Text>
-              <Text style={styles.stepSubtitle}>Select your specializations ({selectedSkills.length} selected)</Text>
-            </View>
-            <View style={styles.skillsGrid}>
-              {SKILLS_LIST.map(skill => (
-                <Pressable
-                  key={skill}
-                  style={[
-                    styles.skillChip,
-                    selectedSkills.includes(skill) && styles.skillChipActive,
-                  ]}
-                  onPress={() => toggleSkill(skill)}
-                >
-                  <Text style={[
-                    styles.skillChipText,
-                    selectedSkills.includes(skill) && styles.skillChipTextActive,
-                  ]}>{skill}</Text>
-                </Pressable>
-              ))}
-            </View>
-          </View>
-        );
-      case 'sellType':
-        return (
-          <View style={styles.stepContent}>
-            <View style={styles.stepHeader}>
-              <View style={styles.stepIconContainer}>
-                <Ionicons name="cube" size={32} color="#FF6B2C" />
-              </View>
-              <Text style={styles.stepTitle}>What do you sell?</Text>
-              <Text style={styles.stepSubtitle}>Select all that apply</Text>
-            </View>
-            <View style={styles.optionsGrid}>
-              {SUPPLIER_SELL_TYPES.map(type => {
-                const icons: Record<string, keyof typeof Ionicons.glyphMap> = {
-                  'Spare Parts': 'cog',
-                  'Accessories': 'headset',
-                  'Tools': 'hammer',
-                  'Software': 'code-slash',
-                };
-                const selected = sellTypes.includes(type);
-                return (
-                  <Pressable
-                    key={type}
-                    style={[styles.optionCard, selected && styles.optionCardActive]}
-                    onPress={() => {
-                      setSellTypes(prev => prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type]);
-                      if (Platform.OS !== 'web') Haptics.selectionAsync();
-                    }}
-                  >
-                    <View style={[styles.optionIcon, selected && styles.optionIconActive]}>
-                      <Ionicons name={icons[type] || 'cube'} size={28} color={selected ? '#FF6B2C' : C.textSecondary} />
-                    </View>
-                    <Text style={[styles.optionLabel, selected && styles.optionLabelActive]}>{type}</Text>
-                    {selected && (
-                      <View style={[styles.checkMark, { backgroundColor: '#FF6B2C' }]}>
-                        <Ionicons name="checkmark" size={14} color="#FFF" />
-                      </View>
-                    )}
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
-        );
-      case 'teachType':
-        return (
-          <View style={styles.stepContent}>
-            <View style={styles.stepHeader}>
-              <View style={styles.stepIconContainer}>
-                <Ionicons name="school" size={32} color="#FFD60A" />
-              </View>
-              <Text style={styles.stepTitle}>What do you teach?</Text>
-              <Text style={styles.stepSubtitle}>Select your teaching domain</Text>
-            </View>
-            <View style={styles.optionsGrid}>
-              {TEACHER_TEACH_TYPES.map(type => {
-                const icons: Record<string, keyof typeof Ionicons.glyphMap> = {
-                  'Software': 'code-slash',
-                  'Hardware': 'hardware-chip',
-                };
-                const selected = teachType === type;
-                return (
-                  <Pressable
-                    key={type}
-                    style={[styles.optionCard, selected && styles.optionCardActive]}
-                    onPress={() => {
-                      setTeachType(type);
-                      if (Platform.OS !== 'web') Haptics.selectionAsync();
-                    }}
-                  >
-                    <View style={[styles.optionIcon, selected && styles.optionIconActive]}>
-                      <Ionicons name={icons[type] || 'school'} size={28} color={selected ? '#FFD60A' : C.textSecondary} />
-                    </View>
-                    <Text style={[styles.optionLabel, selected && styles.optionLabelActive]}>{type}</Text>
-                    {selected && (
-                      <View style={[styles.checkMark, { backgroundColor: '#FFD60A' }]}>
-                        <Ionicons name="checkmark" size={14} color="#FFF" />
-                      </View>
-                    )}
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
-        );
-      case 'businessDocs':
-        return (
-          <View style={styles.stepContent}>
-            <View style={styles.stepHeader}>
-              <View style={styles.stepIconContainer}>
-                <Ionicons name="document-text" size={32} color={C.primary} />
-              </View>
-              <Text style={styles.stepTitle}>Business Details</Text>
-              <Text style={styles.stepSubtitle}>Required for verification</Text>
-            </View>
-
-            {isSupplier && (
-              <>
-                <Text style={styles.fieldLabel}>Shop Address</Text>
-                <TextInput
-                  style={[styles.input, { minHeight: 70, textAlignVertical: 'top' }]}
-                  placeholder="Enter your shop/warehouse address"
-                  placeholderTextColor={C.textTertiary}
-                  value={shopAddress}
-                  onChangeText={setShopAddress}
-                  multiline
-                  numberOfLines={3}
-                />
-                <Text style={styles.fieldLabel}>GST Number (optional)</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="e.g. 22AAAAA0000A1Z5"
-                  placeholderTextColor={C.textTertiary}
-                  value={gstNumber}
-                  onChangeText={setGstNumber}
-                  autoCapitalize="characters"
-                />
-              </>
-            )}
-
-            <Text style={styles.fieldLabel}>Aadhaar Number</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="12-digit Aadhaar number"
-              placeholderTextColor={C.textTertiary}
-              value={aadhaarNumber}
-              onChangeText={(text) => setAadhaarNumber(text.replace(/\D/g, '').slice(0, 12))}
-              keyboardType="number-pad"
-              maxLength={12}
-            />
-            <Text style={styles.docHint}>Your Aadhaar is used for identity verification only</Text>
-
-            <Text style={styles.fieldLabel}>PAN Number</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. ABCDE1234F"
-              placeholderTextColor={C.textTertiary}
-              value={panNumber}
-              onChangeText={setPanNumber}
-              autoCapitalize="characters"
-              maxLength={10}
-            />
-          </View>
-        );
-      case 'location':
-        return (
-          <View style={styles.stepContent}>
-            <View style={styles.stepHeader}>
-              <Text style={styles.stepTitle}>Location & Details</Text>
-              <Text style={styles.stepSubtitle}>Help others find you</Text>
-            </View>
-
-            <View style={styles.locationStatusRow}>
-              <Ionicons name={locationGot ? 'location' : 'location-outline'} size={20} color={locationGot ? '#34C759' : C.textTertiary} />
-              <Text style={[styles.locationStatusText, locationGot && { color: '#34C759' }, { flex: 1 }]}>
-                {gettingLocation ? 'Getting your location...' : locationGot ? 'Location captured automatically' : 'Enter your city and state below'}
-              </Text>
-              {gettingLocation && <ActivityIndicator size="small" color={C.primary} />}
-              {!locationGot && !gettingLocation && (
-                <Pressable onPress={captureLocation} style={styles.locationRetryBtn}>
-                  <Ionicons name="locate-outline" size={16} color={C.primary} />
-                  <Text style={{ color: C.primary, fontSize: 12, fontFamily: 'Inter_500Medium' }}>Allow</Text>
-                </Pressable>
-              )}
-            </View>
-
-            {isCustomer && (
-              <Pressable
-                style={styles.privacyToggle}
-                onPress={() => {
-                  setLocationSharing(locationSharing === 'true' ? 'false' : 'true');
-                  if (Platform.OS !== 'web') Haptics.selectionAsync();
-                }}
-              >
-                <Ionicons
-                  name={locationSharing === 'true' ? 'eye' : 'eye-off'}
-                  size={20}
-                  color={locationSharing === 'true' ? '#34C759' : '#FF3B30'}
-                />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.privacyToggleText}>
-                    {locationSharing === 'true' ? 'My location is visible to others' : 'My location is hidden'}
-                  </Text>
-                  <Text style={styles.privacyToggleHint}>
-                    You can change this later in your profile
-                  </Text>
-                </View>
-                <View style={[styles.toggleSwitch, locationSharing === 'true' && styles.toggleSwitchOn]}>
-                  <View style={[styles.toggleKnob, locationSharing === 'true' && styles.toggleKnobOn]} />
-                </View>
-              </Pressable>
-            )}
-
-            <Text style={styles.fieldLabel}>City *</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. Mumbai"
-              placeholderTextColor={C.textTertiary}
-              value={city}
-              onChangeText={setCity}
-            />
-            <Text style={styles.fieldLabel}>State *</Text>
-            <Pressable
-              style={[styles.input, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}
-              onPress={() => setShowStatePicker(true)}
-            >
-              <Text style={{ color: userState ? C.text : C.textTertiary, fontSize: 15, fontFamily: 'Inter_400Regular' }}>
-                {userState || 'Select your state'}
-              </Text>
-              <Ionicons name="chevron-down" size={18} color={C.textTertiary} />
-            </Pressable>
-            <Modal visible={showStatePicker} transparent animationType="slide">
-              <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
-                <View style={{ backgroundColor: C.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '60%' }}>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: C.border }}>
-                    <Text style={{ fontSize: 17, fontFamily: 'Inter_600SemiBold', color: C.text }}>Select State</Text>
-                    <Pressable onPress={() => setShowStatePicker(false)}>
-                      <Ionicons name="close" size={24} color={C.textSecondary} />
-                    </Pressable>
-                  </View>
-                  <FlatList
-                    data={INDIAN_STATES}
-                    keyExtractor={item => item}
-                    renderItem={({ item }) => (
-                      <Pressable
-                        style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: C.border, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: userState === item ? `${C.primary}15` : 'transparent' }}
-                        onPress={() => {
-                          setUserState(item);
-                          setShowStatePicker(false);
-                          if (Platform.OS !== 'web') Haptics.selectionAsync();
-                        }}
-                      >
-                        <Text style={{ fontSize: 15, color: userState === item ? C.primary : C.text, fontFamily: userState === item ? 'Inter_600SemiBold' : 'Inter_400Regular' }}>{item}</Text>
-                        {userState === item && <Ionicons name="checkmark" size={20} color={C.primary} />}
-                      </Pressable>
-                    )}
-                  />
-                </View>
-              </View>
-            </Modal>
-            {role !== 'customer' && (
-              <>
-                <Text style={styles.fieldLabel}>Experience</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="e.g. 5 years"
-                  placeholderTextColor={C.textTertiary}
-                  value={experience}
-                  onChangeText={setExperience}
-                />
-                <Text style={styles.fieldLabel}>Shop Name (optional)</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Your business name"
-                  placeholderTextColor={C.textTertiary}
-                  value={shopName}
-                  onChangeText={setShopName}
-                />
-              </>
-            )}
-          </View>
-        );
-      default:
-        return null;
+  const getNextScreen = (current: Screen): Screen | null => {
+    switch (current) {
+      case 'details': return isCustomer ? 'location' : 'selfie';
+      case 'selfie': return isTechnician ? 'skills' : isSupplier ? 'sellType' : isTeacher ? 'teachType' : 'location';
+      case 'skills': return 'location';
+      case 'sellType': return 'businessDocs';
+      case 'teachType': return 'businessDocs';
+      case 'businessDocs': return 'location';
+      default: return null;
     }
   };
 
-  const isLastStep = step === TOTAL_STEPS - 1;
-
-  const getButtonText = () => {
-    if (currentScreen === 'phone') return otpSending ? 'Sending...' : 'Send OTP';
-    if (currentScreen === 'google-phone') return checking ? 'Verifying...' : 'Continue';
-    if (currentScreen === 'otp') return otpVerifying ? 'Verifying...' : 'Verify OTP';
-    if (isLastStep) return uploadingSelfie ? 'Setting up...' : 'Complete Setup';
-    return 'Continue';
+  const nextScreen = () => {
+    const next = getNextScreen(screen);
+    if (next) setScreen(next);
   };
 
-  const getButtonIcon = (): keyof typeof Ionicons.glyphMap => {
-    if (currentScreen === 'phone') return 'send';
-    if (currentScreen === 'otp') return 'shield-checkmark';
-    if (isLastStep) return 'checkmark';
-    return 'arrow-forward';
-  };
-
-  const handleButtonPress = async () => {
-    if (currentScreen === 'phone') {
-      const cleanDigits = phone.replace(/\D/g, '');
-      if (!cleanDigits || cleanDigits.length < 10) {
-        Alert.alert('Invalid Number', 'Please enter a valid 10-digit mobile number.');
-        return;
-      }
-      await sendOtp(phone, false);
+  const handleOtpDigit = (val: string, idx: number) => {
+    const digits = val.replace(/\D/g, '');
+    if (digits.length > 1) {
+      const all = digits.slice(0, 6);
+      setOtpCode(all.padEnd(6, ' ').slice(0, 6).trim());
+      otpRefs[Math.min(all.length, 5)]?.current?.focus();
       return;
     }
-    if (currentScreen === 'otp') {
-      await verifyOtp();
-      return;
-    }
-    if (isLastStep) {
-      handleComplete();
-    } else {
-      handleNext();
-    }
+    const arr = otpCode.split('');
+    arr[idx] = digits;
+    setOtpCode(arr.join(''));
+    if (digits && idx < 5) otpRefs[idx + 1]?.current?.focus();
+    if (!digits && idx > 0) otpRefs[idx - 1]?.current?.focus();
   };
 
-  const isButtonDisabled = () => {
-    if (currentScreen === 'phone') return otpSending || phone.replace(/\D/g, '').length < 10;
-    if (currentScreen === 'google-phone') return checking || !phone.trim();
-    if (currentScreen === 'otp') return otpVerifying || otpCode.length < 6;
-    if (currentScreen === 'email') return emailSendingWelcome;
-    if (currentScreen === 'details') return !userName.trim();
-    if (currentScreen === 'selfie') return !selfieUri;
-    if (uploadingSelfie) return true;
-    return false;
-  };
+  const topInset = Platform.OS === 'web' ? 67 : insets.top;
+  const botInset = Platform.OS === 'web' ? 34 : insets.bottom;
 
-  // Don't render if already onboarded
-  if (isOnboarded && profile?.id) {
-    return null;
+  // ─── WELCOME SCREEN ──────────────────────────────────────────────────────────
+  if (screen === 'welcome') {
+    return (
+      <View style={s.screen}>
+        <StatusBar style="light" />
+        <View style={s.heroContainer}>
+          <Image source={{ uri: HERO_IMAGE }} style={StyleSheet.absoluteFill} contentFit="cover" />
+          <LinearGradient colors={['transparent', 'rgba(0,0,0,0.1)', 'rgba(255,255,255,0.95)', '#FFFFFF']} style={s.heroGradient} />
+        </View>
+        <View style={[s.welcomeContent, { paddingBottom: Math.max(botInset, 20) }]}>
+          <Text style={s.welcomeTitle}>Welcome to Mobile{'\n'}Technician Community</Text>
+          <Text style={s.welcomeSubtitle}>Network, Learn & Grow with technicians across India.</Text>
+          <View style={s.welcomeActions}>
+            <View style={s.phoneInputRow}>
+              <View style={s.countryCode}><Text style={s.countryCodeText}>+91</Text></View>
+              <TextInput
+                style={s.phoneInput}
+                placeholder="Enter mobile number"
+                placeholderTextColor="#9CA3AF"
+                keyboardType="phone-pad"
+                maxLength={10}
+                value={phone}
+                onChangeText={setPhone}
+                returnKeyType="send"
+                onSubmitEditing={() => sendOtp(phone)}
+              />
+            </View>
+            <Pressable
+              style={({ pressed }) => [s.primaryBtn, { opacity: pressed ? 0.85 : 1 }]}
+              onPress={() => sendOtp(phone)}
+              disabled={otpSending || phone.replace(/\D/g, '').length < 10}
+            >
+              {otpSending ? <ActivityIndicator color="#FFF" /> : <Text style={s.primaryBtnText}>Get OTP</Text>}
+            </Pressable>
+            <View style={s.dividerRow}>
+              <View style={s.dividerLine} />
+              <Text style={s.dividerText}>or continue with</Text>
+              <View style={s.dividerLine} />
+            </View>
+            <Pressable style={({ pressed }) => [s.googleBtn, { opacity: pressed ? 0.9 : 1 }]} onPress={startGoogleSignIn}>
+              <Ionicons name="logo-google" size={20} color="#374151" />
+              <Text style={s.googleBtnText}>Continue with Google</Text>
+            </Pressable>
+          </View>
+          <Text style={s.termsText}>
+            By continuing, you agree to our{' '}
+            <Text style={s.termsLink} onPress={() => openLink('https://repair-backend-3siuld7gbq-el.a.run.app/terms', 'Terms')}>Terms</Text>
+            {' '}and{' '}
+            <Text style={s.termsLink} onPress={() => openLink('https://repair-backend-3siuld7gbq-el.a.run.app/privacy', 'Privacy')}>Privacy Policy</Text>.
+          </Text>
+        </View>
+      </View>
+    );
   }
 
-  const isPhoneScreen = currentScreen === 'welcome';
+  // ─── PHONE SCREEN (fallback if navigated directly) ───────────────────────────
+  if (screen === 'phone') {
+    return (
+      <KeyboardAvoidingView style={s.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <StatusBar style="dark" />
+        <View style={[s.formScreen, { paddingTop: topInset + 20, paddingBottom: Math.max(botInset, 20) }]}>
+          <Pressable style={s.backBtn} onPress={() => setScreen('welcome')}>
+            <Ionicons name="chevron-back" size={24} color="#374151" />
+          </Pressable>
+          <View style={s.formHeader}>
+            <Text style={s.formTitle}>Enter your number</Text>
+            <Text style={s.formSubtitle}>We'll send you a one-time password</Text>
+          </View>
+          <View style={s.phoneInputRow}>
+            <View style={s.countryCode}><Text style={s.countryCodeText}>+91</Text></View>
+            <TextInput
+              style={s.phoneInput}
+              placeholder="10-digit mobile number"
+              placeholderTextColor="#9CA3AF"
+              keyboardType="phone-pad"
+              maxLength={10}
+              value={phone}
+              onChangeText={setPhone}
+              autoFocus
+            />
+          </View>
+          <Pressable
+            style={({ pressed }) => [s.primaryBtn, { marginTop: 16, opacity: pressed ? 0.85 : 1 }]}
+            onPress={() => sendOtp(phone)}
+            disabled={otpSending || phone.replace(/\D/g, '').length < 10}
+          >
+            {otpSending ? <ActivityIndicator color="#FFF" /> : <Text style={s.primaryBtnText}>Send OTP</Text>}
+          </Pressable>
+          {otpRateLimitTimer > 0 && <Text style={s.errorText}>Rate limited. Wait {otpRateLimitTimer}s.</Text>}
+        </View>
+      </KeyboardAvoidingView>
+    );
+  }
 
-  return (
-    <View style={[styles.container, isPhoneScreen && { backgroundColor: '#0A0A14' }]}>
-      <StatusBar style={isPhoneScreen ? 'light' : 'dark'} />
-      <ScrollView
-        contentContainerStyle={
-          isPhoneScreen
-            ? { flexGrow: 1 }
-            : [styles.scrollContent, { paddingTop: (Platform.OS === 'web' ? webTopInset : insets.top) + 20 }]
-        }
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-        pointerEvents="auto"
-      >
-        {!isPhoneScreen && (
-          <View style={styles.progressBar}>
-            {Array.from({ length: TOTAL_STEPS }).map((_, i) => (
-              <View
+  // ─── OTP SCREEN ──────────────────────────────────────────────────────────────
+  if (screen === 'otp') {
+    return (
+      <KeyboardAvoidingView style={s.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <StatusBar style="dark" />
+        <View style={[s.formScreen, { paddingTop: topInset + 20, paddingBottom: Math.max(botInset, 20) }]}>
+          <Pressable style={s.backBtn} onPress={() => setScreen('welcome')}>
+            <Ionicons name="chevron-back" size={24} color="#374151" />
+          </Pressable>
+          <View style={s.formHeader}>
+            <Text style={s.formTitle}>Verify your number</Text>
+            <Text style={s.formSubtitle}>Enter the 6-digit OTP sent to +91 {phone}</Text>
+          </View>
+          <View style={s.otpRow}>
+            {[0, 1, 2, 3, 4, 5].map(i => (
+              <TextInput
                 key={i}
-                style={[
-                  styles.progressDot,
-                  i <= step && { backgroundColor: C.primary, flex: i === step ? 2 : 1 },
-                ]}
+                ref={otpRefs[i]}
+                style={[s.otpBox, otpCode[i] ? s.otpBoxFilled : null]}
+                value={otpCode[i] || ''}
+                onChangeText={(v) => handleOtpDigit(v, i)}
+                keyboardType="number-pad"
+                maxLength={6}
+                selectTextOnFocus
+                autoFocus={i === 0}
               />
             ))}
           </View>
-        )}
-
-        {renderStep()}
-      </ScrollView>
-
-      {!isPhoneScreen && (
-        <View style={[styles.bottomActions, { paddingBottom: Platform.OS === 'web' ? 34 : Math.max(insets.bottom, 16), zIndex: 9999, elevation: 9999 }]} pointerEvents="box-none">
-          {step > 0 && (
-            <Pressable style={styles.backBtn} onPress={() => {
-              if (currentScreen === 'phone') {
-                setPhone('');
-                setOtpError('');
-                setDebugInfo('');
-                setUsePhoneAuth(false);
-                setStep(0);
-                return;
-              }
-              if (currentScreen === 'otp') {
-                setOtpCode('');
-                setOtpSent(false);
-                setOtpResendTimer(0);
-                setOtpError('');
-                setDebugInfo('');
-                setOtpAttempts(0);
-              }
-              setStep(s => s - 1);
-            }}>
-              <Ionicons name="arrow-back" size={22} color={C.textSecondary} />
-            </Pressable>
-          )}
+          {otpError ? <Text style={s.errorText}>{otpError}</Text> : null}
           <Pressable
-            style={({ pressed }) => [
-              styles.nextBtn,
-              { zIndex: 10000, elevation: 10000 },
-              pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
-              isButtonDisabled() && { opacity: 0.5 },
-            ]}
-            onPress={handleButtonPress}
-            disabled={isButtonDisabled()}
-            testID="continue-button"
+            style={({ pressed }) => [s.primaryBtn, { marginTop: 24, opacity: pressed ? 0.85 : 1 }]}
+            onPress={verifyOtp}
+            disabled={otpVerifying || otpCode.replace(/\D/g, '').length < 6}
           >
-            {(checking || uploadingSelfie || otpVerifying || otpSending) ? (
-              <ActivityIndicator color="#FFF" size="small" />
-            ) : (
-              <>
-                <Text style={styles.nextBtnText}>{getButtonText()}</Text>
-                <Ionicons name={getButtonIcon()} size={20} color="#FFF" />
-              </>
-            )}
+            {otpVerifying ? <ActivityIndicator color="#FFF" /> : <Text style={s.primaryBtnText}>Verify OTP</Text>}
+          </Pressable>
+          <Pressable
+            style={[s.resendBtn, otpResendTimer > 0 && { opacity: 0.5 }]}
+            onPress={() => otpResendTimer === 0 && sendOtp(phone)}
+            disabled={otpResendTimer > 0 || otpSending}
+          >
+            <Text style={s.resendBtnText}>
+              {otpResendTimer > 0 ? `Resend OTP in ${otpResendTimer}s` : 'Resend OTP'}
+            </Text>
           </Pressable>
         </View>
-      )}
+      </KeyboardAvoidingView>
+    );
+  }
 
-      {/* Firebase reCAPTCHA verifier — used for primary OTP via Firebase Auth (only render if Firebase is available) */}
-      {getFirebaseAuth() && (
-        <FirebaseRecaptchaVerifierModal
-          ref={recaptchaVerifier}
-          firebaseConfig={firebaseConfig}
-          attemptInvisibleVerification={true}
-          title="Phone Verification"
-          cancelLabel="Cancel"
-        />
-      )}
-    </View>
-  );
+  // ─── GOOGLE PHONE SCREEN ─────────────────────────────────────────────────────
+  if (screen === 'google-phone') {
+    return (
+      <KeyboardAvoidingView style={s.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <StatusBar style="dark" />
+        <View style={[s.formScreen, { paddingTop: topInset + 20, paddingBottom: Math.max(botInset, 20) }]}>
+          <View style={s.formHeader}>
+            <Text style={s.formTitle}>Link your number</Text>
+            <Text style={s.formSubtitle}>Signed in as {googleEmail}</Text>
+          </View>
+          <View style={s.phoneInputRow}>
+            <View style={s.countryCode}><Text style={s.countryCodeText}>+91</Text></View>
+            <TextInput
+              style={s.phoneInput}
+              placeholder="10-digit mobile number"
+              placeholderTextColor="#9CA3AF"
+              keyboardType="phone-pad"
+              maxLength={10}
+              value={phone}
+              onChangeText={setPhone}
+              autoFocus
+            />
+          </View>
+          <Pressable
+            style={({ pressed }) => [s.primaryBtn, { marginTop: 16, opacity: pressed ? 0.85 : 1 }]}
+            onPress={handleGooglePhoneSubmit}
+            disabled={checking || phone.replace(/\D/g, '').length < 10}
+          >
+            {checking ? <ActivityIndicator color="#FFF" /> : <Text style={s.primaryBtnText}>Continue</Text>}
+          </Pressable>
+        </View>
+      </KeyboardAvoidingView>
+    );
+  }
+
+  // ─── DETAILS SCREEN ──────────────────────────────────────────────────────────
+  if (screen === 'details') {
+    return (
+      <KeyboardAvoidingView style={s.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <StatusBar style="dark" />
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={[s.scrollContent, { paddingTop: topInset + 20, paddingBottom: Math.max(botInset, 24) }]} keyboardShouldPersistTaps="handled">
+          <View style={s.formHeader}>
+            <Text style={s.formTitle}>Create your profile</Text>
+            <Text style={s.formSubtitle}>Tell us about yourself</Text>
+          </View>
+          <View style={s.field}>
+            <Text style={s.label}>Full Name</Text>
+            <TextInput style={s.input} placeholder="Your name" placeholderTextColor="#9CA3AF" value={userName} onChangeText={setUserName} />
+          </View>
+          <View style={s.field}>
+            <Text style={s.label}>I am a</Text>
+            <View style={s.rolesGrid}>
+              {ROLES.map(r => (
+                <Pressable key={r.key} style={[s.roleCard, role === r.key && { borderColor: r.color, borderWidth: 2, backgroundColor: r.bg }]} onPress={() => { setRole(r.key); if (Platform.OS !== 'web') Haptics.selectionAsync(); }}>
+                  <Ionicons name={r.icon} size={24} color={role === r.key ? r.color : '#6B7280'} />
+                  <Text style={[s.roleLabel, role === r.key && { color: r.color, fontWeight: '600' }]}>{r.label}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+          {!isCustomer && (
+            <View style={s.field}>
+              <Text style={s.label}>Shop / Business Name</Text>
+              <TextInput style={s.input} placeholder="e.g. Raj Mobile Repairs" placeholderTextColor="#9CA3AF" value={shopName} onChangeText={setShopName} />
+            </View>
+          )}
+          <View style={s.field}>
+            <Text style={s.label}>Experience</Text>
+            <TextInput style={s.input} placeholder="e.g. 3 years" placeholderTextColor="#9CA3AF" value={experience} onChangeText={setExperience} />
+          </View>
+          <Pressable
+            style={({ pressed }) => [s.primaryBtn, { marginTop: 8, opacity: pressed ? 0.85 : 1 }]}
+            onPress={() => {
+              if (!userName.trim()) { Alert.alert('Required', 'Please enter your name.'); return; }
+              if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              nextScreen();
+            }}
+          >
+            <Text style={s.primaryBtnText}>Continue</Text>
+          </Pressable>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    );
+  }
+
+  // ─── SELFIE SCREEN ───────────────────────────────────────────────────────────
+  if (screen === 'selfie') {
+    return (
+      <View style={[s.screen, { paddingTop: topInset + 20, paddingBottom: Math.max(botInset, 24) }]}>
+        <StatusBar style="dark" />
+        <View style={s.formHeader}>
+          <Text style={s.formTitle}>Add your photo</Text>
+          <Text style={s.formSubtitle}>Help people recognise you</Text>
+        </View>
+        <View style={s.selfieArea}>
+          {selfieUri ? (
+            <Image source={{ uri: selfieUri }} style={s.selfiePreview} contentFit="cover" />
+          ) : (
+            <View style={s.selfiePlaceholder}>
+              <Ionicons name="person" size={64} color="#D1D5DB" />
+            </View>
+          )}
+        </View>
+        <View style={s.selfieButtons}>
+          <Pressable style={[s.outlineBtn, { flex: 1 }]} onPress={takeSelfie}>
+            <Ionicons name="camera" size={18} color="#3B82F6" />
+            <Text style={s.outlineBtnText}>Camera</Text>
+          </Pressable>
+          <Pressable style={[s.outlineBtn, { flex: 1 }]} onPress={pickPhoto}>
+            <Ionicons name="image" size={18} color="#3B82F6" />
+            <Text style={s.outlineBtnText}>Gallery</Text>
+          </Pressable>
+        </View>
+        <View style={s.rowButtons}>
+          <Pressable style={[s.outlineBtn, { flex: 1 }]} onPress={nextScreen}>
+            <Text style={s.outlineBtnText}>Skip</Text>
+          </Pressable>
+          <Pressable
+            style={({ pressed }) => [s.primaryBtn, { flex: 2, opacity: pressed ? 0.85 : 1 }]}
+            onPress={() => { if (!selfieUri) { nextScreen(); } else nextScreen(); }}
+          >
+            <Text style={s.primaryBtnText}>Continue</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
+  // ─── SKILLS SCREEN ───────────────────────────────────────────────────────────
+  if (screen === 'skills') {
+    return (
+      <View style={[s.screen, { paddingTop: topInset + 20 }]}>
+        <StatusBar style="dark" />
+        <View style={[s.formHeader, { paddingHorizontal: 24 }]}>
+          <Text style={s.formTitle}>Your skills</Text>
+          <Text style={s.formSubtitle}>Select all that apply</Text>
+        </View>
+        <ScrollView contentContainerStyle={s.skillsGrid}>
+          {SKILLS_LIST.map(skill => {
+            const selected = selectedSkills.includes(skill);
+            return (
+              <Pressable
+                key={skill}
+                style={[s.skillChip, selected && s.skillChipSelected]}
+                onPress={() => { if (Platform.OS !== 'web') Haptics.selectionAsync(); setSelectedSkills(prev => prev.includes(skill) ? prev.filter(s => s !== skill) : [...prev, skill]); }}
+              >
+                <Text style={[s.skillChipText, selected && s.skillChipTextSelected]}>{skill}</Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+        <View style={[s.bottomBar, { paddingBottom: Math.max(botInset, 16) }]}>
+          <Pressable
+            style={({ pressed }) => [s.primaryBtn, { opacity: pressed ? 0.85 : 1 }]}
+            onPress={() => { if (selectedSkills.length === 0) { Alert.alert('Required', 'Select at least one skill.'); return; } nextScreen(); }}
+          >
+            <Text style={s.primaryBtnText}>Continue ({selectedSkills.length} selected)</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
+  // ─── SELL TYPE SCREEN ────────────────────────────────────────────────────────
+  if (screen === 'sellType') {
+    return (
+      <View style={[s.screen, { paddingTop: topInset + 20 }]}>
+        <StatusBar style="dark" />
+        <View style={[s.formHeader, { paddingHorizontal: 24 }]}>
+          <Text style={s.formTitle}>What do you sell?</Text>
+          <Text style={s.formSubtitle}>Select all that apply</Text>
+        </View>
+        <ScrollView contentContainerStyle={s.skillsGrid}>
+          {SUPPLIER_SELL_TYPES.map(type => {
+            const selected = sellTypes.includes(type);
+            return (
+              <Pressable key={type} style={[s.skillChip, selected && s.skillChipSelected]} onPress={() => setSellTypes(prev => prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type])}>
+                <Text style={[s.skillChipText, selected && s.skillChipTextSelected]}>{type}</Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+        <View style={[s.bottomBar, { paddingBottom: Math.max(botInset, 16) }]}>
+          <Pressable style={({ pressed }) => [s.primaryBtn, { opacity: pressed ? 0.85 : 1 }]} onPress={() => { if (sellTypes.length === 0) { Alert.alert('Required', 'Select what you sell.'); return; } nextScreen(); }}>
+            <Text style={s.primaryBtnText}>Continue</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
+  // ─── TEACH TYPE SCREEN ───────────────────────────────────────────────────────
+  if (screen === 'teachType') {
+    return (
+      <View style={[s.screen, { paddingTop: topInset + 20 }]}>
+        <StatusBar style="dark" />
+        <View style={[s.formHeader, { paddingHorizontal: 24 }]}>
+          <Text style={s.formTitle}>What do you teach?</Text>
+        </View>
+        <ScrollView contentContainerStyle={s.skillsGrid}>
+          {TEACHER_TEACH_TYPES.map(type => (
+            <Pressable key={type} style={[s.skillChip, teachType === type && s.skillChipSelected]} onPress={() => setTeachType(type)}>
+              <Text style={[s.skillChipText, teachType === type && s.skillChipTextSelected]}>{type}</Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+        <View style={[s.bottomBar, { paddingBottom: Math.max(botInset, 16) }]}>
+          <Pressable style={({ pressed }) => [s.primaryBtn, { opacity: pressed ? 0.85 : 1 }]} onPress={() => { if (!teachType) { Alert.alert('Required', 'Select what you teach.'); return; } nextScreen(); }}>
+            <Text style={s.primaryBtnText}>Continue</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
+  // ─── BUSINESS DOCS SCREEN ────────────────────────────────────────────────────
+  if (screen === 'businessDocs') {
+    return (
+      <KeyboardAvoidingView style={s.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <StatusBar style="dark" />
+        <ScrollView contentContainerStyle={[s.scrollContent, { paddingTop: topInset + 20, paddingBottom: Math.max(botInset, 24) }]} keyboardShouldPersistTaps="handled">
+          <View style={s.formHeader}>
+            <Text style={s.formTitle}>Business details</Text>
+            <Text style={s.formSubtitle}>Required for verification</Text>
+          </View>
+          {isSupplier && (
+            <View style={s.field}>
+              <Text style={s.label}>Shop Address</Text>
+              <TextInput style={[s.input, { height: 80, textAlignVertical: 'top' }]} placeholder="Full shop address" placeholderTextColor="#9CA3AF" value={shopAddress} onChangeText={setShopAddress} multiline />
+            </View>
+          )}
+          <View style={s.field}>
+            <Text style={s.label}>Aadhaar Number</Text>
+            <TextInput style={s.input} placeholder="12-digit Aadhaar" placeholderTextColor="#9CA3AF" value={aadhaarNumber} onChangeText={setAadhaarNumber} keyboardType="number-pad" maxLength={12} />
+          </View>
+          <View style={s.field}>
+            <Text style={s.label}>PAN Number</Text>
+            <TextInput style={s.input} placeholder="10-character PAN" placeholderTextColor="#9CA3AF" value={panNumber} onChangeText={v => setPanNumber(v.toUpperCase())} maxLength={10} />
+          </View>
+          {isSupplier && (
+            <View style={s.field}>
+              <Text style={s.label}>GST Number (optional)</Text>
+              <TextInput style={s.input} placeholder="GST registration number" placeholderTextColor="#9CA3AF" value={gstNumber} onChangeText={setGstNumber} />
+            </View>
+          )}
+          <Pressable
+            style={({ pressed }) => [s.primaryBtn, { marginTop: 8, opacity: pressed ? 0.85 : 1 }]}
+            onPress={() => {
+              if (isSupplier && !shopAddress.trim()) { Alert.alert('Required', 'Please enter your shop address.'); return; }
+              if (!aadhaarNumber.trim()) { Alert.alert('Required', 'Please enter your Aadhaar number.'); return; }
+              if (!panNumber.trim()) { Alert.alert('Required', 'Please enter your PAN number.'); return; }
+              nextScreen();
+            }}
+          >
+            <Text style={s.primaryBtnText}>Continue</Text>
+          </Pressable>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    );
+  }
+
+  // ─── LOCATION SCREEN ─────────────────────────────────────────────────────────
+  if (screen === 'location') {
+    return (
+      <KeyboardAvoidingView style={s.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <StatusBar style="dark" />
+        <ScrollView contentContainerStyle={[s.scrollContent, { paddingTop: topInset + 20, paddingBottom: Math.max(botInset, 24) }]} keyboardShouldPersistTaps="handled">
+          <View style={s.formHeader}>
+            <Text style={s.formTitle}>Your location</Text>
+            <Text style={s.formSubtitle}>Helps connect you with nearby professionals</Text>
+          </View>
+          {locationGot && (
+            <View style={s.locationBadge}>
+              <Ionicons name="checkmark-circle" size={16} color="#22C55E" />
+              <Text style={{ color: '#22C55E', fontSize: 13, fontWeight: '500', marginLeft: 6 }}>GPS location captured</Text>
+            </View>
+          )}
+          {gettingLocation && (
+            <View style={s.locationBadge}>
+              <ActivityIndicator size="small" color="#3B82F6" />
+              <Text style={{ color: '#3B82F6', fontSize: 13, marginLeft: 8 }}>Getting location...</Text>
+            </View>
+          )}
+          <View style={s.field}>
+            <Text style={s.label}>City</Text>
+            <TextInput style={s.input} placeholder="Your city" placeholderTextColor="#9CA3AF" value={city} onChangeText={setCity} />
+          </View>
+          <View style={s.field}>
+            <Text style={s.label}>State</Text>
+            <Pressable style={s.input} onPress={() => setShowStatePicker(true)}>
+              <Text style={{ color: userState ? '#111827' : '#9CA3AF', fontSize: 15 }}>{userState || 'Select state'}</Text>
+            </Pressable>
+          </View>
+          <Pressable
+            style={({ pressed }) => [s.primaryBtn, { marginTop: 8, opacity: (pressed || uploadingSelfie) ? 0.85 : 1 }]}
+            onPress={handleComplete}
+            disabled={uploadingSelfie}
+          >
+            {uploadingSelfie ? <ActivityIndicator color="#FFF" /> : <Text style={s.primaryBtnText}>Complete Setup</Text>}
+          </Pressable>
+        </ScrollView>
+        <Modal visible={showStatePicker} animationType="slide" presentationStyle="pageSheet">
+          <View style={{ flex: 1, paddingTop: topInset }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' }}>
+              <Text style={{ fontSize: 18, fontWeight: '700', color: '#111827' }}>Select State</Text>
+              <Pressable onPress={() => setShowStatePicker(false)}><Ionicons name="close" size={24} color="#6B7280" /></Pressable>
+            </View>
+            <FlatList
+              data={INDIAN_STATES}
+              keyExtractor={i => i}
+              renderItem={({ item }) => (
+                <Pressable style={{ paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#F9FAFB' }} onPress={() => { setUserState(item); setShowStatePicker(false); }}>
+                  <Text style={{ fontSize: 16, color: item === userState ? '#3B82F6' : '#374151', fontWeight: item === userState ? '600' : '400' }}>{item}</Text>
+                </Pressable>
+              )}
+            />
+          </View>
+        </Modal>
+      </KeyboardAvoidingView>
+    );
+  }
+
+  return null;
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: C.background,
-  },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingBottom: Platform.OS === 'web' ? 140 : 120,
-  },
-  progressBar: {
-    flexDirection: 'row',
-    gap: 6,
-    marginBottom: 32,
-  },
-  progressDot: {
-    flex: 1,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: C.surfaceHighlight,
-  },
-  stepContent: {
-    flex: 1,
-    padding: 32,
-    justifyContent: 'flex-start',
-    backgroundColor: C.background,
-    paddingTop: 40,
-  },
-  stepHeader: {
-    marginBottom: 40,
-    alignItems: 'center',
-  },
-  stepTitle: {
-    fontSize: 34,
-    fontFamily: 'Inter_700Bold',
-    color: C.text,
-    textAlign: 'center',
-    marginBottom: 12,
-    letterSpacing: -1,
-  },
-  stepSubtitle: {
-    fontSize: 18,
-    color: C.textSecondary,
-    textAlign: 'center',
-    lineHeight: 26,
-    paddingHorizontal: 10,
-  },
-  fieldLabel: {
-    fontSize: 13,
-    fontFamily: 'Inter_700Bold',
-    color: C.primary,
-    marginBottom: 12,
-    marginLeft: 4,
-    textTransform: 'uppercase',
-    letterSpacing: 1.5,
-  },
-  phoneRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-  },
-  countryCode: {
-    backgroundColor: C.surface,
-    paddingHorizontal: 20,
-    paddingVertical: 18,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: C.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  countryCodeText: {
-    fontSize: 18,
-    fontFamily: 'Inter_600SemiBold',
-    color: C.text,
-  },
-  input: {
-    backgroundColor: C.surface,
-    paddingHorizontal: 24,
-    paddingVertical: 18,
-    borderRadius: 20,
-    fontSize: 18,
-    color: C.text,
-    borderWidth: 1,
-    borderColor: C.border,
-    fontFamily: 'Inter_500Medium',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  stepHeader: {
-    marginBottom: 28,
-    alignItems: 'center',
-  },
-  stepIconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: C.primaryMuted,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-  },
-  stepTitle: {
-    color: C.text,
-    fontSize: 28,
-    fontFamily: 'Inter_700Bold',
-    textAlign: 'center',
-    letterSpacing: -0.5,
-  },
-  stepSubtitle: {
-    color: C.textTertiary,
-    fontSize: 16,
-    fontFamily: 'Inter_400Regular',
-    marginTop: 8,
-    textAlign: 'center',
-    lineHeight: 24,
-  },
-  fieldLabel: {
-    color: C.textSecondary,
-    fontSize: 13,
-    fontFamily: 'Inter_600SemiBold',
-    marginBottom: 8,
-    marginTop: 16,
-  },
-  input: {
-    backgroundColor: C.surface,
-    borderRadius: 14,
-    padding: 16,
-    color: C.text,
-    fontSize: 16,
-    fontFamily: 'Inter_400Regular',
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-  otpHint: {
-    color: C.textTertiary,
-    fontSize: 12,
-    fontFamily: 'Inter_400Regular',
-    marginTop: 10,
-    textAlign: 'center',
-  },
-  otpActions: {
-    marginTop: 20,
-    alignItems: 'center',
-  },
-  phoneRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  countryCode: {
-    backgroundColor: C.surfaceElevated,
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    height: 54,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: C.borderLight,
-  },
-  countryCodeText: {
-    color: C.text,
-    fontSize: 16,
-    fontFamily: 'Inter_600SemiBold',
-  },
-  dividerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-    gap: 12,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: C.border,
-  },
-  dividerText: {
-    color: C.textTertiary,
-    fontSize: 13,
-    fontFamily: 'Inter_400Regular',
-  },
-  docHint: {
-    color: C.textTertiary,
-    fontSize: 11,
-    fontFamily: 'Inter_400Regular',
-    marginTop: 4,
-    marginBottom: 4,
-  },
-  rolesGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    marginBottom: 8,
-  },
-  roleCard: {
-    flex: 1,
-    minWidth: '45%',
-    backgroundColor: C.surface,
-    borderRadius: 16,
-    padding: 14,
-    borderWidth: 2,
-    borderColor: C.border,
-    alignItems: 'center',
-    gap: 8,
-    position: 'relative',
-  },
-  roleIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  roleLabel: {
-    color: C.textSecondary,
-    fontSize: 13,
-    fontFamily: 'Inter_600SemiBold',
-  },
-  checkMark: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  skillsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  skillChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 12,
-    backgroundColor: C.surface,
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-  skillChipActive: {
-    backgroundColor: C.primaryMuted,
-    borderColor: C.primary,
-  },
-  skillChipText: {
-    color: C.textSecondary,
-    fontSize: 13,
-    fontFamily: 'Inter_500Medium',
-  },
-  skillChipTextActive: {
-    color: C.primary,
-  },
-  optionsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  optionCard: {
-    width: '47%' as any,
-    backgroundColor: C.surface,
-    borderRadius: 16,
-    padding: 20,
-    borderWidth: 2,
-    borderColor: C.border,
-    alignItems: 'center',
-    gap: 10,
-    position: 'relative',
-  },
-  optionCardActive: {
-    borderColor: C.primary,
-    backgroundColor: C.primaryMuted,
-  },
-  optionIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
-    backgroundColor: C.surfaceElevated,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  optionIconActive: {
-    backgroundColor: C.primaryMuted,
-  },
-  optionLabel: {
-    color: C.textSecondary,
-    fontSize: 14,
-    fontFamily: 'Inter_600SemiBold',
-  },
-  optionLabelActive: {
-    color: C.text,
-  },
-  bottomActions: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    backgroundColor: C.background,
-    borderTopWidth: 1,
-    borderTopColor: C.borderLight,
-    gap: 12,
-  },
-  backBtn: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
-    backgroundColor: C.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-  nextBtn: {
-    flex: 1,
-    height: 56,
-    borderRadius: 16,
-    backgroundColor: C.primary,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    shadowColor: C.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  nextBtnText: {
-    color: '#FFF',
-    fontSize: 16,
-    fontFamily: 'Inter_600SemiBold',
-  },
-  selfiePreviewContainer: {
-    alignItems: 'center',
-    gap: 16,
-  },
-  selfieImageWrap: {
-    position: 'relative',
-  },
-  selfiePreview: {
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    borderWidth: 3,
-    borderColor: C.primary,
-  },
-  selfieCheckBadge: {
-    position: 'absolute',
-    bottom: 6,
-    right: 6,
-    backgroundColor: C.background,
-    borderRadius: 16,
-  },
-  selfieGoodText: {
-    color: '#34C759',
-    fontSize: 16,
-    fontFamily: 'Inter_600SemiBold',
-  },
-  retakeBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 10,
-    backgroundColor: C.primaryMuted,
-  },
-  retakeBtnText: {
-    color: C.primary,
-    fontSize: 14,
-    fontFamily: 'Inter_500Medium',
-  },
-  selfiePromptContainer: {
-    alignItems: 'center',
-    gap: 12,
-  },
-  selfieCaptureBtn: {
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    borderWidth: 3,
-    borderColor: C.primary,
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  selfieCaptureInner: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: C.primaryMuted,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  selfieTapText: {
-    color: C.text,
-    fontSize: 15,
-    fontFamily: 'Inter_600SemiBold',
-  },
-  selfieHint: {
-    color: C.textTertiary,
-    fontSize: 13,
-    fontFamily: 'Inter_400Regular',
-  },
-  googleBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    height: 60,
-    borderRadius: 18,
-    backgroundColor: '#F8F9FA',
-    borderColor: '#E9ECEF',
-    borderWidth: 1,
-    marginTop: 8,
-  },
-  googleBtnText: {
-    color: '#1A1A1A',
-    fontSize: 16,
-    fontFamily: 'Inter_600SemiBold',
-  },
-  locationStatusRow: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: 8,
-    backgroundColor: C.surface,
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-  locationStatusText: {
-    flex: 1,
-    color: C.textSecondary,
-    fontSize: 14,
-    fontFamily: 'Inter_500Medium',
-  },
-  locationRetryBtn: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: 4,
-  },
-  privacyToggle: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: 12,
-    backgroundColor: C.surface,
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-  privacyToggleText: {
-    color: C.text,
-    fontSize: 14,
-    fontFamily: 'Inter_500Medium',
-  },
-  privacyToggleHint: {
-    color: C.textTertiary,
-    fontSize: 11,
-    fontFamily: 'Inter_400Regular',
-    marginTop: 2,
-  },
-  toggleSwitch: {
-    width: 44,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#555',
-    justifyContent: 'center' as const,
-    padding: 2,
-  },
-  toggleSwitchOn: {
-    backgroundColor: '#34C759',
-  },
-  toggleKnob: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: '#FFF',
-  },
-  toggleKnobOn: {
-    alignSelf: 'flex-end' as const,
-  },
+const s = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: '#FFFFFF' },
+  // Welcome
+  heroContainer: { width: '100%', height: '48%', overflow: 'hidden' },
+  heroGradient: { position: 'absolute', bottom: 0, left: 0, right: 0, height: '60%' },
+  welcomeContent: { flex: 1, paddingHorizontal: 24, paddingTop: 20 },
+  welcomeTitle: { fontSize: 26, fontWeight: '700', color: '#111827', textAlign: 'center', lineHeight: 34, marginBottom: 10 },
+  welcomeSubtitle: { fontSize: 14, color: '#6B7280', textAlign: 'center', lineHeight: 20, marginBottom: 28 },
+  welcomeActions: { gap: 12 },
+  // Phone input
+  phoneInputRow: { flexDirection: 'row', alignItems: 'center', borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 14, backgroundColor: '#FAFAFA', overflow: 'hidden' },
+  countryCode: { paddingHorizontal: 14, paddingVertical: 14, borderRightWidth: 1, borderRightColor: '#E5E7EB', backgroundColor: '#F3F4F6' },
+  countryCodeText: { fontSize: 15, fontWeight: '600', color: '#374151' },
+  phoneInput: { flex: 1, paddingHorizontal: 14, paddingVertical: 14, fontSize: 16, color: '#111827', fontWeight: '500' },
+  // Buttons
+  primaryBtn: { backgroundColor: '#2563EB', borderRadius: 14, paddingVertical: 15, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8, shadowColor: '#2563EB', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 8, elevation: 4 },
+  primaryBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
+  googleBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 14, paddingVertical: 14, backgroundColor: '#FFFFFF', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
+  googleBtnText: { fontSize: 15, fontWeight: '600', color: '#374151' },
+  outlineBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 14, paddingVertical: 14 },
+  outlineBtnText: { fontSize: 15, fontWeight: '600', color: '#3B82F6' },
+  dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: '#E5E7EB' },
+  dividerText: { fontSize: 12, color: '#9CA3AF', fontWeight: '500', textTransform: 'uppercase', letterSpacing: 0.8 },
+  termsText: { fontSize: 11, color: '#9CA3AF', textAlign: 'center', marginTop: 16, lineHeight: 16 },
+  termsLink: { color: '#6B7280', textDecorationLine: 'underline' },
+  // Form screens
+  formScreen: { flex: 1, paddingHorizontal: 24 },
+  scrollContent: { paddingHorizontal: 24 },
+  formHeader: { marginBottom: 28 },
+  formTitle: { fontSize: 26, fontWeight: '700', color: '#111827', marginBottom: 6 },
+  formSubtitle: { fontSize: 15, color: '#6B7280', lineHeight: 22 },
+  backBtn: { marginBottom: 24, width: 36, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 10, backgroundColor: '#F3F4F6' },
+  // OTP
+  otpRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 8 },
+  otpBox: { flex: 1, aspectRatio: 1, maxHeight: 54, borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 12, textAlign: 'center', fontSize: 22, fontWeight: '700', color: '#111827', backgroundColor: '#FAFAFA' },
+  otpBoxFilled: { borderColor: '#2563EB', backgroundColor: '#EFF6FF' },
+  errorText: { color: '#EF4444', fontSize: 13, marginTop: 10, textAlign: 'center' },
+  resendBtn: { marginTop: 16, alignSelf: 'center', paddingVertical: 10 },
+  resendBtnText: { color: '#3B82F6', fontSize: 14, fontWeight: '600' },
+  // Details
+  field: { marginBottom: 18 },
+  label: { fontSize: 13, fontWeight: '600', color: '#6B7280', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 },
+  input: { borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 13, fontSize: 15, color: '#111827', backgroundColor: '#FAFAFA', justifyContent: 'center' },
+  rolesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  roleCard: { width: '47%', borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 14, padding: 14, alignItems: 'center', gap: 6, backgroundColor: '#FAFAFA' },
+  roleLabel: { fontSize: 13, color: '#6B7280', fontWeight: '500' },
+  // Selfie
+  selfieArea: { alignSelf: 'center', marginVertical: 20 },
+  selfiePreview: { width: 160, height: 160, borderRadius: 80 },
+  selfiePlaceholder: { width: 160, height: 160, borderRadius: 80, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#E5E7EB', borderStyle: 'dashed' },
+  selfieButtons: { flexDirection: 'row', gap: 12, marginHorizontal: 24, marginBottom: 16 },
+  rowButtons: { flexDirection: 'row', gap: 12, marginHorizontal: 24 },
+  // Skills
+  skillsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingHorizontal: 20, paddingTop: 8, paddingBottom: 100 },
+  skillChip: { borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, backgroundColor: '#FAFAFA' },
+  skillChipSelected: { borderColor: '#2563EB', backgroundColor: '#EFF6FF' },
+  skillChipText: { fontSize: 13, color: '#6B7280', fontWeight: '500' },
+  skillChipTextSelected: { color: '#2563EB', fontWeight: '700' },
+  bottomBar: { position: 'absolute', bottom: 0, left: 0, right: 0, paddingHorizontal: 20, paddingTop: 12, backgroundColor: '#FFFFFF', borderTopWidth: 1, borderTopColor: '#F3F4F6' },
+  // Location
+  locationBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F0FDF4', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, marginBottom: 20 },
 });
