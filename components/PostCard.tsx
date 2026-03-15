@@ -4,6 +4,7 @@ import {
   Platform, Alert, Modal,
 } from 'react-native';
 import { Image } from 'expo-image';
+import { Video, ResizeMode } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
@@ -251,14 +252,18 @@ export default function PostCard({
         </View>
       )}
 
-      {/* ── Video ── */}
+      {/* ── Video (inline playback) ── */}
       {post.videoUrl && !post.images.length && (
-        <Pressable style={styles.videoThumb} onPress={() => setViewerMedia({ type: 'video', url: post.videoUrl! })}>
-          <View style={styles.videoPlayOverlay}>
-            <Ionicons name="play-circle" size={48} color="#FFF" />
-          </View>
-          <Text style={styles.videoLabel}>Tap to play video</Text>
-        </Pressable>
+        <View style={styles.videoContainer}>
+          <Video
+            source={{ uri: post.videoUrl }}
+            style={styles.inlineVideo}
+            useNativeControls
+            resizeMode={ResizeMode.CONTAIN}
+            shouldPlay={false}
+            isLooping={false}
+          />
+        </View>
       )}
 
       {/* ── Hashtag pills ── */}
@@ -527,30 +532,17 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontFamily: 'Inter_700Bold',
   },
-  videoThumb: {
-    height: 200,
+  videoContainer: {
     borderRadius: 12,
-    backgroundColor: '#1A1A2E',
-    alignItems: 'center',
-    justifyContent: 'center',
+    overflow: 'hidden',
     marginBottom: 12,
-    gap: 8,
+    backgroundColor: '#000',
     borderWidth: 1,
     borderColor: BORDER_DARK,
-    overflow: 'hidden',
   },
-  videoPlayOverlay: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  videoLabel: {
-    color: '#FFF',
-    fontSize: 13,
-    fontFamily: 'Inter_500Medium',
+  inlineVideo: {
+    width: '100%',
+    height: 220,
   },
   tags: {
     flexDirection: 'row',

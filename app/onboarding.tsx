@@ -54,7 +54,7 @@ const ROLES: { key: UserRole; icon: keyof typeof Ionicons.glyphMap; color: strin
   { key: 'supplier', icon: 'cube', color: '#FF9F0A' },
 ];
 
-type ScreenName = 'phone' | 'otp' | 'email' | 'google-phone' | 'details' | 'selfie' | 'skills' | 'sellType' | 'teachType' | 'businessDocs' | 'location' | 'email-otp-entry' | 'email-otp-verify';
+type ScreenName = 'phone' | 'otp' | 'email' | 'google-phone' | 'details' | 'selfie' | 'skills' | 'sellType' | 'teachType' | 'businessDocs' | 'location';
 
 export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
@@ -111,18 +111,6 @@ export default function OnboardingScreen() {
   const [debugInfo, setDebugInfo] = useState('');
   const [otpRateLimitTimer, setOtpRateLimitTimer] = useState(0);
 
-  // Email OTP auth state
-  const [emailOtpMode, setEmailOtpMode] = useState(false);
-  const [emailOtpEmail, setEmailOtpEmail] = useState('');
-  const [emailOtpSending, setEmailOtpSending] = useState(false);
-  const [emailOtpSent, setEmailOtpSent] = useState(false);
-  const [emailOtpVerified, setEmailOtpVerified] = useState(false);
-  const [emailOtpCode, setEmailOtpCode] = useState('');
-  const [emailOtpVerifying, setEmailOtpVerifying] = useState(false);
-  const [emailOtpPhone, setEmailOtpPhone] = useState('');
-  const [emailOtpResendTimer, setEmailOtpResendTimer] = useState(0);
-  const [emailOtpError, setEmailOtpError] = useState('');
-
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
   const isCustomer = role === 'customer';
@@ -136,14 +124,9 @@ export default function OnboardingScreen() {
   const needsBusinessDocs = isSupplier || isTeacher;
 
   const getScreenSequence = (): ScreenName[] => {
-    if (emailOtpMode && !emailOtpVerified) {
-      return ['email-otp-entry', 'email-otp-verify'];
-    }
-    const screens: ScreenName[] = emailOtpVerified
-      ? ['details']
-      : googleSignedIn
-        ? ['google-phone', 'details']
-        : ['phone', 'otp', 'email', 'details'];
+    const screens: ScreenName[] = googleSignedIn
+      ? ['google-phone', 'details']
+      : ['phone', 'otp', 'email', 'details'];
     if (needsSelfie) screens.push('selfie');
     if (needsSkills) screens.push('skills');
     if (needsSellType) screens.push('sellType');
@@ -187,16 +170,6 @@ export default function OnboardingScreen() {
 
   const pendingGoogleTokenRef = useRef<string | null>(null);
 
-  useEffect(() => {
-    if (emailOtpResendTimer <= 0) return;
-    const interval = setInterval(() => {
-      setEmailOtpResendTimer(t => {
-        if (t <= 1) { clearInterval(interval); return 0; }
-        return t - 1;
-      });
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [emailOtpResendTimer]);
 
   useEffect(() => {
     if (otpResendTimer <= 0) return;
@@ -447,118 +420,6 @@ export default function OnboardingScreen() {
     }
   };
 
-  const sendEmailOtp = async () => {
-    const trimmed = emailOtpEmail.trim();
-    if (!trimmed) {
-      Alert.alert('Email Required', 'Please enter your email address.');
-      return;
-    }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(trimmed)) {
-      Alert.alert('Invalid Email', 'Please enter a valid email address.');
-      return;
-    }
-    setEmailOtpSending(true);
-    setEmailOtpError('');
-    try {
-      try {
-        const checkRes = await apiRequest('POST', '/api/auth/check-email', { email: trimmed });
-        const checkData = await checkRes.json();
-        if (checkData.success && checkData.exists && checkData.profile) {
-          setExistingProfile(checkData.profile);
-        } else {
-          setExistingProfile(null);
-        }
-      } catch (checkErr) {
-        setExistingProfile(null);
-      }
-
-      const res = await apiRequest('POST', '/api/otp/send-email', { email: trimmed });
-      const data = await res.json();
-      if (data.success) {
-        setEmailOtpSent(true);
-        setEmailOtpResendTimer(30);
-        if (!data.emailSent && data.otp) {
-          Alert.alert('Dev Mode', `Email delivery failed, but your code is: ${data.otp}`);
-        }
-        setStep(s => s + 1);
-      } else {
-        const msg = data.message || 'Failed to send OTP.';
-        setEmailOtpError(msg);
-        Alert.alert('Error', msg);
-      }
-    } catch (err: any) {
-      console.error('[EmailOTP] Send error:', err?.message);
-      Alert.alert('Error', err?.message || 'Could not send email OTP. Please try again.');
-    } finally {
-      setEmailOtpSending(false);
-    }
-  };
-
-  const verifyEmailOtp = async () => {
-    if (emailOtpCode.length < 6) {
-      Alert.alert('Invalid OTP', 'Please enter all 6 digits.');
-      return;
-    }
-    setEmailOtpVerifying(true);
-    setEmailOtpError('');
-    try {
-      const deviceId = await getDeviceId();
-      const cleanEmail = emailOtpEmail.trim().toLowerCase();
-      const res = await apiRequest('POST', '/api/otp/verify', { email: cleanEmail, otp: emailOtpCode, deviceId });
-      const data = await res.json();
-      if (!data.success) {
-        const msg = data.message || 'Invalid OTP. Please try again.';
-        setEmailOtpError(msg);
-        Alert.alert('Verification Failed', msg);
-        return;
-      }
-
-      if (!data.isNewUser && data.profile) {
-        Alert.alert('Welcome Back!', `Logged in as ${data.profile.name || cleanEmail}`);
-        const normalizedProfile = {
-          ...data.profile,
-          skills: typeof data.profile.skills === 'string' ? JSON.parse(data.profile.skills || '[]') : (data.profile.skills || []),
-        };
-        await loginWithProfile(normalizedProfile, data.sessionToken);
-      } else {
-        setEmailOtpVerified(true);
-        setEmailOtpMode(false);
-        setEmailOtpPhone(data.emailPhone || `email:${cleanEmail}`);
-        setSessionToken(data.sessionToken);
-        setStep(0);
-        Alert.alert('Email Verified!', 'Please complete your profile to finish sign-up.');
-      }
-    } catch (e: any) {
-      const msg = e?.message || 'Could not verify OTP. Please try again.';
-      setEmailOtpError(msg);
-      Alert.alert('Error', msg);
-    } finally {
-      setEmailOtpVerifying(false);
-    }
-  };
-
-  const resendEmailOtp = async () => {
-    setEmailOtpSending(true);
-    setEmailOtpError('');
-    try {
-      const res = await apiRequest('POST', '/api/otp/send-email', { email: emailOtpEmail.trim() });
-      const data = await res.json();
-      if (data.success) {
-        setEmailOtpResendTimer(30);
-        if (!data.emailSent && data.otp) {
-          Alert.alert('Dev Mode', `Code: ${data.otp}`);
-        }
-      } else {
-        setEmailOtpError(data.message || 'Failed to resend.');
-      }
-    } catch (err: any) {
-      setEmailOtpError(err?.message || 'Resend failed.');
-    } finally {
-      setEmailOtpSending(false);
-    }
-  };
-
   const startGoogleSignIn = async () => {
     try {
       const clientToken = Crypto.randomUUID();
@@ -764,14 +625,6 @@ export default function OnboardingScreen() {
       handleEmailStep();
       return;
     }
-    if (currentScreen === 'email-otp-entry') {
-      sendEmailOtp();
-      return;
-    }
-    if (currentScreen === 'email-otp-verify') {
-      verifyEmailOtp();
-      return;
-    }
     if (currentScreen === 'details' && !userName.trim()) {
       Alert.alert('Required', 'Please enter your name.');
       return;
@@ -838,8 +691,8 @@ export default function OnboardingScreen() {
     const profile: UserProfile = {
       id: Crypto.randomUUID(),
       name: userName.trim(),
-      phone: emailOtpVerified ? emailOtpPhone : phone.replace(/\D/g, '').trim(),
-      email: emailOtpVerified ? emailOtpEmail : (googleEmail || newUserEmail.trim() || undefined),
+      phone: phone.replace(/\D/g, '').trim(),
+      email: googleEmail || newUserEmail.trim() || undefined,
       role,
       skills: selectedSkills,
       city: city.trim(),
@@ -970,22 +823,6 @@ export default function OnboardingScreen() {
               >
                 <Ionicons name="logo-google" size={20} color="#4285F4" />
                 <Text style={{ fontSize: 16, fontFamily: 'Inter_600SemiBold', color: '#0A0A14' }}>Sign in with Google</Text>
-              </Pressable>
-
-              <Pressable
-                style={({ pressed }) => ({
-                  flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-                  backgroundColor: 'rgba(255,123,71,0.15)',
-                  borderRadius: 12, height: 48,
-                  marginBottom: 12,
-                  borderWidth: 1, borderColor: 'rgba(255,123,71,0.4)',
-                  opacity: pressed ? 0.85 : 1,
-                  transform: [{ scale: pressed ? 0.98 : 1 }]
-                })}
-                onPress={() => { setEmailOtpMode(true); setStep(0); }}
-              >
-                <Ionicons name="mail" size={20} color="#FF7B47" />
-                <Text style={{ fontSize: 16, fontFamily: 'Inter_600SemiBold', color: '#FF7B47' }}>Sign in with Email</Text>
               </Pressable>
 
               <View style={{ flex: 1 }} />
@@ -1153,109 +990,6 @@ export default function OnboardingScreen() {
             >
               <Text style={{ color: C.textTertiary, fontSize: 14, fontFamily: 'Inter_500Medium' }}>Skip for now</Text>
             </Pressable>
-          </View>
-        );
-      case 'email-otp-entry':
-        return (
-          <View style={styles.stepContent}>
-            <View style={styles.stepHeader}>
-              <View style={[styles.stepIconContainer, { backgroundColor: 'rgba(255,123,71,0.15)' }]}>
-                <Ionicons name="mail" size={32} color="#FF7B47" />
-              </View>
-              <Text style={styles.stepTitle}>Sign in with Email</Text>
-              <Text style={styles.stepSubtitle}>
-                Enter your email address and we'll send a 6-digit verification code to your inbox.
-              </Text>
-            </View>
-            <Text style={styles.fieldLabel}>Email Address</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="yourname@gmail.com"
-              placeholderTextColor={C.textTertiary}
-              value={emailOtpEmail}
-              onChangeText={setEmailOtpEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-              autoFocus
-            />
-            {emailOtpError ? (
-              <View style={{ backgroundColor: 'rgba(255,59,95,0.08)', borderRadius: 8, padding: 12, marginTop: 12, borderWidth: 1, borderColor: 'rgba(255,59,95,0.3)' }}>
-                <Text style={{ fontSize: 12, color: '#FF3B5F', fontFamily: 'Inter_500Medium' }}>
-                  {emailOtpError}
-                </Text>
-              </View>
-            ) : null}
-            <View style={{ marginTop: 14, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(255,123,71,0.08)', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: 'rgba(255,123,71,0.2)' }}>
-              <Ionicons name="shield-checkmark" size={18} color="#34C759" />
-              <Text style={{ color: C.textSecondary, fontSize: 13, fontFamily: 'Inter_400Regular', flex: 1 }}>
-                A 6-digit OTP code will be sent to your email. Check your inbox (and spam) for the code.
-              </Text>
-            </View>
-            <Pressable
-              onPress={() => { setEmailOtpMode(false); setStep(0); }}
-              style={{ marginTop: 16, alignItems: 'center', padding: 10 }}
-            >
-              <Text style={{ color: C.textTertiary, fontSize: 14, fontFamily: 'Inter_500Medium' }}>{'<'}- Back to other sign-in options</Text>
-            </Pressable>
-          </View>
-        );
-      case 'email-otp-verify':
-        return (
-          <View style={styles.stepContent}>
-            <View style={styles.stepHeader}>
-              <View style={[styles.stepIconContainer, { backgroundColor: 'rgba(52,199,89,0.15)' }]}>
-                <Ionicons name="keypad" size={32} color="#34C759" />
-              </View>
-              <Text style={styles.stepTitle}>Enter Verification Code</Text>
-              <Text style={styles.stepSubtitle}>
-                We sent a 6-digit code to{'\n'}
-                <Text style={{ color: '#FF7B47', fontFamily: 'Inter_600SemiBold' }}>{emailOtpEmail}</Text>
-              </Text>
-            </View>
-            <Text style={styles.fieldLabel}>Verification Code</Text>
-            <View style={styles.otpRow}>
-              {[0, 1, 2, 3, 4, 5].map(i => (
-                <View key={i} style={[styles.otpBox, emailOtpCode.length === i && styles.otpBoxActive]}>
-                  <Text style={styles.otpDigit}>{emailOtpCode[i] || ''}</Text>
-                </View>
-              ))}
-            </View>
-            <TextInput
-              style={styles.hiddenInput}
-              value={emailOtpCode}
-              onChangeText={t => {
-                const digits = t.replace(/\D/g, '').slice(0, 6);
-                setEmailOtpCode(digits);
-                setEmailOtpError('');
-              }}
-              keyboardType="number-pad"
-              maxLength={6}
-              autoFocus
-              caretHidden
-            />
-            {emailOtpError ? (
-              <View style={{ backgroundColor: 'rgba(255,59,95,0.08)', borderRadius: 8, padding: 12, marginTop: 12, borderWidth: 1, borderColor: 'rgba(255,59,95,0.3)' }}>
-                <Text style={{ fontSize: 12, color: '#FF3B5F', fontFamily: 'Inter_500Medium' }}>
-                  {emailOtpError}
-                </Text>
-              </View>
-            ) : null}
-            <Pressable
-              onPress={resendEmailOtp}
-              disabled={emailOtpResendTimer > 0 || emailOtpSending}
-              style={{ marginTop: 20, alignItems: 'center', padding: 12 }}
-            >
-              <Text style={{ color: (emailOtpResendTimer > 0 || emailOtpSending) ? C.textTertiary : C.primary, fontSize: 14, fontFamily: 'Inter_500Medium' }}>
-                {emailOtpSending ? 'Resending...' : emailOtpResendTimer > 0 ? `Resend code in ${emailOtpResendTimer}s` : 'Resend code'}
-              </Text>
-            </Pressable>
-            <View style={{ marginTop: 14, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(255,123,71,0.08)', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: 'rgba(255,123,71,0.2)' }}>
-              <Ionicons name="information-circle" size={18} color="#FF7B47" />
-              <Text style={{ color: C.textSecondary, fontSize: 13, fontFamily: 'Inter_400Regular', flex: 1 }}>
-                Check your spam/junk folder if you don't see the email.
-              </Text>
-            </View>
           </View>
         );
       case 'details':
@@ -1648,8 +1382,6 @@ export default function OnboardingScreen() {
     if (currentScreen === 'phone') return checking ? 'Checking...' : 'Continue';
     if (currentScreen === 'google-phone') return checking ? 'Verifying...' : 'Continue';
     if (currentScreen === 'otp') return otpVerifying ? 'Verifying...' : 'Verify OTP';
-    if (currentScreen === 'email-otp-entry') return emailOtpSending ? 'Sending...' : 'Send Code';
-    if (currentScreen === 'email-otp-verify') return emailOtpVerifying ? 'Verifying...' : 'Verify Code';
     if (isLastStep) return uploadingSelfie ? 'Setting up...' : 'Complete Setup';
     return 'Continue';
   };
@@ -1673,8 +1405,6 @@ export default function OnboardingScreen() {
     if (currentScreen === 'google-phone') return checking || !phone.trim();
     if (currentScreen === 'otp') return otpVerifying || otpCode.length < 6;
     if (currentScreen === 'email') return emailSendingWelcome;
-    if (currentScreen === 'email-otp-entry') return emailOtpSending || !emailOtpEmail.trim();
-    if (currentScreen === 'email-otp-verify') return emailOtpVerifying || emailOtpCode.length < 6;
     if (currentScreen === 'details') return !userName.trim();
     if (currentScreen === 'selfie') return !selfieUri;
     if (uploadingSelfie) return true;
@@ -1720,7 +1450,7 @@ export default function OnboardingScreen() {
 
       {!isPhoneScreen && (
         <View style={[styles.bottomActions, { paddingBottom: Platform.OS === 'web' ? 34 : Math.max(insets.bottom, 16), zIndex: 9999, elevation: 9999 }]} pointerEvents="box-none">
-          {(step > 0 || emailOtpMode) && (
+          {step > 0 && (
             <Pressable style={styles.backBtn} onPress={() => {
               if (currentScreen === 'otp') {
                 setOtpCode('');
@@ -1728,16 +1458,6 @@ export default function OnboardingScreen() {
                 setOtpResendTimer(0);
                 setOtpError('');
                 setDebugInfo('');
-              }
-              if (emailOtpMode) {
-                setEmailOtpMode(false);
-                setEmailOtpSent(false);
-                setEmailOtpEmail('');
-                setEmailOtpCode('');
-                setEmailOtpResendTimer(0);
-                setEmailOtpError('');
-                setStep(0);
-                return;
               }
               setStep(s => s - 1);
             }}>
@@ -1755,7 +1475,7 @@ export default function OnboardingScreen() {
             disabled={isButtonDisabled()}
             testID="continue-button"
           >
-            {(checking || uploadingSelfie || otpVerifying || emailOtpVerifying) ? (
+            {(checking || uploadingSelfie || otpVerifying) ? (
               <ActivityIndicator color="#FFF" size="small" />
             ) : (
               <>

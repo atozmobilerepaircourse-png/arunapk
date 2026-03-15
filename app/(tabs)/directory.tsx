@@ -42,6 +42,14 @@ const STAT_CONFIG: { key: string; label: string; icon: keyof typeof Ionicons.gly
   { key: 'supplier',   label: 'Suppliers',    icon: 'cube',       iconColor: '#0D9488', iconBg: '#CCFBF1', cornerBg: '#F0FDFA' },
 ];
 
+const ROLE_MAP_COLORS: Record<string, string> = {
+  technician: '#34C759',
+  teacher: '#FFD60A',
+  supplier: '#FF6B2C',
+  customer: '#FF2D55',
+  job_provider: '#5E8BFF',
+};
+
 const ROLE_BADGE: Record<string, { bg: string; text: string }> = {
   technician:   { bg: '#DBEAFE', text: '#1D4ED8' },
   teacher:      { bg: '#EDE9FE', text: '#7C3AED' },
@@ -123,14 +131,12 @@ function ProfCard({ item, onChat, onCall, onPress }: ProfCardProps) {
             </View>
           </View>
 
-          <View style={styles.locationRow}>
-            <Ionicons name="location-outline" size={10} color={GRAY} />
-            <Text style={styles.locationText} numberOfLines={1}>{item.city || 'India'}</Text>
-            <View style={styles.distancePill}>
-              <Ionicons name="navigate" size={9} color={PRIMARY} />
-              <Text style={styles.distanceText}>Nearby</Text>
+          {item.city ? (
+            <View style={styles.locationRow}>
+              <Ionicons name="location-outline" size={10} color={GRAY} />
+              <Text style={styles.locationText} numberOfLines={1}>{item.city}</Text>
             </View>
-          </View>
+          ) : null}
         </View>
       </View>
 
@@ -199,7 +205,7 @@ export default function DirectoryScreen() {
     return list;
   }, [directory, roleFilter, chipFilter, search]);
 
-  const mapProfiles = useMemo(() => filtered.filter(p => p.latitude && p.longitude && !isNaN(p.latitude!) && !isNaN(p.longitude!) && (p.role !== 'customer' || p.locationSharing === 'true')).map(p => ({ id: p.id, latitude: p.latitude!, longitude: p.longitude!, name: p.name, role: ROLE_LABELS[p.role] || p.role, roleKey: p.role, city: p.city, skills: p.skills, color: '#1D4ED8', avatar: p.avatar, isOnline: p.isOnline, lastSeen: 0 })), [filtered]);
+  const mapProfiles = useMemo(() => filtered.filter(p => p.latitude && p.longitude && !isNaN(p.latitude!) && !isNaN(p.longitude!) && (p.role !== 'customer' || p.locationSharing === 'true')).map(p => ({ id: p.id, latitude: p.latitude!, longitude: p.longitude!, name: p.name, role: ROLE_LABELS[p.role] || p.role, roleKey: p.role, city: p.city, skills: p.skills, color: ROLE_MAP_COLORS[p.role] || '#1D4ED8', avatar: p.avatar, isOnline: p.isOnline, lastSeen: 0 })), [filtered]);
 
   const handleMapChat = useCallback(async (id: string) => {
     const p = allProfiles.find(p => p.id === id);
@@ -446,48 +452,48 @@ const styles = StyleSheet.create({
 
   // Card
   card: {
-    marginHorizontal: 16,
+    marginHorizontal: 12,
     backgroundColor: CARD,
-    borderRadius: 20,
-    padding: 8,
-    marginBottom: 8,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 1,
+    borderRadius: 16,
+    padding: 6,
+    marginBottom: 6,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.03, shadowRadius: 6, elevation: 1,
     borderWidth: 1, borderColor: '#F3F4F6',
   },
-  cardTop: { flexDirection: 'row', gap: 10 },
+  cardTop: { flexDirection: 'row', gap: 8 },
   avatarWrap: { position: 'relative', flexShrink: 0 },
-  avatar: { width: 48, height: 48, borderRadius: 24, borderWidth: 2, borderColor: '#FFF' },
+  avatar: { width: 40, height: 40, borderRadius: 20, borderWidth: 1.5, borderColor: '#FFF' },
   avatarFallback: { backgroundColor: '#DBEAFE', alignItems: 'center', justifyContent: 'center' },
-  avatarInitials: { fontSize: 16, fontFamily: 'Inter_700Bold', color: PRIMARY },
-  onlineDot: { position: 'absolute', bottom: 1, right: 1, width: 12, height: 12, borderRadius: 6, borderWidth: 2, borderColor: CARD },
+  avatarInitials: { fontSize: 13, fontFamily: 'Inter_700Bold', color: PRIMARY },
+  onlineDot: { position: 'absolute', bottom: 0, right: 0, width: 10, height: 10, borderRadius: 5, borderWidth: 1.5, borderColor: CARD },
   cardInfo: { flex: 1 },
-  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 1 },
-  cardName: { fontSize: 13, fontFamily: 'Inter_700Bold', color: DARK, flex: 1 },
-  badgeRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 2 },
-  roleBadge: { paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4 },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginBottom: 1 },
+  cardName: { fontSize: 12, fontFamily: 'Inter_700Bold', color: DARK, flex: 1 },
+  badgeRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 1 },
+  roleBadge: { paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 },
   roleBadgeText: { fontSize: 9, fontFamily: 'Inter_600SemiBold' },
   ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  ratingText: { fontSize: 10, color: GRAY, fontFamily: 'Inter_400Regular' },
-  locationRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  locationText: { fontSize: 10, color: GRAY, fontFamily: 'Inter_400Regular', flex: 1 },
-  distancePill: { flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: PRIMARY_L, borderRadius: 4, paddingHorizontal: 5, paddingVertical: 1 },
+  ratingText: { fontSize: 9, color: GRAY, fontFamily: 'Inter_400Regular' },
+  locationRow: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  locationText: { fontSize: 9, color: GRAY, fontFamily: 'Inter_400Regular', flex: 1 },
+  distancePill: { flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: PRIMARY_L, borderRadius: 4, paddingHorizontal: 4, paddingVertical: 1 },
   distanceText: { fontSize: 9, color: PRIMARY, fontFamily: 'Inter_600SemiBold' },
 
   // Card footer
-  cardFooter: { flexDirection: 'row', gap: 6, marginTop: 6, paddingTop: 4, borderTopWidth: 1, borderTopColor: '#F9FAFB' },
+  cardFooter: { flexDirection: 'row', gap: 5, marginTop: 5, paddingTop: 4, borderTopWidth: 1, borderTopColor: '#F9FAFB' },
   chatBtn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4,
-    borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12,
-    paddingVertical: 6, backgroundColor: CARD,
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 3,
+    borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 10,
+    paddingVertical: 5, backgroundColor: CARD,
   },
-  chatBtnText: { fontSize: 11, fontFamily: 'Inter_600SemiBold', color: '#374151' },
+  chatBtnText: { fontSize: 10, fontFamily: 'Inter_600SemiBold', color: '#374151' },
   callBtn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4,
-    backgroundColor: PRIMARY, borderRadius: 12, paddingVertical: 6,
-    shadowColor: PRIMARY, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.25, shadowRadius: 6, elevation: 3,
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 3,
+    backgroundColor: PRIMARY, borderRadius: 10, paddingVertical: 5,
+    shadowColor: PRIMARY, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4, elevation: 2,
   },
-  callBtnText: { fontSize: 11, fontFamily: 'Inter_600SemiBold', color: '#FFF' },
-  chevronBtn: { width: 34, backgroundColor: '#F3F4F6', borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  callBtnText: { fontSize: 10, fontFamily: 'Inter_600SemiBold', color: '#FFF' },
+  chevronBtn: { width: 30, backgroundColor: '#F3F4F6', borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
 
   // Empty + load more
   empty: { alignItems: 'center', justifyContent: 'center', paddingTop: 60, gap: 10 },

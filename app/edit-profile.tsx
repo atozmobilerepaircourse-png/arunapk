@@ -6,10 +6,8 @@ import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { fetch as expoFetch } from 'expo/fetch';
 import { router } from 'expo-router';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { firebaseStorage } from '@/lib/firebase';
 import { useApp } from '@/lib/context';
-import { apiRequest } from '@/lib/query-client';
+import { getApiUrl, apiRequest } from '@/lib/query-client';
 
 const ORANGE = '#E8704A';
 
@@ -43,13 +41,23 @@ export default function EditProfileScreen() {
     setUploadingImage(true);
     try {
       const uri = result.assets[0].uri;
-      const response = await expoFetch(uri);
-      const blob = await response.blob();
-      const fileName = `profile-${profile?.id}-${Date.now()}.jpg`;
-      const storageRef = ref(firebaseStorage, `profile-photos/${fileName}`);
-      await uploadBytes(storageRef, blob);
-      const downloadUrl = await getDownloadURL(storageRef);
-      setProfileImage(downloadUrl);
+      const uploadUrl = new URL('/api/upload', getApiUrl()).toString();
+      const formData = new FormData();
+      if (Platform.OS === 'web') {
+        const resp = await expoFetch(uri);
+        const blob = await resp.blob();
+        formData.append('image', blob, 'profile.jpg');
+        const uploadRes = await globalThis.fetch(uploadUrl, { method: 'POST', body: formData });
+        const data = await uploadRes.json();
+        if (!data.success || !data.url) throw new Error(data.message || 'Upload failed');
+        setProfileImage(data.url);
+      } else {
+        formData.append('image', { uri, name: 'profile.jpg', type: 'image/jpeg' } as any);
+        const uploadRes = await expoFetch(uploadUrl, { method: 'POST', body: formData } as any);
+        const data = await uploadRes.json();
+        if (!data.success || !data.url) throw new Error(data.message || 'Upload failed');
+        setProfileImage(data.url);
+      }
     } catch (e) {
       console.error('[EditProfile] Image upload error:', e);
       Alert.alert('Upload failed', String(e).slice(0, 80));

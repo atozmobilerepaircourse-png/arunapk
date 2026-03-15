@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, Pressable, TextInput, FlatList, ScrollView,
-  Platform, ActivityIndicator, RefreshControl, Modal, Switch,
+  Platform, ActivityIndicator, RefreshControl,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -32,22 +32,6 @@ const MH = {
   outOfStock: '#6B7280',
   radius: 12,
 };
-
-const CATEGORIES = [
-  { key: 'all', label: 'All Results' },
-  { key: 'spare_part', label: 'Spare Parts' },
-  { key: 'tool', label: 'Tools' },
-  { key: 'component', label: 'Components' },
-  { key: 'accessory', label: 'Accessories' },
-  { key: 'other', label: 'Other' },
-];
-
-const SORT_OPTIONS = [
-  { key: 'recommended', label: 'Recommended' },
-  { key: 'price_asc', label: 'Price: Low to High' },
-  { key: 'price_desc', label: 'Price: High to Low' },
-  { key: 'newest', label: 'Newest Arrivals' },
-];
 
 function Stars({ rating }: { rating: number }) {
   return (
@@ -132,11 +116,6 @@ export default function MarketplaceTab() {
   const viewingSupplier = params.supplierId !== undefined;
 
   const [search, setSearch] = useState('');
-  const [category, setCategory] = useState('all');
-  const [sortBy, setSortBy] = useState('recommended');
-  const [showSort, setShowSort] = useState(false);
-  const [showFilters, setShowFilters] = useState(false);
-  const [onlyInStock, setOnlyInStock] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   const { data: rawProducts = [], isLoading, refetch } = useQuery<any[]>({
@@ -163,7 +142,6 @@ export default function MarketplaceTab() {
   const products = useMemo(() => {
     let list = [...rawProducts];
     if (viewingSupplier) list = list.filter(p => p.userId === params.supplierId);
-    if (category !== 'all') list = list.filter(p => p.category === category);
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter(p =>
@@ -172,12 +150,8 @@ export default function MarketplaceTab() {
         p.description?.toLowerCase().includes(q)
       );
     }
-    if (onlyInStock) list = list.filter(p => p.inStock !== 0);
-    if (sortBy === 'price_asc') list.sort((a, b) => parseFloat(a.price) - parseFloat(b.price));
-    else if (sortBy === 'price_desc') list.sort((a, b) => parseFloat(b.price) - parseFloat(a.price));
-    else if (sortBy === 'newest') list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
     return list;
-  }, [rawProducts, category, search, sortBy, onlyInStock, viewingSupplier, params.supplierId]);
+  }, [rawProducts, search, viewingSupplier, params.supplierId]);
 
   const handleAdd = useCallback((product: any) => {
     if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -277,21 +251,6 @@ export default function MarketplaceTab() {
         </View>
       </View>
 
-      {/* ── Categories ── */}
-      <View style={styles.catBar}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.catScroll}>
-          {CATEGORIES.map(c => (
-            <Pressable
-              key={c.key}
-              onPress={() => setCategory(c.key)}
-              style={[styles.catChip, category === c.key && styles.catChipOn]}
-            >
-              <Text style={[styles.catLabel, category === c.key && styles.catLabelOn]}>{c.label}</Text>
-            </Pressable>
-          ))}
-        </ScrollView>
-      </View>
-
       {/* ── Suppliers Row ── */}
       {!viewingSupplier && suppliers.length > 0 && (
         <View style={styles.suppliersSection}>
@@ -301,7 +260,7 @@ export default function MarketplaceTab() {
               <Pressable
                 key={s.id}
                 style={styles.supplierChip}
-                onPress={() => router.push({ pathname: '/user-profile', params: { id: s.id } } as any)}
+                onPress={() => router.push({ pathname: '/supplier-store', params: { supplierId: s.id, supplierName: s.name } } as any)}
               >
                 <View style={styles.supplierAvatar}>
                   {s.avatar ? (
@@ -321,7 +280,7 @@ export default function MarketplaceTab() {
       {/* ── Results Bar ── */}
       <View style={styles.resultsBar}>
         <Text style={styles.resultsTxt}>
-          {isLoading ? '...' : `${products.length} result${products.length !== 1 ? 's' : ''}`}
+          {isLoading ? '...' : `${products.length} product${products.length !== 1 ? 's' : ''}`}
           {search ? ` for "${search}"` : ''}
         </Text>
       </View>
@@ -387,55 +346,6 @@ export default function MarketplaceTab() {
         </Pressable>
       )}
 
-      {/* ── Sort Sheet ── */}
-      <Modal visible={showSort} transparent animationType="slide" onRequestClose={() => setShowSort(false)}>
-        <Pressable style={styles.overlay} onPress={() => setShowSort(false)}>
-          <View style={[styles.sheet, { paddingBottom: bottomInset + 16 }]}>
-            <View style={styles.sheetHandle} />
-            <Text style={styles.sheetTitle}>Sort By</Text>
-            {SORT_OPTIONS.map(opt => (
-              <Pressable
-                key={opt.key}
-                onPress={() => { setSortBy(opt.key); setShowSort(false); }}
-                style={styles.sheetRow}
-              >
-                <Text style={[styles.sheetRowTxt, sortBy === opt.key && { color: MH.primary, fontFamily: 'Inter_600SemiBold' }]}>
-                  {opt.label}
-                </Text>
-                {sortBy === opt.key && <Ionicons name="checkmark" size={18} color={MH.primary} />}
-              </Pressable>
-            ))}
-          </View>
-        </Pressable>
-      </Modal>
-
-      {/* ── Filters Sheet ── */}
-      <Modal visible={showFilters} transparent animationType="slide" onRequestClose={() => setShowFilters(false)}>
-        <Pressable style={styles.overlay} onPress={() => setShowFilters(false)}>
-          <View style={[styles.sheet, { paddingBottom: bottomInset + 16 }]}>
-            <View style={styles.sheetHandle} />
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-              <Text style={styles.sheetTitle}>Filters</Text>
-              <Pressable onPress={() => { setOnlyInStock(false); }}>
-                <Text style={{ color: MH.primary, fontFamily: 'Inter_500Medium', fontSize: 14 }}>Reset</Text>
-              </Pressable>
-            </View>
-            <Text style={styles.filterSection}>Availability</Text>
-            <View style={styles.filterToggleRow}>
-              <Text style={styles.filterToggleLabel}>In Stock Only</Text>
-              <Switch value={onlyInStock} onValueChange={setOnlyInStock} trackColor={{ false: MH.border, true: MH.primary }} thumbColor="#FFF" />
-            </View>
-            <Text style={styles.filterSection}>Delivery</Text>
-            <View style={styles.filterToggleRow}>
-              <Text style={styles.filterToggleLabel}>Free Delivery</Text>
-              <Switch value={false} onValueChange={() => {}} trackColor={{ false: MH.border, true: MH.primary }} thumbColor="#FFF" />
-            </View>
-            <Pressable onPress={() => setShowFilters(false)} style={styles.applyBtn}>
-              <Text style={styles.applyBtnTxt}>Apply Filters</Text>
-            </Pressable>
-          </View>
-        </Pressable>
-      </Modal>
     </View>
   );
 }

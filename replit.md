@@ -50,13 +50,14 @@ node build-steps.js && node push-oci.js
 - **GCP Project**: `atoz-mobile-repair-488915` (Cloud Run, Cloud Build, Artifact Registry)
 - **Firebase Project**: `mobile-repair-app-276b6` (Hosting only)
 
-## OTP Authentication (Updated March 8, 2026)
-- **Primary method**: Firebase Phone Authentication (requires Phone Sign-in enabled in Firebase Console)
-- **Fallback**: Backend `/api/otp/send` endpoint for testing (returns fallbackOtp when SMS fails)
-- **Frontend flow**: `sendOtp()` tries Firebase first, returns early on success
-- **Verification**: Firebase ID token verified server-side at `/api/auth/firebase-phone` endpoint
-- **No auto-login**: After OTP verification, users proceed through full onboarding (email → details → etc.)
-- **OTP tokens table**: PostgreSQL `otp_tokens` stores backend OTPs for fallback/testing (5 min expiry)
+## Authentication (Updated March 15, 2026)
+- **Sign-in methods**: Phone OTP (Firebase) + Google Sign-In only
+- **Email OTP (Resend) removed**: Removed from frontend (onboarding.tsx), server routes, and sendEmail.ts
+- **Primary OTP**: Firebase Phone Authentication (`sendOtp()` tries Firebase first)
+- **Fallback OTP**: Backend `/api/otp/send` endpoint (returns fallbackOtp when SMS fails)
+- **Google Sign-In**: Firebase Google OAuth via redirect flow
+- **Verification**: Firebase ID token verified server-side at `/api/auth/firebase-phone`
+- **OTP tokens table**: PostgreSQL `otp_tokens` stores backend OTPs (5 min expiry)
 - **Note**: Requires `FIREBASE_SERVICE_ACCOUNT` OR `GCP_SA_KEY` env var for Firebase Admin SDK
 
 ## Database — CRITICAL: Two Separate Databases

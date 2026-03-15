@@ -5,7 +5,7 @@ import { db } from "./db";
 import OpenAI from "openai";
 import { notifyAllUsers, notifyNewPost, notifyUser } from "./push-notifications";
 import { profiles, conversations, messages, posts, jobs, reels, products, orders, subscriptionSettings, courses, courseChapters, courseVideos, courseEnrollments, dubbedVideos, ads, liveChatMessages, liveClasses, courseNotices, sessions, payments, teacherPayouts, appSettings, videoProgress, livePolls, livePollVotes, emailCampaigns, otpTokens, adminNotifications, repairBookings } from "@shared/schema";
-import { sendWelcomeEmail, sendOtpEmail } from "./lib/sendEmail";
+import { sendWelcomeEmail } from "./lib/sendEmail";
 import { eq, or, and, desc, gt, lt, sql, ne, isNotNull } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import multer from "multer";
@@ -120,20 +120,18 @@ async function uploadToStorage(buffer: Buffer, filename: string): Promise<string
   }
   
   // Fallback: Local storage (dev only, won't work on Cloud Run)
-  const localFilename = filename.replace(/^(images|videos)\//, "");
+  const localFilename = filename.replace(/^(images|videos|reels)\//, "");
   const filePath = path.join(uploadsDir, localFilename);
   fs.writeFileSync(filePath, buffer);
   console.log(`[Local] Fallback: ${filePath}`);
   
-  // Return URL that works based on environment
   if (process.env.NODE_ENV === 'production') {
-    // On Cloud Run, return a placeholder URL (won't actually work without persistent storage)
-    return `https://storage.googleapis.com/mobi-repair-uploads/${filename}`;
-  } else {
-    const protocol = 'http';
-    const host = process.env.REPLIT_DEV_DOMAIN || 'localhost:5000';
-    return `${protocol}://${host}/uploads/${localFilename}`;
+    // Bunny.net is required in production — if we reach here the upload failed
+    throw new Error('Bunny.net upload failed and no local storage is available in production');
   }
+  const protocol = 'http';
+  const host = process.env.REPLIT_DEV_DOMAIN || 'localhost:5000';
+  return `${protocol}://${host}/uploads/${localFilename}`;
 }
 
 async function uploadStreamToStorage(
@@ -525,7 +523,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/upload", upload.single("image"), async (req, res) => {
     try {
       if (!req.file) return res.status(400).json({ success: false, message: "No file uploaded" });
-      const filename = `images/${randomUUID()}${path.extname(req.file.originalname)}`;
+      const extMap: Record<string, string> = { 'image/png': '.png', 'image/gif': '.gif', 'image/webp': '.webp', 'video/mp4': '.mp4' };
+      const ext = path.extname(req.file.originalname) || extMap[req.file.mimetype] || '.jpg';
+      const filename = `images/${randomUUID()}${ext}`;
       const url = await uploadToStorage(req.file.buffer, filename);
       res.json({ success: true, url });
     } catch (error) {
@@ -622,31 +622,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ─── Legacy upload-video (kept as fallback for small files / local dev) ───
-  app.post("/api/upload-video", videoUpload.single("video"), async (req, res) => {
-    try {
-      if (!req.file) return res.status(400).json({ success: false, message: "No file uploaded" });
-      const filename = `videos/${randomUUID()}${path.extname(req.file.originalname)}`;
-      
-      console.log(`[Upload Video] Starting upload to Bunny Storage: ${filename}, size: ${req.file.size}`);
-      
-      const fileBuffer = fs.readFileSync(req.file.path);
-      const url = await uploadToStorage(fileBuffer, filename);
-      
-      fs.unlink(req.file.path, (err) => {
-        if (err) console.error(`[Upload Video] Failed to delete temp file ${req.file?.path}:`, err);
-      });
-      
-      console.log(`[Upload Video] Success: ${url}`);
-      res.json({ success: true, url });
-    } catch (error: any) {
-      console.error("[Upload Video] Error:", error?.message || error);
-      if (req.file?.path && fs.existsSync(req.file.path)) {
-        fs.unlink(req.file.path, () => {});
-      }
-      res.status(500).json({ success: false, message: `Upload failed: ${error?.message || 'Unknown error'}` });
-    }
-  });
 
   app.post("/api/upload-base64", async (req, res) => {
     try {
@@ -733,51 +708,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("[OTP] Send error:", error?.message || error, error?.stack?.split('\n').slice(0,3).join(' '));
       return res.status(500).json({ success: false, message: "Failed to send OTP" });
-    }
-  });
-
-  app.post("/api/otp/send-email", async (req, res) => {
-    try {
-      const { email } = req.body;
-      if (!email || typeof email !== "string") {
-        return res.status(400).json({ success: false, message: "Valid email address is required" });
-      }
-
-      const cleanEmail = email.trim().toLowerCase();
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(cleanEmail)) {
-        return res.status(400).json({ success: false, message: "Invalid email address format" });
-      }
-
-      const rateCheck = checkOtpRateLimit(`email:${cleanEmail}`);
-      if (!rateCheck.allowed) {
-        const secondsLeft = Math.ceil(rateCheck.retryAfterMs / 1000);
-        return res.status(429).json({
-          success: false,
-          message: `Too many OTP requests. Please wait ${secondsLeft} seconds before trying again.`,
-        });
-      }
-
-      const otp = generateOTP();
-      const expiresAt = Date.now() + 5 * 60 * 1000;
-
-      const identifier = `email:${cleanEmail}`;
-      await db.delete(otpTokens).where(eq(otpTokens.phone, identifier));
-      await db.insert(otpTokens).values({ phone: identifier, otp, expiresAt });
-
-      console.log(`[EmailOTP] Generated for ${cleanEmail}`);
-
-      const result = await sendOtpEmail(cleanEmail, otp);
-
-      return res.json({
-        success: true,
-        emailSent: result.sent,
-        message: result.sent ? `OTP sent to ${cleanEmail}` : `OTP generated but email delivery failed: ${result.error}`,
-        ...(process.env.NODE_ENV !== 'production' && { otp }),
-      });
-    } catch (error: any) {
-      console.error("[EmailOTP] Send error:", error?.message || error);
-      return res.status(500).json({ success: false, message: "Failed to send email OTP" });
     }
   });
 
