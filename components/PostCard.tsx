@@ -252,7 +252,7 @@ export default function PostCard({
         </View>
       )}
 
-      {/* ── Video (inline playback with play button) ── */}
+      {/* ── Video (inline playback with native controls) ── */}
       {post.videoUrl && (
         <View style={styles.videoContainer}>
           <Video
@@ -262,14 +262,9 @@ export default function PostCard({
             resizeMode={ResizeMode.CONTAIN}
             shouldPlay={false}
             isLooping={false}
-            isMuted={true}
+            isMuted={false}
             progressUpdateIntervalMillis={500}
           />
-          <Pressable style={styles.videoPlayOverlay} onPress={() => {/* Video has native controls */}}>
-            <View style={styles.playButtonContainer}>
-              <Ionicons name="play-circle" size={56} color="#FFFFFF" />
-            </View>
-          </Pressable>
         </View>
       )}
 
