@@ -6,6 +6,13 @@ import { Platform, Alert } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { StatusBar } from "expo-status-bar";
+
+// Suppress expo-av deprecation warning
+const originalWarn = console.warn;
+console.warn = (message: string, ...args: any[]) => {
+  if (typeof message === 'string' && message.includes('expo-av')) return;
+  originalWarn(message, ...args);
+};
 // import * as ScreenCapture from "expo-screen-capture"; // Disabled for stability
 import {
   useFonts,
