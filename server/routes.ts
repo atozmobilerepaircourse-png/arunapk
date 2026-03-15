@@ -62,7 +62,7 @@ if (!fs.existsSync(uploadsDir)) {
 }
 
 const BUNNY_STORAGE_API_KEY = process.env.BUNNY_STORAGE_API_KEY || '';
-const BUNNY_STORAGE_ZONE_NAME = process.env.BUNNY_STORAGE_ZONE_NAME || 'arun-storag';
+const BUNNY_STORAGE_ZONE_NAME = process.env.BUNNY_STORAGE_ZONE_NAME || 'arun-storage';
 const BUNNY_STORAGE_REGION = process.env.BUNNY_STORAGE_REGION || 'uk';
 const BUNNY_STORAGE_ENDPOINT = BUNNY_STORAGE_REGION === 'de'
   ? 'https://storage.bunnycdn.com'
