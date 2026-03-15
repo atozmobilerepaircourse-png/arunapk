@@ -47,16 +47,24 @@ function ProductCard({ product, onAdd, onPress }: {
   product: any; onAdd: () => void; onPress: () => void;
 }) {
   const images = (() => { 
-    try { 
-      const parsed = JSON.parse(product.images || '[]');
-      return Array.isArray(parsed) ? parsed : []; 
-    } catch { 
-      // Handle comma-separated string fallback
-      if (typeof product.images === 'string' && product.images.includes(',')) {
-        return product.images.split(',').filter((url: string) => url.trim());
+    // If already an array, return it directly
+    if (Array.isArray(product.images)) {
+      return product.images.filter((url: any) => typeof url === 'string' && url.length > 0);
+    }
+    // Try JSON parsing if it's a string
+    if (typeof product.images === 'string') {
+      try { 
+        const parsed = JSON.parse(product.images);
+        return Array.isArray(parsed) ? parsed.filter((url: any) => typeof url === 'string' && url.length > 0) : []; 
+      } catch {
+        // Fallback: comma-separated string
+        if (product.images.includes(',')) {
+          return product.images.split(',').filter((url: string) => url.trim().length > 0);
+        }
+        return product.images.trim().length > 0 ? [product.images.trim()] : [];
       }
-      return []; 
-    } 
+    }
+    return [];
   })();
   const img = images[0] || '';
   const isOut = product.inStock === 0;
@@ -166,7 +174,14 @@ export default function MarketplaceTab() {
 
   const handleAdd = useCallback((product: any) => {
     if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    const images = (() => { try { return JSON.parse(product.images || '[]'); } catch { return []; } })();
+    const images = (() => {
+      if (Array.isArray(product.images)) return product.images.filter((url: any) => typeof url === 'string' && url.length > 0);
+      if (typeof product.images === 'string') {
+        try { const p = JSON.parse(product.images); return Array.isArray(p) ? p.filter((url: any) => typeof url === 'string' && url.length > 0) : []; } 
+        catch { return product.images.includes(',') ? product.images.split(',').filter((url: string) => url.trim().length > 0) : []; }
+      }
+      return [];
+    })();
     const existing = items.find(i => i.productId === product.id);
     if (existing) {
       updateQuantity(product.id, existing.quantity + 1);
@@ -188,7 +203,6 @@ export default function MarketplaceTab() {
     const map = new Map<string, { id: string; name: string; productCount: number; avatar?: string }>();
     for (const p of rawProducts) {
       if (!map.has(p.userId)) {
-        const images = (() => { try { return JSON.parse(p.images || '[]'); } catch { return []; } })();
         map.set(p.userId, { id: p.userId, name: p.userName || 'Supplier', productCount: 1, avatar: p.userAvatar });
       } else {
         map.get(p.userId)!.productCount++;
