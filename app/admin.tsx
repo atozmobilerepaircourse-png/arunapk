@@ -2159,27 +2159,27 @@ export default function AdminScreen() {
           <>
             {activeTab === 'dashboard' && renderDashboard()}
             {activeTab === 'users' && renderUsers()}
-        {activeTab === 'customers' && renderRoleUsers('customer', 'Customer', 'person-outline', '#FF2D55')}
-        {activeTab === 'technicians' && renderRoleUsers('technician', 'Technician', 'construct-outline', '#34C759')}
-        {activeTab === 'teachers' && renderRoleUsers('teacher', 'Teacher', 'school-outline', '#FFD60A')}
-        {activeTab === 'suppliers' && renderRoleUsers('supplier', 'Supplier', 'cube-outline', '#FF6B2C')}
-        {activeTab === 'products' && renderListings()}
-        {activeTab === 'orders' && renderBookings()}
-        {activeTab === 'reports' && renderReports()}
-        {activeTab === 'settings' && renderSettings()}
-        {activeTab === 'bookings' && renderBookings()}
-        {activeTab === 'subscriptions' && renderSubscriptions()}
-        {activeTab === 'insurance' && renderInsurance()}
-        {activeTab === 'revenue' && renderRevenue()}
-        {activeTab === 'posts' && renderPosts()}
-        {activeTab === 'jobs' && renderJobs()}
-        {activeTab === 'ads' && renderAds()}
-        {activeTab === 'listings' && renderListings()}
-        {activeTab === 'links' && renderLinks()}
-        {activeTab === 'notifications' && renderNotifications()}
-        {activeTab === 'email' && renderEmail()}
-        {activeTab === 'payouts' && renderPayouts()}
-            </>
+            {activeTab === 'customers' && renderRoleUsers('customer', 'Customer', 'person-outline', '#FF2D55')}
+            {activeTab === 'technicians' && renderRoleUsers('technician', 'Technician', 'construct-outline', '#34C759')}
+            {activeTab === 'teachers' && renderRoleUsers('teacher', 'Teacher', 'school-outline', '#FFD60A')}
+            {activeTab === 'suppliers' && renderRoleUsers('supplier', 'Supplier', 'cube-outline', '#FF6B2C')}
+            {activeTab === 'products' && renderListings()}
+            {activeTab === 'orders' && renderBookings()}
+            {activeTab === 'reports' && renderReports()}
+            {activeTab === 'settings' && renderSettings()}
+            {activeTab === 'bookings' && renderBookings()}
+            {activeTab === 'subscriptions' && renderSubscriptions()}
+            {activeTab === 'insurance' && renderInsurance()}
+            {activeTab === 'revenue' && renderRevenue()}
+            {activeTab === 'posts' && renderPosts()}
+            {activeTab === 'jobs' && renderJobs()}
+            {activeTab === 'ads' && renderAds()}
+            {activeTab === 'listings' && renderListings()}
+            {activeTab === 'links' && renderLinks()}
+            {activeTab === 'notifications' && renderNotifications()}
+            {activeTab === 'email' && renderEmail()}
+            {activeTab === 'payouts' && renderPayouts()}
+          </>
         )}
       </View>
     </View>
