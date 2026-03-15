@@ -14,7 +14,6 @@ import Colors from '@/constants/colors';
 import { useApp } from '@/lib/context';
 import { getApiUrl } from '@/lib/query-client';
 import { PostCategory } from '@/lib/types';
-import { uploadVideoToBunnyStream } from '@/lib/bunny-stream';
 
 const C = Colors.light;
 
@@ -44,7 +43,6 @@ export default function CreatePostScreen() {
   const [text, setText] = useState('');
   const [category, setCategory] = useState<PostCategory>('repair');
   const [images, setImages] = useState<string[]>([]);
-  const [video, setVideo] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState('');
   const [uploadPercent, setUploadPercent] = useState(0);
@@ -94,37 +92,8 @@ export default function CreatePostScreen() {
     }
   };
 
-  const pickVideo = async () => {
-    try {
-      // Request permissions on Android/iOS
-      if (Platform.OS !== 'web') {
-        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (status !== 'granted') {
-          Alert.alert('Permission needed', 'Please grant permission to access your videos.');
-          return;
-        }
-      }
-      
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['videos'],
-        allowsMultipleSelection: false,
-      });
-
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        setVideo(result.assets[0].uri);
-        if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      }
-    } catch (e: any) {
-      Alert.alert('Error', 'Could not access videos: ' + (e.message || 'Unknown error'));
-    }
-  };
-
   const removeImage = (idx: number) => {
     setImages(prev => prev.filter((_, i) => i !== idx));
-  };
-
-  const removeVideo = () => {
-    setVideo(null);
   };
 
   const uploadImage = useCallback(async (uri: string, index: number, total: number): Promise<string | null> => {
@@ -175,29 +144,8 @@ export default function CreatePostScreen() {
     }
   }, []);
 
-  const uploadVideo = useCallback(async (uri: string): Promise<string> => {
-    try {
-      // Use Bunny Stream with real progress tracking
-      const videoUrl = await uploadVideoToBunnyStream(
-        uri,
-        `post_${Date.now()}`,
-        (progress) => {
-          setUploadPercent(progress.percent);
-          setUploadProgress(progress.message);
-        },
-        undefined, // cancelSignal
-        true, // waitForEncoding - wait for Bunny to process
-      );
-      setUploadPercent(100);
-      setUploadProgress('Video ready!');
-      return videoUrl.playbackUrl;
-    } catch (e: any) {
-      throw new Error(e.message || 'Video upload failed');
-    }
-  }, []);
-
   const handleSubmit = async () => {
-    if (!text.trim() && images.length === 0 && !video) {
+    if (!text.trim() && images.length === 0) {
       Alert.alert('Missing content', 'Please write something or add media before posting.');
       return;
     }
@@ -232,25 +180,7 @@ export default function CreatePostScreen() {
         setUploadProgress('');
       }
 
-      let uploadedVideoUrl = '';
-      if (video) {
-        setUploadPercent(0);
-        setUploadProgress('Preparing video upload...');
-        try {
-          uploadedVideoUrl = await uploadVideo(video);
-          console.log('[CreatePost] Video uploaded successfully:', uploadedVideoUrl);
-        } catch (videoError: any) {
-          console.error('[CreatePost] Video upload error:', videoError);
-          Alert.alert('Video Upload Failed', videoError.message || 'Could not upload video. Please try again.');
-          setIsSubmitting(false);
-          setUploadProgress('');
-          setUploadPercent(0);
-          return;
-        }
-      }
-
       setUploadProgress('Creating post...');
-      console.log('[CreatePost] Calling addPost with video URL:', uploadedVideoUrl);
       await addPost({
         userId: profile.id,
         userName: profile.name,
@@ -258,20 +188,18 @@ export default function CreatePostScreen() {
         userAvatar: profile.avatar || '',
         text: text.trim(),
         images: uploadedImages,
-        videoUrl: uploadedVideoUrl,
+        videoUrl: '',
         category,
       } as any);
 
       setText('');
       setImages([]);
-      setVideo(null);
       setCategory('repair');
       setUploadProgress('Post created!');
       setUploadPercent(100);
       
       // Brief delay to show success message
       await new Promise(r => setTimeout(r, 500));
-      console.log('[CreatePost] Post successful, navigating to feed');
       router.navigate('/(tabs)');
     } catch (e: any) {
       console.error('[CreatePost] Submit failed:', e instanceof Error ? e.message : String(e));
@@ -385,20 +313,6 @@ export default function CreatePostScreen() {
             ))}
           </View>
         )}
-        {video && (
-          <View style={styles.videoPreviewCard}>
-            <View style={styles.videoPreviewIcon}>
-              <Ionicons name="videocam" size={24} color={C.primary} />
-            </View>
-            <View style={styles.videoPreviewInfo}>
-              <Text style={styles.videoPreviewTitle} numberOfLines={1}>Video attached</Text>
-              <Text style={styles.videoPreviewSubtitle}>Ready to upload</Text>
-            </View>
-            <Pressable onPress={removeVideo} hitSlop={12}>
-              <Ionicons name="close-circle" size={22} color="#FF3B30" />
-            </Pressable>
-          </View>
-        )}
         <View style={styles.imageButtons}>
           <Pressable
             style={({ pressed }) => [styles.imageBtn, pressed && { opacity: 0.7 }]}
@@ -418,14 +332,6 @@ export default function CreatePostScreen() {
               <Text style={[styles.imageBtnText, images.length >= 4 && { color: C.textTertiary }]}>Camera</Text>
             </Pressable>
           )}
-          <Pressable
-            style={({ pressed }) => [styles.imageBtn, pressed && { opacity: 0.7 }]}
-            onPress={pickVideo}
-            disabled={!!video}
-          >
-            <Ionicons name="videocam-outline" size={22} color={video ? C.textTertiary : C.primary} />
-            <Text style={[styles.imageBtnText, video ? { color: C.textTertiary } : {}]}>Video</Text>
-          </Pressable>
           <Text style={styles.imageCount}>{images.length}/4</Text>
         </View>
       </View>
@@ -451,10 +357,10 @@ export default function CreatePostScreen() {
         style={({ pressed }) => [
           styles.submitBtn,
           pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
-          (isSubmitting || (!text.trim() && images.length === 0 && !video)) && { opacity: 0.5 },
+          (isSubmitting || (!text.trim() && images.length === 0)) && { opacity: 0.5 },
         ]}
         onPress={handleSubmit}
-        disabled={isSubmitting || (!text.trim() && images.length === 0 && !video)}
+        disabled={isSubmitting || (!text.trim() && images.length === 0)}
       >
         <Ionicons name="send" size={20} color="#FFF" />
         <Text style={styles.submitText}>
