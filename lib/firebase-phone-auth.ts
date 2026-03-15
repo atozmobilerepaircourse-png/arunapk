@@ -11,7 +11,6 @@ export async function initializeRecaptcha(phone: string): Promise<void> {
       const { getFirebaseAuth } = await import('./firebase');
       const auth = getFirebaseAuth();
       if (!auth) {
-        console.log('[Firebase Phone Auth] Auth not available, will use fallback');
         return;
       }
 
@@ -25,13 +24,12 @@ export async function initializeRecaptcha(phone: string): Promise<void> {
             auth
           );
         }
-        console.log('[Firebase Phone Auth] reCAPTCHA initialized');
       } catch (e) {
-        console.log('[Firebase Phone Auth] reCAPTCHA init failed, will fallback:', e);
+        // reCAPTCHA init failed, will fallback to Fast2SMS
       }
     }
   } catch (e) {
-    console.log('[Firebase Phone Auth] Firebase phone auth unavailable, will use fallback');
+    // Firebase phone auth unavailable, will use fallback
   }
 }
 
@@ -41,7 +39,6 @@ export async function sendFirebaseOTP(phone: string): Promise<{ success: boolean
     const auth = getFirebaseAuth();
     
     if (!auth) {
-      console.log('[Firebase Phone Auth] Firebase auth not available');
       return { success: false, error: 'Firebase not configured' };
     }
 
@@ -49,15 +46,12 @@ export async function sendFirebaseOTP(phone: string): Promise<{ success: boolean
       const { signInWithPhoneNumber } = await import('firebase/auth');
       const fullPhone = phone.startsWith('+91') ? phone : `+91${phone}`;
       
-      console.log('[Firebase Phone Auth] Sending OTP to', fullPhone, 'Platform:', Platform.OS);
-      
       // On web: use reCAPTCHA verifier, on mobile: use native verifier
       const verifier = Platform.OS === 'web' 
         ? (window as any).recaptchaVerifier 
         : await createNativePhoneAuthProvider();
       
       if (!verifier) {
-        console.error('[Firebase Phone Auth] No verifier available');
         return { success: false, error: 'Verification setup failed' };
       }
       
@@ -69,11 +63,9 @@ export async function sendFirebaseOTP(phone: string): Promise<{ success: boolean
       ]);
 
       recaptchaVerifierId = confirmationResult?.verificationId || null;
-      console.log('[Firebase Phone Auth] ✓ OTP sent successfully via Firebase');
       return { success: true, verifierId: recaptchaVerifierId || undefined };
     } catch (error: any) {
       const errorMsg = error?.message || 'Firebase OTP failed';
-      console.error('[Firebase Phone Auth] ✗ Failed to send OTP:', errorMsg);
       return { success: false, error: errorMsg };
     }
   } catch (e: any) {
