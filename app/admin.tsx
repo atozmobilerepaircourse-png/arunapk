@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, ScrollView, Platform, Pressable, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '@/lib/context';
+import { Alert } from 'react-native';
 
 const PRIMARY = '#0084FF';
 const C = {
@@ -15,51 +16,94 @@ const C = {
   border: '#E5E7EB',
 };
 
-export default function AdminScreen() {
-  const { profile } = useApp();
-  const router = useRouter();
-  
-  // Simple admin check - no complex logic
-  const cleanPhone = (profile?.phone || '').replace(/\D/g, '');
-  const isAdmin = profile?.role === 'admin' || cleanPhone === '8179142535' || cleanPhone === '9876543210' || profile?.email === 'atozmobilerepaircourse@gmail.com';
-
-  if (!isAdmin) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: C.bg }}>
-        <Ionicons name="lock-closed" size={48} color={C.textSecondary} />
-        <Text style={{ fontSize: 18, fontFamily: 'Inter_600SemiBold', color: C.text, marginTop: 16 }}>
-          Admin Access Required
-        </Text>
-        <Pressable onPress={() => router.back()} style={{ marginTop: 20, paddingHorizontal: 20, paddingVertical: 12, backgroundColor: PRIMARY, borderRadius: 8 }}>
-          <Text style={{ color: '#fff', fontFamily: 'Inter_600SemiBold' }}>Go Back</Text>
-        </Pressable>
-      </View>
-    );
-  }
-
-  return <AdminDashboard />;
+// ─── Pure component - NO hooks, just render wrapper ───
+function UnauthorizedView() {
+  return (
+    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: C.bg }}>
+      <Ionicons name="lock-closed" size={48} color={C.textSecondary} />
+      <Text style={{ fontSize: 18, fontFamily: 'Inter_600SemiBold', color: C.text, marginTop: 16 }}>
+        Admin Access Required
+      </Text>
+      <Pressable 
+        onPress={() => {
+          // Can't use router here since no hooks
+          // Window will handle navigation through history
+          if (typeof window !== 'undefined') {
+            window.history.back();
+          }
+        }} 
+        style={{ marginTop: 20, paddingHorizontal: 20, paddingVertical: 12, backgroundColor: PRIMARY, borderRadius: 8 }}
+      >
+        <Text style={{ color: '#fff', fontFamily: 'Inter_600SemiBold' }}>Go Back</Text>
+      </Pressable>
+    </View>
+  );
 }
 
-function AdminDashboard() {
-  const { posts, allProfiles, refreshData } = useApp();
+// ─── Main AdminScreen component - ALL hooks here, NO conditionals ───
+export default function AdminScreen() {
+  // ─── HOOKS: Declare ALL hooks FIRST, in exact same order every render ───
+  const { profile, posts, allProfiles, refreshData } = useApp();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
+
+  const isAdmin = useMemo(() => {
+    if (!profile) return false;
+    const cleanPhone = (profile.phone || '').replace(/\D/g, '');
+    return (
+      profile.role === 'admin' || 
+      cleanPhone === '8179142535' || 
+      cleanPhone === '9876543210' || 
+      profile.email === 'atozmobilerepaircourse@gmail.com'
+    );
+  }, [profile]);
+
+  useEffect(() => {
+    if (profile && !isAdmin) {
+      Alert.alert('Access Denied', 'Admin access required', [
+        { text: 'Go Back', onPress: () => router.back() }
+      ]);
+    }
+  }, [isAdmin, profile, router]);
 
   useEffect(() => {
     setTimeout(() => setLoading(false), 500);
   }, []);
 
-  if (loading) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: C.bg }}>
-        <ActivityIndicator size="large" color={PRIMARY} />
-      </View>
-    );
-  }
-
+  // ─── DATA: Derive data from hook results (NOT more hooks) ───
   const totalUsers = allProfiles?.length || 0;
   const totalPosts = posts?.length || 0;
 
+  // ─── Conditional rendering AFTER all hooks ───
+  if (!isAdmin) return <UnauthorizedView />;
+  if (loading) return <LoadingView />;
+  
+  return (
+    <AdminDashboardContent 
+      totalUsers={totalUsers}
+      totalPosts={totalPosts}
+      onRefresh={refreshData}
+      onBack={() => router.back()}
+    />
+  );
+}
+
+// ─── Pure loading view - NO hooks ───
+function LoadingView() {
+  return (
+    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: C.bg }}>
+      <ActivityIndicator size="large" color={PRIMARY} />
+    </View>
+  );
+}
+
+// ─── Dashboard content - PURE component, NO hooks at all ───
+function AdminDashboardContent(props: { 
+  totalUsers: number; 
+  totalPosts: number; 
+  onRefresh: () => Promise<void>;
+  onBack: () => void;
+}) {
   return (
     <ScrollView style={{ flex: 1, backgroundColor: C.bg }}>
       <View style={{ paddingHorizontal: 16, paddingVertical: 20 }}>
@@ -71,11 +115,11 @@ function AdminDashboard() {
         <View style={{ flexDirection: 'row', gap: 12, marginBottom: 20 }}>
           <View style={{ flex: 1, backgroundColor: C.surface, padding: 16, borderRadius: 12, borderWidth: 1, borderColor: C.border }}>
             <Text style={{ fontSize: 12, color: C.textSecondary, fontFamily: 'Inter_400Regular' }}>Total Users</Text>
-            <Text style={{ fontSize: 28, fontFamily: 'Inter_700Bold', color: PRIMARY, marginTop: 8 }}>{totalUsers}</Text>
+            <Text style={{ fontSize: 28, fontFamily: 'Inter_700Bold', color: PRIMARY, marginTop: 8 }}>{props.totalUsers}</Text>
           </View>
           <View style={{ flex: 1, backgroundColor: C.surface, padding: 16, borderRadius: 12, borderWidth: 1, borderColor: C.border }}>
             <Text style={{ fontSize: 12, color: C.textSecondary, fontFamily: 'Inter_400Regular' }}>Total Posts</Text>
-            <Text style={{ fontSize: 28, fontFamily: 'Inter_700Bold', color: '#34C759', marginTop: 8 }}>{totalPosts}</Text>
+            <Text style={{ fontSize: 28, fontFamily: 'Inter_700Bold', color: '#34C759', marginTop: 8 }}>{props.totalPosts}</Text>
           </View>
         </View>
 
@@ -84,7 +128,7 @@ function AdminDashboard() {
           <Pressable
             onPress={async () => {
               try {
-                await refreshData();
+                await props.onRefresh();
                 alert('Data refreshed');
               } catch (e) {
                 alert('Refresh failed');
@@ -96,7 +140,7 @@ function AdminDashboard() {
           </Pressable>
 
           <Pressable
-            onPress={() => router.back()}
+            onPress={props.onBack}
             style={{ backgroundColor: C.surface, paddingVertical: 12, borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: C.border }}
           >
             <Text style={{ color: C.text, fontFamily: 'Inter_600SemiBold' }}>Go Back</Text>
