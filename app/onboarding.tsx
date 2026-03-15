@@ -11,7 +11,6 @@ import * as Haptics from 'expo-haptics';
 import * as Crypto from 'expo-crypto';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
-import * as Clipboard from 'expo-clipboard';
 import { fetch as expoFetch } from 'expo/fetch';
 import { router, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -162,49 +161,48 @@ export default function OnboardingScreen() {
     setUsingFallback(false);
     
     try {
-      // PRIMARY: Try Firebase Phone Auth (all platforms)
-      console.log('[OTP] PRIMARY: Attempting Firebase Phone Auth');
-      const { initializeRecaptcha, sendFirebaseOTP } = await import('@/lib/firebase-phone-auth');
-      
-      // Initialize reCAPTCHA on web
+      // PRIMARY: Try Firebase Phone Auth (web only - requires reCAPTCHA)
       if (Platform.OS === 'web') {
-        initializeRecaptcha(digits).catch(() => {}); // Initialize in background, don't wait
+        console.log('[OTP] PRIMARY: Attempting Firebase Phone Auth (web)');
+        const { initializeRecaptcha, sendFirebaseOTP } = await import('@/lib/firebase-phone-auth');
+        initializeRecaptcha(digits).catch(() => {}); // Initialize in background
+        
+        const fbResult = await Promise.race([
+          sendFirebaseOTP(digits),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Firebase timeout')), 10000)
+          )
+        ]).catch(() => ({ success: false, error: 'Firebase timeout' }));
+        
+        if (fbResult.success) {
+          console.log('[OTP] ✓ Firebase OTP sent successfully');
+          setOtpSent(true);
+          setOtpResendTimer(30);
+          setPhone(digits);
+          setScreen('otp');
+          Alert.alert('OTP Sent', 'Check your SMS for the verification code');
+          return;
+        }
+        console.warn('[OTP] Firebase failed, falling back to SMS Gateway');
+      } else {
+        console.log('[OTP] Mobile platform detected - using SMS Gateway directly');
       }
       
-      const fbResult = await Promise.race([
-        sendFirebaseOTP(digits),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Firebase timeout')), 10000)
-        )
-      ]).catch(() => ({ success: false, error: 'Firebase timeout' }));
-      
-      if (fbResult.success) {
-        console.log('[OTP] ✓ Firebase OTP sent successfully');
-        setOtpSent(true);
-        setOtpResendTimer(30);
-        setPhone(digits);
-        setScreen('otp');
-        Alert.alert('OTP Sent', 'Check your SMS for the verification code');
-        return;
-      }
-      
-      console.warn('[OTP] Firebase failed, falling back to SMS Gateway:', fbResult.error);
-      
-      // FALLBACK: Use backend OTP (Fast2SMS)
-      console.log('[OTP] FALLBACK: Using SMS Gateway');
+      // FALLBACK: Use backend OTP (Fast2SMS) on mobile or if Firebase fails
+      console.log('[OTP] Using SMS Gateway (Fast2SMS)');
       setUsingFallback(true);
       const { sendFallbackOTP } = await import('@/lib/firebase-phone-auth');
       const result = await sendFallbackOTP(digits);
       
       if (result.success) {
-        console.log('[OTP] ✓ OTP sent via SMS Gateway');
+        console.log('[OTP] ✓ OTP sent via Fast2SMS');
         setOtpSent(true);
         setOtpResendTimer(30);
         setPhone(digits);
         setScreen('otp');
         Alert.alert('OTP Sent', 'Check your SMS for the verification code');
       } else {
-        console.error('[OTP] Fallback failed:', result.error);
+        console.error('[OTP] SMS Gateway failed:', result.error);
         setOtpError(result.error);
         Alert.alert('Error', result.error || 'Failed to send OTP. Please try again.');
       }
@@ -495,28 +493,6 @@ export default function OnboardingScreen() {
     if (!digits && idx > 0) otpRefs[idx - 1]?.current?.focus();
   };
 
-  // Auto-detect OTP from clipboard
-  useEffect(() => {
-    if (screen === 'otp') {
-      const checkClipboard = async () => {
-        try {
-          const text = await Clipboard.getStringAsync();
-          if (text) {
-            const digits = text.replace(/\D/g, '').slice(0, 6);
-            if (digits.length === 6 && digits !== otpCode) {
-              setOtpCode(digits);
-              console.log('[OTP] Auto-detected from clipboard:', digits);
-            }
-          }
-        } catch (e) {
-          // Clipboard access may be denied on some platforms
-        }
-      };
-      checkClipboard();
-      const interval = setInterval(checkClipboard, 1000);
-      return () => clearInterval(interval);
-    }
-  }, [screen, otpCode]);
 
   const topInset = Platform.OS === 'web' ? 67 : insets.top;
   const botInset = Platform.OS === 'web' ? 34 : insets.bottom;
@@ -630,13 +606,6 @@ export default function OnboardingScreen() {
             <Text style={s.formSubtitle}>Check your SMS for the 6-digit code <Text style={{ color: '#10B981', fontWeight: '600' }}>+91 {phone}</Text></Text>
           </View>
 
-          {/* Auto-paste indicator */}
-          {otpCode.replace(/\D/g, '').length === 6 && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#F0FDF4', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, marginBottom: 16, marginHorizontal: 16 }}>
-              <Ionicons name="checkmark-circle" size={16} color="#10B981" style={{ marginRight: 8 }} />
-              <Text style={{ color: '#10B981', fontSize: 13, fontWeight: '500' }}>Code auto-detected</Text>
-            </View>
-          )}
 
           <View style={s.otpContainer}>
             <View style={s.otpRow}>
