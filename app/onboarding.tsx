@@ -54,7 +54,7 @@ const ROLES: { key: UserRole; icon: keyof typeof Ionicons.glyphMap; color: strin
   { key: 'supplier', icon: 'cube', color: '#FF9F0A' },
 ];
 
-type ScreenName = 'google-phone' | 'details' | 'selfie' | 'skills' | 'sellType' | 'teachType' | 'businessDocs' | 'location';
+type ScreenName = 'welcome' | 'google-phone' | 'details' | 'selfie' | 'skills' | 'sellType' | 'teachType' | 'businessDocs' | 'location';
 
 export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
@@ -124,7 +124,13 @@ export default function OnboardingScreen() {
   const needsBusinessDocs = isSupplier || isTeacher;
 
   const getScreenSequence = (): ScreenName[] => {
-    const screens: ScreenName[] = ['google-phone', 'details'];
+    const screens: ScreenName[] = googleSignedIn
+      ? ['google-phone', 'details']
+      : ['welcome'];
+    if (!googleSignedIn && step > 0) {
+      // After welcome (guest or google), continue with normal flow
+      screens.push('details');
+    }
     if (needsSelfie) screens.push('selfie');
     if (needsSkills) screens.push('skills');
     if (needsSellType) screens.push('sellType');
@@ -605,6 +611,11 @@ export default function OnboardingScreen() {
   }, [currentScreen]);
 
   const handleNext = () => {
+    if (currentScreen === 'welcome') {
+      // Continue as Guest - skip to details
+      setStep(s => s + 1);
+      return;
+    }
     if (currentScreen === 'google-phone') {
       handleGooglePhoneSubmit();
       return;
@@ -721,6 +732,82 @@ export default function OnboardingScreen() {
 
   const renderStep = () => {
     switch (currentScreen) {
+      case 'welcome':
+        return (
+          <View style={{ flex: 1, backgroundColor: '#FFF' }}>
+            {/* Hero Image */}
+            <View style={{ height: '55%', width: '100%', position: 'relative', overflow: 'hidden' }}>
+              <Image
+                source={{ uri: 'https://storage.googleapis.com/uxpilot-auth.appspot.com/dd3bf1e2c1-260bee728f899a29be1e.png' }}
+                style={{ width: '100%', height: '100%' }}
+                contentFit="cover"
+              />
+              <LinearGradient
+                colors={['transparent', 'rgba(255,255,255,0.8)', '#FFFFFF']}
+                style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 120 }}
+              />
+            </View>
+
+            {/* Content Section */}
+            <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 32, justifyContent: 'space-between' }}>
+              {/* Typography */}
+              <View style={{ marginBottom: 'auto' }}>
+                <Text style={{ fontSize: 28, fontWeight: '700', color: '#111827', textAlign: 'center', lineHeight: 36, marginBottom: 16 }}>
+                  Welcome to {'\n'}Mobi Mobile {'\n'}Repair Technician {'\n'}Community
+                </Text>
+                <Text style={{ fontSize: 15, color: '#6b7280', textAlign: 'center', lineHeight: 22 }}>
+                  Network, Learn & Grow with technicians across India.
+                </Text>
+              </View>
+
+              {/* Action Buttons */}
+              <View style={{ gap: 12, marginBottom: Math.max(insets.bottom, 12) }}>
+                {/* Google Sign-In Button */}
+                <Pressable
+                  onPress={startGoogleSignIn}
+                  style={({ pressed }) => ({
+                    width: '100%',
+                    height: 48,
+                    backgroundColor: '#FFF',
+                    borderWidth: 1,
+                    borderColor: '#d1d5db',
+                    borderRadius: 16,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 12,
+                    opacity: pressed ? 0.9 : 1,
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.05,
+                    shadowRadius: 4,
+                    elevation: 2,
+                  })}
+                >
+                  <Ionicons name="logo-google" size={20} color="#1f2937" />
+                  <Text style={{ fontSize: 15, fontWeight: '600', color: '#1f2937' }}>Continue with Google</Text>
+                </Pressable>
+
+                {/* Continue as Guest Button */}
+                <Pressable
+                  onPress={handleNext}
+                  style={({ pressed }) => ({
+                    width: '100%',
+                    height: 48,
+                    backgroundColor: 'transparent',
+                    borderRadius: 16,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    opacity: pressed ? 0.7 : 1,
+                  })}
+                >
+                  <Text style={{ fontSize: 15, fontWeight: '600', color: '#3b82f6' }}>Continue as Guest</Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        );
       case 'google-phone':
         return (
           <View style={styles.stepContent}>
