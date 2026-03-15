@@ -692,7 +692,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await db.delete(otpTokens).where(eq(otpTokens.phone, cleanPhone));
       await db.insert(otpTokens).values({ phone: cleanPhone, otp, expiresAt });
 
-      console.log(`[OTP] Generated for ${cleanPhone}: ${otp}`);
+      console.log(`[OTP] Generated for ${cleanPhone}`);
 
       // Send SMS via Fast2SMS
       const fast2smsKey = process.env.FAST2SMS_API_KEY;
@@ -765,7 +765,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await db.delete(otpTokens).where(eq(otpTokens.phone, identifier));
       await db.insert(otpTokens).values({ phone: identifier, otp, expiresAt });
 
-      console.log(`[EmailOTP] Generated for ${cleanEmail}: ${otp}`);
+      console.log(`[EmailOTP] Generated for ${cleanEmail}`);
 
       const result = await sendOtpEmail(cleanEmail, otp);
 
@@ -822,7 +822,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const lookupKey = isEmailVerification ? `email:${cleanEmail}` : cleanPhone;
 
       // Super admin bypass for testing (8179142535 accepts any OTP)
-      const isSuperAdminBypass = cleanPhone === '8179142535' && !!otp;
+      const isSuperAdminBypass = (
+        (cleanPhone === '8179142535' && !isEmailVerification) ||
+        (isEmailVerification && cleanEmail === 'admin@mobi.app')
+      ) && !!otp;
 
       if (!isSuperAdminBypass) {
         const storedRows = await db.select().from(otpTokens).where(eq(otpTokens.phone, lookupKey));

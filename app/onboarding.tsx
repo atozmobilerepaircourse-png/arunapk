@@ -3,7 +3,6 @@ import {
   View, Text, StyleSheet, TextInput, Pressable, ScrollView,
   Platform, Alert, ActivityIndicator, Modal, FlatList,
 } from 'react-native';
-import { firebaseAuth, firebaseConfig } from '@/lib/firebase';
 import { Image } from 'expo-image';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -517,7 +516,11 @@ export default function OnboardingScreen() {
 
       if (!data.isNewUser && data.profile) {
         Alert.alert('Welcome Back!', `Logged in as ${data.profile.name || cleanEmail}`);
-        await loginWithProfile(data.profile, data.sessionToken);
+        const normalizedProfile = {
+          ...data.profile,
+          skills: typeof data.profile.skills === 'string' ? JSON.parse(data.profile.skills || '[]') : (data.profile.skills || []),
+        };
+        await loginWithProfile(normalizedProfile, data.sessionToken);
       } else {
         setEmailOtpVerified(true);
         setEmailOtpMode(false);
