@@ -161,35 +161,36 @@ export default function OnboardingScreen() {
     setUsingFallback(false);
     
     try {
-      // PRIMARY: Try Firebase Phone Auth (web only - requires reCAPTCHA)
+      // PRIMARY: Try Firebase Phone Auth (all platforms)
+      console.log('[OTP] PRIMARY: Attempting Firebase Phone Auth');
+      const { initializeRecaptcha, sendFirebaseOTP } = await import('@/lib/firebase-phone-auth');
+      
+      // Initialize reCAPTCHA on web
       if (Platform.OS === 'web') {
-        console.log('[OTP] PRIMARY: Attempting Firebase Phone Auth (web)');
-        const { initializeRecaptcha, sendFirebaseOTP } = await import('@/lib/firebase-phone-auth');
         initializeRecaptcha(digits).catch(() => {}); // Initialize in background
-        
-        const fbResult = await Promise.race([
-          sendFirebaseOTP(digits),
-          new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Firebase timeout')), 10000)
-          )
-        ]).catch(() => ({ success: false, error: 'Firebase timeout' }));
-        
-        if (fbResult.success) {
-          console.log('[OTP] ✓ Firebase OTP sent successfully');
-          setOtpSent(true);
-          setOtpResendTimer(30);
-          setPhone(digits);
-          setScreen('otp');
-          Alert.alert('OTP Sent', 'Check your SMS for the verification code');
-          return;
-        }
-        console.warn('[OTP] Firebase failed, falling back to SMS Gateway');
-      } else {
-        console.log('[OTP] Mobile platform detected - using SMS Gateway directly');
       }
       
-      // FALLBACK: Use backend OTP (Fast2SMS) on mobile or if Firebase fails
-      console.log('[OTP] Using SMS Gateway (Fast2SMS)');
+      const fbResult = await Promise.race([
+        sendFirebaseOTP(digits),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Firebase timeout')), 15000)
+        )
+      ]).catch(() => ({ success: false, error: 'Firebase timeout' }));
+      
+      if (fbResult.success) {
+        console.log('[OTP] ✓ Firebase OTP sent successfully');
+        setOtpSent(true);
+        setOtpResendTimer(30);
+        setPhone(digits);
+        setScreen('otp');
+        Alert.alert('OTP Sent', 'Check your SMS for the verification code');
+        return;
+      }
+      
+      console.warn('[OTP] Firebase failed, falling back to Fast2SMS:', fbResult.error);
+      
+      // FALLBACK: Use backend OTP (Fast2SMS)
+      console.log('[OTP] FALLBACK: Using Fast2SMS');
       setUsingFallback(true);
       const { sendFallbackOTP } = await import('@/lib/firebase-phone-auth');
       const result = await sendFallbackOTP(digits);
@@ -202,7 +203,7 @@ export default function OnboardingScreen() {
         setScreen('otp');
         Alert.alert('OTP Sent', 'Check your SMS for the verification code');
       } else {
-        console.error('[OTP] SMS Gateway failed:', result.error);
+        console.error('[OTP] Fast2SMS failed:', result.error);
         setOtpError(result.error);
         Alert.alert('Error', result.error || 'Failed to send OTP. Please try again.');
       }
