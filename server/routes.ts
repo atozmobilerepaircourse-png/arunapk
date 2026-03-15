@@ -1817,7 +1817,12 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
       const result = await db.select().from(products).where(eq(products.id, req.params.id));
       if (result.length === 0) return res.status(404).json({ success: false, message: "Not found" });
       const p = result[0];
-      return res.json(p);
+      // Parse JSON fields properly
+      return res.json({
+        ...p,
+        images: typeof p.images === 'string' ? JSON.parse(p.images || '[]') : (Array.isArray(p.images) ? p.images : []),
+        likes: typeof p.likes === 'string' ? JSON.parse(p.likes || '[]') : (Array.isArray(p.likes) ? p.likes : []),
+      });
     } catch (error) {
       console.error("[Products] Get by ID error:", error);
       return res.status(500).json({ success: false });
