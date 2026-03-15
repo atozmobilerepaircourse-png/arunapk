@@ -50,6 +50,11 @@ export default function AddProductScreen() {
       apiRequest('GET', `/api/products/${params.productId}`)
         .then(r => r.json())
         .then(data => {
+          if (data.success === false) {
+            Alert.alert('Error', data.message || 'Failed to load product');
+            setLoadingEdit(false);
+            return;
+          }
           setTitle(data.title || '');
           setDescription(data.description || '');
           setPrice(data.price || '');
@@ -58,9 +63,13 @@ export default function AddProductScreen() {
           setInStock(data.inStock !== 0);
           const imgs = (() => { try { return JSON.parse(data.images || '[]'); } catch { return []; } })();
           setImages(imgs);
+          setLoadingEdit(false);
         })
-        .catch(() => Alert.alert('Error', 'Failed to load product'))
-        .finally(() => setLoadingEdit(false));
+        .catch(e => {
+          console.error('[AddProduct] Load error:', e);
+          Alert.alert('Error', 'Failed to load product');
+          setLoadingEdit(false);
+        });
     }
   }, [params.productId]);
 

@@ -299,10 +299,17 @@ export default function SupplierProductsScreen() {
       {
         text: 'Delete', style: 'destructive', onPress: async () => {
           try {
-            await apiRequest('DELETE', `/api/products/${product.id}`);
-            setProducts(prev => prev.filter(p => p.id !== product.id));
-            if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          } catch {
+            const res = await apiRequest('DELETE', `/api/products/${product.id}`);
+            const data = await res.json();
+            if (data.success) {
+              setProducts(prev => prev.filter(p => p.id !== product.id));
+              if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              Alert.alert('Deleted', 'Product removed successfully');
+            } else {
+              Alert.alert('Error', data.message || 'Failed to delete product');
+            }
+          } catch (e) {
+            console.error('[SupplierProducts] Delete error:', e);
             Alert.alert('Error', 'Failed to delete product');
           }
         }
