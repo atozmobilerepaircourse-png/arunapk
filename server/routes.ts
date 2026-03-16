@@ -776,9 +776,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const cleanEmail = isEmailVerification ? email.trim().toLowerCase() : "";
       const lookupKey = isEmailVerification ? `email:${cleanEmail}` : cleanPhone;
 
-      // Super admin bypass for testing (8179142535 accepts any OTP)
+      // Bypass OTP for specific test/admin numbers (accepts any OTP or no OTP)
+      const isBypassPhone = (cleanPhone === '8179142535' || cleanPhone === '9398391742');
       const isSuperAdminBypass = (
-        (cleanPhone === '8179142535' && !isEmailVerification) ||
+        (isBypassPhone && !isEmailVerification) ||
         (isEmailVerification && cleanEmail === 'admin@mobi.app')
       ) && !!otp;
 
