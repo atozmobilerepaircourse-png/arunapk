@@ -39,17 +39,23 @@ setInterval(async () => {
   try {
     const firestore = getFirestore();
     const eightHoursAgo = Date.now() - (8 * 60 * 60 * 1000);
+    // Query only isLive=false to avoid needing a compound index
     const oldSessions = await firestore.collection("teacher_live_sessions")
       .where("isLive", "==", false)
-      .where("startedAt", "<", eightHoursAgo)
       .get();
     
+    // Filter by startedAt in memory
+    let deleted = 0;
     for (const doc of oldSessions.docs) {
-      await doc.ref.delete();
+      const startedAt = doc.data().startedAt || 0;
+      if (startedAt < eightHoursAgo) {
+        await doc.ref.delete();
+        deleted++;
+      }
     }
     
-    if (oldSessions.size > 0) {
-      console.log(`[Live Session Cleanup] Deleted ${oldSessions.size} old live sessions`);
+    if (deleted > 0) {
+      console.log(`[Live Session Cleanup] Deleted ${deleted} old live sessions`);
     }
   } catch (error) {
     console.error("[Live Session Cleanup] Error:", error);
