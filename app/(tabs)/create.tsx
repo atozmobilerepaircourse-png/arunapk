@@ -108,14 +108,17 @@ export default function CreatePostScreen() {
       const formData = new FormData();
       
       if (isWeb) {
-        // Web: Try base64 first, fallback to fetching URI
+        // Web: Handle File object, base64, or URI
         try {
-          console.log(`[Upload] Web: asset type=${typeof asset}, has uri=${!!asset.uri}, has base64=${!!asset.base64}`);
+          console.log(`[Upload] Web: asset type=${typeof asset}, keys=${Object.keys(asset).join(',')}`);
           
-          let blob: Blob;
-          
+          // Method 0: If asset is a File object, use it directly
+          if (asset instanceof File) {
+            console.log(`[Upload] Web: Using File object directly, size: ${asset.size} bytes`);
+            formData.append('image', asset);
+          } 
           // Method 1: If asset has base64, convert to blob
-          if (asset.base64) {
+          else if (asset.base64) {
             console.log(`[Upload] Web: Converting base64 to blob (size: ${asset.base64.length} chars)`);
             const byteCharacters = atob(asset.base64);
             const byteNumbers = new Array(byteCharacters.length);
@@ -123,23 +126,24 @@ export default function CreatePostScreen() {
               byteNumbers[i] = byteCharacters.charCodeAt(i);
             }
             const byteArray = new Uint8Array(byteNumbers);
-            blob = new Blob([byteArray], { type: 'image/jpeg' });
+            const blob = new Blob([byteArray], { type: 'image/jpeg' });
             console.log(`[Upload] Web: Created blob from base64, size: ${blob.size} bytes`);
+            const filename = `photo_${Date.now()}.jpg`;
+            formData.append('image', blob, filename);
           } 
-          // Method 2: Fallback - fetch from URI if available (file:// or blob: URLs)
+          // Method 2: Fallback - fetch from URI (file:// or blob: URLs)
           else if (asset.uri) {
             console.log(`[Upload] Web: Fetching blob from URI: ${asset.uri.slice(0, 50)}...`);
             const response = await fetch(asset.uri);
             if (!response.ok) throw new Error(`Failed to fetch URI: ${response.status}`);
-            blob = await response.blob();
+            const blob = await response.blob();
             console.log(`[Upload] Web: Got blob from URI, size: ${blob.size} bytes`);
+            const filename = `photo_${Date.now()}.jpg`;
+            formData.append('image', blob, filename);
           } 
           else {
-            throw new Error('ImagePicker returned asset with no base64 or uri');
+            throw new Error(`ImagePicker asset missing required fields. Keys: ${Object.keys(asset).join(',')}`);
           }
-          
-          const filename = `photo_${Date.now()}.jpg`;
-          formData.append('image', blob, filename);
         } catch (e: any) {
           console.error(`[Upload] Web processing failed:`, e?.message);
           throw e;
