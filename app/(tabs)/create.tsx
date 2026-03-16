@@ -108,11 +108,13 @@ export default function CreatePostScreen() {
       const formData = new FormData();
       
       if (isWeb) {
-        // Web: Use asset directly (ImagePicker returns File object on web)
+        // Web: Try base64 first, fallback to fetching URI
         try {
           console.log(`[Upload] Web: asset type=${typeof asset}, has uri=${!!asset.uri}, has base64=${!!asset.base64}`);
           
-          // If asset has base64, convert to blob (data URL came from picker)
+          let blob: Blob;
+          
+          // Method 1: If asset has base64, convert to blob
           if (asset.base64) {
             console.log(`[Upload] Web: Converting base64 to blob (size: ${asset.base64.length} chars)`);
             const byteCharacters = atob(asset.base64);
@@ -121,13 +123,23 @@ export default function CreatePostScreen() {
               byteNumbers[i] = byteCharacters.charCodeAt(i);
             }
             const byteArray = new Uint8Array(byteNumbers);
-            const blob = new Blob([byteArray], { type: 'image/jpeg' });
+            blob = new Blob([byteArray], { type: 'image/jpeg' });
             console.log(`[Upload] Web: Created blob from base64, size: ${blob.size} bytes`);
-            const filename = `photo_${Date.now()}.jpg`;
-            formData.append('image', blob, filename);
-          } else {
-            throw new Error('ImagePicker did not return base64 data on web - check expo-image-picker setup');
+          } 
+          // Method 2: Fallback - fetch from URI if available (file:// or blob: URLs)
+          else if (asset.uri) {
+            console.log(`[Upload] Web: Fetching blob from URI: ${asset.uri.slice(0, 50)}...`);
+            const response = await fetch(asset.uri);
+            if (!response.ok) throw new Error(`Failed to fetch URI: ${response.status}`);
+            blob = await response.blob();
+            console.log(`[Upload] Web: Got blob from URI, size: ${blob.size} bytes`);
+          } 
+          else {
+            throw new Error('ImagePicker returned asset with no base64 or uri');
           }
+          
+          const filename = `photo_${Date.now()}.jpg`;
+          formData.append('image', blob, filename);
         } catch (e: any) {
           console.error(`[Upload] Web processing failed:`, e?.message);
           throw e;
