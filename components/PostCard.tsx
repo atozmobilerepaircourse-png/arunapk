@@ -300,6 +300,7 @@ export default function PostCard({
             )
           ) : null}
         </View>
+        </>
       )}
 
       {/* ── Hashtag pills ── */}
