@@ -125,7 +125,10 @@ export default function CreatePostScreen() {
       }
       
       console.log(`[Upload] Sending to server: ${uploadUrl}`);
-      const uploadRes = await (Platform.OS === 'web' ? window.fetch(uploadUrl, { method: 'POST', body: formData }) : expoFetch(uploadUrl, { method: 'POST', body: formData }));
+      // IMPORTANT: Do NOT set Content-Type header for FormData - let browser set it automatically with boundary
+      const fetchOptions: any = { method: 'POST', body: formData };
+      // Don't set Content-Type header - FormData must handle it!
+      const uploadRes = await (Platform.OS === 'web' ? window.fetch(uploadUrl, fetchOptions) : expoFetch(uploadUrl, fetchOptions));
       
       console.log(`[Upload] Response status: ${uploadRes.status}`);
       if (!uploadRes.ok) {

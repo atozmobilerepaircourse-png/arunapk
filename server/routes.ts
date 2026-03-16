@@ -547,6 +547,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (!req.file) {
         console.error('[Upload] ERROR: No file in request');
+        console.error('[Upload] Request headers:', req.headers);
+        console.error('[Upload] Request body:', req.body);
         return res.status(400).json({ success: false, message: "No file uploaded" });
       }
       
@@ -577,6 +579,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("[Upload] Error details:", error);
       res.status(500).json({ success: false, message: error instanceof Error ? error.message : "Upload failed" });
     }
+  }, (err: any, req: any, res: any, next: any) => {
+    // Catch multer errors
+    if (err instanceof Error) {
+      console.error('[Upload] Multer error:', err.message);
+      return res.status(400).json({ success: false, message: err.message });
+    }
+    next(err);
   });
 
   // ─── Bunny Stream: Create video slot (returns videoId + TUS upload URL) ───
