@@ -211,10 +211,13 @@ export default function OnboardingScreen() {
         setOtpSent(true);
         setPhone(digits);
         setScreen('otp');
+        setOtpAttempts(0); // Reset verification attempts for new OTP
+        setOtpError(''); // Clear previous error
         Alert.alert('OTP Sent', 'Check your SMS for the verification code');
       } else {
         console.error('[OTP] Fast2SMS failed:', result.error);
         setOtpError(result.error);
+        setOtpAttempts(0); // Reset attempts on failure so user can retry
         Alert.alert('Error', result.error || 'Failed to send OTP. Please try again.');
         // Reset rate limit on failure so user can retry
         setOtpResendTimer(0);
