@@ -360,8 +360,6 @@ export default function AdminScreen() {
     }
   }, [isAdmin, profile]);
 
-  if (!isAdmin) return null;
-
   // ── Fetch functions ──
   const fetchRepairBookings = useCallback(async () => {
     setRepairLoading(true);
