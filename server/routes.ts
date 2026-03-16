@@ -2070,6 +2070,7 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
   app.post("/api/posts", async (req, res) => {
     try {
       const { id, userId, userName, userRole, userAvatar, text: postText, images, videoUrl, category } = req.body;
+      console.log('[Posts] Create request received:', { userId, imageCount: images?.length || 0, images });
       if (!userId || !userName || !userRole) {
         return res.status(400).json({ success: false, message: "Missing required fields" });
       }
@@ -2080,6 +2081,7 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
         if (img.startsWith('http')) return img;
         return `${process.env.REPLIT_DEV_DOMAIN ? 'https://' + process.env.REPLIT_DEV_DOMAIN : 'https://repair-backend-3siuld7gbq-el.a.run.app'}${img}`;
       });
+      console.log('[Posts] Cleaned images:', { original: images?.length || 0, cleaned: cleanImages.length, urls: cleanImages });
       const cleanVideoUrl = sanitizeImageUrl(videoUrl || "");
       await db.insert(posts).values({
         id: postId,

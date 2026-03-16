@@ -166,6 +166,7 @@ export default function CreatePostScreen() {
           .filter((r): r is PromiseFulfilledResult<string> => r.status === 'fulfilled' && typeof r.value === 'string')
           .map(r => r.value);
         const failed = results.filter(r => r.status === 'rejected').length;
+        console.log('[CreatePost] Upload complete:', { total: images.length, successful: uploadedImages.length, failed, urls: uploadedImages });
         if (uploadedImages.length === 0) {
           const errMsg = results[0]?.status === 'rejected' ? (results[0] as PromiseRejectedResult).reason?.message : 'Unknown error';
           Alert.alert('Photo Upload Failed', `Could not upload photos: ${errMsg}\n\nPlease check your connection and try again.`);
@@ -181,6 +182,7 @@ export default function CreatePostScreen() {
       }
 
       setUploadProgress('Creating post...');
+      console.log('[CreatePost] Calling addPost with:', { images: uploadedImages, imageCount: uploadedImages.length, hasImages: uploadedImages.length > 0 });
       await addPost({
         userId: profile.id,
         userName: profile.name,
