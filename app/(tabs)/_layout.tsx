@@ -35,7 +35,7 @@ function NativeTabLayout() {
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="directory">
           <Icon sf={{ default: "wrench.and.screwdriver", selected: "wrench.and.screwdriver.fill" }} />
-          <Label>Repair</Label>
+          <Label>Find Nearby</Label>
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="create">
           <Icon sf={{ default: "plus.circle", selected: "plus.circle.fill" }} />
@@ -163,7 +163,7 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="orders"
         options={{
-          title: "Orders",
+          title: isCustomer ? "Ask for Repair" : "Orders",
           href: isCustomer ? '/orders' : null,
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? "list" : "list-outline"} size={22} color={color} />
@@ -173,7 +173,7 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="directory"
         options={{
-          title: isCustomer ? "Repair" : "Directory",
+          title: isCustomer ? "Find Nearby" : "Directory",
           href: '/directory',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
