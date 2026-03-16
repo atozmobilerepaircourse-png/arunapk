@@ -100,46 +100,51 @@ export default function CreatePostScreen() {
     const baseUrl = getApiUrl();
     const uploadUrl = new URL('/api/upload', baseUrl).toString();
     setUploadProgress(total > 1 ? `Uploading photo ${index + 1} of ${total}...` : 'Uploading photo...');
+    console.log(`[Upload] Starting image ${index + 1}/${total}: ${uri.slice(0, 50)}`);
     try {
       const formData = new FormData();
       if (Platform.OS === 'web') {
-        // On web, ImagePicker returns blob: or data: URLs
-        // Fetch from blob URL may fail with CORS, so we handle it differently
+        // Web: Convert blob: or data: URLs to proper File object
         try {
-          const res = await window.fetch(uri, { mode: 'no-cors' });
-          const blob = await res.blob();
-          formData.append('image', blob, 'photo.jpg');
-        } catch (fetchErr) {
-          // If fetch fails (common with blob URLs), try to use fetch with proper headers
-          console.warn('[Upload] Fetch with no-cors failed, retrying with standard fetch');
-          try {
-            const res = await window.fetch(uri);
-            const blob = await res.blob();
-            formData.append('image', blob, 'photo.jpg');
-          } catch {
-            // Last resort: create a simple blob from the URI string
-            const blob = new Blob([uri], { type: 'image/jpeg' });
-            formData.append('image', blob, 'photo.jpg');
-          }
+          console.log(`[Upload] Web: Fetching blob from URI`);
+          const response = await fetch(uri);
+          if (!response.ok) throw new Error(`Fetch failed: ${response.status}`);
+          const blob = await response.blob();
+          console.log(`[Upload] Web: Got blob, size: ${blob.size} bytes, type: ${blob.type}`);
+          if (blob.size === 0) throw new Error('Blob is empty - image may not have loaded');
+          const filename = `photo_${Date.now()}.jpg`;
+          formData.append('image', blob, filename);
+        } catch (e: any) {
+          console.error(`[Upload] Web blob conversion failed:`, e?.message);
+          throw e;
         }
-        const uploadRes = await window.fetch(uploadUrl, { method: 'POST', body: formData });
-        if (!uploadRes.ok) throw new Error(`Server error ${uploadRes.status}`);
-        const data = await uploadRes.json();
-        if (data.success && data.url) return data.url;
-        throw new Error(data.message || 'Upload failed');
       } else {
-        formData.append('image', { uri, name: 'photo.jpg', type: 'image/jpeg' } as any);
-        const uploadRes = await expoFetch(uploadUrl, { method: 'POST', body: formData });
-        if (!uploadRes.ok) {
-          const errText = await uploadRes.text().catch(() => '');
-          throw new Error(`Server error ${uploadRes.status}: ${errText.slice(0, 80)}`);
-        }
-        const data = await uploadRes.json();
-        if (data.success && data.url) return data.url;
-        throw new Error(data.message || 'Upload failed');
+        // Mobile: Use Expo fetch with file object
+        console.log(`[Upload] Mobile: Appending file from URI`);
+        formData.append('image', { uri, name: `photo_${Date.now()}.jpg`, type: 'image/jpeg' } as any);
       }
+      
+      console.log(`[Upload] Sending to server: ${uploadUrl}`);
+      const uploadRes = await (Platform.OS === 'web' ? window.fetch(uploadUrl, { method: 'POST', body: formData }) : expoFetch(uploadUrl, { method: 'POST', body: formData }));
+      
+      console.log(`[Upload] Response status: ${uploadRes.status}`);
+      if (!uploadRes.ok) {
+        const errText = await uploadRes.text().catch(() => '(no error text)');
+        console.error(`[Upload] Server error ${uploadRes.status}: ${errText}`);
+        throw new Error(`Server error ${uploadRes.status}`);
+      }
+      
+      const data = await uploadRes.json();
+      console.log(`[Upload] Response data:`, data);
+      if (data.success && data.url) {
+        console.log(`[Upload] SUCCESS - Image ${index + 1} uploaded: ${data.url}`);
+        return data.url;
+      }
+      throw new Error(data.message || 'Upload returned no URL');
     } catch (e: any) {
-      console.error(`[Upload] Image ${index + 1} failed:`, e?.message || e);
+      console.error(`[Upload] Image ${index + 1} FAILED:`, e?.message || String(e));
+      setUploadProgress('');
+      setUploadPercent(0);
       throw e;
     }
   }, []);

@@ -534,17 +534,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/upload", upload.single("image"), async (req, res) => {
     try {
-      console.log('[Upload] Request received', { hasFile: !!req.file, mimetype: req.file?.mimetype });
-      if (!req.file) return res.status(400).json({ success: false, message: "No file uploaded" });
-      const extMap: Record<string, string> = { 'image/png': '.png', 'image/gif': '.gif', 'image/webp': '.webp', 'video/mp4': '.mp4' };
+      console.log('[Upload] POST /api/upload - Request received');
+      console.log('[Upload] File info:', { 
+        hasFile: !!req.file, 
+        fieldname: req.file?.fieldname,
+        originalname: req.file?.originalname,
+        encoding: req.file?.encoding,
+        mimetype: req.file?.mimetype,
+        size: req.file?.size,
+        bufferLength: req.file?.buffer?.length
+      });
+      
+      if (!req.file) {
+        console.error('[Upload] ERROR: No file in request');
+        return res.status(400).json({ success: false, message: "No file uploaded" });
+      }
+      
+      if (!req.file.buffer || req.file.buffer.length === 0) {
+        console.error('[Upload] ERROR: Buffer is empty', { size: req.file.size });
+        return res.status(400).json({ success: false, message: "File buffer is empty" });
+      }
+      
+      // Map MIME types to extensions
+      const extMap: Record<string, string> = { 
+        'image/png': '.png', 
+        'image/jpeg': '.jpg',
+        'image/jpg': '.jpg',
+        'image/gif': '.gif', 
+        'image/webp': '.webp', 
+        'video/mp4': '.mp4' 
+      };
       const ext = path.extname(req.file.originalname) || extMap[req.file.mimetype] || '.jpg';
       const filename = `images/${randomUUID()}${ext}`;
+      
+      console.log('[Upload] Uploading to storage:', { filename, bufferSize: req.file.buffer.length });
       const url = await uploadToStorage(req.file.buffer, filename);
-      console.log('[Upload] SUCCESS', { filename, url });
+      
+      console.log('[Upload] ✓ SUCCESS', { filename, url, size: req.file.buffer.length });
       res.json({ success: true, url });
     } catch (error) {
-      console.error("[Upload] Error:", error instanceof Error ? error.message : error);
-      res.status(500).json({ success: false, message: "Upload failed" });
+      console.error("[Upload] ✗ FAILED:", error instanceof Error ? error.message : String(error));
+      console.error("[Upload] Error details:", error);
+      res.status(500).json({ success: false, message: error instanceof Error ? error.message : "Upload failed" });
     }
   });
 
