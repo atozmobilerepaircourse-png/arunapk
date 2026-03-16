@@ -35,6 +35,12 @@ export async function initializeRecaptcha(phone: string): Promise<void> {
 
 export async function sendFirebaseOTP(phone: string): Promise<{ success: boolean; verifierId?: string; error?: string }> {
   try {
+    // CRITICAL: Firebase phone auth on mobile doesn't work with placeholder verifiers
+    // Only use Firebase on web where reCAPTCHA is properly initialized
+    if (Platform.OS !== 'web') {
+      return { success: false, error: 'Firebase unavailable on mobile - use fallback' };
+    }
+
     const { getFirebaseAuth } = await import('./firebase');
     const auth = getFirebaseAuth();
     
@@ -46,13 +52,11 @@ export async function sendFirebaseOTP(phone: string): Promise<{ success: boolean
       const { signInWithPhoneNumber } = await import('firebase/auth');
       const fullPhone = phone.startsWith('+91') ? phone : `+91${phone}`;
       
-      // On web: use reCAPTCHA verifier, on mobile: use native verifier
-      const verifier = Platform.OS === 'web' 
-        ? (window as any).recaptchaVerifier 
-        : await createNativePhoneAuthProvider();
+      // Web only: use reCAPTCHA verifier
+      const verifier = (window as any).recaptchaVerifier;
       
       if (!verifier) {
-        return { success: false, error: 'Verification setup failed' };
+        return { success: false, error: 'reCAPTCHA verification setup failed' };
       }
       
       const confirmationResult = await Promise.race([
@@ -73,20 +77,6 @@ export async function sendFirebaseOTP(phone: string): Promise<{ success: boolean
   }
 }
 
-// Mobile verifier - uses Firebase's native phone auth
-async function createNativePhoneAuthProvider(): Promise<any> {
-  if (Platform.OS === 'web') return null;
-  
-  try {
-    // On native, Firebase Phone Auth works without an explicit verifier
-    // It uses the native Firebase SDK which handles phone auth automatically
-    console.log('[Firebase Phone Auth] Using native phone auth provider');
-    return { isNative: true }; // Placeholder for native verifier
-  } catch (e) {
-    console.error('[Firebase Phone Auth] Failed to create native verifier:', e);
-    return null;
-  }
-}
 
 export async function verifyFirebaseOTP(code: string): Promise<{ success: boolean; error?: string }> {
   try {
