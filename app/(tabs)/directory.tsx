@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
+import * as Location from 'expo-location';
 import { useApp } from '@/lib/context';
 import { UserRole, ROLE_LABELS } from '@/lib/types';
 import DirectoryMap from '@/components/DirectoryMap';
@@ -61,6 +62,17 @@ function getInitials(name: string) {
   return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
 }
 
+function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+}
+
 function LivePing() {
   const anim = useRef(new Animated.Value(1)).current;
   useEffect(() => {
@@ -108,7 +120,7 @@ function LiveCountPills({ stats }: { stats: OnlineStats | null }) {
 interface ProfCardProps {
   item: {
     id: string; name: string; role: UserRole; city: string;
-    skills: string[]; avatar: string; isOnline: boolean;
+    skills: string[]; avatar: string; isOnline: boolean; distance?: number;
   };
   onChat?: () => void;
   onCall?: () => void;
@@ -152,10 +164,17 @@ function ProfCard({ item, onChat, onCall, onPress }: ProfCardProps) {
             <View style={[styles.roleBadge, { backgroundColor: badge.bg }]}>
               <Text style={[styles.roleBadgeText, { color: badge.text }]}>{skillLabel}</Text>
             </View>
-            <View style={styles.ratingRow}>
-              <Ionicons name="star" size={10} color="#FBBF24" />
-              <Text style={styles.ratingText}>4.8 (120)</Text>
-            </View>
+            {item.distance !== undefined ? (
+              <View style={[styles.ratingRow, { backgroundColor: '#FEE2E2', paddingHorizontal: 8, borderRadius: 4 }]}>
+                <Ionicons name="location" size={10} color="#DC2626" />
+                <Text style={[styles.ratingText, { color: '#DC2626' }]}>{item.distance.toFixed(1)} km</Text>
+              </View>
+            ) : (
+              <View style={styles.ratingRow}>
+                <Ionicons name="star" size={10} color="#FBBF24" />
+                <Text style={styles.ratingText}>4.8 (120)</Text>
+              </View>
+            )}
           </View>
 
           {item.skills.length > 0 ? (
@@ -203,10 +222,36 @@ export default function DirectoryScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [stats, setStats]           = useState<OnlineStats | null>(null);
   const [viewMode, setViewMode]     = useState<'list' | 'map'>(params.view === 'map' ? 'map' : 'list');
+  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
 
   const topPad = (Platform.OS === 'web' ? 67 : insets.top) + 12;
 
   useEffect(() => { if (params.view === 'map') setViewMode('map'); }, [params.view]);
+
+  // Start continuous location tracking
+  useEffect(() => {
+    let unsubscribe: (() => void) | null = null;
+    (async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === 'granted') {
+          unsubscribe = Location.watchPositionAsync(
+            { accuracy: Location.Accuracy.Balanced, timeInterval: 5000, distanceInterval: 10 },
+            (location) => {
+              setUserLocation({ latitude: location.coords.latitude, longitude: location.coords.longitude });
+              setLocationError(null);
+            }
+          ).then(sub => sub.remove);
+        } else {
+          setLocationError('Location permission denied');
+        }
+      } catch (error) {
+        setLocationError('Unable to get location');
+      }
+    })();
+    return () => { if (unsubscribe) unsubscribe(); };
+  }, []);
 
   const fetchStats = useCallback(async () => {
     try { const res = await apiRequest('GET', '/api/stats/online'); setStats(await res.json()); } catch {}
@@ -236,8 +281,25 @@ export default function DirectoryScreen() {
     let list = directory;
     if (roleFilter !== 'all') list = list.filter(e => e.role === roleFilter);
     if (search.trim()) { const q = search.toLowerCase(); list = list.filter(e => e.name.toLowerCase().includes(q) || e.city.toLowerCase().includes(q) || e.skills.some(s => s.toLowerCase().includes(q))); }
+    
+    // Add distance calculations if user location is available
+    if (userLocation) {
+      list = list.map(item => {
+        if (item.latitude && item.longitude && !isNaN(item.latitude) && !isNaN(item.longitude)) {
+          const distance = calculateDistance(userLocation.latitude, userLocation.longitude, item.latitude, item.longitude);
+          return { ...item, distance };
+        }
+        return item;
+      });
+      // Sort by distance (nearest first)
+      list.sort((a, b) => {
+        const distA = a.distance ?? Infinity;
+        const distB = b.distance ?? Infinity;
+        return distA - distB;
+      });
+    }
     return list;
-  }, [directory, roleFilter, search]);
+  }, [directory, roleFilter, search, userLocation]);
 
   const mapProfiles = useMemo(() => filtered.filter(p => p.latitude && p.longitude && !isNaN(p.latitude!) && !isNaN(p.longitude!) && (p.role !== 'customer' || p.locationSharing === 'true')).map(p => ({ id: p.id, latitude: p.latitude!, longitude: p.longitude!, name: p.name, role: ROLE_LABELS[p.role] || p.role, roleKey: p.role, city: p.city, skills: p.skills, color: ROLE_MAP_COLORS[p.role] || '#1D4ED8', avatar: p.avatar, isOnline: p.isOnline, lastSeen: 0 })), [filtered]);
 
