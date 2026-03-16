@@ -62,9 +62,9 @@ if (!fs.existsSync(uploadsDir)) {
 }
 
 const BUNNY_STORAGE_API_KEY = process.env.BUNNY_STORAGE_API_KEY || '';
-// CRITICAL FIX: Bunny storage zone from dashboard (case-sensitive!)
-const BUNNY_STORAGE_ZONE_NAME = 'Arun-storage';
-const BUNNY_STORAGE_REGION = process.env.BUNNY_STORAGE_REGION || 'uk';
+// NEW Bunny account: arun-storag zone, uk region
+const BUNNY_STORAGE_ZONE_NAME = 'arun-storag';
+const BUNNY_STORAGE_REGION = 'uk';
 const BUNNY_STORAGE_ENDPOINT = BUNNY_STORAGE_REGION === 'de'
   ? 'https://storage.bunnycdn.com'
   : `https://${BUNNY_STORAGE_REGION}.storage.bunnycdn.com`;
