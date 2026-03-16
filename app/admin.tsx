@@ -18,6 +18,17 @@ const C = {
 
 // ─── Pure component - NO hooks, just render wrapper ───
 function UnauthorizedView() {
+  const handleGoBack = () => {
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined') {
+        window.history.back();
+      }
+    } else {
+      // On mobile, we can't do anything without router hook
+      // Will be handled by Alert in main component instead
+    }
+  };
+
   return (
     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: C.bg }}>
       <Ionicons name="lock-closed" size={48} color={C.textSecondary} />
@@ -25,13 +36,7 @@ function UnauthorizedView() {
         Admin Access Required
       </Text>
       <Pressable 
-        onPress={() => {
-          // Can't use router here since no hooks
-          // Window will handle navigation through history
-          if (typeof window !== 'undefined') {
-            window.history.back();
-          }
-        }} 
+        onPress={handleGoBack}
         style={{ marginTop: 20, paddingHorizontal: 20, paddingVertical: 12, backgroundColor: PRIMARY, borderRadius: 8 }}
       >
         <Text style={{ color: '#fff', fontFamily: 'Inter_600SemiBold' }}>Go Back</Text>
@@ -83,12 +88,20 @@ export default function AdminScreen() {
   if (!isAdmin) return <UnauthorizedView />;
   if (loading) return <LoadingView />;
   
+  const handleBack = () => {
+    if (Platform.OS === 'web') {
+      window.history.back();
+    } else {
+      router.back();
+    }
+  };
+  
   return (
     <AdminDashboardContent 
       totalUsers={totalUsers}
       totalPosts={totalPosts}
       onRefresh={refreshData}
-      onBack={() => router.back()}
+      onBack={handleBack}
     />
   );
 }
