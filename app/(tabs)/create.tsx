@@ -42,7 +42,7 @@ export default function CreatePostScreen() {
   const { profile, addPost } = useApp();
   const [text, setText] = useState('');
   const [category, setCategory] = useState<PostCategory>('repair');
-  const [images, setImages] = useState<string[]>([]);
+  const [images, setImages] = useState<any[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState('');
   const [uploadPercent, setUploadPercent] = useState(0);
@@ -66,11 +66,12 @@ export default function CreatePostScreen() {
         allowsMultipleSelection: true,
         quality: 0.7,
         selectionLimit: 4,
+        base64: isWeb,
       });
 
       if (!result.canceled && result.assets) {
-        const newUris = result.assets.map(a => a.uri);
-        setImages(prev => [...prev, ...newUris].slice(0, 4));
+        const newAssets = result.assets;
+        setImages(prev => [...prev, ...newAssets].slice(0, 4));
         if (!isWeb) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
     } catch (e: any) {
@@ -86,9 +87,10 @@ export default function CreatePostScreen() {
     }
     const result = await ImagePicker.launchCameraAsync({
       quality: 0.7,
+      base64: isWeb,
     });
     if (!result.canceled && result.assets) {
-      setImages(prev => [...prev, result.assets[0].uri].slice(0, 4));
+      setImages(prev => [...prev, result.assets[0]].slice(0, 4));
       if (!isWeb) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
   };
@@ -97,39 +99,47 @@ export default function CreatePostScreen() {
     setImages(prev => prev.filter((_, i) => i !== idx));
   };
 
-  const uploadImage = useCallback(async (uri: string, index: number, total: number): Promise<string | null> => {
+  const uploadImage = useCallback(async (asset: any, index: number, total: number): Promise<string | null> => {
     const baseUrl = getApiUrl();
     const uploadUrl = new URL('/api/upload', baseUrl).toString();
     setUploadProgress(total > 1 ? `Uploading photo ${index + 1} of ${total}...` : 'Uploading photo...');
-    console.log(`[Upload] Starting image ${index + 1}/${total}: ${uri.slice(0, 50)}`);
+    console.log(`[Upload] Starting image ${index + 1}/${total}`);
     try {
       const formData = new FormData();
+      
       if (isWeb) {
-        // Web: Convert blob: or data: URLs to proper File object
+        // Web: Use asset directly (ImagePicker returns File object on web)
         try {
-          console.log(`[Upload] Web: Fetching blob from URI`);
-          const response = await fetch(uri);
-          if (!response.ok) throw new Error(`Fetch failed: ${response.status}`);
-          const blob = await response.blob();
-          console.log(`[Upload] Web: Got blob, size: ${blob.size} bytes, type: ${blob.type}`);
-          if (blob.size === 0) throw new Error('Blob is empty - image may not have loaded');
-          const filename = `photo_${Date.now()}.jpg`;
-          formData.append('image', blob, filename);
+          console.log(`[Upload] Web: asset type=${typeof asset}, has uri=${!!asset.uri}, has base64=${!!asset.base64}`);
+          
+          // If asset has base64, convert to blob (data URL came from picker)
+          if (asset.base64) {
+            console.log(`[Upload] Web: Converting base64 to blob (size: ${asset.base64.length} chars)`);
+            const byteCharacters = atob(asset.base64);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+              byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            const byteArray = new Uint8Array(byteNumbers);
+            const blob = new Blob([byteArray], { type: 'image/jpeg' });
+            console.log(`[Upload] Web: Created blob from base64, size: ${blob.size} bytes`);
+            const filename = `photo_${Date.now()}.jpg`;
+            formData.append('image', blob, filename);
+          } else {
+            throw new Error('ImagePicker did not return base64 data on web - check expo-image-picker setup');
+          }
         } catch (e: any) {
-          console.error(`[Upload] Web blob conversion failed:`, e?.message);
+          console.error(`[Upload] Web processing failed:`, e?.message);
           throw e;
         }
       } else {
-        // Mobile: Use Expo fetch with file object
-        console.log(`[Upload] Mobile: Appending file from URI`);
-        formData.append('image', { uri, name: `photo_${Date.now()}.jpg`, type: 'image/jpeg' } as any);
+        // Mobile: Use URI with Expo fetch
+        console.log(`[Upload] Mobile: Using URI directly`);
+        formData.append('image', { uri: asset.uri, name: `photo_${Date.now()}.jpg`, type: 'image/jpeg' } as any);
       }
       
       console.log(`[Upload] Sending to server: ${uploadUrl}`);
-      // IMPORTANT: Do NOT set Content-Type header for FormData - let browser set it automatically with boundary
-      const fetchOptions: any = { method: 'POST', body: formData };
-      // Don't set Content-Type header - FormData must handle it!
-      const uploadRes = await (isWeb ? window.fetch(uploadUrl, fetchOptions) : expoFetch(uploadUrl, fetchOptions));
+      const uploadRes = await (isWeb ? window.fetch(uploadUrl, { method: 'POST', body: formData }) : expoFetch(uploadUrl, { method: 'POST', body: formData }));
       
       console.log(`[Upload] Response status: ${uploadRes.status}`);
       if (!uploadRes.ok) {
@@ -314,9 +324,9 @@ export default function CreatePostScreen() {
       <View style={styles.imageSection}>
         {images.length > 0 && (
           <View style={styles.imagePreviewRow}>
-            {images.map((uri, idx) => (
+            {images.map((asset, idx) => (
               <View key={idx} style={styles.imagePreview}>
-                <Image source={{ uri }} style={styles.previewImage} contentFit="cover" />
+                <Image source={{ uri: asset.uri }} style={styles.previewImage} contentFit="cover" />
                 <Pressable style={styles.removeImageBtn} onPress={() => removeImage(idx)}>
                   <Ionicons name="close-circle" size={22} color="#FF3B30" />
                 </Pressable>
