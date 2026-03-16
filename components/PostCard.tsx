@@ -572,7 +572,7 @@ const styles = StyleSheet.create({
   },
   singleImage: {
     width: '100%',
-    maxHeight: 300,
+    height: 280,
     backgroundColor: '#000',
   },
   imageGrid: {
@@ -587,7 +587,7 @@ const styles = StyleSheet.create({
   },
   gridImage: {
     width: '100%',
-    height: '100%',
+    height: 140,
   },
   moreOverlay: {
     ...StyleSheet.absoluteFillObject,
