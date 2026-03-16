@@ -250,7 +250,15 @@ export default function PostCard({
 
       {/* ── Images or Video ── */}
       {(post.images.length > 0 || post.videoUrl) && (
-        <View style={styles.imageWrap}>
+        <>
+          {post.images.length > 0 && (
+            <>
+              <Text style={{ fontSize: 10, color: '#999', marginLeft: 12, marginBottom: 8 }}>
+                📸 {post.images.length} image{post.images.length > 1 ? 's' : ''}
+              </Text>
+            </>
+          )}
+          <View style={styles.imageWrap}>
           {/* Video: 4:3 thumbnail with play button */}
           {post.videoUrl && !post.images.length ? (
             <Pressable 

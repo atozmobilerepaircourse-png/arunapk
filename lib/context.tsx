@@ -87,7 +87,14 @@ async function fetchPostsFromServer(): Promise<Post[]> {
       return [];
     }
     const data = await res.json();
-    return (Array.isArray(data) ? data : data.posts || []) as Post[];
+    const posts = (Array.isArray(data) ? data : data.posts || []) as Post[];
+    console.log('[Posts] Loaded', posts.length, 'posts from server');
+    posts.forEach((p, i) => {
+      if (p.images && p.images.length > 0) {
+        console.log(`  Post ${i}: "${p.text.slice(0, 30)}..." has ${p.images.length} images`);
+      }
+    });
+    return posts;
   } catch (e) {
     console.warn('[Posts] Failed to fetch from server:', e);
     return [];
