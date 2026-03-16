@@ -99,25 +99,28 @@ async function uploadToStorage(buffer: Buffer, filename: string): Promise<string
           method: 'PUT',
           headers: {
             'AccessKey': BUNNY_STORAGE_API_KEY,
-            'Content-Type': 'application/octet-stream',
+            'Content-Type': 'image/jpeg',
             'Content-Length': String(buffer.length),
           },
           body: buffer,
           duplex: 'half',
         } as any),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 15000))
+        new Promise((_, reject) => setTimeout(() => reject(new Error('[Bunny] Upload timeout after 15s')), 15000))
       ]) as any;
       
-      if (response.ok) {
+      console.log(`[Bunny] Upload response: ${response.status}`);
+      if (response.ok || response.status === 201) {
         const cdnUrl = `${BUNNY_CDN_URL}/${filename}`;
-        console.log(`[Bunny] Success: ${filename} → ${cdnUrl}`);
+        console.log(`[Bunny] ✓ Success: ${filename} → ${cdnUrl}`);
         return cdnUrl;
       } else {
         const text = await response.text().catch(() => '');
-        console.error(`[Bunny] Failed: ${response.status} ${text}`);
+        console.error(`[Bunny] ✗ Failed: ${response.status} ${text.slice(0, 200)}`);
+        throw new Error(`Bunny returned ${response.status}`);
       }
     } catch (error: any) {
-      console.error(`[Bunny] Error: ${error?.message || error}`);
+      console.error(`[Bunny] Error: ${error?.message || String(error)}`);
+      throw error;
     }
   }
   
