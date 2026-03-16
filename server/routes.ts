@@ -131,18 +131,11 @@ async function uploadToStorage(buffer: Buffer, filename: string): Promise<string
     // Bunny.net is required in production — if we reach here the upload failed
     throw new Error('Bunny.net upload failed and no local storage is available in production');
   }
+  // CRITICAL FIX: Always use Cloud Run URL for image URLs (production domain)
+  // Never use req.hostname or REPLIT_DEV_DOMAIN for uploaded image URLs
+  // This ensures images are accessible from production web app
   const protocol = 'https';
-  // In Cloud Run: use hardcoded Cloud Run URL or env var
-  // In dev: use REPLIT_DEV_DOMAIN or fallback to localhost
-  let host = 'localhost:5000';
-  if (process.env.REPLIT_DEV_DOMAIN) {
-    host = process.env.REPLIT_DEV_DOMAIN;
-  } else if (process.env.CLOUD_RUN_URL) {
-    host = process.env.CLOUD_RUN_URL;
-  } else if (process.env.NODE_ENV === 'production') {
-    // Default Cloud Run URL if nothing else is set
-    host = 'repair-backend-3siuld7gbq-el.a.run.app';
-  }
+  const host = 'repair-backend-3siuld7gbq-el.a.run.app';
   return `${protocol}://${host}/uploads/${localFilename}`;
 }
 
