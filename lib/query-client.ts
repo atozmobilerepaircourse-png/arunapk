@@ -7,10 +7,12 @@ const CLOUD_RUN_BACKEND = "https://repair-backend-3siuld7gbq-el.a.run.app";
 const SESSION_KEY = "mobi_session_token_v2";
 
 export function getApiUrl(): string {
-  if (Platform.OS === "web") {
-    // Ensure we are using the correct production backend for web
+  // Check if running in browser (web) - more reliable than Platform.OS on exports
+  if (typeof window !== "undefined") {
+    // Browser environment - always use production Cloud Run backend
     return "https://repair-backend-3siuld7gbq-el.a.run.app";
   }
+  // Native environment
   return CLOUD_RUN_BACKEND;
 }
 
