@@ -246,8 +246,8 @@ function generateOTP(): string {
 
 // Rate limiting: track OTP requests per phone number
 const otpRateLimitMap = new Map<string, { count: number; windowStart: number }>();
-const OTP_RATE_LIMIT = 3;
-const OTP_RATE_WINDOW_MS = 60 * 1000;
+const OTP_RATE_LIMIT = 1; // CRITICAL: Allow only 1 OTP per 60 seconds (was 3, causing repeated SMS)
+const OTP_RATE_WINDOW_MS = 60 * 1000; // 60 seconds rate window
 
 function checkOtpRateLimit(phone: string): { allowed: boolean; retryAfterMs: number } {
   const now = Date.now();
@@ -663,15 +663,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const cleanPhone = phone.replace(/\D/g, "");
 
-      // Rate limiting: max 3 OTP requests per phone per minute
+      // CRITICAL: Rate limiting - max 1 OTP per phone per 60 seconds
+      console.log(`[OTP] Request from ${cleanPhone} - checking rate limit`);
       const rateCheck = checkOtpRateLimit(cleanPhone);
       if (!rateCheck.allowed) {
         const secondsLeft = Math.ceil(rateCheck.retryAfterMs / 1000);
+        console.warn(`[OTP] Rate limit exceeded for ${cleanPhone}: ${secondsLeft}s remaining`);
         return res.status(429).json({
           success: false,
           message: `Too many OTP requests. Please wait ${secondsLeft} seconds before trying again.`,
+          retryAfterSeconds: secondsLeft,
         });
       }
+
+      console.log(`[OTP] Rate limit passed for ${cleanPhone} - proceeding with OTP generation`);
 
       const otp = generateOTP();
       const expiresAt = Date.now() + 5 * 60 * 1000;
@@ -679,53 +684,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await db.delete(otpTokens).where(eq(otpTokens.phone, cleanPhone));
       await db.insert(otpTokens).values({ phone: cleanPhone, otp, expiresAt });
 
-      console.log(`[OTP] Generated for ${cleanPhone}`);
+      console.log(`[OTP] GENERATED OTP for ${cleanPhone}: ${otp} (5 min expiry)`);
 
-      // Send SMS via Fast2SMS
+      // Send SMS via Fast2SMS - SINGLE CALL ONLY
       const fast2smsKey = process.env.FAST2SMS_API_KEY;
       let smsSent = false;
       let smsError = '';
-
-      console.log(`[OTP] Attempting to send OTP to ${cleanPhone}, API key present: ${!!fast2smsKey}`);
 
       if (fast2smsKey) {
         try {
           const smsMessage = `Your MOBI verification code is ${otp}. Valid for 5 minutes. Do not share.`;
           const apiUrl = `https://www.fast2sms.com/dev/bulkV2?authorization=${fast2smsKey}&message=${encodeURIComponent(smsMessage)}&route=q&numbers=${cleanPhone}&flash=0`;
-          console.log(`[OTP] Calling Fast2SMS API for phone: ${cleanPhone}`);
+          
+          console.log(`[OTP-SMS] Sending to ${cleanPhone} via Fast2SMS (single call)`);
           
           const smsRes = await fetch(apiUrl, {
             method: 'GET',
             headers: { 'cache-control': 'no-cache' },
           });
           const smsData = await smsRes.json() as any;
-          console.log(`[OTP] Fast2SMS response status: ${smsRes.status}, data:`, JSON.stringify(smsData).slice(0, 200));
           
           if (smsData.return === true) {
             smsSent = true;
-            console.log(`[OTP] SMS sent successfully to ${cleanPhone}`);
+            console.log(`[OTP-SMS] SUCCESS: OTP delivered to ${cleanPhone}`);
           } else {
             const rawMsg = smsData.message;
             smsError = Array.isArray(rawMsg) ? rawMsg.join(' ') : (rawMsg || JSON.stringify(smsData));
-            console.error(`[OTP] Fast2SMS API returned false: ${smsError}`);
+            console.warn(`[OTP-SMS] FAILED for ${cleanPhone}: ${smsError}`);
           }
         } catch (smsErr: any) {
           smsError = smsErr?.message || 'SMS send failed';
-          console.error(`[OTP] Fast2SMS network error:`, smsError);
+          console.error(`[OTP-SMS] NETWORK ERROR for ${cleanPhone}: ${smsError}`);
         }
       } else {
-        console.warn('[OTP] FAST2SMS_API_KEY not configured');
+        console.error('[OTP-SMS] FAST2SMS_API_KEY not configured');
         smsError = 'SMS provider not configured';
       }
 
-      // Always show OTP in logs for debugging; show in response if SMS failed
-      console.log(`[OTP] Generated OTP: ${otp} (for debugging only)`);
+      // Log final result
+      console.log(`[OTP] COMPLETE for ${cleanPhone}: smsSent=${smsSent}, error='${smsError}'`);
       
       return res.json({
         success: true,
         smsSent,
-        message: smsSent ? `OTP sent to ${cleanPhone}` : `OTP generated. SMS delivery: ${smsError}. OTP: ${otp} (for testing)`,
-        otp: otp, // Always return OTP for now (remove in production)
+        message: smsSent ? `OTP sent to ${cleanPhone}` : `OTP generated but SMS failed: ${smsError}`,
+        otp: process.env.NODE_ENV === 'development' ? otp : undefined, // Only show OTP in dev
       });
     } catch (error: any) {
       console.error("[OTP] Send error:", error?.message || error, error?.stack?.split('\n').slice(0,3).join(' '));

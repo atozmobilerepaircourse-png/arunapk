@@ -107,6 +107,7 @@ export default function OnboardingScreen() {
   const [locationGot, setLocationGot] = useState(false);
   const [gettingLocation, setGettingLocation] = useState(false);
   const [checking, setChecking] = useState(false);
+  const [otpSendInProgress, setOtpSendInProgress] = useState(false); // Prevent double-send
 
   const isCustomer = role === 'customer';
   const isSupplier = role === 'supplier';
@@ -156,9 +157,20 @@ export default function OnboardingScreen() {
       Alert.alert('Please wait', `Try again in ${otpRateLimitTimer} seconds.`);
       return;
     }
+    
+    // CRITICAL: Prevent double-send
+    if (otpSendInProgress) {
+      console.warn('[OTP] Send already in progress - ignoring duplicate request');
+      return;
+    }
+
+    // SET RATE LIMIT TIMER IMMEDIATELY (before any API calls)
+    console.log('[OTP] Button clicked - disabling for 60 seconds');
+    setOtpSendInProgress(true);
     setOtpSending(true);
     setOtpError('');
     setUsingFallback(false);
+    setOtpResendTimer(60); // Disable button for 60 seconds
     
     try {
       // PRIMARY: Try Firebase Phone Auth (all platforms)
@@ -180,7 +192,6 @@ export default function OnboardingScreen() {
       if (fbResult.success) {
         console.log('[OTP] ✓ Firebase OTP sent successfully');
         setOtpSent(true);
-        setOtpResendTimer(30);
         setPhone(digits);
         setScreen('otp');
         Alert.alert('OTP Sent', 'Check your SMS for the verification code');
@@ -189,16 +200,15 @@ export default function OnboardingScreen() {
       
       console.warn('[OTP] Firebase failed, falling back to Fast2SMS:', fbResult.error);
       
-      // FALLBACK: Use backend OTP (Fast2SMS)
-      console.log('[OTP] FALLBACK: Using Fast2SMS');
+      // FALLBACK: Use backend OTP (Fast2SMS) - SINGLE CALL
+      console.log('[OTP] FALLBACK: Attempting Fast2SMS');
       setUsingFallback(true);
       const { sendFallbackOTP } = await import('@/lib/firebase-phone-auth');
       const result = await sendFallbackOTP(digits);
       
       if (result.success) {
-        console.log('[OTP] ✓ OTP sent via Fast2SMS');
+        console.log('[OTP] ✓ Fast2SMS OTP sent successfully');
         setOtpSent(true);
-        setOtpResendTimer(30);
         setPhone(digits);
         setScreen('otp');
         Alert.alert('OTP Sent', 'Check your SMS for the verification code');
@@ -206,13 +216,18 @@ export default function OnboardingScreen() {
         console.error('[OTP] Fast2SMS failed:', result.error);
         setOtpError(result.error);
         Alert.alert('Error', result.error || 'Failed to send OTP. Please try again.');
+        // Reset rate limit on failure so user can retry
+        setOtpResendTimer(0);
       }
     } catch (e: any) {
       console.error('[OTP] Error:', e?.message);
       setOtpError(e?.message || 'Network error');
       Alert.alert('Error', 'Could not connect. Please try again.');
+      // Reset rate limit on error
+      setOtpResendTimer(0);
     } finally {
       setOtpSending(false);
+      setOtpSendInProgress(false); // Clear debounce flag
     }
   };
 
@@ -527,11 +542,17 @@ export default function OnboardingScreen() {
               />
             </View>
             <Pressable
-              style={({ pressed }) => [s.primaryBtn, { opacity: pressed ? 0.85 : 1 }]}
+              style={({ pressed }) => [s.primaryBtn, { opacity: pressed ? 0.85 : 1 }, (otpSending || otpRateLimitTimer > 0) && { opacity: 0.5 }]}
               onPress={() => sendOtp(phone)}
-              disabled={otpSending || phone.replace(/\D/g, '').length < 10}
+              disabled={otpSending || otpRateLimitTimer > 0 || phone.replace(/\D/g, '').length < 10}
             >
-              {otpSending ? <ActivityIndicator color="#FFF" /> : <Text style={s.primaryBtnText}>Get OTP</Text>}
+              {otpSending ? (
+                <ActivityIndicator color="#FFF" />
+              ) : otpRateLimitTimer > 0 ? (
+                <Text style={s.primaryBtnText}>Resend in {otpRateLimitTimer}s</Text>
+              ) : (
+                <Text style={s.primaryBtnText}>Get OTP</Text>
+              )}
             </Pressable>
             <View style={s.dividerRow}>
               <View style={s.dividerLine} />
@@ -581,11 +602,17 @@ export default function OnboardingScreen() {
             />
           </View>
           <Pressable
-            style={({ pressed }) => [s.primaryBtn, { marginTop: 16, opacity: pressed ? 0.85 : 1 }]}
+            style={({ pressed }) => [s.primaryBtn, { marginTop: 16, opacity: pressed ? 0.85 : 1 }, (otpSending || otpRateLimitTimer > 0) && { opacity: 0.5 }]}
             onPress={() => sendOtp(phone)}
-            disabled={otpSending || phone.replace(/\D/g, '').length < 10}
+            disabled={otpSending || otpRateLimitTimer > 0 || phone.replace(/\D/g, '').length < 10}
           >
-            {otpSending ? <ActivityIndicator color="#FFF" /> : <Text style={s.primaryBtnText}>Send OTP</Text>}
+            {otpSending ? (
+              <ActivityIndicator color="#FFF" />
+            ) : otpRateLimitTimer > 0 ? (
+              <Text style={s.primaryBtnText}>Resend in {otpRateLimitTimer}s</Text>
+            ) : (
+              <Text style={s.primaryBtnText}>Send OTP</Text>
+            )}
           </Pressable>
           {otpRateLimitTimer > 0 && <Text style={s.errorText}>Rate limited. Wait {otpRateLimitTimer}s.</Text>}
         </View>
