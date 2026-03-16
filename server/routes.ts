@@ -534,14 +534,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/upload", upload.single("image"), async (req, res) => {
     try {
+      console.log('[Upload] Request received', { hasFile: !!req.file, mimetype: req.file?.mimetype });
       if (!req.file) return res.status(400).json({ success: false, message: "No file uploaded" });
       const extMap: Record<string, string> = { 'image/png': '.png', 'image/gif': '.gif', 'image/webp': '.webp', 'video/mp4': '.mp4' };
       const ext = path.extname(req.file.originalname) || extMap[req.file.mimetype] || '.jpg';
       const filename = `images/${randomUUID()}${ext}`;
       const url = await uploadToStorage(req.file.buffer, filename);
+      console.log('[Upload] SUCCESS', { filename, url });
       res.json({ success: true, url });
     } catch (error) {
-      console.error("[Upload] Error:", error);
+      console.error("[Upload] Error:", error instanceof Error ? error.message : error);
       res.status(500).json({ success: false, message: "Upload failed" });
     }
   });

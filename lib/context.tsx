@@ -478,6 +478,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const addPost = useCallback(async (postData: Omit<Post, 'id' | 'createdAt' | 'likes' | 'comments'>) => {
     try {
       let finalImages = postData.images || [];
+      console.log('[addPost] START: images received from create screen:', finalImages);
       const isLocalUri = (uri: string) => uri.startsWith('file://') || uri.startsWith('content://') || uri.startsWith('ph://') || uri.startsWith('blob:') || uri.startsWith('data:');
       const localImages = finalImages.filter(isLocalUri);
       if (localImages.length > 0) {
@@ -491,7 +492,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }).filter(u => u !== '');
       }
 
-      console.log('[Posts] Creating post with data:', { userId: postData.userId, text: postData.text.length, images: finalImages.length, videoUrl: (postData as any).videoUrl });
+      console.log('[addPost] SENDING TO API:', { userId: postData.userId, textLen: postData.text.length, imageCount: finalImages.length, imageUrls: finalImages });
       const res = await apiRequest('POST', '/api/posts', {
         userId: postData.userId,
         userName: postData.userName,
@@ -503,15 +504,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
         category: postData.category,
       });
       const data = await res.json();
-      console.log('[Posts] API response:', { success: data.success, hasPost: !!data.post });
+      console.log('[addPost] API RESPONSE:', { success: data.success, postId: data.post?.id, receivedImages: data.post?.images?.length || 0 });
       if (data.success && data.post) {
-        console.log('[Posts] Post created successfully, ID:', data.post.id);
+        console.log('[addPost] SUCCESS - Post stored:', { id: data.post.id, images: data.post.images });
         setPosts(prev => [data.post, ...prev]);
       } else {
         throw new Error(data.message || 'Server did not return post');
       }
     } catch (e) {
-      console.error('[Posts] Failed to create:', e instanceof Error ? e.message : String(e));
+      console.error('[addPost] ERROR:', e instanceof Error ? e.message : String(e));
       throw e;
     }
   }, [uploadLocalImage]);
