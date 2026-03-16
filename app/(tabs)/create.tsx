@@ -47,12 +47,13 @@ export default function CreatePostScreen() {
   const [uploadProgress, setUploadProgress] = useState('');
   const [uploadPercent, setUploadPercent] = useState(0);
 
-  const webTopInset = Platform.OS === 'web' ? 67 : 0;
+  const isWeb = typeof window !== 'undefined';
+  const webTopInset = isWeb ? 67 : 0;
 
   const pickImages = async () => {
     try {
       // Request permissions on Android/iOS
-      if (Platform.OS !== 'web') {
+      if (!isWeb) {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== 'granted') {
           Alert.alert('Permission needed', 'Please grant permission to access your photos.');
@@ -70,7 +71,7 @@ export default function CreatePostScreen() {
       if (!result.canceled && result.assets) {
         const newUris = result.assets.map(a => a.uri);
         setImages(prev => [...prev, ...newUris].slice(0, 4));
-        if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        if (!isWeb) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
     } catch (e: any) {
       Alert.alert('Error', 'Could not access photos: ' + (e.message || 'Unknown error'));
@@ -88,7 +89,7 @@ export default function CreatePostScreen() {
     });
     if (!result.canceled && result.assets) {
       setImages(prev => [...prev, result.assets[0].uri].slice(0, 4));
-      if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      if (!isWeb) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
   };
 
@@ -103,7 +104,7 @@ export default function CreatePostScreen() {
     console.log(`[Upload] Starting image ${index + 1}/${total}: ${uri.slice(0, 50)}`);
     try {
       const formData = new FormData();
-      if (Platform.OS === 'web') {
+      if (isWeb) {
         // Web: Convert blob: or data: URLs to proper File object
         try {
           console.log(`[Upload] Web: Fetching blob from URI`);
@@ -128,7 +129,7 @@ export default function CreatePostScreen() {
       // IMPORTANT: Do NOT set Content-Type header for FormData - let browser set it automatically with boundary
       const fetchOptions: any = { method: 'POST', body: formData };
       // Don't set Content-Type header - FormData must handle it!
-      const uploadRes = await (Platform.OS === 'web' ? window.fetch(uploadUrl, fetchOptions) : expoFetch(uploadUrl, fetchOptions));
+      const uploadRes = await (isWeb ? window.fetch(uploadUrl, fetchOptions) : expoFetch(uploadUrl, fetchOptions));
       
       console.log(`[Upload] Response status: ${uploadRes.status}`);
       if (!uploadRes.ok) {
@@ -163,7 +164,7 @@ export default function CreatePostScreen() {
     }
 
     setIsSubmitting(true);
-    if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    if (!isWeb) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
     try {
       let uploadedImages: string[] = [];
@@ -227,8 +228,8 @@ export default function CreatePostScreen() {
       contentContainerStyle={[
         styles.content,
         {
-          paddingTop: (Platform.OS === 'web' ? webTopInset : insets.top) + 16,
-          paddingBottom: Platform.OS === 'web' ? 84 + 34 : 100,
+          paddingTop: (isWeb ? webTopInset : insets.top) + 16,
+          paddingBottom: isWeb ? 84 + 34 : 100,
         },
       ]}
       keyboardShouldPersistTaps="handled"
@@ -248,7 +249,7 @@ export default function CreatePostScreen() {
             ]}
             onPress={() => {
               setCategory(cat.key);
-              if (Platform.OS !== 'web') Haptics.selectionAsync();
+              if (!isWeb) Haptics.selectionAsync();
             }}
           >
             <View style={[styles.categoryIcon, { backgroundColor: cat.color + '20' }]}>
