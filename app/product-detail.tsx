@@ -59,7 +59,14 @@ export default function ProductDetailScreen() {
   useEffect(() => { fetchProduct(); }, [fetchProduct]);
 
   const imgs = product
-    ? (() => { try { return JSON.parse(product.images || '[]'); } catch { return []; } })()
+    ? (() => {
+        try {
+          const parsed = JSON.parse(product.images || '[]');
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        } catch {}
+        // Fallback to single image field
+        return (product as any).image ? [(product as any).image] : [];
+      })()
     : [];
 
   const price = product ? parseFloat(product.price) || 0 : 0;
