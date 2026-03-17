@@ -118,10 +118,17 @@ function ImageSlider({ images, height, borderRadius = 0 }: { images: string[]; h
 }
 
 // ─── Horizontal Product Card (for sections) ──────────────────────────────────
-function HCard({ item, onPress, onAdd }: { item: any; onPress: () => void; onAdd: () => void }) {
+function HCard({ item, onPress, onAdd, supplierPhone }: { item: any; onPress: () => void; onAdd: () => void; supplierPhone?: string }) {
   const imgs = parseImages(item.images);
   const disc = discount(item.price, item.mrp);
   const inCart = false;
+  const contactWhatsApp = () => {
+    if (supplierPhone) {
+      const msg = `Hi, I'm interested in: ${item.title}`;
+      const url = `https://wa.me/${supplierPhone.replace(/\D/g, '')}?text=${encodeURIComponent(msg)}`;
+      require('react-native').Linking.openURL(url).catch(() => {});
+    }
+  };
   return (
     <Pressable style={hStyles.card} onPress={onPress}>
       <View style={hStyles.imgWrap}>
@@ -148,6 +155,12 @@ function HCard({ item, onPress, onAdd }: { item: any; onPress: () => void; onAdd
             <Text style={{ fontSize: 11, color: C.muted }}>{item.views}</Text>
           </View>
         )}
+        {supplierPhone && (
+          <Pressable style={{ marginTop: 6, paddingTop: 6, borderTopWidth: 1, borderTopColor: '#EEE', flexDirection: 'row', alignItems: 'center', gap: 4 }} onPress={(e) => { e.stopPropagation?.(); contactWhatsApp(); }}>
+            <Ionicons name="logo-whatsapp" size={14} color="#25D366" />
+            <Text style={{ fontSize: 11, color: '#25D366', fontFamily: 'Inter_600SemiBold' }}>Contact</Text>
+          </Pressable>
+        )}
       </View>
     </Pressable>
   );
@@ -167,9 +180,16 @@ const hStyles = StyleSheet.create({
 });
 
 // ─── Grid Product Card ────────────────────────────────────────────────────────
-function GCard({ item, onPress, onAdd, inCart }: { item: any; onPress: () => void; onAdd: () => void; inCart: boolean }) {
+function GCard({ item, onPress, onAdd, inCart, supplierPhone }: { item: any; onPress: () => void; onAdd: () => void; inCart: boolean; supplierPhone?: string }) {
   const imgs = parseImages(item.images);
   const disc = discount(item.price, item.mrp);
+  const contactWhatsApp = () => {
+    if (supplierPhone) {
+      const msg = `Hi, I'm interested in: ${item.title}`;
+      const url = `https://wa.me/${supplierPhone.replace(/\D/g, '')}?text=${encodeURIComponent(msg)}`;
+      require('react-native').Linking.openURL(url).catch(() => {});
+    }
+  };
   return (
     <Pressable style={gStyles.card} onPress={onPress}>
       <View style={gStyles.imgWrap}>
@@ -188,9 +208,16 @@ function GCard({ item, onPress, onAdd, inCart }: { item: any; onPress: () => voi
         {parseFloat(item.mrp) > parseFloat(item.price) && (
           <Text style={gStyles.mrp}>{price(item.mrp)}</Text>
         )}
-        <Pressable style={[gStyles.btn, inCart && { backgroundColor: C.primary }]} onPress={(e) => { e.stopPropagation?.(); onAdd(); }}>
-          <Text style={gStyles.btnTxt}>{inCart ? 'Added ✓' : 'ADD TO CART'}</Text>
-        </Pressable>
+        <View style={{ flexDirection: 'row', gap: 6, marginBottom: 8 }}>
+          <Pressable style={[gStyles.btn, { flex: 1, backgroundColor: C.primary }]} onPress={(e) => { e.stopPropagation?.(); onAdd(); }}>
+            <Text style={gStyles.btnTxt}>{inCart ? '✓ Added' : 'Add to Cart'}</Text>
+          </Pressable>
+          {supplierPhone && (
+            <Pressable style={[gStyles.btn, { flex: 1, backgroundColor: '#25D366' }]} onPress={(e) => { e.stopPropagation?.(); contactWhatsApp(); }}>
+              <Ionicons name="logo-whatsapp" size={13} color="#fff" />
+            </Pressable>
+          )}
+        </View>
       </View>
     </Pressable>
   );
@@ -473,6 +500,7 @@ export default function ShopPage() {
               <HCard key={item.id} item={item}
                 onPress={() => { setQuickItem(item); setQuickVisible(true); }}
                 onAdd={() => handleAdd(item)}
+                supplierPhone={supplier?.phone}
               />
             ))}
           </ScrollView>
@@ -488,6 +516,7 @@ export default function ShopPage() {
               <HCard key={item.id} item={item}
                 onPress={() => { setQuickItem(item); setQuickVisible(true); }}
                 onAdd={() => handleAdd(item)}
+                supplierPhone={supplier?.phone}
               />
             ))}
           </ScrollView>
@@ -503,6 +532,7 @@ export default function ShopPage() {
               <HCard key={item.id} item={item}
                 onPress={() => { setQuickItem(item); setQuickVisible(true); }}
                 onAdd={() => handleAdd(item)}
+                supplierPhone={supplier?.phone}
               />
             ))}
           </ScrollView>
@@ -549,6 +579,7 @@ export default function ShopPage() {
               inCart={isInCart(item.id)}
               onPress={() => { setQuickItem(item); setQuickVisible(true); }}
               onAdd={() => handleAdd(item)}
+              supplierPhone={supplier?.phone}
             />
           )}
           ListHeaderComponent={<ListHeader />}
