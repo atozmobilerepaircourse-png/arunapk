@@ -203,16 +203,30 @@ export default function OnboardingScreen() {
       const result = await sendFallbackOTP(digits);
 
       if (result.success) {
-        console.log('[OTP] ✓ Fast2SMS OTP sent successfully');
         setOtpSent(true);
         setPhone(digits);
         setScreen('otp');
         setOtpAttempts(0);
         setOtpError('');
-        Alert.alert('OTP Sent', 'Check your SMS for the verification code');
+
+        if (result.smsSent) {
+          console.log('[OTP] ✓ SMS delivered to phone');
+          Alert.alert('OTP Sent', 'Check your SMS for the verification code');
+        } else if (result.otp) {
+          // SMS failed but we have the OTP — auto-fill and show it
+          console.log('[OTP] SMS failed, showing OTP on screen:', result.otp);
+          setOtpCode(result.otp);
+          Alert.alert(
+            'SMS Unavailable',
+            `Your verification code is: ${result.otp}\n\nIt has been filled in automatically.`,
+            [{ text: 'OK' }]
+          );
+        } else {
+          Alert.alert('OTP Sent', 'Check your SMS for the verification code');
+        }
       } else {
         console.error('[OTP] Fast2SMS failed:', result.error);
-        setOtpError(result.error);
+        setOtpError(result.error || 'Failed to send OTP');
         setOtpAttempts(0);
         Alert.alert('Error', result.error || 'Failed to send OTP. Please try again.');
         setOtpResendTimer(0);

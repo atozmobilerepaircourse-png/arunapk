@@ -114,14 +114,14 @@ export async function verifyFirebaseOTP(code: string): Promise<{ success: boolea
   }
 }
 
-export async function sendFallbackOTP(phone: string): Promise<{ success: boolean; error?: string }> {
+export async function sendFallbackOTP(phone: string): Promise<{ success: boolean; otp?: string; smsSent?: boolean; error?: string }> {
   try {
     const res = await apiRequest('POST', '/api/otp/send', { phone });
     const data = await res.json();
     
     if (data.success) {
-      console.log('[Fallback OTP] Sent successfully');
-      return { success: true };
+      console.log('[Fallback OTP] Generated. smsSent:', data.smsSent);
+      return { success: true, otp: data.otp, smsSent: data.smsSent };
     }
     
     return { success: false, error: data.message || 'Failed to send OTP' };

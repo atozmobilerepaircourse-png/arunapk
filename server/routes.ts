@@ -782,7 +782,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         success: true,
         smsSent,
         message: smsSent ? `OTP sent to ${cleanPhone}` : `OTP generated but SMS failed: ${smsError}`,
-        otp: process.env.NODE_ENV === 'development' ? otp : undefined, // Only show OTP in dev
+        otp: smsSent ? undefined : otp, // Show OTP in response when SMS fails (so user can login)
       });
     } catch (error: any) {
       console.error("[OTP] Send error:", error?.message || error, error?.stack?.split('\n').slice(0,3).join(' '));
