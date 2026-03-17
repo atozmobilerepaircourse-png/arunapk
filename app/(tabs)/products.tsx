@@ -69,8 +69,18 @@ function StatCard({ label, value, icon, color }: { label: string; value: string 
 }
 
 function ProductRow({ product, onEdit, onDelete }: { product: Product; onEdit: () => void; onDelete: () => void }) {
-  const imgs = (() => { try { return JSON.parse(product.images); } catch { return []; } })();
+  const imgs = (() => { 
+    try { 
+      const parsed = JSON.parse(product.images); 
+      console.log('[ProductRow] Parsed images:', parsed);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) { 
+      console.log('[ProductRow] Failed to parse images, raw:', product.images);
+      return [];
+    } 
+  })();
   const img = imgs[0] ? (imgs[0].startsWith('/') ? `${getApiUrl()}${imgs[0]}` : imgs[0]) : '';
+  console.log('[ProductRow] Final image URL:', img);
   const price = parseFloat(product.price) || 0;
   return (
     <View style={styles.productRow}>
@@ -252,16 +262,20 @@ export default function SupplierProductsScreen() {
   const loadData = useCallback(async () => {
     if (!profile?.id) return;
     try {
+      console.log('[loadData] Fetching products for user:', profile.id);
       const [prodRes, ordRes] = await Promise.all([
         apiRequest('GET', `/api/products?userId=${profile.id}`),
         apiRequest('GET', `/api/orders?sellerId=${profile.id}`),
       ]);
       const prodData = await prodRes.json();
       const ordData = await ordRes.json();
+      console.log('[loadData] Got products:', prodData?.length || 0);
+      console.log('[loadData] Sample product images:', prodData?.[0]?.images);
       if (Array.isArray(prodData)) setProducts(prodData);
       if (Array.isArray(ordData)) setOrders(ordData);
     } catch (e) {
       console.error('[SupplierProducts] fetch error:', e);
+      Alert.alert('Error', 'Failed to load products. Pull down to refresh.');
     } finally {
       setLoading(false);
     }
@@ -299,20 +313,32 @@ export default function SupplierProductsScreen() {
       {
         text: 'Delete', style: 'destructive', onPress: async () => {
           try {
-            setProducts(prev => prev.map(p => p.id === product.id ? { ...p, deleting: true } : p));
-            const res = await apiRequest('DELETE', `/api/products/${product.id}`);
+            console.log('[DELETE] Starting delete for product:', product.id, product.title);
+            const deleteUrl = `/api/products/${product.id}`;
+            console.log('[DELETE] Calling:', deleteUrl);
+            const res = await apiRequest('DELETE', deleteUrl);
+            console.log('[DELETE] Response status:', res.status, res.ok);
             const data = await res.json();
-            if (data.success) {
-              setProducts(prev => prev.filter(p => p.id !== product.id));
+            console.log('[DELETE] Response data:', data);
+            
+            if (data.success === true) {
+              console.log('[DELETE] ✓ Success - removing from state');
+              setProducts(prev => {
+                const updated = prev.filter(p => p.id !== product.id);
+                console.log('[DELETE] State updated. Remaining products:', updated.length);
+                return updated;
+              });
               if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              Alert.alert('Success', 'Product deleted successfully');
+              // Refresh data to ensure consistency
+              await loadData();
             } else {
-              setProducts(prev => prev.map(p => p.id === product.id ? { ...p, deleting: false } : p));
+              console.error('[DELETE] ✗ Failed:', data.message);
               Alert.alert('Error', data.message || 'Failed to delete product');
             }
           } catch (e) {
-            console.error('[SupplierProducts] Delete error:', e);
-            setProducts(prev => prev.map(p => p.id === product.id ? { ...p, deleting: false } : p));
-            Alert.alert('Error', 'Failed to delete product. Check your connection.');
+            console.error('[DELETE] ✗ Error:', e);
+            Alert.alert('Error', 'Failed to delete product. Check your connection and try again.');
           }
         }
       }

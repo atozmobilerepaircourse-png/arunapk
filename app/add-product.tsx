@@ -129,28 +129,39 @@ export default function AddProductScreen() {
   };
 
   const uploadImage = async (uri: string): Promise<string> => {
-    const baseUrl = getApiUrl();
-    const uploadUrl = new URL('/api/upload', baseUrl).toString();
-    const formData = new FormData();
+    try {
+      console.log('[uploadImage] Starting upload for:', uri);
+      const baseUrl = getApiUrl();
+      const uploadUrl = new URL('/api/upload', baseUrl).toString();
+      console.log('[uploadImage] Upload URL:', uploadUrl);
+      const formData = new FormData();
 
-    if (Platform.OS === 'web') {
-      const response = await window.fetch(uri);
-      const blob = await response.blob();
-      formData.append('image', blob, 'product.jpg');
-      const uploadRes = await window.fetch(uploadUrl, { method: 'POST', body: formData });
-      const data = await uploadRes.json();
-      if (!data.success) throw new Error('Upload failed');
-      return data.url;
-    } else {
-      formData.append('image', {
-        uri: uri,
-        name: 'product.jpg',
-        type: 'image/jpeg',
-      } as any);
-      const uploadRes = await expoFetch(uploadUrl, { method: 'POST', body: formData });
-      const data = await uploadRes.json();
-      if (!data.success) throw new Error('Upload failed');
-      return data.url;
+      if (Platform.OS === 'web') {
+        const response = await window.fetch(uri);
+        const blob = await response.blob();
+        formData.append('image', blob, 'product.jpg');
+        const uploadRes = await window.fetch(uploadUrl, { method: 'POST', body: formData });
+        const data = await uploadRes.json();
+        console.log('[uploadImage] Upload response:', data);
+        if (!data.success) throw new Error(data.message || 'Upload failed');
+        console.log('[uploadImage] ✓ Got URL:', data.url);
+        return data.url;
+      } else {
+        formData.append('image', {
+          uri: uri,
+          name: 'product.jpg',
+          type: 'image/jpeg',
+        } as any);
+        const uploadRes = await expoFetch(uploadUrl, { method: 'POST', body: formData });
+        const data = await uploadRes.json();
+        console.log('[uploadImage] Upload response:', data);
+        if (!data.success) throw new Error(data.message || 'Upload failed');
+        console.log('[uploadImage] ✓ Got URL:', data.url);
+        return data.url;
+      }
+    } catch (e) {
+      console.error('[uploadImage] ✗ Upload failed:', e);
+      throw e;
     }
   };
 
@@ -189,9 +200,12 @@ export default function AddProductScreen() {
     try {
       setUploadProgress('Uploading images...');
       const uploadedImages: string[] = [];
-      for (const uri of images) {
-        const url = await uploadImage(uri);
+      console.log('[handleSubmit] Uploading', images.length, 'images');
+      for (let i = 0; i < images.length; i++) {
+        console.log(`[handleSubmit] Image ${i+1}/${images.length}: ${images[i]}`);
+        const url = await uploadImage(images[i]);
         uploadedImages.push(url);
+        console.log(`[handleSubmit] Image ${i+1} uploaded: ${url}`);
       }
 
       let uploadedVideoUrl = '';
@@ -201,6 +215,7 @@ export default function AddProductScreen() {
       }
 
       setUploadProgress('Publishing...');
+      console.log('[handleSubmit] Submitting product with images:', uploadedImages);
       const res = await apiRequest('POST', '/api/products', {
         id: isEditMode ? params.productId : undefined,
         userId: profile.id,
@@ -220,6 +235,7 @@ export default function AddProductScreen() {
         contactPhone: profile.phone,
       });
       const data = await res.json();
+      console.log('[handleSubmit] Product created response:', data);
 
       if (!data.success) {
         Alert.alert('Error', data.message || 'Failed to publish. Please try again.');
