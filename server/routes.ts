@@ -3734,12 +3734,17 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
 
   app.patch("/api/profiles/:id", async (req, res) => {
     try {
-      const { name, email, address, profileImage } = req.body;
+      const { name, email, address, profileImage, shopName, bio, city, state, bannerImage } = req.body;
       const updates: any = {};
       if (name !== undefined) updates.name = name;
       if (email !== undefined) updates.email = email;
       if (address !== undefined) updates.shopAddress = address;
       if (profileImage !== undefined) updates.avatar = profileImage;
+      if (shopName !== undefined) updates.shopName = shopName;
+      if (bio !== undefined) updates.bio = bio;
+      if (city !== undefined) updates.city = city;
+      if (state !== undefined) updates.state = state;
+      if (bannerImage !== undefined) updates.bannerImage = bannerImage;
       if (Object.keys(updates).length === 0) {
         return res.json({ success: true, profile: await db.query.profiles.findFirst({ where: eq(profiles.id, req.params.id) }) });
       }
@@ -3748,6 +3753,27 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
       return res.json({ success: true, profile: updated });
     } catch (error) {
       console.error("[Profiles] Update error:", error);
+      return res.status(500).json({ success: false, message: "Failed to update profile" });
+    }
+  });
+
+  app.put("/api/profiles/:id", async (req, res) => {
+    try {
+      const { shopName, bio, city, state, bannerImage } = req.body;
+      const updates: any = {};
+      if (shopName !== undefined) updates.shopName = shopName;
+      if (bio !== undefined) updates.bio = bio;
+      if (city !== undefined) updates.city = city;
+      if (state !== undefined) updates.state = state;
+      if (bannerImage !== undefined) updates.bannerImage = bannerImage;
+      if (Object.keys(updates).length === 0) {
+        return res.json({ success: true, profile: await db.query.profiles.findFirst({ where: eq(profiles.id, req.params.id) }) });
+      }
+      await db.update(profiles).set(updates as any).where(eq(profiles.id, req.params.id));
+      const updated = await db.query.profiles.findFirst({ where: eq(profiles.id, req.params.id) });
+      return res.json({ success: true, profile: updated });
+    } catch (error) {
+      console.error("[Profiles] PUT error:", error);
       return res.status(500).json({ success: false, message: "Failed to update profile" });
     }
   });

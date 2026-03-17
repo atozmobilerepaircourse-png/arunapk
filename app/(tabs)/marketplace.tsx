@@ -39,7 +39,7 @@ function StarRow({ rating = 0, count = 0 }: { rating: number; count: number }) {
 }
 
 function SupplierCard({ item, onPress }: { item: any; onPress: () => void }) {
-  const bannerUri = getImgUri(item.bannerImage || item.avatar || '');
+  const bannerUri = getImgUri(item.bannerImage || '');
   const cats: string[] = Array.isArray(item.categories)
     ? item.categories
     : typeof item.categories === 'string'

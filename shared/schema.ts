@@ -50,6 +50,7 @@ export const profiles = pgTable("profiles", {
   })),
   availableForJobs: text("available_for_jobs").default("true"),
   verified: integer("verified").default(0),
+  bannerImage: text("banner_image").default(""),
   createdAt: bigint("created_at", { mode: "number" }).notNull().default(sql`EXTRACT(EPOCH FROM NOW()) * 1000`),
 });
 
