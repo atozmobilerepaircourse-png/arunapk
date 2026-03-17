@@ -6,7 +6,26 @@ Mobile app (Expo/React Native) for repair professionals with social feed, direct
 **Backend**: Express/TypeScript on Cloud Run @ `https://repair-backend-3siuld7gbq-el.a.run.app`
 **Frontend**: Firebase Hosting @ `https://mobile-repair-app-276b6.web.app`
 
-## Latest Session - Feature Completion
+## Latest Session - Auto-Login & Database Cleanup
+
+### ✅ COMPLETED:
+
+**Auto-Login (OTP Bypass)**
+- Created `/api/auth/auto-login` endpoint (backend)
+- Phone-only login: no OTP sent, no OTP screen
+- Instant session creation for existing users
+- New users go directly to profile details screen
+- Deployed to production ✓
+- Tested and verified working ✓
+
+**Database Cleanup**
+- Added `/api/admin/complete-wipe` endpoint
+- Deleted ALL non-admin users, posts, products, courses, reels, messages, payments, ads
+- Cleaned both local dev DB and production DB
+- Only admin (8179142535) remains as active user
+- App ready for fresh setup
+
+### Previous Sessions - Feature Completion
 
 ### ✅ COMPLETED:
 

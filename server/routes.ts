@@ -816,6 +816,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Auto-login endpoint (bypasses OTP)
+  app.post("/api/auth/auto-login", async (req, res) => {
+    try {
+      const { phone, email, deviceId } = req.body;
+      const isEmailVerification = !!email && !phone;
+      const identifier = isEmailVerification ? `email:${email.trim().toLowerCase()}` : (phone || "").replace(/\D/g, "");
+
+      if (!phone && !email) {
+        return res.status(400).json({ success: false, message: "Phone or email is required" });
+      }
+
+      const cleanPhone = isEmailVerification ? "" : identifier;
+      const cleanEmail = isEmailVerification ? email.trim().toLowerCase() : "";
+
+      const allProfilesList = await db.select().from(profiles);
+
+      let existingProfile;
+      if (isEmailVerification) {
+        existingProfile = allProfilesList.find(p => (p.email || "").toLowerCase() === cleanEmail && p.role === 'admin');
+        if (!existingProfile) {
+          existingProfile = allProfilesList.find(p => (p.email || "").toLowerCase() === cleanEmail);
+        }
+      } else {
+        existingProfile = allProfilesList.find(p => p.phone.replace(/\D/g, "") === cleanPhone && p.role === 'admin');
+        if (!existingProfile) {
+          existingProfile = allProfilesList.find(p => p.phone.replace(/\D/g, "") === cleanPhone);
+        }
+      }
+
+      if (existingProfile && existingProfile.blocked === 1) {
+        return res.json({
+          success: false,
+          message: "Your account has been blocked. Please contact admin for support.",
+        });
+      }
+
+      if (existingProfile && deviceId && existingProfile.role === "technician") {
+        const currentDeviceId = existingProfile.deviceId || "";
+        if (currentDeviceId && currentDeviceId !== deviceId) {
+          await db.update(profiles).set({ deviceId }).where(eq(profiles.id, existingProfile.id));
+        } else if (!currentDeviceId) {
+          await db.update(profiles).set({ deviceId }).where(eq(profiles.id, existingProfile.id));
+        }
+      }
+
+      // Create session
+      const sessionToken = crypto.randomUUID?.() || Date.now().toString(36) + Math.random().toString(36).substr(2);
+      await db.insert(sessions).values({
+        sessionToken,
+        phone: isEmailVerification ? cleanEmail : cleanPhone,
+        expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000,
+      });
+
+      return res.json({
+        success: true,
+        message: "Auto-login successful",
+        sessionToken,
+        isNewUser: !existingProfile,
+        profile: existingProfile || null,
+      });
+    } catch (error) {
+      console.error("[AutoLogin] Error:", error);
+      return res.status(500).json({ success: false, message: "Auto-login failed" });
+    }
+  });
+
   app.post("/api/otp/verify", async (req, res) => {
     try {
       const { phone, email, otp, deviceId } = req.body;
