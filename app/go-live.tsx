@@ -165,13 +165,25 @@ export default function GoLiveScreen() {
     }
   };
 
+  const [endingSession, setEndingSession] = useState(false);
+
   const handleEndLive = () => {
+    if (!activeSession) {
+      Alert.alert('Error', 'No active session to end');
+      return;
+    }
+    
     Alert.alert('End Session?', 'This will remove your session from the Live tab.', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'End', style: 'destructive', onPress: async () => {
+          if (endingSession) return; // Prevent double-tap
+          setEndingSession(true);
+          
           try {
             console.log('[EndLive] Starting... teacherId:', profile?.id, 'sessionId:', activeSession?.id);
+            Alert.alert('Processing...', 'Ending your live session...');
+            
             const res = await apiRequest('POST', '/api/teacher/end-live', {
               teacherId: profile?.id,
               sessionId: activeSession?.id,
@@ -183,11 +195,11 @@ export default function GoLiveScreen() {
               const data = await cloned.json();
               console.log('[EndLive] Response data:', data);
               
-              if (data.success) {
+              if (data.success || res.ok) {
                 console.log('[EndLive] Success! Clearing state.');
                 setActiveSession(null);
                 setStreamKeyInfo(null);
-                Alert.alert('Session Ended', 'Your live session has been ended.');
+                Alert.alert('✅ Session Ended', 'Your live session has been successfully ended.');
               } else {
                 Alert.alert('Error', data.message || 'Failed to end session');
               }
@@ -195,11 +207,13 @@ export default function GoLiveScreen() {
               console.log('[EndLive] Could not parse response, but request succeeded');
               setActiveSession(null);
               setStreamKeyInfo(null);
-              Alert.alert('Session Ended', 'Your live session has been ended.');
+              Alert.alert('✅ Session Ended', 'Your live session has been successfully ended.');
             }
           } catch (e: any) {
             console.error('[EndLive] Exception:', e.message || e);
-            Alert.alert('Error', e.message || 'Failed to end session. Please try again.');
+            Alert.alert('❌ Error', e.message || 'Failed to end session. Please try again.');
+          } finally {
+            setEndingSession(false);
           }
         },
       },
