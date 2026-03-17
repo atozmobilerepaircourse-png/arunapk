@@ -136,19 +136,19 @@ export default function SupplierStoreScreen() {
               <Ionicons name="checkmark" size={10} color="#fff" />
             </View>
           </View>
-          <Text style={styles.shopName}>{displayName}</Text>
+          <Text style={[styles.shopName, { color: '#FFFFFF' }]}>{displayName}</Text>
           {supplier?.shopName && supplier.name !== displayName && (
-            <Text style={styles.ownerName}>by {supplier.name}</Text>
+            <Text style={[styles.ownerName, { color: 'rgba(255,255,255,0.85)' }]}>by {supplier.name}</Text>
           )}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(245,158,11,0.15)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 }}>
-              <Ionicons name="star" size={13} color="#F59E0B" />
-              <Text style={{ color: '#F59E0B', fontSize: 13, fontFamily: 'Inter_700Bold' }}>{fakeRating.toFixed(1)}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 }}>
+              <Ionicons name="star" size={13} color="#FFF" />
+              <Text style={{ color: '#FFFFFF', fontSize: 13, fontFamily: 'Inter_700Bold' }}>{fakeRating.toFixed(1)}</Text>
             </View>
             {(supplier?.city || supplier?.state) && (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                <Ionicons name="location-outline" size={13} color={T.muted} />
-                <Text style={{ color: T.muted, fontSize: 12, fontFamily: 'Inter_400Regular' }}>
+                <Ionicons name="location-outline" size={13} color="rgba(255,255,255,0.8)" />
+                <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12, fontFamily: 'Inter_400Regular' }}>
                   {[supplier.city, supplier.state].filter(Boolean).join(', ')}
                 </Text>
               </View>
