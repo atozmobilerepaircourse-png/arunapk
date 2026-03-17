@@ -315,15 +315,16 @@ export default function ShopPage() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  // Animate banner text with pulsing and floating effects
+  // Animate banner text with bounce and glow effects
   useEffect(() => {
     Animated.loop(Animated.sequence([
-      Animated.timing(bannerAnim, { toValue: 1, duration: 1200, useNativeDriver: true }),
-      Animated.timing(bannerAnim, { toValue: 0, duration: 1200, useNativeDriver: true }),
+      Animated.timing(bannerAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
+      Animated.timing(bannerAnim, { toValue: 0.6, duration: 400, useNativeDriver: true }),
+      Animated.timing(bannerAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
     ])).start();
     Animated.loop(Animated.sequence([
-      Animated.timing(floatAnim, { toValue: 1, duration: 2400, useNativeDriver: true }),
-      Animated.timing(floatAnim, { toValue: 0, duration: 2400, useNativeDriver: true }),
+      Animated.timing(floatAnim, { toValue: 1, duration: 1200, useNativeDriver: true }),
+      Animated.timing(floatAnim, { toValue: 0, duration: 1200, useNativeDriver: true }),
     ])).start();
   }, []);
 
@@ -380,14 +381,20 @@ export default function ShopPage() {
           <Image source={{ uri: getImgUri(supplier.banner) }} style={s.bannerImg} contentFit="cover" />
         ) : (
           <View style={[s.bannerImg, s.bannerFallback]}>
+            {/* Glow effect */}
+            <Animated.View style={[s.glowRing, {
+              opacity: bannerAnim,
+              transform: [{ scale: floatAnim.interpolate({ inputRange: [0, 1], outputRange: [1.2, 1.6] }) }]
+            }]} />
+            {/* Letter */}
             <Animated.Text style={[s.bannerLetter, {
-              opacity: bannerAnim.interpolate({ inputRange: [0, 1], outputRange: [0.4, 0.8] }),
-              transform: [{
-                scale: floatAnim.interpolate({ inputRange: [0, 1], outputRange: [0.9, 1.15] })
-              }]
+              opacity: bannerAnim,
+              transform: [{ scale: floatAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.2] }) }]
             }]}>
               {shopName.charAt(0)}
             </Animated.Text>
+            {/* Welcome text */}
+            <Animated.Text style={[s.welcomeTxt, { opacity: floatAnim }]}>Welcome!</Animated.Text>
           </View>
         )}
         {/* Overlay gradient */}
@@ -574,8 +581,10 @@ const s = StyleSheet.create({
   // Banner
   bannerWrap: { width: SW, height: 200, position: 'relative', backgroundColor: C.primary },
   bannerImg: { width: SW, height: 200 },
-  bannerFallback: { alignItems: 'center', justifyContent: 'center', backgroundColor: C.primary },
-  bannerLetter: { fontSize: 72, fontFamily: 'Inter_700Bold', color: 'rgba(255,255,255,0.3)' },
+  bannerFallback: { alignItems: 'center', justifyContent: 'center', backgroundColor: C.primary, gap: 12 },
+  bannerLetter: { fontSize: 96, fontFamily: 'Inter_700Bold', color: 'rgba(255,255,255,0.6)', textAlign: 'center' },
+  glowRing: { position: 'absolute', width: 140, height: 140, borderRadius: 70, borderWidth: 3, borderColor: 'rgba(255,255,255,0.4)' },
+  welcomeTxt: { fontSize: 22, fontFamily: 'Inter_600SemiBold', color: 'rgba(255,255,255,0.7)', letterSpacing: 2 },
   bannerGradient: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 100, backgroundColor: 'rgba(0,0,0,0.45)' },
   bannerBottom: { position: 'absolute', bottom: 12, left: 12, right: 12, flexDirection: 'row', alignItems: 'center', gap: 10 },
   logoCircle: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#fff', borderWidth: 2, borderColor: C.primary, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },

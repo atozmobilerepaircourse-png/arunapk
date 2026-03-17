@@ -273,16 +273,6 @@ export default function MarketplaceTab() {
         </View>
       )}
 
-      {/* ── Promo Banner ── */}
-      <Pressable style={styles.promoBanner} onPress={() => {}}>
-        <View style={styles.promoLeft}>
-          <Text style={styles.promoTag}>SPECIAL OFFER</Text>
-          <Text style={styles.promoTitle}>Shop Mobile Repair Parts</Text>
-          <Text style={styles.promoSub}>Up to 60% off on spare parts</Text>
-        </View>
-        <Text style={{ fontSize: 48 }}>📱</Text>
-      </Pressable>
-
       {/* ── Trending Products ── */}
       {trending.length > 0 && (
         <View style={styles.section}>
