@@ -292,6 +292,8 @@ export default function ShopPage() {
   const [quickItem, setQuickItem] = useState<any>(null);
   const [quickVisible, setQuickVisible] = useState(false);
   const scrollY = useRef(new Animated.Value(0)).current;
+  const bannerAnim = useRef(new Animated.Value(0)).current;
+  const floatAnim = useRef(new Animated.Value(0)).current;
 
   const fetchData = useCallback(async () => {
     try {
@@ -312,6 +314,19 @@ export default function ShopPage() {
   }, [supplierId]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Animate banner text with pulsing and floating effects
+  useEffect(() => {
+    Animated.loop(Animated.sequence([
+      Animated.timing(bannerAnim, { toValue: 1, duration: 1200, useNativeDriver: true }),
+      Animated.timing(bannerAnim, { toValue: 0, duration: 1200, useNativeDriver: true }),
+    ])).start();
+    Animated.loop(Animated.sequence([
+      Animated.timing(floatAnim, { toValue: 1, duration: 2400, useNativeDriver: true }),
+      Animated.timing(floatAnim, { toValue: 0, duration: 2400, useNativeDriver: true }),
+    ])).start();
+  }, []);
+
   const onRefresh = useCallback(() => { setRefreshing(true); fetchData(); }, [fetchData]);
 
   const handleAdd = useCallback((item: any) => {
@@ -365,7 +380,14 @@ export default function ShopPage() {
           <Image source={{ uri: getImgUri(supplier.banner) }} style={s.bannerImg} contentFit="cover" />
         ) : (
           <View style={[s.bannerImg, s.bannerFallback]}>
-            <Text style={s.bannerLetter}>{shopName.charAt(0)}</Text>
+            <Animated.Text style={[s.bannerLetter, {
+              opacity: bannerAnim.interpolate({ inputRange: [0, 1], outputRange: [0.4, 0.8] }),
+              transform: [{
+                scale: floatAnim.interpolate({ inputRange: [0, 1], outputRange: [0.9, 1.15] })
+              }]
+            }]}>
+              {shopName.charAt(0)}
+            </Animated.Text>
           </View>
         )}
         {/* Overlay gradient */}
