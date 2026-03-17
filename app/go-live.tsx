@@ -171,14 +171,35 @@ export default function GoLiveScreen() {
       {
         text: 'End', style: 'destructive', onPress: async () => {
           try {
-            await apiRequest('POST', '/api/teacher/end-live', {
+            console.log('[EndLive] Starting... teacherId:', profile?.id, 'sessionId:', activeSession?.id);
+            const res = await apiRequest('POST', '/api/teacher/end-live', {
               teacherId: profile?.id,
               sessionId: activeSession?.id,
             });
-            setActiveSession(null);
-            setStreamKeyInfo(null);
-          } catch {
-            Alert.alert('Error', 'Failed to end session');
+            console.log('[EndLive] Response status:', res.status, 'ok:', res.ok);
+            
+            try {
+              const cloned = res.clone();
+              const data = await cloned.json();
+              console.log('[EndLive] Response data:', data);
+              
+              if (data.success) {
+                console.log('[EndLive] Success! Clearing state.');
+                setActiveSession(null);
+                setStreamKeyInfo(null);
+                Alert.alert('Session Ended', 'Your live session has been ended.');
+              } else {
+                Alert.alert('Error', data.message || 'Failed to end session');
+              }
+            } catch (parseErr: any) {
+              console.log('[EndLive] Could not parse response, but request succeeded');
+              setActiveSession(null);
+              setStreamKeyInfo(null);
+              Alert.alert('Session Ended', 'Your live session has been ended.');
+            }
+          } catch (e: any) {
+            console.error('[EndLive] Exception:', e.message || e);
+            Alert.alert('Error', e.message || 'Failed to end session. Please try again.');
           }
         },
       },
@@ -211,13 +232,17 @@ export default function GoLiveScreen() {
   };
 
   const handleShareImage = async () => {
-    if (!activeSession) return;
+    if (!activeSession) {
+      Alert.alert('Error', 'No active session');
+      return;
+    }
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7 });
     if (result.canceled || !result.assets?.[0]?.uri) return;
     setIsUploading(true);
     try {
       const uri      = result.assets[0].uri;
       const formData = new FormData();
+      console.log('[ShareImage] Starting upload... sessionId:', activeSession.id);
       if (Platform.OS === 'web') {
         const blob = await (await globalThis.fetch(uri)).blob();
         formData.append('image', blob, 'live-session.jpg');
@@ -228,15 +253,32 @@ export default function GoLiveScreen() {
       formData.append('sessionId', activeSession.id);
       formData.append('sessionLink', activeSession.link);
       formData.append('teacherName', profile?.name || 'Teacher');
-      const res  = await globalThis.fetch(new URL('/api/teacher/live-session/upload-image', getApiUrl()).toString(), { method: 'POST', body: formData });
-      const data = await res.json();
-      if (data.success) {
-        Alert.alert('Shared!', 'Photo shared with all technicians.');
-      } else {
-        Alert.alert('Error', data.message || 'Upload failed');
+      const uploadUrl = new URL('/api/teacher/live-session/upload-image', getApiUrl()).toString();
+      console.log('[ShareImage] Uploading to:', uploadUrl);
+      const res  = await globalThis.fetch(uploadUrl, { method: 'POST', body: formData });
+      console.log('[ShareImage] Response status:', res.status, 'ok:', res.ok);
+      
+      try {
+        const cloned = res.clone();
+        const data = await cloned.json();
+        console.log('[ShareImage] Response data:', data);
+        
+        if (data.success) {
+          Alert.alert('Shared!', 'Photo shared with all technicians.');
+        } else {
+          Alert.alert('Error', data.message || 'Upload failed');
+        }
+      } catch (parseErr: any) {
+        console.log('[ShareImage] Could not parse response, but request succeeded (status:', res.status + ')');
+        if (res.ok) {
+          Alert.alert('Shared!', 'Photo shared with all technicians.');
+        } else {
+          Alert.alert('Error', 'Upload failed (no response data)');
+        }
       }
-    } catch {
-      Alert.alert('Error', 'Failed to upload photo');
+    } catch (e: any) {
+      console.error('[ShareImage] Exception:', e.message || e);
+      Alert.alert('Error', e.message || 'Failed to upload photo. Please try again.');
     } finally {
       setIsUploading(false);
     }
