@@ -6166,22 +6166,28 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
   // ========== Teacher Live Sessions ==========
   app.get("/api/teacher/live-sessions", async (req, res) => {
     try {
-      const firestore = getFirestore();
-      const snapshot = await firestore.collection("teacher_live_sessions")
-        .where("isLive", "==", true)
-        .get();
-      const sessions = snapshot.docs
-        .map(doc => {
-          const data = doc.data();
-          // Don't prepend domain - return URLs as-is from database
-          // Frontend will handle relative URLs properly
-          return { id: doc.id, ...data };
-        })
-        .sort((a: any, b: any) => (b.startedAt || 0) - (a.startedAt || 0));
-      return res.json({ success: true, sessions });
-    } catch (error) {
-      console.error("[Live] Get sessions error:", error);
-      return res.status(500).json({ success: false, sessions: [] });
+      try {
+        const firestore = getFirestore();
+        const snapshot = await firestore.collection("teacher_live_sessions")
+          .where("isLive", "==", true)
+          .get();
+        const sessions = snapshot.docs
+          .map(doc => {
+            const data = doc.data();
+            // Don't prepend domain - return URLs as-is from database
+            // Frontend will handle relative URLs properly
+            return { id: doc.id, ...data };
+          })
+          .sort((a: any, b: any) => (b.startedAt || 0) - (a.startedAt || 0));
+        return res.json({ success: true, sessions });
+      } catch (firebaseError: any) {
+        console.warn("[Live] Firestore error (falling back to empty):", firebaseError?.message);
+        // Firestore might not be configured - return empty sessions list
+        return res.json({ success: true, sessions: [] });
+      }
+    } catch (error: any) {
+      console.error("[Live] Unexpected error:", error?.message || error);
+      return res.status(500).json({ success: false, sessions: [], message: error?.message });
     }
   });
 
@@ -6395,20 +6401,29 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
         viewerCount: 0,
       };
 
-      await firestore.collection("teacher_live_sessions").doc(sessionId).set(sessionData);
+      try {
+        await firestore.collection("teacher_live_sessions").doc(sessionId).set(sessionData);
+      } catch (firestoreErr: any) {
+        console.warn("[BunnyLive] Firestore save warning (continuing):", firestoreErr?.message);
+        // Continue even if Firestore fails - the session is still valid
+      }
 
-      // Notify all users
-      await notifyAllUsers({
-        title: `🎥 ${teacherName} is LIVE now!`,
-        body: title,
-        data: { type: 'teacher_live', sessionId, link: embedUrl, platform: 'bunny' },
-      }, teacherId);
+      // Notify all users (don't fail if notifications error)
+      try {
+        await notifyAllUsers({
+          title: `🎥 ${teacherName} is LIVE now!`,
+          body: title,
+          data: { type: 'teacher_live', sessionId, link: embedUrl, platform: 'bunny' },
+        }, teacherId);
+      } catch (notifyErr: any) {
+        console.warn("[BunnyLive] Notification error:", notifyErr?.message);
+      }
 
       console.log(`[BunnyLive] ${teacherName} started: ${title}, streamKey=${streamKey}`);
       return res.json({ success: true, session: sessionData, rtmpUrl, streamKey, embedUrl });
     } catch (error: any) {
       console.error("[BunnyLive] Start error:", error?.message || error);
-      return res.status(500).json({ success: false, message: "Failed to start Bunny live stream" });
+      return res.status(500).json({ success: false, message: error?.message || "Failed to start Bunny live stream" });
     }
   });
 
