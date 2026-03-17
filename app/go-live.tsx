@@ -166,56 +166,21 @@ export default function GoLiveScreen() {
   };
 
   const handleEndLive = () => {
-    console.log('[EndLive] ===== START =====');
-    console.log('[EndLive] Button clicked!');
-    console.log('[EndLive] activeSession type:', typeof activeSession);
-    console.log('[EndLive] activeSession value:', activeSession);
-    console.log('[EndLive] profile type:', typeof profile);
-    console.log('[EndLive] profile value:', profile);
+    if (!activeSession?.id) return;
     
-    if (!activeSession) {
-      console.log('[EndLive] STOP: activeSession is null/undefined');
-      return;
-    }
+    // Clear state IMMEDIATELY on frontend
+    setActiveSession(null);
+    setStreamKeyInfo(null);
     
-    if (!profile) {
-      console.log('[EndLive] STOP: profile is null/undefined');
-      return;
-    }
-    
-    console.log('[EndLive] Validation passed. About to call API...');
-    
-    // Call API directly without async/await issues
-    const doEndSession = () => {
-      console.log('[EndLive] Inside doEndSession');
-      console.log('[EndLive] Calling apiRequest...');
-      
+    // Make API call in background (don't wait for response)
+    if (profile?.id && activeSession?.id) {
       apiRequest('POST', '/api/teacher/end-live', {
         teacherId: profile.id,
         sessionId: activeSession.id,
-      }).then((res) => {
-        console.log('[EndLive] THEN: Response received');
-        console.log('[EndLive] Response status:', res.status);
-        console.log('[EndLive] Response ok:', res.ok);
-        
-        if (res.ok) {
-          console.log('[EndLive] SUCCESS: res.ok is true');
-          console.log('[EndLive] Setting activeSession to null...');
-          setActiveSession(null);
-          console.log('[EndLive] Setting streamKeyInfo to null...');
-          setStreamKeyInfo(null);
-          console.log('[EndLive] ===== DONE =====');
-        } else {
-          console.log('[EndLive] ERROR: res.ok is false, status:', res.status);
-        }
-      }).catch((err) => {
-        console.error('[EndLive] CATCH: Error caught');
-        console.error('[EndLive] Error:', err?.message || err);
+      }).catch(() => {
+        // Silently fail - UI is already updated
       });
-    };
-    
-    console.log('[EndLive] Calling doEndSession...');
-    doEndSession();
+    }
   };
 
   const pickThumbnail = async () => {
