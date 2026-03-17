@@ -165,59 +165,51 @@ export default function GoLiveScreen() {
     }
   };
 
-  const [endingSession, setEndingSession] = useState(false);
-
-  const handleEndLive = () => {
-    if (!activeSession) {
-      Alert.alert('Error', 'No active session to end');
-      return;
-    }
-    
-    Alert.alert('End Session?', 'This will remove your session from the Live tab.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'End', style: 'destructive', onPress: async () => {
-          if (endingSession) return; // Prevent double-tap
-          setEndingSession(true);
-          
-          try {
-            console.log('[EndLive] Starting... teacherId:', profile?.id, 'sessionId:', activeSession?.id);
-            Alert.alert('Processing...', 'Ending your live session...');
-            
-            const res = await apiRequest('POST', '/api/teacher/end-live', {
-              teacherId: profile?.id,
-              sessionId: activeSession?.id,
-            });
-            console.log('[EndLive] Response status:', res.status, 'ok:', res.ok);
-            
+  const handleEndLive = async () => {
+    try {
+      console.log('[EndLive] Button clicked! activeSession:', activeSession?.id, 'teacherId:', profile?.id);
+      
+      if (!activeSession?.id || !profile?.id) {
+        Alert.alert('Error', 'Missing session or teacher info');
+        return;
+      }
+      
+      // Show confirmation
+      Alert.alert('End Session?', 'This will remove your session from the Live tab.', [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'End', style: 'destructive', onPress: async () => {
             try {
-              const cloned = res.clone();
-              const data = await cloned.json();
-              console.log('[EndLive] Response data:', data);
+              console.log('[EndLive] User confirmed. Sending request...');
               
-              if (data.success || res.ok) {
-                console.log('[EndLive] Success! Clearing state.');
+              // Make API call
+              const res = await apiRequest('POST', '/api/teacher/end-live', {
+                teacherId: profile.id,
+                sessionId: activeSession.id,
+              });
+              
+              console.log('[EndLive] Got response:', res.status, res.ok);
+              
+              // Always clear session on 200 response
+              if (res.ok) {
+                console.log('[EndLive] Success!');
                 setActiveSession(null);
                 setStreamKeyInfo(null);
-                Alert.alert('✅ Session Ended', 'Your live session has been successfully ended.');
+                Alert.alert('Done', 'Your live session has been ended.');
               } else {
-                Alert.alert('Error', data.message || 'Failed to end session');
+                Alert.alert('Error', 'Failed to end session');
               }
-            } catch (parseErr: any) {
-              console.log('[EndLive] Could not parse response, but request succeeded');
-              setActiveSession(null);
-              setStreamKeyInfo(null);
-              Alert.alert('✅ Session Ended', 'Your live session has been successfully ended.');
+            } catch (error: any) {
+              console.error('[EndLive] Error:', error?.message);
+              Alert.alert('Error', error?.message || 'Connection failed');
             }
-          } catch (e: any) {
-            console.error('[EndLive] Exception:', e.message || e);
-            Alert.alert('❌ Error', e.message || 'Failed to end session. Please try again.');
-          } finally {
-            setEndingSession(false);
-          }
+          },
         },
-      },
-    ]);
+      ]);
+    } catch (error: any) {
+      console.error('[EndLive] Exception:', error?.message);
+      Alert.alert('Error', 'Something went wrong');
+    }
   };
 
   const pickThumbnail = async () => {
