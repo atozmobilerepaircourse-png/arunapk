@@ -70,7 +70,7 @@ function StatCard({ label, value, icon, color }: { label: string; value: string 
 
 function ProductRow({ product, onEdit, onDelete }: { product: Product; onEdit: () => void; onDelete: () => void }) {
   const imgs = (() => { try { return JSON.parse(product.images); } catch { return []; } })();
-  const img = imgs[0] || '';
+  const img = imgs[0] ? (imgs[0].startsWith('/') ? `${getApiUrl()}${imgs[0]}` : imgs[0]) : '';
   const price = parseFloat(product.price) || 0;
   return (
     <View style={styles.productRow}>
@@ -294,23 +294,25 @@ export default function SupplierProductsScreen() {
   };
 
   const handleDelete = (product: Product) => {
-    Alert.alert('Delete Product', `Delete "${product.title}"?`, [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert('Delete Product', `Delete "${product.title}" permanently?`, [
+      { text: 'Keep', style: 'cancel' },
       {
         text: 'Delete', style: 'destructive', onPress: async () => {
           try {
+            setProducts(prev => prev.map(p => p.id === product.id ? { ...p, deleting: true } : p));
             const res = await apiRequest('DELETE', `/api/products/${product.id}`);
             const data = await res.json();
             if (data.success) {
               setProducts(prev => prev.filter(p => p.id !== product.id));
               if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-              Alert.alert('Deleted', 'Product removed successfully');
             } else {
+              setProducts(prev => prev.map(p => p.id === product.id ? { ...p, deleting: false } : p));
               Alert.alert('Error', data.message || 'Failed to delete product');
             }
           } catch (e) {
             console.error('[SupplierProducts] Delete error:', e);
-            Alert.alert('Error', 'Failed to delete product');
+            setProducts(prev => prev.map(p => p.id === product.id ? { ...p, deleting: false } : p));
+            Alert.alert('Error', 'Failed to delete product. Check your connection.');
           }
         }
       }
