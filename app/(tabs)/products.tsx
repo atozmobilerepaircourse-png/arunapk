@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, Pressable, Platform,
-  Alert, RefreshControl, ActivityIndicator, Dimensions, ScrollView,
+  Alert, RefreshControl, ActivityIndicator, Dimensions, ScrollView, TouchableOpacity,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -112,28 +112,24 @@ function ProductRow({ product, onEdit, onDelete }: { product: Product; onEdit: (
           <Text style={styles.productStatTxt}>{product.views || 0} views</Text>
         </View>
       </View>
-      <View style={styles.productActions}>
-        <Pressable 
+      <View style={styles.productActions} pointerEvents="auto">
+        <TouchableOpacity 
           onPress={onEdit} 
-          style={({ pressed }) => [styles.actionBtn, pressed && { opacity: 0.6 }]} 
-          hitSlop={15}
-          delayPressIn={0}
-          android_ripple={{ color: PRIMARY }}
+          style={styles.actionBtn}
+          activeOpacity={0.6}
         >
           <Ionicons name="create-outline" size={18} color={PRIMARY} />
-        </Pressable>
-        <Pressable 
+        </TouchableOpacity>
+        <TouchableOpacity 
           onPress={() => { 
-            console.log('[Delete] Trash pressed for', product.id, product.title); 
+            console.log('[Delete] Delete button pressed for product:', product.id); 
             onDelete(); 
           }} 
-          style={({ pressed }) => [styles.actionBtn, pressed && { opacity: 0.6 }]} 
-          hitSlop={15}
-          delayPressIn={0}
-          android_ripple={{ color: '#FF3B30' }}
+          style={styles.actionBtn}
+          activeOpacity={0.6}
         >
           <Ionicons name="trash-outline" size={18} color="#FF3B30" />
-        </Pressable>
+        </TouchableOpacity>
       </View>
     </View>
   );
