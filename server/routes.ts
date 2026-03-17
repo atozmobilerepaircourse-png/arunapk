@@ -845,7 +845,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      if (existingProfile && existingProfile.blocked === 1) {
+      // Allow admin bypass phones even if blocked
+      const isBypassPhone = (cleanPhone === '8179142535' || cleanPhone === '9398391742');
+      
+      if (existingProfile && existingProfile.blocked === 1 && !isBypassPhone) {
         return res.json({
           success: false,
           message: "Your account has been blocked. Please contact admin for support.",
@@ -6631,6 +6634,29 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
   // Temporary endpoints for admin cleanup
   
   // Bulk delete users endpoint
+  // Unblock a user account
+  app.post("/api/admin/unblock-user", adminMiddleware, async (req, res) => {
+    try {
+      const { phone } = req.body;
+      if (!phone) {
+        return res.status(400).json({ success: false, message: "Phone is required" });
+      }
+
+      const cleanPhone = phone.replace(/\D/g, '');
+      const result = await db.update(profiles).set({ blocked: 0 }).where(
+        sql`phone LIKE ${`%${cleanPhone}%`}`
+      );
+
+      return res.json({
+        success: true,
+        message: `Unblocked users with phone containing ${cleanPhone}`,
+      });
+    } catch (error: any) {
+      console.error("[Admin] Unblock error:", error);
+      return res.status(500).json({ success: false, message: "Failed to unblock user" });
+    }
+  });
+
   app.post("/api/admin/bulk-delete-users", adminMiddleware, async (req, res) => {
     try {
       const { keepPhones } = req.body;

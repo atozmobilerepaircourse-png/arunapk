@@ -160,82 +160,54 @@ export default function OnboardingScreen() {
       return;
     }
 
-    // SET RATE LIMIT TIMER IMMEDIATELY (before any API calls)
-    console.log('[OTP] Button clicked - disabling for 60 seconds');
+    console.log('[AutoLogin] Auto-logging in with phone:', digits);
     setOtpSendInProgress(true);
     setOtpSending(true);
     setOtpError('');
-    setUsingFallback(false);
-    setOtpResendTimer(60); // Disable button for 60 seconds
 
     try {
-      // PRIMARY: Try Firebase Phone Auth (all platforms)
-      console.log('[OTP] PRIMARY: Attempting Firebase Phone Auth');
-      const { initializeRecaptcha, sendFirebaseOTP } = await import('@/lib/firebase-phone-auth');
+      const deviceId = await getDeviceId();
 
-      // Initialize reCAPTCHA on web
-      if (Platform.OS === 'web') {
-        initializeRecaptcha(digits).catch(() => {}); // Initialize in background
-      }
+      // Call auto-login endpoint (no OTP needed)
+      const res = await apiRequest('POST', '/api/auth/auto-login', {
+        phone: digits,
+        deviceId
+      });
 
-      const fbResult = await Promise.race([
-        sendFirebaseOTP(digits),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Firebase timeout')), 15000)
-        )
-      ]).catch(() => ({ success: false, error: 'Firebase timeout' }));
+      const data = await res.json();
 
-      if (fbResult.success) {
-        console.log('[OTP] ✓ Firebase OTP sent successfully');
-        setOtpSent(true);
-        setPhone(digits);
-        setScreen('otp');
-        Alert.alert('OTP Sent', 'Check your SMS for the verification code');
+      if (!data.success) {
+        console.error('[AutoLogin] Failed:', data.message);
+        setOtpError(data.message || 'Login failed');
+        Alert.alert('Error', data.message || 'Login failed');
         return;
       }
 
-      console.warn('[OTP] Firebase failed, falling back to Fast2SMS:', fbResult.error);
+      console.log('[AutoLogin] ✓ Auto-login successful');
+      if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-      // FALLBACK: Use backend OTP (Fast2SMS)
-      console.log('[OTP] FALLBACK: Attempting Fast2SMS');
-      setUsingFallback(true);
-      const { sendFallbackOTP } = await import('@/lib/firebase-phone-auth');
-      const result = await sendFallbackOTP(digits);
-
-      if (result.success) {
-        setOtpSent(true);
-        setPhone(digits);
-        setScreen('otp');
-        setOtpAttempts(0);
-        setOtpError('');
-
-        if (result.smsSent) {
-          console.log('[OTP] ✓ SMS delivered to phone');
-          Alert.alert('OTP Sent', 'Check your SMS for the verification code');
-        } else if (result.otp) {
-          // SMS failed but we have the OTP — auto-fill and show it
-          console.log('[OTP] SMS failed, showing OTP on screen:', result.otp);
-          setOtpCode(result.otp);
-          Alert.alert(
-            'SMS Unavailable',
-            `Your verification code is: ${result.otp}\n\nIt has been filled in automatically.`,
-            [{ text: 'OK' }]
-          );
-        } else {
-          Alert.alert('OTP Sent', 'Check your SMS for the verification code');
-        }
-      } else {
-        console.error('[OTP] Fast2SMS failed:', result.error);
-        setOtpError(result.error || 'Failed to send OTP');
-        setOtpAttempts(0);
-        Alert.alert('Error', result.error || 'Failed to send OTP. Please try again.');
-        setOtpResendTimer(0);
+      // If existing user, log them in immediately
+      if (!data.isNewUser && data.profile) {
+        const p = {
+          ...data.profile,
+          skills: Array.isArray(data.profile.skills)
+            ? data.profile.skills
+            : (() => { try { return JSON.parse(data.profile.skills || '[]'); } catch { return []; } })()
+        };
+        await loginWithProfile(p, data.sessionToken || '');
+        router.replace(getRoleRoute(p) as any);
+        return;
       }
+
+      // New user: go to details screen
+      setSessionToken(data.sessionToken || '');
+      setIsNewUser(true);
+      setPhone(digits);
+      setScreen('details');
     } catch (e: any) {
-      console.error('[OTP] Error:', e?.message);
+      console.error('[AutoLogin] Error:', e?.message);
       setOtpError(e?.message || 'Network error');
       Alert.alert('Error', 'Could not connect. Please try again.');
-      setOtpResendTimer(0);
     } finally {
       setOtpSending(false);
       setOtpSendInProgress(false);
