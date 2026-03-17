@@ -1,41 +1,30 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
-  View, Text, StyleSheet, Pressable, Platform, ActivityIndicator,
-  FlatList, RefreshControl, ScrollView, Dimensions, Modal,
-  Animated, NativeSyntheticEvent, NativeScrollEvent,
+  View, Text, StyleSheet, TouchableOpacity, TextInput,
+  FlatList, ScrollView, Platform, ActivityIndicator,
+  RefreshControl, Dimensions, NativeScrollEvent, NativeSyntheticEvent,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useApp } from '@/lib/context';
-import { useCart } from '@/lib/cart-context';
 import { apiRequest, getApiUrl } from '@/lib/query-client';
 
-const { width: SW, height: SH } = Dimensions.get('window');
-const CARD_W = (SW - 36) / 2;
-const H_CARD_W = SW * 0.58;
-const webTop = Platform.OS === 'web' ? 67 : 0;
+const { width: SW } = Dimensions.get('window');
+const COL_GAP  = 12;
+const BANNER_H = SW < 768 ? 200 : 300;
 
-// ─── Theme ─────────────────────────────────────────────────────────────────────
-const C = {
-  primary: '#0B4A45',
-  primaryLight: '#E6F4F1',
-  orange: '#C74A27',
-  orangeLight: '#FDECE8',
-  bg: '#F5F5F5',
-  white: '#FFFFFF',
-  text: '#111827',
-  sub: '#4B5563',
-  muted: '#9CA3AF',
-  border: '#E5E7EB',
-  star: '#F59E0B',
-  green: '#22C55E',
-  sale: '#EF4444',
-};
+const ACCENT  = '#6B46C1';
+const BG      = '#FAFAFB';
+const WHITE   = '#FFFFFF';
+const DARK    = '#111827';
+const MUTED   = '#6B7280';
+const BORDER  = '#E5E7EB';
+const STAR    = '#F2C94C';
+const DANGER  = '#EB5757';
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+const TABS = ['Products', 'Categories', 'Deals', 'About Us', 'Reviews'];
+
 function getImgUri(img: string) {
   if (!img) return '';
   if (img.startsWith('http')) return img;
@@ -44,7 +33,7 @@ function getImgUri(img: string) {
 }
 
 function parseImages(raw: any): string[] {
-  if (Array.isArray(raw)) return raw.filter(u => typeof u === 'string' && u.length > 0);
+  if (Array.isArray(raw)) return raw.filter((u: any) => typeof u === 'string' && u.length > 0);
   if (typeof raw === 'string') {
     try { const p = JSON.parse(raw); return Array.isArray(p) ? p.filter(Boolean) : []; }
     catch { return raw.includes(',') ? raw.split(',').map((s: string) => s.trim()).filter(Boolean) : raw ? [raw] : []; }
@@ -52,288 +41,308 @@ function parseImages(raw: any): string[] {
   return [];
 }
 
-function price(v: any) {
+function fmtPrice(v: any) {
   const n = parseFloat(v) || 0;
   return `₹${n.toLocaleString('en-IN')}`;
 }
 
-function discount(p: any, m: any) {
+function discPct(p: any, m: any) {
   const pn = parseFloat(p) || 0, mn = parseFloat(m) || 0;
   return mn > pn ? Math.round(((mn - pn) / mn) * 100) : 0;
 }
 
-// ─── Skeleton ─────────────────────────────────────────────────────────────────
-function Skeleton({ w, h, radius = 8 }: { w: number | string; h: number; radius?: number }) {
-  const anim = useRef(new Animated.Value(0.4)).current;
-  useEffect(() => {
-    Animated.loop(Animated.sequence([
-      Animated.timing(anim, { toValue: 1, duration: 800, useNativeDriver: true }),
-      Animated.timing(anim, { toValue: 0.4, duration: 800, useNativeDriver: true }),
-    ])).start();
-  }, []);
-  return <Animated.View style={{ width: w as any, height: h, borderRadius: radius, backgroundColor: '#E5E7EB', opacity: anim }} />;
-}
+// ─── Banner Slider ─────────────────────────────────────────────────────────────
+function BannerSlider({
+  images, onBack, title, insetTop,
+}: {
+  images: string[]; onBack: () => void; title: string; insetTop: number;
+}) {
+  const [idx, setIdx]   = useState(0);
+  const scrollRef       = useRef<ScrollView>(null);
 
-// ─── Image Slider (inside card) ──────────────────────────────────────────────
-function ImageSlider({ images, height, borderRadius = 0 }: { images: string[]; height: number; borderRadius?: number }) {
-  const [idx, setIdx] = useState(0);
-  const ref = useRef<ScrollView>(null);
+  useEffect(() => {
+    if (images.length <= 1) return;
+    const t = setInterval(() => {
+      const next = (idx + 1) % images.length;
+      scrollRef.current?.scrollTo({ x: next * SW, animated: true });
+      setIdx(next);
+    }, 3500);
+    return () => clearInterval(t);
+  }, [idx, images.length]);
+
   const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const x = e.nativeEvent.contentOffset.x;
     setIdx(Math.round(x / SW));
   };
-  if (images.length === 0) {
-    return (
-      <View style={{ width: '100%', height, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center', borderRadius }}>
-        <Ionicons name="cube-outline" size={36} color="#CCC" />
-        <Text style={{ color: '#CCC', fontSize: 11, marginTop: 4 }}>No Image</Text>
-      </View>
-    );
-  }
+
   return (
-    <View style={{ width: '100%', height, borderRadius, overflow: 'hidden' }}>
-      <ScrollView
-        ref={ref}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        onScroll={onScroll}
-        scrollEventThrottle={16}
-        decelerationRate="fast"
-        snapToInterval={SW}
-      >
-        {images.map((img, i) => (
-          <Image key={i} source={{ uri: getImgUri(img) }} style={{ width: SW, height }} contentFit="cover" />
-        ))}
-      </ScrollView>
-      {images.length > 1 && (
-        <View style={{ position: 'absolute', bottom: 6, alignSelf: 'center', flexDirection: 'row', gap: 4 }}>
-          {images.map((_, i) => (
-            <View key={i} style={{ width: i === idx ? 14 : 5, height: 5, borderRadius: 3, backgroundColor: i === idx ? '#FFF' : 'rgba(255,255,255,0.5)' }} />
+    <View style={ss.bannerWrap}>
+      {images.length > 0 ? (
+        <ScrollView
+          ref={scrollRef}
+          horizontal pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          onMomentumScrollEnd={onScroll}
+          style={{ flex: 1 }}
+        >
+          {images.map((uri, i) => (
+            <Image key={i} source={{ uri }} style={{ width: SW, height: BANNER_H }} contentFit="cover" />
           ))}
+        </ScrollView>
+      ) : (
+        <View style={{ flex: 1, backgroundColor: ACCENT + '22', alignItems: 'center', justifyContent: 'center' }}>
+          <Ionicons name="storefront" size={56} color={ACCENT} />
+        </View>
+      )}
+
+      {/* Dark overlay at bottom */}
+      <View style={[ss.bannerOverlay, { pointerEvents: 'none' } as any]} />
+
+      {/* Top bar with back button */}
+      <View style={[ss.bannerTopBar, { top: insetTop + 8 }]}>
+        <TouchableOpacity style={ss.bannerBtn} onPress={onBack}>
+          <Ionicons name="arrow-back" size={20} color={WHITE} />
+        </TouchableOpacity>
+        <Text style={ss.bannerTitle} numberOfLines={1}>{title}</Text>
+        <TouchableOpacity style={ss.bannerBtn}>
+          <Ionicons name="share-outline" size={20} color={WHITE} />
+        </TouchableOpacity>
+      </View>
+
+      {/* Dots */}
+      {images.length > 1 && (
+        <View style={ss.dots}>
+          {images.map((_, i) => (
+            <View key={i} style={[ss.dot, i === idx && ss.dotActive]} />
+          ))}
+        </View>
+      )}
+
+      {/* Arrow buttons */}
+      {images.length > 1 && (
+        <>
+          <TouchableOpacity style={[ss.arrowBtn, { left: 12 }]} onPress={() => {
+            const prev = (idx - 1 + images.length) % images.length;
+            scrollRef.current?.scrollTo({ x: prev * SW, animated: true });
+            setIdx(prev);
+          }}>
+            <Ionicons name="chevron-back" size={18} color={WHITE} />
+          </TouchableOpacity>
+          <TouchableOpacity style={[ss.arrowBtn, { right: 12 }]} onPress={() => {
+            const next = (idx + 1) % images.length;
+            scrollRef.current?.scrollTo({ x: next * SW, animated: true });
+            setIdx(next);
+          }}>
+            <Ionicons name="chevron-forward" size={18} color={WHITE} />
+          </TouchableOpacity>
+        </>
+      )}
+    </View>
+  );
+}
+
+// ─── Category Tabs ─────────────────────────────────────────────────────────────
+function CategoryTabs({ active, onSelect }: { active: string; onSelect: (t: string) => void }) {
+  return (
+    <View style={ss.tabsBar}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={ss.tabsRow}>
+        {TABS.map(t => {
+          const isActive = t === active;
+          return (
+            <TouchableOpacity key={t} style={[ss.tab, isActive && ss.tabActive]} onPress={() => onSelect(t)}>
+              <Text style={[ss.tabText, isActive && ss.tabTextActive]}>
+                {t}
+                {t === 'Deals' ? ' 🔥' : ''}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+    </View>
+  );
+}
+
+// ─── Product Card ──────────────────────────────────────────────────────────────
+function ProductCard({ item, onPress }: { item: any; onPress: () => void }) {
+  const imgs = parseImages(item.images);
+  const uri  = getImgUri(imgs[0] || item.image || '');
+  const disc = discPct(item.price, item.mrp);
+  const isNew = item.badge === 'new' || item.isNew;
+
+  return (
+    <TouchableOpacity style={ss.prodCard} onPress={onPress} activeOpacity={0.92}>
+      {/* Image */}
+      <View style={ss.prodImgWrap}>
+        {uri ? (
+          <Image source={{ uri }} style={ss.prodImg} contentFit="contain" />
+        ) : (
+          <View style={[ss.prodImg, { alignItems: 'center', justifyContent: 'center' }]}>
+            <Ionicons name="cube-outline" size={32} color={BORDER} />
+          </View>
+        )}
+        {disc > 0 && (
+          <View style={ss.discBadge}><Text style={ss.discText}>-{disc}%</Text></View>
+        )}
+        {isNew && !disc && (
+          <View style={[ss.discBadge, { backgroundColor: DARK }]}><Text style={ss.discText}>NEW</Text></View>
+        )}
+        <TouchableOpacity style={ss.heartBtn}>
+          <Ionicons name="heart-outline" size={14} color={MUTED} />
+        </TouchableOpacity>
+      </View>
+
+      {/* Info */}
+      <View style={ss.prodInfo}>
+        {item.category && (
+          <Text style={ss.prodCategory} numberOfLines={1}>{item.category}</Text>
+        )}
+        <Text style={ss.prodName} numberOfLines={2}>{item.name || item.title}</Text>
+        <View style={{ flex: 1 }} />
+
+        {/* Stars */}
+        <View style={ss.starsRow}>
+          {[1,2,3,4,5].map(s => (
+            <Ionicons key={s} name={s <= Math.round(item.rating || 0) ? 'star' : 'star-outline'} size={10} color={STAR} />
+          ))}
+          {item.reviewCount > 0 && <Text style={ss.reviewCount}>({item.reviewCount})</Text>}
+        </View>
+
+        {/* Price */}
+        <View style={ss.priceRow}>
+          <Text style={ss.price}>{fmtPrice(item.price)}</Text>
+          {disc > 0 && <Text style={ss.mrp}>{fmtPrice(item.mrp)}</Text>}
+        </View>
+
+        {item.moq && (
+          <Text style={ss.moqText}>MOQ: {item.moq} Units</Text>
+        )}
+
+        <TouchableOpacity style={ss.addBtn} onPress={onPress}>
+          <Text style={ss.addBtnText}>View Details</Text>
+        </TouchableOpacity>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+// ─── Supplier Header ───────────────────────────────────────────────────────────
+function SupplierHeader({ supplier }: { supplier: any }) {
+  const avatarUri = getImgUri(supplier.avatar || '');
+  const cats: string[] = Array.isArray(supplier.categories)
+    ? supplier.categories
+    : typeof supplier.categories === 'string'
+      ? supplier.categories.split(',').map((s: string) => s.trim()).filter(Boolean)
+      : [];
+
+  return (
+    <View style={ss.supplierHeader}>
+      <View style={ss.supplierRow}>
+        <View style={ss.supplierAvatar}>
+          {avatarUri ? (
+            <Image source={{ uri: avatarUri }} style={{ width: 56, height: 56, borderRadius: 28 }} contentFit="cover" />
+          ) : (
+            <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: ACCENT + '22', alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={{ fontSize: 22, fontFamily: 'Inter_700Bold', color: ACCENT }}>
+                {(supplier.businessName || supplier.name || 'S')[0].toUpperCase()}
+              </Text>
+            </View>
+          )}
+        </View>
+        <View style={{ flex: 1, gap: 3 }}>
+          <Text style={ss.supplierName}>{supplier.businessName || supplier.name}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+              <Ionicons name="star" size={12} color={STAR} />
+              <Text style={{ fontSize: 13, fontFamily: 'Inter_600SemiBold', color: STAR }}>
+                {(parseFloat(supplier.rating) || 4.5).toFixed(1)}
+              </Text>
+              {supplier.reviewCount > 0 && (
+                <Text style={{ fontSize: 12, color: MUTED, fontFamily: 'Inter_400Regular' }}>({supplier.reviewCount})</Text>
+              )}
+            </View>
+            {(supplier.city || supplier.location) && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                <Ionicons name="location-outline" size={12} color={MUTED} />
+                <Text style={{ fontSize: 12, color: MUTED, fontFamily: 'Inter_400Regular' }}>{supplier.city || supplier.location}</Text>
+              </View>
+            )}
+          </View>
+          {cats.length > 0 && (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View style={{ flexDirection: 'row', gap: 6, marginTop: 4 }}>
+                {cats.slice(0, 4).map((c, i) => (
+                  <View key={i} style={ss.catTag}>
+                    <Text style={ss.catTagText}>{c}</Text>
+                  </View>
+                ))}
+              </View>
+            </ScrollView>
+          )}
+        </View>
+      </View>
+
+      {/* Stats row */}
+      {(supplier.productCount || supplier.totalOrders) && (
+        <View style={ss.statsRow}>
+          {supplier.productCount != null && (
+            <View style={ss.statItem}>
+              <Text style={ss.statVal}>{supplier.productCount}</Text>
+              <Text style={ss.statLabel}>Products</Text>
+            </View>
+          )}
+          {supplier.totalOrders != null && (
+            <>
+              <View style={ss.statDivider} />
+              <View style={ss.statItem}>
+                <Text style={ss.statVal}>{supplier.totalOrders}</Text>
+                <Text style={ss.statLabel}>Orders</Text>
+              </View>
+            </>
+          )}
+          {supplier.yearsActive != null && (
+            <>
+              <View style={ss.statDivider} />
+              <View style={ss.statItem}>
+                <Text style={ss.statVal}>{supplier.yearsActive}+</Text>
+                <Text style={ss.statLabel}>Years</Text>
+              </View>
+            </>
+          )}
         </View>
       )}
     </View>
   );
 }
 
-// ─── Horizontal Product Card (for sections) ──────────────────────────────────
-function HCard({ item, onPress, onAdd, supplierPhone }: { item: any; onPress: () => void; onAdd: () => void; supplierPhone?: string }) {
-  const imgs = parseImages(item.images);
-  const disc = discount(item.price, item.mrp);
-  const inCart = false;
-  const contactWhatsApp = () => {
-    if (supplierPhone) {
-      const msg = `Hi, I'm interested in: ${item.title}`;
-      const url = `https://wa.me/${supplierPhone.replace(/\D/g, '')}?text=${encodeURIComponent(msg)}`;
-      require('react-native').Linking.openURL(url).catch(() => {});
-    }
-  };
-  return (
-    <Pressable style={hStyles.card} onPress={onPress}>
-      <View style={hStyles.imgWrap}>
-        {disc > 0 && <View style={hStyles.discBadge}><Text style={hStyles.discText}>-{disc}%</Text></View>}
-        {imgs.length > 0
-          ? <Image source={{ uri: getImgUri(imgs[0]) }} style={hStyles.img} contentFit="cover" />
-          : <View style={[hStyles.img, { alignItems: 'center', justifyContent: 'center', backgroundColor: '#F3F4F6' }]}><Ionicons name="cube-outline" size={32} color="#CCC" /></View>
-        }
-        <Pressable style={hStyles.cartBtn} onPress={(e) => { e.stopPropagation?.(); onAdd(); }}>
-          <Ionicons name="cart-outline" size={16} color={C.white} />
-        </Pressable>
-      </View>
-      <View style={hStyles.body}>
-        <Text style={hStyles.title} numberOfLines={2}>{item.title}</Text>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <Text style={hStyles.price}>{price(item.price)}</Text>
-          {parseFloat(item.mrp) > parseFloat(item.price) && (
-            <Text style={hStyles.mrp}>{price(item.mrp)}</Text>
-          )}
-        </View>
-        {item.views > 0 && (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 3 }}>
-            <Ionicons name="eye-outline" size={11} color={C.muted} />
-            <Text style={{ fontSize: 11, color: C.muted }}>{item.views}</Text>
-          </View>
-        )}
-        {supplierPhone && (
-          <Pressable style={{ marginTop: 6, paddingTop: 6, borderTopWidth: 1, borderTopColor: '#EEE', flexDirection: 'row', alignItems: 'center', gap: 4 }} onPress={(e) => { e.stopPropagation?.(); contactWhatsApp(); }}>
-            <Ionicons name="logo-whatsapp" size={14} color="#25D366" />
-            <Text style={{ fontSize: 11, color: '#25D366', fontFamily: 'Inter_600SemiBold' }}>Contact</Text>
-          </Pressable>
-        )}
-      </View>
-    </Pressable>
-  );
-}
-
-const hStyles = StyleSheet.create({
-  card: { width: H_CARD_W, backgroundColor: C.white, borderRadius: 12, overflow: 'hidden', marginRight: 12, borderWidth: 1, borderColor: C.border, elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4 },
-  imgWrap: { width: '100%', height: H_CARD_W * 0.75, backgroundColor: '#F5F5F5', position: 'relative' },
-  img: { width: '100%', height: '100%' },
-  discBadge: { position: 'absolute', top: 8, left: 8, zIndex: 2, backgroundColor: C.orange, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 3 },
-  discText: { color: '#fff', fontSize: 10, fontFamily: 'Inter_700Bold' },
-  cartBtn: { position: 'absolute', bottom: 8, right: 8, zIndex: 2, width: 32, height: 32, borderRadius: 8, backgroundColor: C.primary, alignItems: 'center', justifyContent: 'center' },
-  body: { padding: 10 },
-  title: { fontSize: 13, fontFamily: 'Inter_500Medium', color: C.text, marginBottom: 4, lineHeight: 18 },
-  price: { fontSize: 15, fontFamily: 'Inter_700Bold', color: C.orange },
-  mrp: { fontSize: 11, color: C.muted, textDecorationLine: 'line-through', fontFamily: 'Inter_400Regular' },
-});
-
-// ─── Grid Product Card ────────────────────────────────────────────────────────
-function GCard({ item, onPress, onAdd, inCart, supplierPhone }: { item: any; onPress: () => void; onAdd: () => void; inCart: boolean; supplierPhone?: string }) {
-  const imgs = parseImages(item.images);
-  const disc = discount(item.price, item.mrp);
-  const contactWhatsApp = () => {
-    if (supplierPhone) {
-      const msg = `Hi, I'm interested in: ${item.title}`;
-      const url = `https://wa.me/${supplierPhone.replace(/\D/g, '')}?text=${encodeURIComponent(msg)}`;
-      require('react-native').Linking.openURL(url).catch(() => {});
-    }
-  };
-  return (
-    <Pressable style={gStyles.card} onPress={onPress}>
-      <View style={gStyles.imgWrap}>
-        {disc > 0 && <View style={gStyles.discBadge}><Text style={gStyles.discText}>-{disc}%</Text></View>}
-        {imgs.length > 0
-          ? <Image source={{ uri: getImgUri(imgs[0]) }} style={gStyles.img} contentFit="cover" />
-          : <View style={[gStyles.img, { alignItems: 'center', justifyContent: 'center', backgroundColor: '#F3F4F6' }]}><Ionicons name="cube-outline" size={28} color="#CCC" /></View>
-        }
-        <Pressable style={[gStyles.cartBtn, inCart && { backgroundColor: C.green }]} onPress={(e) => { e.stopPropagation?.(); onAdd(); }}>
-          <Ionicons name={inCart ? 'cart' : 'cart-outline'} size={15} color="#fff" />
-        </Pressable>
-      </View>
-      <View style={gStyles.body}>
-        <Text style={gStyles.title} numberOfLines={2}>{item.title}</Text>
-        <Text style={gStyles.price}>{price(item.price)}</Text>
-        {parseFloat(item.mrp) > parseFloat(item.price) && (
-          <Text style={gStyles.mrp}>{price(item.mrp)}</Text>
-        )}
-        <View style={{ flexDirection: 'row', gap: 6, marginBottom: 8 }}>
-          <Pressable style={[gStyles.btn, { flex: 1, backgroundColor: C.primary }]} onPress={(e) => { e.stopPropagation?.(); onAdd(); }}>
-            <Text style={gStyles.btnTxt}>{inCart ? '✓ Added' : 'Add to Cart'}</Text>
-          </Pressable>
-          {supplierPhone && (
-            <Pressable style={[gStyles.btn, { flex: 1, backgroundColor: '#25D366' }]} onPress={(e) => { e.stopPropagation?.(); contactWhatsApp(); }}>
-              <Ionicons name="logo-whatsapp" size={13} color="#fff" />
-            </Pressable>
-          )}
-        </View>
-      </View>
-    </Pressable>
-  );
-}
-
-const gStyles = StyleSheet.create({
-  card: { width: CARD_W, backgroundColor: C.white, borderRadius: 10, overflow: 'hidden', borderWidth: 1, borderColor: C.border, elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4 },
-  imgWrap: { width: '100%', aspectRatio: 1, backgroundColor: '#F5F5F5', position: 'relative' },
-  img: { width: '100%', height: '100%' },
-  discBadge: { position: 'absolute', top: 6, left: 6, zIndex: 2, backgroundColor: C.orange, borderRadius: 5, paddingHorizontal: 5, paddingVertical: 2 },
-  discText: { color: '#fff', fontSize: 9, fontFamily: 'Inter_700Bold' },
-  cartBtn: { position: 'absolute', bottom: 6, right: 6, zIndex: 2, width: 28, height: 28, borderRadius: 6, backgroundColor: C.primary, alignItems: 'center', justifyContent: 'center' },
-  body: { padding: 8 },
-  title: { fontSize: 12, fontFamily: 'Inter_500Medium', color: C.text, marginBottom: 3, lineHeight: 16 },
-  price: { fontSize: 14, fontFamily: 'Inter_700Bold', color: C.orange },
-  mrp: { fontSize: 10, color: C.muted, textDecorationLine: 'line-through', fontFamily: 'Inter_400Regular', marginBottom: 6 },
-  btn: { backgroundColor: '#111827', borderRadius: 5, paddingVertical: 6, alignItems: 'center' },
-  btnTxt: { color: '#fff', fontSize: 10, fontFamily: 'Inter_600SemiBold' },
-});
-
-// ─── Quick View Modal ─────────────────────────────────────────────────────────
-function QuickView({ item, visible, onClose, onAdd, supplierName }: { item: any | null; visible: boolean; onClose: () => void; onAdd: () => void; supplierName: string }) {
-  const slideAnim = useRef(new Animated.Value(SH)).current;
-  const imgs = item ? parseImages(item.images).map(getImgUri) : [];
-  useEffect(() => {
-    Animated.spring(slideAnim, { toValue: visible ? 0 : SH, useNativeDriver: true, tension: 70, friction: 12 }).start();
-  }, [visible]);
-  if (!item) return null;
-  return (
-    <Modal transparent visible={visible} onRequestClose={onClose} statusBarTranslucent>
-      <Pressable style={qStyles.overlay} onPress={onClose} />
-      <Animated.View style={[qStyles.sheet, { transform: [{ translateY: slideAnim }] }]}>
-        <View style={qStyles.handle} />
-        <ImageSlider images={imgs} height={240} />
-        <ScrollView style={qStyles.content} showsVerticalScrollIndicator={false}>
-          <Text style={qStyles.title}>{item.title}</Text>
-          <Text style={qStyles.sub}>by {supplierName}</Text>
-          <View style={qStyles.priceRow}>
-            <Text style={qStyles.price}>{price(item.price)}</Text>
-            {parseFloat(item.mrp) > parseFloat(item.price) && (
-              <Text style={qStyles.mrp}>{price(item.mrp)}</Text>
-            )}
-          </View>
-          {item.description ? <Text style={qStyles.desc}>{item.description}</Text> : null}
-          <View style={{ flexDirection: 'row', gap: 10, marginTop: 16, marginBottom: 24 }}>
-            <Pressable style={qStyles.viewBtn} onPress={() => { onClose(); router.push({ pathname: '/product-detail', params: { id: item.id } } as any); }}>
-              <Text style={qStyles.viewBtnTxt}>View Full Details</Text>
-            </Pressable>
-            <Pressable style={qStyles.addBtn} onPress={() => { onAdd(); onClose(); }}>
-              <Ionicons name="cart-outline" size={16} color="#fff" />
-              <Text style={qStyles.addBtnTxt}>Add to Cart</Text>
-            </Pressable>
-          </View>
-        </ScrollView>
-      </Animated.View>
-    </Modal>
-  );
-}
-
-const qStyles = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' },
-  sheet: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: C.white, borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: SH * 0.85, overflow: 'hidden' },
-  handle: { width: 36, height: 4, borderRadius: 2, backgroundColor: '#DDD', alignSelf: 'center', marginTop: 10, marginBottom: 4 },
-  content: { paddingHorizontal: 16 },
-  title: { fontSize: 18, fontFamily: 'Inter_700Bold', color: C.text, marginTop: 12 },
-  sub: { fontSize: 13, color: C.muted, fontFamily: 'Inter_400Regular', marginTop: 4 },
-  priceRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 8 },
-  price: { fontSize: 22, fontFamily: 'Inter_700Bold', color: C.orange },
-  mrp: { fontSize: 14, color: C.muted, textDecorationLine: 'line-through', fontFamily: 'Inter_400Regular' },
-  desc: { fontSize: 13, color: C.sub, lineHeight: 20, marginTop: 10, fontFamily: 'Inter_400Regular' },
-  viewBtn: { flex: 1, borderWidth: 1.5, borderColor: C.primary, borderRadius: 10, paddingVertical: 12, alignItems: 'center' },
-  viewBtnTxt: { color: C.primary, fontSize: 14, fontFamily: 'Inter_600SemiBold' },
-  addBtn: { flex: 1, backgroundColor: C.primary, borderRadius: 10, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
-  addBtnTxt: { color: '#fff', fontSize: 14, fontFamily: 'Inter_600SemiBold' },
-});
-
-// ─── Section Header ────────────────────────────────────────────────────────────
-function SectionHead({ title, count }: { title: string; count?: number }) {
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingTop: 20, paddingBottom: 10 }}>
-      <Text style={{ fontSize: 16, fontFamily: 'Inter_700Bold', color: C.text, flex: 1 }}>{title}</Text>
-      {count !== undefined && <Text style={{ fontSize: 12, color: C.muted }}>({count})</Text>}
-    </View>
-  );
-}
-
-// ─── Main Component ───────────────────────────────────────────────────────────
-export default function ShopPage() {
+// ─── Main Screen ───────────────────────────────────────────────────────────────
+export default function ShopScreen() {
   const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams<{ supplierId: string; supplierName?: string }>();
-  const supplierId = params.supplierId;
-  const { profile: myProfile, startConversation } = useApp();
-  const { addToCart, isInCart } = useCart();
+  const { supplierId, supplierName } = useLocalSearchParams<{ supplierId: string; supplierName: string }>();
 
-  const [supplier, setSupplier] = useState<any>(null);
-  const [allProducts, setAllProducts] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [supplier, setSupplier]     = useState<any>(null);
+  const [products, setProducts]     = useState<any[]>([]);
+  const [loading, setLoading]       = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [quickItem, setQuickItem] = useState<any>(null);
-  const [quickVisible, setQuickVisible] = useState(false);
-  const scrollY = useRef(new Animated.Value(0)).current;
-  const bannerAnim = useRef(new Animated.Value(0)).current;
-  const floatAnim = useRef(new Animated.Value(0)).current;
+  const [activeTab, setActiveTab]   = useState('Products');
+  const [search, setSearch]         = useState('');
+  const [sortBy, setSortBy]         = useState('recommended');
+  const [selCategory, setSelCategory] = useState('All');
+
+  const webTop = Platform.OS === 'web' ? 67 : 0;
 
   const fetchData = useCallback(async () => {
     try {
-      const [profRes, prodRes] = await Promise.all([
-        apiRequest('GET', `/api/profiles/${supplierId}`),
-        apiRequest('GET', `/api/products?supplierId=${supplierId}`),
+      const [supRes, prodsRes] = await Promise.all([
+        apiRequest('GET', `/api/users/${supplierId}`),
+        apiRequest('GET', `/api/products?supplierId=${supplierId}&limit=100`),
       ]);
-      const profData = await profRes.json();
-      const prodData = await prodRes.json();
-      if (profData?.id) setSupplier(profData);
-      setAllProducts(Array.isArray(prodData) ? prodData : []);
-    } catch (e) {
-      console.error('[ShopPage]', e);
+      const supData   = await supRes.json();
+      const prodsData = await prodsRes.json();
+      setSupplier(supData.user || supData);
+      const arr = Array.isArray(prodsData) ? prodsData : (prodsData.products || prodsData.items || []);
+      setProducts(arr);
+    } catch {
+      setProducts([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -342,308 +351,228 @@ export default function ShopPage() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  // Animate banner text with bounce and glow effects
-  useEffect(() => {
-    Animated.loop(Animated.sequence([
-      Animated.timing(bannerAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
-      Animated.timing(bannerAnim, { toValue: 0.6, duration: 400, useNativeDriver: true }),
-      Animated.timing(bannerAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
-    ])).start();
-    Animated.loop(Animated.sequence([
-      Animated.timing(floatAnim, { toValue: 1, duration: 1200, useNativeDriver: true }),
-      Animated.timing(floatAnim, { toValue: 0, duration: 1200, useNativeDriver: true }),
-    ])).start();
-  }, []);
+  const allCategories = ['All', ...Array.from(new Set(products.map((p: any) => p.category).filter(Boolean)))];
 
-  const onRefresh = useCallback(() => { setRefreshing(true); fetchData(); }, [fetchData]);
+  let filtered = products.filter((p: any) => {
+    const q = search.toLowerCase();
+    const matchQ = !q || (p.name || p.title || '').toLowerCase().includes(q) || (p.category || '').toLowerCase().includes(q);
+    const matchC = selCategory === 'All' || p.category === selCategory;
+    if (activeTab === 'Deals') return matchQ && matchC && (parseFloat(p.mrp) > parseFloat(p.price));
+    return matchQ && matchC;
+  });
 
-  const handleAdd = useCallback((item: any) => {
-    if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const imgs = parseImages(item.images);
-    addToCart({ productId: item.id, title: item.title, price: parseFloat(item.price) || 0, image: imgs[0] ? getImgUri(imgs[0]) : '', supplierName: item.userName || supplier?.name, supplierId: item.userId, inStock: item.inStock, category: item.category });
-  }, [addToCart, supplier]);
+  if (sortBy === 'low') filtered = [...filtered].sort((a, b) => parseFloat(a.price) - parseFloat(b.price));
+  if (sortBy === 'high') filtered = [...filtered].sort((a, b) => parseFloat(b.price) - parseFloat(a.price));
+  if (sortBy === 'newest') filtered = [...filtered].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
-  const handleMessage = async () => {
-    if (!myProfile || !supplier) return;
-    const c = await startConversation(supplier.id, supplier.name, supplier.role);
-    if (c) router.push({ pathname: '/chat/[id]', params: { id: c } } as any);
-  };
+  const bannerImages: string[] = supplier
+    ? [
+        getImgUri(supplier.bannerImage || supplier.shopBanner || ''),
+        getImgUri(supplier.avatar || ''),
+      ].filter(Boolean)
+    : [];
 
-  const shopName = supplier?.shopName || supplier?.name || params.supplierName || 'Shop';
-  const featured = allProducts.slice(0, 8);
-  const newArrivals = [...allProducts].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 8);
-  const bestSelling = [...allProducts].sort((a, b) => (b.views || 0) - (a.views || 0)).slice(0, 8);
+  const insetTop = Platform.OS === 'ios' ? insets.top : (Platform.OS === 'android' ? 12 : 0);
 
-  const headerOpacity = scrollY.interpolate({ inputRange: [0, 120], outputRange: [0, 1], extrapolate: 'clamp' });
+  const renderHeader = () => (
+    <>
+      {/* Banner with back button inside */}
+      <BannerSlider
+        images={bannerImages}
+        onBack={() => router.back()}
+        title={supplierName || supplier?.businessName || supplier?.name || 'Shop'}
+        insetTop={insetTop + webTop}
+      />
+
+      {/* Supplier info */}
+      {supplier && <SupplierHeader supplier={supplier} />}
+
+      {/* Sticky Tabs */}
+      <CategoryTabs active={activeTab} onSelect={setActiveTab} />
+
+      {/* Search + sort bar */}
+      <View style={ss.toolbar}>
+        <View style={ss.toolSearch}>
+          <Ionicons name="search-outline" size={14} color={MUTED} />
+          <TextInput
+            style={ss.toolSearchInput}
+            placeholder="Search in this shop..."
+            placeholderTextColor={MUTED}
+            value={search}
+            onChangeText={setSearch}
+          />
+        </View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
+          {['recommended', 'low', 'high', 'newest'].map(s => (
+            <TouchableOpacity
+              key={s}
+              style={[ss.sortBtn, sortBy === s && ss.sortBtnActive]}
+              onPress={() => setSortBy(s)}
+            >
+              <Text style={[ss.sortBtnText, sortBy === s && ss.sortBtnTextActive]}>
+                {s === 'recommended' ? 'Top' : s === 'low' ? '↑ Price' : s === 'high' ? '↓ Price' : 'New'}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+
+      {/* Category chips (mobile sub-filter) */}
+      {allCategories.length > 1 && (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={ss.catScroll} contentContainerStyle={{ gap: 8, paddingHorizontal: 16 }}>
+          {allCategories.map(c => (
+            <TouchableOpacity
+              key={c}
+              style={[ss.catChip, selCategory === c && ss.catChipActive]}
+              onPress={() => setSelCategory(c)}
+            >
+              <Text style={[ss.catChipText, selCategory === c && ss.catChipTextActive]}>{c}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      )}
+
+      {/* About tab content */}
+      {activeTab === 'About Us' && supplier && (
+        <View style={ss.aboutBox}>
+          <Text style={ss.aboutTitle}>About {supplier.businessName || supplier.name}</Text>
+          <Text style={ss.aboutBody}>{supplier.about || supplier.bio || supplier.description || 'No description available.'}</Text>
+          {supplier.phone && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 }}>
+              <Ionicons name="call-outline" size={16} color={ACCENT} />
+              <Text style={{ fontSize: 14, color: DARK, fontFamily: 'Inter_500Medium' }}>{supplier.phone}</Text>
+            </View>
+          )}
+          {supplier.email && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 }}>
+              <Ionicons name="mail-outline" size={16} color={ACCENT} />
+              <Text style={{ fontSize: 14, color: DARK, fontFamily: 'Inter_500Medium' }}>{supplier.email}</Text>
+            </View>
+          )}
+        </View>
+      )}
+    </>
+  );
+
+  const renderProduct = ({ item }: { item: any }) => (
+    <View style={ss.prodCellWrap}>
+      <ProductCard
+        item={item}
+        onPress={() => router.push({ pathname: '/product-detail', params: { productId: item.id } } as any)}
+      />
+    </View>
+  );
 
   if (loading) {
     return (
-      <View style={[s.container, { paddingTop: insets.top + webTop }]}>
-        <View style={s.headerBar}>
-          <Pressable onPress={() => router.back()} style={s.backBtn}>
-            <Ionicons name="arrow-back" size={22} color="#111" />
-          </Pressable>
-          <Text style={s.headerTitle}>Shop</Text>
-          <View style={{ width: 38 }} />
-        </View>
-        <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>
-          <Skeleton w="100%" h={180} radius={0} />
-          <View style={{ paddingHorizontal: 4, gap: 10 }}>
-            <Skeleton w={180} h={22} />
-            <Skeleton w={120} h={16} />
-          </View>
-          <View style={{ flexDirection: 'row', gap: 12 }}>
-            {[1,2].map(i => <View key={i} style={{ gap: 8 }}><Skeleton w={CARD_W} h={CARD_W} /><Skeleton w={CARD_W * 0.8} h={14} /><Skeleton w={80} h={14} /></View>)}
-          </View>
-        </ScrollView>
+      <View style={[ss.root, { alignItems: 'center', justifyContent: 'center', paddingTop: webTop }]}>
+        <ActivityIndicator color={ACCENT} size="large" />
+        <Text style={{ marginTop: 12, color: MUTED, fontFamily: 'Inter_500Medium' }}>Loading shop...</Text>
       </View>
     );
   }
 
-  const ListHeader = () => (
-    <View>
-      {/* Full Banner */}
-      <View style={s.bannerWrap}>
-        {supplier?.banner ? (
-          <Image source={{ uri: getImgUri(supplier.banner) }} style={s.bannerImg} contentFit="cover" />
-        ) : (
-          <View style={[s.bannerImg, s.bannerFallback]}>
-            {/* Glow effect */}
-            <Animated.View style={[s.glowRing, {
-              opacity: bannerAnim,
-              transform: [{ scale: floatAnim.interpolate({ inputRange: [0, 1], outputRange: [1.2, 1.6] }) }]
-            }]} />
-            {/* Letter */}
-            <Animated.Text style={[s.bannerLetter, {
-              opacity: bannerAnim,
-              transform: [{ scale: floatAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.2] }) }]
-            }]}>
-              {shopName.charAt(0)}
-            </Animated.Text>
-            {/* Welcome text */}
-            <Animated.Text style={[s.welcomeTxt, { opacity: floatAnim }]}>Welcome!</Animated.Text>
-          </View>
-        )}
-        {/* Overlay gradient */}
-        <View style={s.bannerGradient} />
-        {/* Logo + Name */}
-        <View style={s.bannerBottom}>
-          <View style={s.logoCircle}>
-            {supplier?.avatar
-              ? <Image source={{ uri: getImgUri(supplier.avatar) }} style={s.logoImg} contentFit="cover" />
-              : <Text style={s.logoLetter}>{shopName.charAt(0)}</Text>}
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={s.bannerShopName}>{shopName}</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-                <Ionicons name="star" size={13} color={C.star} />
-                <Text style={{ color: '#FFF', fontSize: 12, fontFamily: 'Inter_600SemiBold' }}>4.8</Text>
-              </View>
-              <View style={s.verifiedBadge}>
-                <Ionicons name="checkmark-circle" size={12} color={C.green} />
-                <Text style={{ color: C.green, fontSize: 11, fontFamily: 'Inter_600SemiBold' }}>Verified</Text>
-              </View>
-            </View>
-          </View>
-        </View>
-      </View>
-
-      {/* Stats + Actions */}
-      <View style={s.infoCard}>
-        <View style={s.statsRow}>
-          <View style={s.stat}><Text style={s.statN}>{allProducts.length}</Text><Text style={s.statL}>Products</Text></View>
-          <View style={s.statDiv} />
-          <View style={s.stat}><Text style={s.statN}>{allProducts.reduce((a, p) => a + (p.views || 0), 0)}</Text><Text style={s.statL}>Views</Text></View>
-          <View style={s.statDiv} />
-          <View style={s.stat}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
-              <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: C.green }} />
-              <Text style={s.statN}>Active</Text>
-            </View>
-            <Text style={s.statL}>Status</Text>
-          </View>
-        </View>
-        {supplier?.city || supplier?.state ? (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingBottom: 10 }}>
-            <Ionicons name="location-outline" size={13} color={C.muted} />
-            <Text style={{ fontSize: 12, color: C.muted, fontFamily: 'Inter_400Regular' }}>
-              {[supplier.city, supplier.state].filter(Boolean).join(', ')}
-            </Text>
-          </View>
-        ) : null}
-        <View style={s.actionRow}>
-          {supplier?.phone && (
-            <Pressable style={s.callBtn} onPress={() => require('react-native').Linking.openURL(`tel:${supplier.phone}`)}>
-              <Ionicons name="call-outline" size={16} color={C.primary} />
-              <Text style={s.callTxt}>Call</Text>
-            </Pressable>
-          )}
-          {myProfile?.id !== supplierId && (
-            <Pressable style={s.msgBtn} onPress={handleMessage}>
-              <Ionicons name="chatbubble-outline" size={16} color="#fff" />
-              <Text style={s.msgTxt}>Message</Text>
-            </Pressable>
-          )}
-          <Pressable style={s.cartTopBtn} onPress={() => router.push('/cart' as any)}>
-            <Ionicons name="cart-outline" size={18} color={C.primary} />
-          </Pressable>
-        </View>
-      </View>
-
-      {/* 🔥 Featured Products */}
-      {featured.length > 0 && (
-        <View>
-          <SectionHead title="🔥 Featured Products" count={featured.length} />
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 14, paddingBottom: 4 }} decelerationRate="fast" snapToInterval={H_CARD_W + 12}>
-            {featured.map(item => (
-              <HCard key={item.id} item={item}
-                onPress={() => { setQuickItem(item); setQuickVisible(true); }}
-                onAdd={() => handleAdd(item)}
-                supplierPhone={supplier?.phone}
-              />
-            ))}
-          </ScrollView>
-        </View>
-      )}
-
-      {/* 🆕 New Arrivals */}
-      {newArrivals.length > 0 && (
-        <View>
-          <SectionHead title="🆕 New Arrivals" count={newArrivals.length} />
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 14, paddingBottom: 4 }} decelerationRate="fast" snapToInterval={H_CARD_W + 12}>
-            {newArrivals.map(item => (
-              <HCard key={item.id} item={item}
-                onPress={() => { setQuickItem(item); setQuickVisible(true); }}
-                onAdd={() => handleAdd(item)}
-                supplierPhone={supplier?.phone}
-              />
-            ))}
-          </ScrollView>
-        </View>
-      )}
-
-      {/* 💥 Best Selling */}
-      {bestSelling.length > 0 && (
-        <View>
-          <SectionHead title="💥 Best Selling" count={bestSelling.length} />
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 14, paddingBottom: 4 }} decelerationRate="fast" snapToInterval={H_CARD_W + 12}>
-            {bestSelling.map(item => (
-              <HCard key={item.id} item={item}
-                onPress={() => { setQuickItem(item); setQuickVisible(true); }}
-                onAdd={() => handleAdd(item)}
-                supplierPhone={supplier?.phone}
-              />
-            ))}
-          </ScrollView>
-        </View>
-      )}
-
-      {/* All Products Grid Header */}
-      <SectionHead title="📦 All Products" count={allProducts.length} />
-    </View>
-  );
-
   return (
-    <View style={[s.container, { paddingTop: insets.top + webTop }]}>
-      {/* Sticky Header Bar */}
-      <View style={s.headerBar}>
-        <Pressable onPress={() => router.back()} style={s.backBtn}>
-          <Ionicons name="arrow-back" size={22} color="#111" />
-        </Pressable>
-        <Animated.Text style={[s.headerTitle, { opacity: headerOpacity }]} numberOfLines={1}>{shopName}</Animated.Text>
-        <Pressable onPress={() => router.push('/cart' as any)} style={s.cartBtn}>
-          <Ionicons name="cart-outline" size={22} color={C.primary} />
-        </Pressable>
-      </View>
-
-      {/* Products FlatList with header */}
-      {allProducts.length === 0 && !loading ? (
-        <ScrollView refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />}>
-          <ListHeader />
-          <View style={s.empty}>
-            <Ionicons name="storefront-outline" size={64} color="#DDD" />
-            <Text style={s.emptyTitle}>No Products Yet</Text>
-            <Text style={s.emptySub}>This supplier hasn't listed any products</Text>
-          </View>
-        </ScrollView>
-      ) : (
-        <FlatList
-          data={allProducts}
-          keyExtractor={i => i.id}
-          numColumns={2}
-          columnWrapperStyle={s.row}
-          renderItem={({ item }) => (
-            <GCard
-              item={item}
-              inCart={isInCart(item.id)}
-              onPress={() => { setQuickItem(item); setQuickVisible(true); }}
-              onAdd={() => handleAdd(item)}
-              supplierPhone={supplier?.phone}
-            />
-          )}
-          ListHeaderComponent={<ListHeader />}
-          contentContainerStyle={s.listContent}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />}
-          onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: false })}
-          scrollEventThrottle={16}
-        />
-      )}
-
-      {/* Quick View Bottom Sheet */}
-      <QuickView
-        item={quickItem}
-        visible={quickVisible}
-        onClose={() => setQuickVisible(false)}
-        onAdd={() => quickItem && handleAdd(quickItem)}
-        supplierName={shopName}
+    <View style={[ss.root, { paddingTop: webTop }]}>
+      <FlatList
+        data={activeTab === 'About Us' ? [] : filtered}
+        keyExtractor={i => i.id?.toString()}
+        numColumns={2}
+        renderItem={renderProduct}
+        ListHeaderComponent={renderHeader}
+        contentContainerStyle={{ paddingHorizontal: 10, paddingBottom: insets.bottom + 32 }}
+        columnWrapperStyle={{ marginBottom: 0 }}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData(); }} tintColor={ACCENT} />}
+        ListEmptyComponent={
+          activeTab !== 'About Us' ? (
+            <View style={{ alignItems: 'center', paddingTop: 48, paddingBottom: 24 }}>
+              <Ionicons name="cube-outline" size={44} color={BORDER} />
+              <Text style={{ marginTop: 10, fontSize: 14, color: MUTED, fontFamily: 'Inter_500Medium' }}>
+                {search ? 'No products match your search' : `No products in ${activeTab.toLowerCase()}`}
+              </Text>
+            </View>
+          ) : null
+        }
       />
     </View>
   );
 }
 
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: C.bg },
-  headerBar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10, backgroundColor: C.white, borderBottomWidth: 1, borderBottomColor: C.border, zIndex: 10 },
-  backBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: '#F5F5F5', alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { flex: 1, textAlign: 'center', fontSize: 16, fontFamily: 'Inter_700Bold', color: C.text, marginHorizontal: 8 },
-  cartBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: C.primaryLight, alignItems: 'center', justifyContent: 'center' },
+const ss = StyleSheet.create({
+  root: { flex: 1, backgroundColor: BG },
 
   // Banner
-  bannerWrap: { width: SW, height: 200, position: 'relative', backgroundColor: C.primary },
-  bannerImg: { width: SW, height: 200 },
-  bannerFallback: { alignItems: 'center', justifyContent: 'center', backgroundColor: C.primary, gap: 12 },
-  bannerLetter: { fontSize: 96, fontFamily: 'Inter_700Bold', color: 'rgba(255,255,255,0.6)', textAlign: 'center' },
-  glowRing: { position: 'absolute', width: 140, height: 140, borderRadius: 70, borderWidth: 3, borderColor: 'rgba(255,255,255,0.4)' },
-  welcomeTxt: { fontSize: 22, fontFamily: 'Inter_600SemiBold', color: 'rgba(255,255,255,0.7)', letterSpacing: 2 },
-  bannerGradient: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 100, backgroundColor: 'rgba(0,0,0,0.45)' },
-  bannerBottom: { position: 'absolute', bottom: 12, left: 12, right: 12, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  logoCircle: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#fff', borderWidth: 2, borderColor: C.primary, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
-  logoImg: { width: 56, height: 56, borderRadius: 28 },
-  logoLetter: { fontSize: 22, fontFamily: 'Inter_700Bold', color: C.primary },
-  bannerShopName: { fontSize: 18, fontFamily: 'Inter_700Bold', color: '#FFF', marginBottom: 4 },
-  verifiedBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: 'rgba(34,197,94,0.15)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8 },
+  bannerWrap:    { width: '100%', height: BANNER_H, backgroundColor: '#E5E7EB', overflow: 'hidden', position: 'relative' },
+  bannerOverlay: { position: 'absolute', bottom: 0, left: 0, right: 0, height: BANNER_H * 0.5, backgroundColor: 'rgba(0,0,0,0.25)' },
+  bannerTopBar:  { position: 'absolute', left: 0, right: 0, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, gap: 10 },
+  bannerBtn:     { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(0,0,0,0.45)', alignItems: 'center', justifyContent: 'center' },
+  bannerTitle:   { flex: 1, fontSize: 16, fontFamily: 'Inter_600SemiBold', color: WHITE },
+  dots:          { position: 'absolute', bottom: 12, left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', gap: 6 },
+  dot:           { width: 8, height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.5)' },
+  dotActive:     { backgroundColor: ACCENT, width: 20 },
+  arrowBtn:      { position: 'absolute', top: BANNER_H / 2 - 18, width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)' },
 
-  // Info Card
-  infoCard: { backgroundColor: C.white, marginHorizontal: 0, paddingHorizontal: 14, paddingTop: 12, borderBottomWidth: 1, borderBottomColor: C.border },
-  statsRow: { flexDirection: 'row', alignItems: 'center', paddingBottom: 10 },
-  stat: { flex: 1, alignItems: 'center' },
-  statN: { fontSize: 15, fontFamily: 'Inter_700Bold', color: C.text },
-  statL: { fontSize: 11, color: C.muted, fontFamily: 'Inter_400Regular' },
-  statDiv: { width: 1, height: 28, backgroundColor: C.border },
-  actionRow: { flexDirection: 'row', gap: 10, paddingBottom: 12 },
-  callBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderWidth: 1.5, borderColor: C.primary, borderRadius: 8, paddingVertical: 10 },
-  callTxt: { color: C.primary, fontFamily: 'Inter_600SemiBold', fontSize: 14 },
-  msgBtn: { flex: 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: C.primary, borderRadius: 8, paddingVertical: 10 },
-  msgTxt: { color: '#fff', fontFamily: 'Inter_600SemiBold', fontSize: 14 },
-  cartTopBtn: { width: 44, height: 44, borderRadius: 8, backgroundColor: C.primaryLight, alignItems: 'center', justifyContent: 'center' },
+  // Supplier Header
+  supplierHeader: { backgroundColor: WHITE, padding: 16, borderBottomWidth: 1, borderBottomColor: BORDER },
+  supplierRow:    { flexDirection: 'row', gap: 12, marginBottom: 12 },
+  supplierAvatar: {},
+  supplierName:   { fontSize: 17, fontFamily: 'Inter_700Bold', color: DARK },
+  catTag:         { backgroundColor: '#F3F4F6', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
+  catTagText:     { fontSize: 11, color: '#4B5563', fontFamily: 'Inter_500Medium' },
+  statsRow:       { flexDirection: 'row', alignItems: 'center', paddingTop: 12, borderTopWidth: 1, borderTopColor: BORDER, gap: 0 },
+  statItem:       { flex: 1, alignItems: 'center' },
+  statVal:        { fontSize: 18, fontFamily: 'Inter_700Bold', color: DARK },
+  statLabel:      { fontSize: 11, color: MUTED, fontFamily: 'Inter_400Regular', marginTop: 2 },
+  statDivider:    { width: 1, height: 30, backgroundColor: BORDER },
 
-  // Grid
-  listContent: { paddingBottom: 40 },
-  row: { paddingHorizontal: 12, gap: 12, marginBottom: 12 },
+  // Tabs
+  tabsBar:  { backgroundColor: WHITE, borderBottomWidth: 1, borderBottomColor: BORDER, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 4, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
+  tabsRow:  { flexDirection: 'row', paddingHorizontal: 16 },
+  tab:      { paddingHorizontal: 4, paddingVertical: 14, marginRight: 24, borderBottomWidth: 2, borderBottomColor: 'transparent' },
+  tabActive:{ borderBottomColor: ACCENT },
+  tabText:  { fontSize: 13, fontFamily: 'Inter_500Medium', color: MUTED },
+  tabTextActive: { color: ACCENT, fontFamily: 'Inter_600SemiBold' },
 
-  // Empty
-  empty: { alignItems: 'center', paddingTop: 40, paddingHorizontal: 40 },
-  emptyTitle: { fontSize: 17, fontFamily: 'Inter_700Bold', color: '#374151', marginTop: 16 },
-  emptySub: { fontSize: 13, color: C.muted, marginTop: 8, textAlign: 'center', fontFamily: 'Inter_400Regular' },
+  // Toolbar
+  toolbar:        { backgroundColor: WHITE, padding: 12, borderBottomWidth: 1, borderBottomColor: BORDER, gap: 10 },
+  toolSearch:     { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F3F4F6', borderRadius: 10, paddingHorizontal: 10, gap: 6, borderWidth: 1, borderColor: BORDER, height: 38 },
+  toolSearchInput:{ flex: 1, fontSize: 13, fontFamily: 'Inter_400Regular', color: DARK },
+  sortBtn:        { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: BORDER, backgroundColor: WHITE },
+  sortBtnActive:  { borderColor: ACCENT, backgroundColor: ACCENT + '10' },
+  sortBtnText:    { fontSize: 12, fontFamily: 'Inter_500Medium', color: MUTED },
+  sortBtnTextActive: { color: ACCENT },
+
+  // Category chips
+  catScroll:    { paddingVertical: 10, backgroundColor: WHITE, borderBottomWidth: 1, borderBottomColor: BORDER },
+  catChip:      { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 999, borderWidth: 1, borderColor: BORDER, backgroundColor: WHITE },
+  catChipActive:{ borderColor: ACCENT, backgroundColor: ACCENT + '10' },
+  catChipText:  { fontSize: 12, fontFamily: 'Inter_500Medium', color: MUTED },
+  catChipTextActive: { color: ACCENT },
+
+  // Product
+  prodCellWrap: { flex: 1, padding: COL_GAP / 2 },
+  prodCard:     { backgroundColor: WHITE, borderRadius: 12, borderWidth: 1, borderColor: BORDER, overflow: 'hidden', shadowColor: '#000', shadowOpacity: 0.03, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 1, flexDirection: 'column' },
+  prodImgWrap:  { aspectRatio: 1, backgroundColor: '#F9FAFB', padding: 12, position: 'relative', alignItems: 'center', justifyContent: 'center' },
+  prodImg:      { width: '100%', height: '100%' },
+  discBadge:    { position: 'absolute', top: 6, left: 6, backgroundColor: DANGER, paddingHorizontal: 6, paddingVertical: 3, borderRadius: 4 },
+  discText:     { fontSize: 10, fontFamily: 'Inter_700Bold', color: WHITE },
+  heartBtn:     { position: 'absolute', top: 6, right: 6, width: 28, height: 28, borderRadius: 14, backgroundColor: WHITE, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 4, elevation: 2 },
+
+  prodInfo:     { padding: 10, flex: 1, flexDirection: 'column', gap: 3 },
+  prodCategory: { fontSize: 11, color: MUTED, fontFamily: 'Inter_400Regular' },
+  prodName:     { fontSize: 13, fontFamily: 'Inter_500Medium', color: DARK, lineHeight: 18 },
+  starsRow:     { flexDirection: 'row', alignItems: 'center', gap: 2, marginTop: 3 },
+  reviewCount:  { fontSize: 10, color: MUTED, fontFamily: 'Inter_400Regular', marginLeft: 2 },
+  priceRow:     { flexDirection: 'row', alignItems: 'baseline', gap: 6, marginTop: 4 },
+  price:        { fontSize: 15, fontFamily: 'Inter_700Bold', color: DARK },
+  mrp:          { fontSize: 11, color: MUTED, fontFamily: 'Inter_400Regular', textDecorationLine: 'line-through' },
+  moqText:      { fontSize: 11, color: MUTED, fontFamily: 'Inter_400Regular' },
+  addBtn:       { marginTop: 8, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: BORDER, alignItems: 'center' },
+  addBtnText:   { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: DARK },
+
+  // About
+  aboutBox:   { margin: 16, backgroundColor: WHITE, borderRadius: 16, padding: 20, borderWidth: 1, borderColor: BORDER },
+  aboutTitle: { fontSize: 16, fontFamily: 'Inter_700Bold', color: DARK, marginBottom: 10 },
+  aboutBody:  { fontSize: 14, color: MUTED, fontFamily: 'Inter_400Regular', lineHeight: 22 },
 });
