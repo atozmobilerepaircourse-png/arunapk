@@ -404,8 +404,19 @@ export default function AdminScreen() {
     try {
       const res = await apiRequest('GET', '/api/products');
       const data = await res.json();
-      if (Array.isArray(data)) setAllProducts(data);
-    } catch { } finally { setListingsLoading(false); }
+      console.log('[Admin] Products fetch response:', { ok: res.ok, dataLength: Array.isArray(data) ? data.length : typeof data, data });
+      if (Array.isArray(data)) {
+        setAllProducts(data);
+      } else {
+        console.warn('[Admin] Products response is not an array:', data);
+        setAllProducts([]);
+      }
+    } catch (e) {
+      console.error('[Admin] Products fetch error:', e);
+      Alert.alert('Error', 'Failed to load products');
+    } finally {
+      setListingsLoading(false);
+    }
   };
 
   useEffect(() => {
