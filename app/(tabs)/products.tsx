@@ -331,16 +331,24 @@ export default function SupplierProductsScreen() {
             const data = await res.json();
             console.log('[Delete] Response:', data);
             
-            if (data.success) {
-              setProducts(prev => prev.filter(p => p.id !== product.id));
+            // Remove from UI immediately
+            setProducts(prev => prev.filter(p => p.id !== product.id));
+            
+            if (data.success || res.status === 404) {
+              // 404 means product doesn't exist - still success in our case
               if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
               Alert.alert('Success', 'Product deleted successfully');
+              // Refresh all data to ensure sync
               await loadData();
             } else {
+              // Add product back if delete failed
+              setProducts(prev => [...prev, product]);
               Alert.alert('Error', data.message || 'Failed to delete product');
             }
           } catch (e) {
             console.error('[Delete] Error:', e);
+            // Add product back if there was an exception
+            setProducts(prev => [...prev, product]);
             Alert.alert('Error', 'Failed to delete product. Check your connection and try again.');
           } finally {
             setLoadingId(null);
