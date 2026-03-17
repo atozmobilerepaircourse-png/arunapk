@@ -6095,16 +6095,11 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
       const snapshot = await firestore.collection("teacher_live_sessions")
         .where("isLive", "==", true)
         .get();
-      const baseUrl = `${req.protocol}://${req.get("host")}`;
       const sessions = snapshot.docs
         .map(doc => {
           const data = doc.data();
-          if (data.latestImage && data.latestImage.startsWith("/")) {
-            data.latestImage = baseUrl + data.latestImage;
-          }
-          if (data.teacherAvatar && data.teacherAvatar.startsWith("/")) {
-            data.teacherAvatar = baseUrl + data.teacherAvatar;
-          }
+          // Don't prepend domain - return URLs as-is from database
+          // Frontend will handle relative URLs properly
           return { id: doc.id, ...data };
         })
         .sort((a: any, b: any) => (b.startedAt || 0) - (a.startedAt || 0));
@@ -6390,9 +6385,8 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
       const filename = `images/${randomUUID()}${path.extname(req.file.originalname)}`;
       const url = await uploadToStorage(req.file.buffer, filename);
       
-      // Ensure the URL is absolute for Firestore
-      const baseUrl = `${req.protocol}://${req.get("host")}`;
-      const absoluteUrl = url.startsWith("/") ? baseUrl + url : url;
+      // Storage returns absolute URL from Bunny CDN - use it as-is
+      const absoluteUrl = url;
 
       // Build message text — include the join link so viewers can tap it
       const displayName = teacherName || "Teacher";
@@ -6449,8 +6443,8 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
       const filename = `images/${randomUUID()}${path.extname(req.file.originalname || '.jpg')}`;
       const url = await uploadToStorage(req.file.buffer, filename);
 
-      const baseUrl = `${req.protocol}://${req.get("host")}`;
-      const absoluteUrl = url.startsWith("/") ? baseUrl + url : url;
+      // Storage returns absolute URL from Bunny CDN - use it as-is
+      const absoluteUrl = url;
 
       console.log(`[Live Thumbnail] Uploaded for session ${sessionId}: ${absoluteUrl}`);
 

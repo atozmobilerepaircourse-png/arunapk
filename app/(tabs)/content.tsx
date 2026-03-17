@@ -70,14 +70,20 @@ function LiveCard({ session, onJoin }: { session: LiveSession; onJoin: (s: LiveS
   const pLabel = PLATFORM_LABELS[session.platform] ?? 'Live';
   const elapsed = Math.floor((Date.now() - session.startedAt) / 60000);
   const timeStr = elapsed < 1 ? 'Just started' : elapsed < 60 ? `${elapsed}m` : `${Math.floor(elapsed / 60)}h`;
+  const [imageError, setImageError] = React.useState(false);
 
   return (
     <Animated.View entering={FadeInDown.duration(350).springify()}>
       <Pressable style={liveStyles.card} onPress={() => onJoin(session)}>
         {/* Thumbnail / Icon area */}
         <View style={[liveStyles.thumb, { backgroundColor: pColor + '14' }]}>
-          {session.thumbnailUrl ? (
-            <Image source={{ uri: session.thumbnailUrl }} style={liveStyles.thumbImg} resizeMode="cover" />
+          {session.thumbnailUrl && !imageError ? (
+            <Image 
+              source={{ uri: session.thumbnailUrl }} 
+              style={liveStyles.thumbImg} 
+              resizeMode="cover"
+              onError={() => setImageError(true)}
+            />
           ) : (
             <Ionicons name={pIcon} size={28} color={pColor} />
           )}
