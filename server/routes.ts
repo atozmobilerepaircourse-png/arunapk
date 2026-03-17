@@ -830,14 +830,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const cleanEmail = isEmailVerification ? email.trim().toLowerCase() : "";
       const lookupKey = isEmailVerification ? `email:${cleanEmail}` : cleanPhone;
 
-      // Bypass OTP for specific test/admin numbers (accepts any OTP or no OTP)
+      // Bypass OTP for specific test/admin numbers (accepts any OTP)
       const isBypassPhone = (cleanPhone === '8179142535' || cleanPhone === '9398391742');
-      const isSuperAdminBypass = (
-        (isBypassPhone && !isEmailVerification) ||
-        (isEmailVerification && cleanEmail === 'admin@mobi.app')
-      ) && !!otp;
+      const isBypassEmail = (cleanEmail === 'admin@mobi.app');
+      const isSuperAdminBypass = (isBypassPhone && !isEmailVerification) || (isBypassEmail && isEmailVerification);
 
       if (!isSuperAdminBypass) {
+        // Normal OTP verification - check database
         const storedRows = await db.select().from(otpTokens).where(eq(otpTokens.phone, lookupKey));
         const stored = storedRows[0];
 
@@ -856,7 +855,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         await db.delete(otpTokens).where(eq(otpTokens.phone, lookupKey));
       } else {
-        console.log(`[OTP] Super admin bypass accepted for ${cleanPhone}`);
+        // Admin/test bypass - skip all OTP checks
+        console.log(`[OTP] Admin/test bypass accepted for ${isEmailVerification ? cleanEmail : cleanPhone}`);
       }
 
       const allProfilesList = await db.select().from(profiles);
