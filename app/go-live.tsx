@@ -166,57 +166,33 @@ export default function GoLiveScreen() {
   };
 
   const handleEndLive = async () => {
+    console.log('[EndLive] Button clicked! activeSession:', activeSession?.id, 'teacherId:', profile?.id);
+    
+    if (!activeSession?.id || !profile?.id) {
+      console.error('[EndLive] Missing session or teacher info');
+      return;
+    }
+    
     try {
-      console.log('[EndLive] Button clicked! activeSession:', activeSession?.id, 'teacherId:', profile?.id);
+      console.log('[EndLive] Making API request...');
       
-      if (!activeSession?.id || !profile?.id) {
-        Alert.alert('Error', 'Missing session or teacher info');
-        return;
-      }
-      
-      console.log('[EndLive] Confirming action with user...');
-      
-      // Use a simple confirmation approach that works on web
-      const confirmed = await new Promise<boolean>((resolve) => {
-        Alert.alert(
-          'End Session?',
-          'This will remove your session from the Live tab.',
-          [
-            { text: 'Cancel', onPress: () => resolve(false), style: 'cancel' },
-            { text: 'End', onPress: () => resolve(true), style: 'destructive' },
-          ],
-          { cancelable: false }
-        );
-      });
-      
-      if (!confirmed) {
-        console.log('[EndLive] User cancelled');
-        return;
-      }
-      
-      console.log('[EndLive] User confirmed. Sending request...');
-      
-      // Make API call
       const res = await apiRequest('POST', '/api/teacher/end-live', {
         teacherId: profile.id,
         sessionId: activeSession.id,
       });
       
-      console.log('[EndLive] Got response:', res.status, res.ok);
+      console.log('[EndLive] Response received:', res.status, 'ok:', res.ok);
       
-      // Always clear session on 200 response
       if (res.ok) {
         console.log('[EndLive] Success! Clearing state.');
         setActiveSession(null);
         setStreamKeyInfo(null);
-        Alert.alert('Success', 'Your live session has been ended.');
+        console.log('[EndLive] State cleared. Session should be gone.');
       } else {
-        console.log('[EndLive] Response not OK');
-        Alert.alert('Error', 'Failed to end session');
+        console.error('[EndLive] Response not OK:', res.status);
       }
     } catch (error: any) {
       console.error('[EndLive] Exception:', error?.message || error);
-      Alert.alert('Error', error?.message || 'Connection failed');
     }
   };
 
