@@ -113,10 +113,25 @@ function ProductRow({ product, onEdit, onDelete }: { product: Product; onEdit: (
         </View>
       </View>
       <View style={styles.productActions}>
-        <Pressable onPress={onEdit} style={styles.actionBtn} hitSlop={8}>
+        <Pressable 
+          onPress={onEdit} 
+          style={({ pressed }) => [styles.actionBtn, pressed && { opacity: 0.6 }]} 
+          hitSlop={15}
+          delayPressIn={0}
+          android_ripple={{ color: PRIMARY }}
+        >
           <Ionicons name="create-outline" size={18} color={PRIMARY} />
         </Pressable>
-        <Pressable onPress={() => { console.log('[Delete] Trash pressed for', product.id); onDelete(); }} style={styles.actionBtn} hitSlop={8}>
+        <Pressable 
+          onPress={() => { 
+            console.log('[Delete] Trash pressed for', product.id, product.title); 
+            onDelete(); 
+          }} 
+          style={({ pressed }) => [styles.actionBtn, pressed && { opacity: 0.6 }]} 
+          hitSlop={15}
+          delayPressIn={0}
+          android_ripple={{ color: '#FF3B30' }}
+        >
           <Ionicons name="trash-outline" size={18} color="#FF3B30" />
         </Pressable>
       </View>
@@ -405,6 +420,8 @@ export default function SupplierProductsScreen() {
           keyExtractor={i => i.id}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
+          scrollEnabled={products.length > 5}
+          keyboardShouldPersistTaps="handled"
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={PRIMARY} />}
           ListEmptyComponent={
             <View style={styles.empty}>
