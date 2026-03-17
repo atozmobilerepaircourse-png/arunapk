@@ -80,27 +80,10 @@ function StatCard({ label, value, icon, color }: { label: string; value: string 
 }
 
 function ProductRow({ product, onEdit, onDelete }: { product: Product; onEdit: () => void; onDelete: () => void }) {
-  const imgs = (() => { 
-    try { 
-      // API returns images as already-parsed array, not JSON string
-      if (Array.isArray(product.images)) {
-        console.log('[ProductRow] Images already array:', product.images);
-        return product.images;
-      }
-      // Fallback: if it's a string, parse it
-      if (typeof product.images === 'string') {
-        const parsed = JSON.parse(product.images);
-        console.log('[ProductRow] Parsed images from string:', parsed);
-        return Array.isArray(parsed) ? parsed : [];
-      }
-      return [];
-    } catch (e) { 
-      console.error('[ProductRow] Failed to parse images:', e, 'raw:', product.images);
-      return [];
-    } 
-  })();
-  const img = imgs[0] ? (imgs[0].startsWith('/') ? `${getApiUrl()}${imgs[0]}` : imgs[0]) : '';
-  console.log('[ProductRow] Final image URL:', img);
+  const imgs = product.images || [];
+  const img = Array.isArray(imgs) && imgs.length > 0 && imgs[0] 
+    ? (imgs[0].startsWith('/') ? `${getApiUrl()}${imgs[0]}` : imgs[0]) 
+    : '';
   const price = parseFloat(product.price) || 0;
   return (
     <View style={styles.productRow}>
@@ -282,26 +265,16 @@ export default function SupplierProductsScreen() {
   const loadData = useCallback(async () => {
     if (!profile?.id) return;
     try {
-      console.log('[loadData] Fetching products for user:', profile.id);
-      const url = `/api/products?userId=${profile.id}`;
-      console.log('[loadData] URL:', url);
       const [prodRes, ordRes] = await Promise.all([
-        apiRequest('GET', url),
+        apiRequest('GET', `/api/products?userId=${profile.id}`),
         apiRequest('GET', `/api/orders?sellerId=${profile.id}`),
       ]);
       const prodData = await prodRes.json();
       const ordData = await ordRes.json();
-      console.log('[loadData] Got products:', prodData?.length || 0);
-      if (prodData && prodData.length > 0) {
-        console.log('[loadData] First product:', JSON.stringify(prodData[0], null, 2));
-      }
-      if (Array.isArray(prodData)) {
-        console.log('[loadData] Setting', prodData.length, 'products');
-        setProducts(prodData);
-      }
+      if (Array.isArray(prodData)) setProducts(prodData);
       if (Array.isArray(ordData)) setOrders(ordData);
     } catch (e) {
-      console.error('[loadData] fetch error:', e);
+      console.error('[SupplierProducts] fetch error:', e);
       Alert.alert('Error', 'Failed to load products. Pull down to refresh.');
     } finally {
       setLoading(false);
@@ -340,31 +313,19 @@ export default function SupplierProductsScreen() {
       {
         text: 'Delete', style: 'destructive', onPress: async () => {
           try {
-            console.log('[DELETE] Starting delete for product:', product.id, product.title);
-            const deleteUrl = `/api/products/${product.id}`;
-            console.log('[DELETE] Calling:', deleteUrl);
-            const res = await apiRequest('DELETE', deleteUrl);
-            console.log('[DELETE] Response status:', res.status, res.ok);
+            const res = await apiRequest('DELETE', `/api/products/${product.id}`);
             const data = await res.json();
-            console.log('[DELETE] Response data:', data);
             
-            if (data.success === true) {
-              console.log('[DELETE] ✓ Success - removing from state');
-              setProducts(prev => {
-                const updated = prev.filter(p => p.id !== product.id);
-                console.log('[DELETE] State updated. Remaining products:', updated.length);
-                return updated;
-              });
+            if (data.success) {
+              setProducts(prev => prev.filter(p => p.id !== product.id));
               if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
               Alert.alert('Success', 'Product deleted successfully');
-              // Refresh data to ensure consistency
               await loadData();
             } else {
-              console.error('[DELETE] ✗ Failed:', data.message);
               Alert.alert('Error', data.message || 'Failed to delete product');
             }
           } catch (e) {
-            console.error('[DELETE] ✗ Error:', e);
+            console.error('[SupplierProducts] Delete error:', e);
             Alert.alert('Error', 'Failed to delete product. Check your connection and try again.');
           }
         }
