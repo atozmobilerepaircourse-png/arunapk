@@ -12,6 +12,7 @@ import * as ImagePicker from 'expo-image-picker';
 
 const RED  = '#EF4444';
 const GRAY = '#9CA3AF';
+const DARK = '#111827';
 const BUNNY_COLOR = '#FF6B35';
 
 interface LiveSession {
