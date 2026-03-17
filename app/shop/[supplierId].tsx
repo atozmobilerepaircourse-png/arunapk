@@ -250,23 +250,12 @@ function SupplierHeader({ supplier }: { supplier: any }) {
         </View>
         <View style={{ flex: 1, gap: 3 }}>
           <Text style={ss.supplierName}>{supplier.businessName || supplier.name}</Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          {(supplier.city || supplier.location) && (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-              <Ionicons name="star" size={12} color={STAR} />
-              <Text style={{ fontSize: 13, fontFamily: 'Inter_600SemiBold', color: STAR }}>
-                {(parseFloat(supplier.rating) || 4.5).toFixed(1)}
-              </Text>
-              {supplier.reviewCount > 0 && (
-                <Text style={{ fontSize: 12, color: MUTED, fontFamily: 'Inter_400Regular' }}>({supplier.reviewCount})</Text>
-              )}
+              <Ionicons name="location-outline" size={12} color={MUTED} />
+              <Text style={{ fontSize: 12, color: MUTED, fontFamily: 'Inter_400Regular' }}>{supplier.city || supplier.location}</Text>
             </View>
-            {(supplier.city || supplier.location) && (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-                <Ionicons name="location-outline" size={12} color={MUTED} />
-                <Text style={{ fontSize: 12, color: MUTED, fontFamily: 'Inter_400Regular' }}>{supplier.city || supplier.location}</Text>
-              </View>
-            )}
-          </View>
+          )}
           {cats.length > 0 && (
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               <View style={{ flexDirection: 'row', gap: 6, marginTop: 4 }}>
