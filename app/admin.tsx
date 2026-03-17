@@ -806,6 +806,20 @@ export default function AdminScreen() {
 
   const downloadUsersCSV = () => openLink(`${getApiUrl()}/api/admin/export-users`, 'Export');
 
+  const handleEndAllLive = async () => {
+    try {
+      const res = await apiRequest('POST', '/api/admin/end-all-live', {});
+      const data = await res.json();
+      if (data.success) {
+        Alert.alert('Success', `Ended ${data.endedCount} live session(s)`);
+      } else {
+        Alert.alert('Error', data.message || 'Failed to end live sessions');
+      }
+    } catch (error: any) {
+      Alert.alert('Error', error?.message || 'Failed to end live sessions');
+    }
+  };
+
   const saveLink = async (key: string, value: string) => {
     try {
       await apiRequest('PUT', `/api/app-settings/${key}`, { value });
@@ -978,6 +992,7 @@ export default function AdminScreen() {
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
         {[
           { label: 'Export Users', icon: 'download-outline' as any, color: '#5E8BFF', action: downloadUsersCSV },
+          { label: 'End All Live', icon: 'stop-circle-outline' as any, color: '#FF3B30', action: handleEndAllLive },
           { label: 'Reports', icon: 'bar-chart-outline' as any, color: PRIMARY, action: () => setActiveTab('reports') },
           { label: 'Email Campaign', icon: 'mail-outline' as any, color: '#34C759', action: () => setActiveTab('email') },
           { label: 'Settings', icon: 'settings-outline' as any, color: '#FFD60A', action: () => setActiveTab('settings') },
