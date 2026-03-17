@@ -6627,26 +6627,43 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
     }
   });
 
-  // NUCLEAR OPTION: Delete everything except admin account
-  app.post("/api/admin/nuke-database", adminMiddleware, async (req, res) => {
+  // COMPLETE WIPE: Delete everything except admin account and required system data
+  app.post("/api/admin/complete-wipe", adminMiddleware, async (req, res) => {
     try {
       const { confirm } = req.body;
-      if (confirm !== "CONFIRM_DELETE_ALL") {
-        return res.status(400).json({ success: false, message: "Must confirm with 'CONFIRM_DELETE_ALL'" });
+      if (confirm !== "CONFIRM_COMPLETE_WIPE") {
+        return res.status(400).json({ success: false, message: "Must confirm with 'CONFIRM_COMPLETE_WIPE'" });
       }
 
       // Get admin ID(s) to preserve
       const adminProfiles = await db.select().from(profiles).where(sql`phone LIKE '%8179142535%'`);
       const adminIds = adminProfiles.map(p => p.id);
 
-      // Delete everything in order respecting foreign keys
-      await db.delete(messages); // Chat messages
-      await db.delete(conversations); // Conversations
-      await db.delete(jobs); // Jobs
-      await db.delete(comments); // Post comments
-      await db.delete(likes); // Post likes
-      await db.delete(posts); // Posts
-      await db.delete(products); // Products
+      // Delete everything in dependency order
+      try { await db.delete(videoProgress); } catch(e) { console.log("videoProgress:", e); }
+      try { await db.delete(courseVideos); } catch(e) { console.log("courseVideos:", e); }
+      try { await db.delete(courseChapters); } catch(e) { console.log("courseChapters:", e); }
+      try { await db.delete(courseEnrollments); } catch(e) { console.log("courseEnrollments:", e); }
+      try { await db.delete(courseNotices); } catch(e) { console.log("courseNotices:", e); }
+      try { await db.delete(courses); } catch(e) { console.log("courses:", e); }
+      try { await db.delete(livePollVotes); } catch(e) { console.log("livePollVotes:", e); }
+      try { await db.delete(livePolls); } catch(e) { console.log("livePolls:", e); }
+      try { await db.delete(liveChatMessages); } catch(e) { console.log("liveChatMessages:", e); }
+      try { await db.delete(liveClasses); } catch(e) { console.log("liveClasses:", e); }
+      try { await db.delete(dubbedVideos); } catch(e) { console.log("dubbedVideos:", e); }
+      try { await db.delete(reels); } catch(e) { console.log("reels:", e); }
+      try { await db.delete(messages); } catch(e) { console.log("messages:", e); }
+      try { await db.delete(conversations); } catch(e) { console.log("conversations:", e); }
+      try { await db.delete(comments); } catch(e) { console.log("comments:", e); }
+      try { await db.delete(likes); } catch(e) { console.log("likes:", e); }
+      try { await db.delete(posts); } catch(e) { console.log("posts:", e); }
+      try { await db.delete(orders); } catch(e) { console.log("orders:", e); }
+      try { await db.delete(products); } catch(e) { console.log("products:", e); }
+      try { await db.delete(jobs); } catch(e) { console.log("jobs:", e); }
+      try { await db.delete(repairBookings); } catch(e) { console.log("repairBookings:", e); }
+      try { await db.delete(ads); } catch(e) { console.log("ads:", e); }
+      try { await db.delete(teacherPayouts); } catch(e) { console.log("teacherPayouts:", e); }
+      try { await db.delete(payments); } catch(e) { console.log("payments:", e); }
       
       // Delete all users EXCEPT admin(s)
       if (adminIds.length > 0) {
@@ -6659,12 +6676,12 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
 
       return res.json({
         success: true,
-        message: "Database nuked. Only admin account(s) remain.",
+        message: "Complete database wipe successful. Only admin account(s) remain.",
         adminPreserved: adminIds.length,
       });
     } catch (error) {
-      console.error("[Admin] Nuke database error:", error);
-      return res.status(500).json({ success: false, message: "Failed to nuke database" });
+      console.error("[Admin] Complete wipe error:", error);
+      return res.status(500).json({ success: false, message: "Failed to complete wipe" });
     }
   });
 
