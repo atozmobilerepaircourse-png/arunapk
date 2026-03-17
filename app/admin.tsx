@@ -104,11 +104,14 @@ function ActionButton({ label, onPress, color = PRIMARY, loading = false, icon, 
 }
 
 // ─── UserDetailCard ───────────────────────────────────────────────────────────
-function UserDetailCard({ user, onBlock, onVerify, onDelete }: {
+function UserDetailCard({ user, onBlock, onVerify, onDelete, blockingId, verifyingId, deletingId }: {
   user: any;
   onBlock: (id: string, name: string, blocked: boolean) => void;
   onVerify: (id: string, name: string, verified: boolean) => void;
   onDelete: (id: string, name: string) => void;
+  blockingId?: string;
+  verifyingId?: string;
+  deletingId?: string;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [showRolePicker, setShowRolePicker] = useState(false);
@@ -119,6 +122,9 @@ function UserDetailCard({ user, onBlock, onVerify, onDelete }: {
   const profile = user.fullProfile;
   const isBlocked = profile?.blocked === 1;
   const isVerified = profile?.verified === 1;
+  const isBlockingThisUser = blockingId === user.id;
+  const isVerifyingThisUser = verifyingId === user.id;
+  const isDeletingThisUser = deletingId === user.id;
 
   const changeRole = async (newRole: UserRole) => {
     setShowRolePicker(false);
@@ -208,27 +214,30 @@ function UserDetailCard({ user, onBlock, onVerify, onDelete }: {
             </Pressable>
             <Pressable
               onPress={() => onBlock(user.id, user.name, !isBlocked)}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: isBlocked ? '#34C75915' : '#FF3B3015', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: isBlocked ? '#34C75940' : '#FF3B3040' }}
+              disabled={isBlockingThisUser}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: isBlocked ? '#34C75915' : '#FF3B3015', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: isBlocked ? '#34C75940' : '#FF3B3040', opacity: isBlockingThisUser ? 0.6 : 1 }}
             >
-              <Ionicons name={isBlocked ? 'lock-open-outline' : 'ban-outline'} size={13} color={isBlocked ? '#34C759' : '#FF3B30'} />
-              <Text style={{ fontSize: 12, color: isBlocked ? '#34C759' : '#FF3B30', fontFamily: 'Inter_600SemiBold' }}>{isBlocked ? 'Unblock' : 'Block'}</Text>
+              {isBlockingThisUser ? <ActivityIndicator size="small" color={isBlocked ? '#34C759' : '#FF3B30'} /> : <Ionicons name={isBlocked ? 'lock-open-outline' : 'ban-outline'} size={13} color={isBlocked ? '#34C759' : '#FF3B30'} />}
+              <Text style={{ fontSize: 12, color: isBlocked ? '#34C759' : '#FF3B30', fontFamily: 'Inter_600SemiBold' }}>{isBlockingThisUser ? 'Working...' : (isBlocked ? 'Unblock' : 'Block')}</Text>
             </Pressable>
             <Pressable
               onPress={() => onVerify(user.id, user.name, !isVerified)}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: isVerified ? '#5E8BFF15' : '#34C75915', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: isVerified ? '#5E8BFF40' : '#34C75940' }}
+              disabled={isVerifyingThisUser}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: isVerified ? '#5E8BFF15' : '#34C75915', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: isVerified ? '#5E8BFF40' : '#34C75940', opacity: isVerifyingThisUser ? 0.6 : 1 }}
             >
-              <Ionicons name={isVerified ? 'close-circle-outline' : 'checkmark-circle-outline'} size={13} color={isVerified ? '#5E8BFF' : '#34C759'} />
-              <Text style={{ fontSize: 12, color: isVerified ? '#5E8BFF' : '#34C759', fontFamily: 'Inter_600SemiBold' }}>{isVerified ? 'Unverify' : 'Verify'}</Text>
+              {isVerifyingThisUser ? <ActivityIndicator size="small" color={isVerified ? '#5E8BFF' : '#34C759'} /> : <Ionicons name={isVerified ? 'close-circle-outline' : 'checkmark-circle-outline'} size={13} color={isVerified ? '#5E8BFF' : '#34C759'} />}
+              <Text style={{ fontSize: 12, color: isVerified ? '#5E8BFF' : '#34C759', fontFamily: 'Inter_600SemiBold' }}>{isVerifyingThisUser ? 'Working...' : (isVerified ? 'Unverify' : 'Verify')}</Text>
             </Pressable>
             <Pressable
               onPress={() => Alert.alert('Delete User', `Delete ${user.name}? This cannot be undone.`, [
                 { text: 'Cancel', style: 'cancel' },
                 { text: 'Delete', style: 'destructive', onPress: () => onDelete(user.id, user.name) },
               ])}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#FF3B3010', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: '#FF3B3030' }}
+              disabled={isDeletingThisUser}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#FF3B3010', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: '#FF3B3030', opacity: isDeletingThisUser ? 0.6 : 1 }}
             >
-              <Ionicons name="trash-outline" size={13} color="#FF3B30" />
-              <Text style={{ fontSize: 12, color: '#FF3B30', fontFamily: 'Inter_600SemiBold' }}>Delete</Text>
+              {isDeletingThisUser ? <ActivityIndicator size="small" color="#FF3B30" /> : <Ionicons name="trash-outline" size={13} color="#FF3B30" />}
+              <Text style={{ fontSize: 12, color: '#FF3B30', fontFamily: 'Inter_600SemiBold' }}>{isDeletingThisUser ? 'Deleting...' : 'Delete'}</Text>
             </Pressable>
           </View>
 
@@ -345,6 +354,11 @@ export default function AdminScreen() {
   const [repairFilter, setRepairFilter] = useState<'all' | 'pending' | 'assigned' | 'completed' | 'cancelled'>('all');
   const [assigningBooking, setAssigningBooking] = useState<any>(null);
   const [technicianSearch, setTechnicianSearch] = useState('');
+
+  // User action tracking (for loading states)
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
+  const [blockingUserId, setBlockingUserId] = useState<string | null>(null);
+  const [verifyingUserId, setVerifyingUserId] = useState<string | null>(null);
 
   const webTopInset = Platform.OS === 'web' ? 67 : insets.top;
   const isMobile = Platform.OS !== 'web' || (typeof window !== 'undefined' && window.innerWidth < 768);
@@ -686,50 +700,59 @@ export default function AdminScreen() {
   };
 
   const executeBlockUser = async (userId: string, userName: string, block: boolean) => {
+    setBlockingUserId(userId);
     try {
       const res = await apiRequest('POST', '/api/admin/block-user', { userId, blocked: block });
       if (!res.ok) throw new Error('API error');
       const data = await res.json();
       if (data.success) {
         Alert.alert('Success', `${userName} has been ${block ? 'blocked' : 'unblocked'}.`);
-        refreshData().catch(e => console.log('Refresh failed:', e));
+        await refreshData();
       } else { 
         Alert.alert('Error', data.message || 'Failed to block user'); 
       }
     } catch (e: any) { 
       Alert.alert('Error', 'Failed to block user. Check your connection.'); 
+    } finally {
+      setBlockingUserId(null);
     }
   };
 
   const executeVerifyUser = async (userId: string, userName: string, verify: boolean) => {
+    setVerifyingUserId(userId);
     try {
       const res = await apiRequest('PATCH', `/api/profiles/${userId}/verify`, { verified: verify ? 1 : 0 });
       if (!res.ok) throw new Error('API error');
       const data = await res.json();
       if (data.success) { 
         Alert.alert('Success', `${userName} ${verify ? 'verified' : 'unverified'}.`);
-        refreshData().catch(e => console.log('Refresh failed:', e));
+        await refreshData();
       } else {
         Alert.alert('Error', data.message || 'Failed to verify user');
       }
     } catch (e: any) { 
       Alert.alert('Error', e.message || 'Failed to verify user. Check your connection.'); 
+    } finally {
+      setVerifyingUserId(null);
     }
   };
 
   const executeDeleteUser = async (userId: string, userName: string) => {
+    setDeletingUserId(userId);
     try {
       const res = await apiRequest('POST', '/api/admin/delete-user', { userId });
       if (!res.ok) throw new Error('API error');
       const data = await res.json();
       if (data.success) {
         Alert.alert('Success', `${userName} has been deleted.`);
-        refreshData().catch(e => console.log('Refresh failed:', e));
+        await refreshData();
       } else {
         Alert.alert('Error', data.message || 'Failed to delete user');
       }
     } catch (e: any) { 
       Alert.alert('Error', e.message || 'Failed to delete user. Check your connection.'); 
+    } finally {
+      setDeletingUserId(null);
     }
   };
 
@@ -1013,7 +1036,7 @@ export default function AdminScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: Platform.OS === 'web' ? 34 : 40, paddingHorizontal: 16 }}
         renderItem={({ item }) => (
-          <UserDetailCard user={item} onBlock={handleBlockUser} onVerify={executeVerifyUser} onDelete={handleDeleteUser} />
+          <UserDetailCard user={item} onBlock={handleBlockUser} onVerify={executeVerifyUser} onDelete={handleDeleteUser} blockingId={blockingUserId} verifyingId={verifyingUserId} deletingId={deletingUserId} />
         )}
         ListEmptyComponent={
           <View style={{ alignItems: 'center', padding: 40 }}>
@@ -1070,7 +1093,7 @@ export default function AdminScreen() {
           contentContainerStyle={{ paddingBottom: 40, paddingHorizontal: 16 }}
           renderItem={({ item }) => (
             <UserDetailCard user={{ id: item.id, name: item.name || 'Unknown', role: item.role, city: item.city, isRegistered: true, fullProfile: item }}
-              onBlock={handleBlockUser} onVerify={executeVerifyUser} onDelete={handleDeleteUser} />
+              onBlock={handleBlockUser} onVerify={executeVerifyUser} onDelete={handleDeleteUser} blockingId={blockingUserId} verifyingId={verifyingUserId} deletingId={deletingUserId} />
           )}
           ListEmptyComponent={
             <View style={{ alignItems: 'center', padding: 40 }}>
