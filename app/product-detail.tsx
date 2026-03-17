@@ -209,7 +209,7 @@ export default function ProductDetailScreen() {
               <Text style={styles.supplierRole}>Verified Supplier</Text>
             </View>
             <Pressable
-              onPress={() => router.push({ pathname: '/supplier-store', params: { supplierId: product.userId, supplierName: product.userName } } as any)}
+              onPress={() => router.push({ pathname: '/shop/[supplierId]', params: { supplierId: product.userId, supplierName: product.userName } } as any)}
               style={styles.viewShopBtn}
             >
               <Ionicons name="storefront-outline" size={13} color="#1B4D3E" />

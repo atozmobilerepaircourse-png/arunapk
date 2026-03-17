@@ -382,7 +382,7 @@ export default function DirectoryScreen() {
             onPress={() => {
               // Route suppliers/teachers to shop, others to profile
               if (item.role === 'supplier' || item.role === 'teacher') {
-                router.push({ pathname: '/supplier-store', params: { supplierId: item.id, supplierName: item.name } });
+                router.push({ pathname: '/shop/[supplierId]', params: { supplierId: item.id, supplierName: item.name } } as any);
               } else {
                 router.push({ pathname: '/user-profile', params: { id: item.id } });
               }

@@ -1840,10 +1840,11 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
   // ========== Products/Listings routes ==========
   app.get("/api/products", async (req, res) => {
     try {
-      const { userId, role } = req.query;
+      const { userId, supplierId, role } = req.query;
+      const filterById = (supplierId || userId) as string | undefined;
       let allProducts;
-      if (userId) {
-        allProducts = await db.select().from(products).where(eq(products.userId, userId as string)).orderBy(desc(products.createdAt));
+      if (filterById) {
+        allProducts = await db.select().from(products).where(eq(products.userId, filterById)).orderBy(desc(products.createdAt));
       } else if (role) {
         allProducts = await db.select().from(products).where(eq(products.userRole, role as string)).orderBy(desc(products.createdAt));
       } else {

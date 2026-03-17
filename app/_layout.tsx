@@ -45,6 +45,7 @@ function SecuredApp() {
         <Stack.Screen name="cart" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="checkout" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="supplier-store" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="shop" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="my-orders" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="seller-orders" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="create-course" options={{ animation: 'slide_from_bottom' }} />

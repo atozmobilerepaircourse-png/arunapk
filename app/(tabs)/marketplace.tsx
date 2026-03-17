@@ -285,7 +285,7 @@ export default function MarketplaceTab() {
               <Pressable
                 key={s.id}
                 style={styles.supplierChip}
-                onPress={() => router.push({ pathname: '/supplier-store', params: { supplierId: s.id, supplierName: s.name } } as any)}
+                onPress={() => router.push({ pathname: '/shop/[supplierId]', params: { supplierId: s.id, supplierName: s.name } } as any)}
               >
                 <View style={styles.supplierAvatar}>
                   {s.avatar ? (
