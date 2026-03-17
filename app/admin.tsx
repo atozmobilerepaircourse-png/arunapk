@@ -420,7 +420,7 @@ export default function AdminScreen() {
   };
 
   useEffect(() => {
-    if (activeTab === 'bookings') fetchRepairBookings();
+    if (activeTab === 'bookings' || activeTab === 'orders') fetchRepairBookings();
     if (activeTab === 'ads') fetchAds();
     if (activeTab === 'products' || activeTab === 'listings') fetchAllProducts();
   }, [activeTab]);
@@ -592,7 +592,7 @@ export default function AdminScreen() {
   const fetchPayouts = useCallback(async () => {
     setPayoutsLoading(true);
     try {
-      const res = await apiRequest('GET', '/api/payouts');
+      const res = await apiRequest('GET', '/api/admin/teacher-payouts');
       const data = await res.json();
       if (Array.isArray(data)) setPayoutsData(data);
     } catch (err) { console.warn('payouts:', err); }
@@ -607,7 +607,7 @@ export default function AdminScreen() {
   const updatePayout = async (id: string, status: string, adminNotes: string) => {
     setPayoutsUpdating(id);
     try {
-      await apiRequest('PATCH', `/api/payouts/${id}`, { status, adminNotes });
+      await apiRequest('PATCH', `/api/admin/teacher-payouts/${id}`, { status, adminNotes });
       await fetchPayouts();
     } catch { Alert.alert('Error', 'Failed to update payout'); }
     finally { setPayoutsUpdating(null); }
