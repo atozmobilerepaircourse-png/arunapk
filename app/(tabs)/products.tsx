@@ -71,11 +71,20 @@ function StatCard({ label, value, icon, color }: { label: string; value: string 
 function ProductRow({ product, onEdit, onDelete }: { product: Product; onEdit: () => void; onDelete: () => void }) {
   const imgs = (() => { 
     try { 
-      const parsed = JSON.parse(product.images); 
-      console.log('[ProductRow] Parsed images:', parsed);
-      return Array.isArray(parsed) ? parsed : [];
+      // API returns images as already-parsed array, not JSON string
+      if (Array.isArray(product.images)) {
+        console.log('[ProductRow] Images already array:', product.images);
+        return product.images;
+      }
+      // Fallback: if it's a string, parse it
+      if (typeof product.images === 'string') {
+        const parsed = JSON.parse(product.images);
+        console.log('[ProductRow] Parsed images from string:', parsed);
+        return Array.isArray(parsed) ? parsed : [];
+      }
+      return [];
     } catch (e) { 
-      console.log('[ProductRow] Failed to parse images, raw:', product.images);
+      console.error('[ProductRow] Failed to parse images:', e, 'raw:', product.images);
       return [];
     } 
   })();
