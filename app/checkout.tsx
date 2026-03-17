@@ -1,26 +1,35 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, Pressable, TextInput,
-  Platform, Alert, ActivityIndicator,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput,
+  Platform, ActivityIndicator,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import Animated, { FadeInDown, ScaleIn } from 'react-native-reanimated';
 import { useCart } from '@/lib/cart-context';
 import { useApp } from '@/lib/context';
 import { apiRequest } from '@/lib/query-client';
 
-// ─── MarketHub Light Theme ───────────────────────────────────────────────────
-const T = {
-  bg: '#F9FAFB', card: '#FFFFFF', cardSurface: '#F3F4F6', bgElevated: '#FFFFFF',
-  border: '#E5E7EB', text: '#111827', muted: '#9CA3AF', textSub: '#4B5563',
-  accent: '#1B4D3E', accentMuted: '#D1FAE5', green: '#10B981', red: '#EF4444',
-  placeholder: '#D1D5DB',
-};
+const ACCENT = '#6B46C1';
+const ACCENT_BG = '#F3EEFF';
+const SUCCESS = '#27AE60';
+const DANGER = '#EB5757';
+const BG = '#F9FAFB';
+const CARD = '#FFFFFF';
+const BORDER = '#E5E7EB';
+const TEXT = '#111827';
+const MUTED = '#9CA3AF';
+const SUB = '#4B5563';
 
-const webTop = Platform.OS === 'web' ? 67 : 0;
+type PayMethod = 'cod' | 'online' | 'upi';
+
+const PAY_OPTIONS: { id: PayMethod; label: string; icon: string; sub: string }[] = [
+  { id: 'cod', label: 'Cash on Delivery', icon: 'cash-outline', sub: 'Pay when you receive' },
+  { id: 'upi', label: 'UPI / QR', icon: 'qr-code-outline', sub: 'GPay, PhonePe, Paytm' },
+  { id: 'online', label: 'Card / Net Banking', icon: 'card-outline', sub: 'Visa, Mastercard, IMPS' },
+];
 
 export default function CheckoutScreen() {
   const insets = useSafeAreaInsets();
@@ -33,348 +42,371 @@ export default function CheckoutScreen() {
   const [city, setCity] = useState(profile?.city || '');
   const [pincode, setPincode] = useState('');
   const [notes, setNotes] = useState('');
+  const [payMethod, setPayMethod] = useState<PayMethod>('cod');
   const [placing, setPlacing] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<'cod' | 'online'>('cod');
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const topInset = Platform.OS === 'web' ? webTop : insets.top;
-  const deliveryCharge = totalPrice > 999 ? 0 : 49;
-  const grandTotal = totalPrice + deliveryCharge;
+  const topPad = Platform.OS === 'web' ? 67 : insets.top;
+  const gst = Math.round(totalPrice * 0.18);
+  const delivery = totalPrice > 1999 ? 0 : 99;
+  const grandTotal = totalPrice + gst + delivery;
 
   const validate = () => {
-    if (!name.trim()) { Alert.alert('Required', 'Please enter your name'); return false; }
-    if (!phone.trim() || phone.length < 10) { Alert.alert('Required', 'Please enter a valid phone number'); return false; }
-    if (!address.trim()) { Alert.alert('Required', 'Please enter your delivery address'); return false; }
-    if (!city.trim()) { Alert.alert('Required', 'Please enter your city'); return false; }
-    if (!pincode.trim() || pincode.length !== 6) { Alert.alert('Required', 'Please enter a valid 6-digit pincode'); return false; }
-    return true;
+    const e: Record<string, string> = {};
+    if (!name.trim()) e.name = 'Full name is required';
+    if (!phone.trim() || phone.length < 10) e.phone = 'Enter a valid 10-digit number';
+    if (!address.trim()) e.address = 'Delivery address is required';
+    if (!city.trim()) e.city = 'City is required';
+    if (!pincode.trim() || pincode.length !== 6) e.pincode = 'Enter a valid 6-digit pincode';
+    setErrors(e);
+    return Object.keys(e).length === 0;
   };
 
   const placeOrder = async () => {
-    if (!validate()) {
-      setPlacing(false);
-      return;
-    }
-    
+    if (!validate()) return;
     setPlacing(true);
     try {
-      const addr = `${address}, ${city} - ${pincode}`;
-      
-      for (const item of items) {
-        const res = await apiRequest('POST', '/api/orders', {
-          productId: item.productId,
-          productTitle: item.title,
-          productPrice: item.price.toString(),
-          productImage: item.image,
-          productCategory: item.category,
-          buyerId: profile?.id || '',
-          buyerName: name,
-          buyerPhone: phone,
-          buyerCity: city,
-          buyerState: profile?.state || '',
-          sellerId: item.supplierId,
-          sellerName: item.supplierName,
-          sellerRole: 'supplier',
-          quantity: item.quantity,
-          totalAmount: (item.price * item.quantity).toString(),
-          shippingAddress: addr,
-          buyerNotes: notes,
-          status: 'pending',
-        });
-        if (!res.ok) throw new Error('Order creation failed');
-      }
-
-      clearCart();
+      const orderItems = items.map(i => ({
+        productId: i.productId,
+        title: i.title,
+        price: i.price,
+        quantity: i.quantity,
+        supplierId: i.supplierId,
+        supplierName: i.supplierName,
+      }));
+      await apiRequest('POST', '/api/orders', {
+        buyerId: profile?.id,
+        buyerName: name,
+        buyerPhone: phone,
+        deliveryAddress: { address, city, pincode, notes },
+        items: orderItems,
+        totalAmount: grandTotal,
+        paymentMethod: payMethod,
+        status: 'pending',
+      });
       if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      clearCart();
       setSuccess(true);
-      
-      setTimeout(() => {
-        router.replace('/(tabs)/marketplace' as any);
-      }, 3500);
-    } catch (e: any) {
-      Alert.alert('Error', e.message || 'Failed to place order. Please try again.');
+    } catch {
+      setErrors({ submit: 'Failed to place order. Please try again.' });
+    } finally {
       setPlacing(false);
     }
   };
 
-  // Success Screen
   if (success) {
     return (
-      <View style={[styles.container, { alignItems: 'center', justifyContent: 'center', backgroundColor: '#F0FDF4' }]}>
-        <Animated.View entering={ScaleIn} style={styles.successBadge}>
-          <View style={styles.checkmark}>
-            <Text style={{ fontSize: 60 }}>✓</Text>
+      <View style={[ss.root, { paddingTop: topPad }]}>
+        <View style={ss.centered}>
+          <View style={ss.successCircle}>
+            <Ionicons name="checkmark" size={48} color="#FFF" />
           </View>
-        </Animated.View>
-        
-        <Animated.Text entering={FadeInDown.delay(200)} style={styles.successTitle}>
-          Congratulations!
-        </Animated.Text>
-        
-        <Animated.Text entering={FadeInDown.delay(400)} style={styles.successSub}>
-          Your order was placed successfully
-        </Animated.Text>
-        
-        <Animated.View entering={FadeInDown.delay(600)} style={styles.successDetails}>
-          <View style={styles.detailRow}>
-            <Ionicons name="call" size={16} color={T.accent} />
-            <Text style={styles.detailText}>Supplier will contact you</Text>
-          </View>
-          <View style={styles.detailRow}>
-            <Ionicons name="location" size={16} color={T.accent} />
-            <Text style={styles.detailText}>at {phone}</Text>
-          </View>
-        </Animated.View>
-        
-        <Text style={styles.countdownText}>Redirecting...</Text>
-      </View>
-    );
-  }
-
-  if (items.length === 0) {
-    return (
-      <View style={[styles.container, { alignItems: 'center', justifyContent: 'center' }]}>
-        <Ionicons name="bag-outline" size={52} color={T.muted} />
-        <Text style={[styles.sectionTitle, { marginTop: 16 }]}>Cart is empty</Text>
-        <Pressable onPress={() => router.back()} style={styles.backBtnEmpty}>
-          <Text style={{ color: T.accent, fontFamily: 'Inter_600SemiBold' }}>Go Back</Text>
-        </Pressable>
+          <Text style={ss.successTitle}>Order Placed!</Text>
+          <Text style={ss.successSub}>Your order has been confirmed. You'll receive updates on your registered number.</Text>
+          <TouchableOpacity onPress={() => router.replace('/(tabs)/' as any)} style={ss.successBtn}>
+            <Text style={ss.successBtnTxt}>Back to Home</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push('/orders' as any)} style={ss.successOutlineBtn}>
+            <Text style={ss.successOutlineTxt}>View Orders</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: topInset + 8 }]}>
-        <Pressable onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={20} color={T.text} />
-        </Pressable>
-        <Text style={styles.headerTitle}>Checkout</Text>
+    <View style={[ss.root, { paddingTop: topPad }]}>
+      {/* Header */}
+      <View style={ss.header}>
+        <TouchableOpacity onPress={() => router.back()} style={ss.backBtn}>
+          <Ionicons name="arrow-back" size={20} color={TEXT} />
+        </TouchableOpacity>
+        <Text style={ss.headerTitle}>Checkout</Text>
+        <View style={{ width: 36 }} />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
-        {/* Delivery Info */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            <Ionicons name="location-outline" size={16} color={T.accent} /> Delivery Details
-          </Text>
-          <View style={styles.fieldRow}>
-            <View style={[styles.field, { flex: 1 }]}>
-              <Text style={styles.fieldLabel}>Full Name *</Text>
-              <TextInput
-                value={name} onChangeText={setName}
-                placeholder="Your name" placeholderTextColor={T.placeholder}
-                style={styles.input} autoCapitalize="words"
-              />
+      {/* Progress steps */}
+      <View style={ss.stepsRow}>
+        {['Cart', 'Details', 'Payment', 'Confirm'].map((s, i) => (
+          <React.Fragment key={s}>
+            <View style={ss.step}>
+              <View style={[ss.stepDot, i <= 1 && ss.stepDotActive]}>
+                {i < 1 ? <Ionicons name="checkmark" size={12} color="#FFF" /> :
+                  <Text style={ss.stepDotTxt}>{i + 1}</Text>}
+              </View>
+              <Text style={[ss.stepLbl, i <= 1 && ss.stepLblActive]}>{s}</Text>
+            </View>
+            {i < 3 && <View style={[ss.stepLine, i < 1 && ss.stepLineActive]} />}
+          </React.Fragment>
+        ))}
+      </View>
+
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 130 }}>
+
+        {/* Order Summary */}
+        <View style={ss.section}>
+          <Text style={ss.sectionTitle}>Order Summary ({items.length} {items.length === 1 ? 'item' : 'items'})</Text>
+          {items.map(item => (
+            <View key={item.productId} style={ss.orderItem}>
+              <View style={ss.orderItemImg}>
+                {item.image ? (
+                  <Image source={{ uri: item.image }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
+                ) : (
+                  <Ionicons name="cube-outline" size={20} color={MUTED} />
+                )}
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={ss.orderItemName} numberOfLines={1}>{item.title}</Text>
+                <Text style={ss.orderItemSup}>{item.supplierName}</Text>
+                <Text style={ss.orderItemQty}>Qty: {item.quantity}</Text>
+              </View>
+              <Text style={ss.orderItemPrice}>₹{(item.price * item.quantity).toLocaleString('en-IN')}</Text>
+            </View>
+          ))}
+        </View>
+
+        {/* Delivery Address */}
+        <View style={ss.section}>
+          <Text style={ss.sectionTitle}>Delivery Details</Text>
+          <Field label="Full Name" value={name} onChangeText={setName} placeholder="Arun Kumar" error={errors.name} icon="person-outline" />
+          <Field label="Phone Number" value={phone} onChangeText={setPhone} placeholder="9876543210" error={errors.phone} icon="call-outline" keyboardType="phone-pad" />
+          <Field label="Delivery Address" value={address} onChangeText={setAddress} placeholder="Street, Building, Landmark…" error={errors.address} icon="home-outline" multiline />
+          <View style={ss.rowFields}>
+            <View style={{ flex: 1 }}>
+              <Field label="City" value={city} onChangeText={setCity} placeholder="Vizag" error={errors.city} icon="business-outline" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Field label="Pincode" value={pincode} onChangeText={setPincode} placeholder="530001" error={errors.pincode} icon="location-outline" keyboardType="number-pad" maxLength={6} />
             </View>
           </View>
-          <View style={styles.field}>
-            <Text style={styles.fieldLabel}>Phone Number *</Text>
-            <TextInput
-              value={phone} onChangeText={setPhone}
-              placeholder="10-digit mobile number" placeholderTextColor={T.placeholder}
-              style={styles.input} keyboardType="phone-pad" maxLength={10}
-            />
-          </View>
-          <View style={styles.field}>
-            <Text style={styles.fieldLabel}>Delivery Address *</Text>
-            <TextInput
-              value={address} onChangeText={setAddress}
-              placeholder="House no., Street, Area" placeholderTextColor={T.placeholder}
-              style={[styles.input, styles.inputMulti]}
-              multiline numberOfLines={3} autoCapitalize="words"
-            />
-          </View>
-          <View style={styles.fieldRow}>
-            <View style={[styles.field, { flex: 1 }]}>
-              <Text style={styles.fieldLabel}>City *</Text>
-              <TextInput value={city} onChangeText={setCity} placeholder="City" placeholderTextColor={T.placeholder} style={styles.input} autoCapitalize="words" />
-            </View>
-            <View style={[styles.field, { width: 120 }]}>
-              <Text style={styles.fieldLabel}>Pincode *</Text>
-              <TextInput value={pincode} onChangeText={setPincode} placeholder="6 digits" placeholderTextColor={T.placeholder} style={styles.input} keyboardType="numeric" maxLength={6} />
-            </View>
-          </View>
-          <View style={styles.field}>
-            <Text style={styles.fieldLabel}>Order Notes (Optional)</Text>
-            <TextInput
-              value={notes} onChangeText={setNotes}
-              placeholder="Any special instructions..." placeholderTextColor={T.placeholder}
-              style={[styles.input, styles.inputMulti]}
-              multiline numberOfLines={2}
-            />
-          </View>
+          <Field label="Order Notes (Optional)" value={notes} onChangeText={setNotes} placeholder="Special instructions…" icon="chatbox-outline" multiline />
         </View>
 
         {/* Payment Method */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            <Ionicons name="card-outline" size={16} color={T.accent} /> Payment Method
-          </Text>
-          <Pressable
-            onPress={() => setPaymentMethod('cod')}
-            style={[styles.payOption, paymentMethod === 'cod' && styles.payOptionActive]}
-          >
-            <Ionicons name="cash-outline" size={22} color={paymentMethod === 'cod' ? T.accent : T.muted} />
-            <View style={{ flex: 1, marginLeft: 12 }}>
-              <Text style={[styles.payOptionTitle, paymentMethod === 'cod' && { color: T.text }]}>Cash on Delivery</Text>
-              <Text style={styles.payOptionSub}>Pay when you receive the product</Text>
-            </View>
-            <View style={[styles.radio, paymentMethod === 'cod' && styles.radioActive]}>
-              {paymentMethod === 'cod' && <View style={styles.radioDot} />}
-            </View>
-          </Pressable>
-          <Pressable
-            onPress={() => setPaymentMethod('online')}
-            style={[styles.payOption, paymentMethod === 'online' && styles.payOptionActive]}
-          >
-            <Ionicons name="phone-portrait-outline" size={22} color={paymentMethod === 'online' ? T.accent : T.muted} />
-            <View style={{ flex: 1, marginLeft: 12 }}>
-              <Text style={[styles.payOptionTitle, paymentMethod === 'online' && { color: T.text }]}>Online Payment</Text>
-              <Text style={styles.payOptionSub}>UPI, Card, Net Banking</Text>
-            </View>
-            <View style={[styles.radio, paymentMethod === 'online' && styles.radioActive]}>
-              {paymentMethod === 'online' && <View style={styles.radioDot} />}
-            </View>
-          </Pressable>
-        </View>
-
-        {/* Order Summary */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            <Ionicons name="receipt-outline" size={16} color={T.accent} /> Order Summary
-          </Text>
-          {items.map((item) => (
-            <View key={item.productId} style={styles.summaryItem}>
-              <Text style={styles.summaryItemName} numberOfLines={1}>{item.title}</Text>
-              <Text style={styles.summaryItemQty}>×{item.quantity}</Text>
-              <Text style={styles.summaryItemPrice}>₹{(item.price * item.quantity).toLocaleString('en-IN')}</Text>
-            </View>
+        <View style={ss.section}>
+          <Text style={ss.sectionTitle}>Payment Method</Text>
+          {PAY_OPTIONS.map(opt => (
+            <TouchableOpacity key={opt.id} onPress={() => setPayMethod(opt.id)} style={[ss.payOption, payMethod === opt.id && ss.payOptionActive]}>
+              <View style={[ss.payIconWrap, payMethod === opt.id && { backgroundColor: ACCENT }]}>
+                <Ionicons name={opt.icon as any} size={18} color={payMethod === opt.id ? '#FFF' : MUTED} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[ss.payLabel, payMethod === opt.id && { color: ACCENT }]}>{opt.label}</Text>
+                <Text style={ss.paySub}>{opt.sub}</Text>
+              </View>
+              <View style={[ss.radio, payMethod === opt.id && ss.radioActive]}>
+                {payMethod === opt.id && <View style={ss.radioDot} />}
+              </View>
+            </TouchableOpacity>
           ))}
-          <View style={styles.divider} />
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Subtotal</Text>
-            <Text style={styles.summaryVal}>₹{totalPrice.toLocaleString('en-IN')}</Text>
-          </View>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Delivery</Text>
-            <Text style={[styles.summaryVal, deliveryCharge === 0 && { color: T.green }]}>
-              {deliveryCharge === 0 ? 'FREE' : `₹${deliveryCharge}`}
-            </Text>
-          </View>
-          <View style={[styles.summaryRow, { marginTop: 8, paddingTop: 12, borderTopWidth: 1, borderTopColor: T.border }]}>
-            <Text style={[styles.summaryLabel, { fontSize: 16, fontFamily: 'Inter_700Bold', color: T.text }]}>Total</Text>
-            <Text style={[styles.summaryVal, { fontSize: 20, color: T.accent }]}>₹{grandTotal.toLocaleString('en-IN')}</Text>
+        </View>
+
+        {/* Price Breakdown */}
+        <View style={ss.section}>
+          <Text style={ss.sectionTitle}>Price Breakdown</Text>
+          <View style={ss.priceBreakCard}>
+            {[
+              ['Subtotal', `₹${totalPrice.toLocaleString('en-IN')}`],
+              ['GST (18%)', `₹${gst.toLocaleString('en-IN')}`],
+              ['Delivery', delivery === 0 ? 'FREE' : `₹${delivery}`],
+            ].map(([k, v]) => (
+              <View key={k} style={ss.breakRow}>
+                <Text style={ss.breakKey}>{k}</Text>
+                <Text style={[ss.breakVal, v === 'FREE' && { color: SUCCESS }]}>{v}</Text>
+              </View>
+            ))}
+            <View style={ss.breakDivider} />
+            <View style={ss.breakRow}>
+              <Text style={ss.breakTotal}>Grand Total</Text>
+              <Text style={ss.breakTotalVal}>₹{grandTotal.toLocaleString('en-IN')}</Text>
+            </View>
+            {delivery === 0 && (
+              <View style={ss.freeDeliveryBadge}>
+                <Ionicons name="checkmark-circle" size={14} color={SUCCESS} />
+                <Text style={ss.freeDeliveryTxt}>Free delivery on orders above ₹1,999</Text>
+              </View>
+            )}
           </View>
         </View>
 
-        <View style={{ height: 100 }} />
+        {errors.submit && (
+          <View style={ss.errorBanner}>
+            <Ionicons name="alert-circle-outline" size={16} color={DANGER} />
+            <Text style={ss.errorBannerTxt}>{errors.submit}</Text>
+          </View>
+        )}
       </ScrollView>
 
-      <View style={[styles.placeBar, { paddingBottom: Math.max(insets.bottom, Platform.OS === 'web' ? 34 : 16) }]}>
-        <View>
-          <Text style={styles.placeLabel}>Total</Text>
-          <Text style={styles.placeTotal}>₹{grandTotal.toLocaleString('en-IN')}</Text>
+      {/* Bottom CTA */}
+      <View style={[ss.bottomBar, { paddingBottom: insets.bottom + 12 }]}>
+        <View style={{ marginBottom: 4 }}>
+          <Text style={ss.totalLabel}>Grand Total</Text>
+          <Text style={ss.totalAmt}>₹{grandTotal.toLocaleString('en-IN')}</Text>
         </View>
-        <Pressable onPress={placeOrder} disabled={placing} style={[styles.placeBtn, placing && { opacity: 0.7 }]}>
+        <TouchableOpacity onPress={placeOrder} disabled={placing || items.length === 0} style={[ss.placeBtn, (placing || items.length === 0) && { opacity: 0.5 }]}>
           {placing ? (
-            <ActivityIndicator size="small" color="#FFF" />
+            <ActivityIndicator color="#FFF" size="small" />
           ) : (
             <>
-              <Ionicons name="checkmark-circle-outline" size={20} color="#FFF" />
-              <Text style={styles.placeBtnTxt}>Place Order</Text>
+              <Ionicons name="bag-check-outline" size={18} color="#FFF" />
+              <Text style={ss.placeBtnTxt}>Place Order</Text>
             </>
           )}
-        </Pressable>
+        </TouchableOpacity>
       </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: T.bg },
-  successBadge: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#10B981',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#10B981',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 12,
-    marginBottom: 24,
+function Field({ label, value, onChangeText, placeholder, error, icon, multiline, keyboardType, maxLength }: any) {
+  return (
+    <View style={ss.field}>
+      <Text style={ss.fieldLabel}>{label}</Text>
+      <View style={[ss.inputWrap, error && ss.inputWrapErr]}>
+        <Ionicons name={icon} size={16} color={error ? DANGER : MUTED} style={{ marginRight: 8 }} />
+        <TextInput
+          style={[ss.input, multiline && ss.inputMulti]}
+          value={value}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          placeholderTextColor={MUTED}
+          keyboardType={keyboardType || 'default'}
+          maxLength={maxLength}
+          multiline={multiline}
+          numberOfLines={multiline ? 3 : 1}
+        />
+      </View>
+      {error && <Text style={ss.fieldErr}>{error}</Text>}
+    </View>
+  );
+}
+
+const ss = StyleSheet.create({
+  root: { flex: 1, backgroundColor: BG },
+  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
+  successCircle: {
+    width: 96, height: 96, borderRadius: 48,
+    backgroundColor: SUCCESS, alignItems: 'center', justifyContent: 'center', marginBottom: 20,
   },
-  checkmark: {
-    alignItems: 'center',
-    justifyContent: 'center',
+  successTitle: { fontSize: 26, fontFamily: 'Inter_700Bold', color: TEXT, marginBottom: 10 },
+  successSub: { fontSize: 14, color: SUB, fontFamily: 'Inter_400Regular', textAlign: 'center', lineHeight: 22, marginBottom: 28 },
+  successBtn: { width: '100%', backgroundColor: ACCENT, borderRadius: 14, paddingVertical: 14, alignItems: 'center', marginBottom: 10 },
+  successBtnTxt: { color: '#FFF', fontSize: 15, fontFamily: 'Inter_600SemiBold' },
+  successOutlineBtn: { width: '100%', borderWidth: 1.5, borderColor: ACCENT, borderRadius: 14, paddingVertical: 13, alignItems: 'center' },
+  successOutlineTxt: { color: ACCENT, fontSize: 15, fontFamily: 'Inter_600SemiBold' },
+
+  header: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 16, paddingVertical: 12,
+    backgroundColor: CARD, borderBottomWidth: 1, borderBottomColor: BORDER,
   },
-  successTitle: {
-    fontSize: 28,
-    fontFamily: 'Inter_700Bold',
-    color: T.text,
-    marginBottom: 8,
-    textAlign: 'center',
+  backBtn: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center',
   },
-  successSub: {
-    fontSize: 16,
-    fontFamily: 'Inter_500Medium',
-    color: T.muted,
-    marginBottom: 32,
-    textAlign: 'center',
-    paddingHorizontal: 20,
+  headerTitle: { flex: 1, fontSize: 17, fontFamily: 'Inter_700Bold', color: TEXT, textAlign: 'center' },
+
+  stepsRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    paddingVertical: 14, paddingHorizontal: 16, backgroundColor: CARD,
+    borderBottomWidth: 1, borderBottomColor: BORDER,
   },
-  successDetails: {
-    gap: 12,
-    marginBottom: 40,
+  step: { alignItems: 'center', gap: 4 },
+  stepDot: {
+    width: 24, height: 24, borderRadius: 12,
+    backgroundColor: BORDER, alignItems: 'center', justifyContent: 'center',
   },
-  detailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
+  stepDotActive: { backgroundColor: ACCENT },
+  stepDotTxt: { fontSize: 11, fontFamily: 'Inter_600SemiBold', color: '#FFF' },
+  stepLbl: { fontSize: 10, fontFamily: 'Inter_400Regular', color: MUTED },
+  stepLblActive: { color: ACCENT, fontFamily: 'Inter_600SemiBold' },
+  stepLine: { flex: 1, height: 2, backgroundColor: BORDER, marginBottom: 16, marginHorizontal: 4 },
+  stepLineActive: { backgroundColor: ACCENT },
+
+  section: {
+    backgroundColor: CARD, marginHorizontal: 16, marginTop: 12,
+    borderRadius: 16, padding: 16, borderWidth: 1, borderColor: BORDER,
   },
-  detailText: {
-    fontSize: 14,
-    fontFamily: 'Inter_500Medium',
-    color: T.text,
+  sectionTitle: { fontSize: 15, fontFamily: 'Inter_700Bold', color: TEXT, marginBottom: 12 },
+
+  orderItem: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: BORDER },
+  orderItemImg: {
+    width: 56, height: 56, borderRadius: 10, backgroundColor: '#F9FAFB',
+    borderWidth: 1, borderColor: BORDER, overflow: 'hidden',
+    alignItems: 'center', justifyContent: 'center',
   },
-  countdownText: {
-    fontSize: 13,
-    fontFamily: 'Inter_400Regular',
-    color: T.muted,
-  },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 12, backgroundColor: T.bgElevated, borderBottomWidth: 1, borderBottomColor: T.border },
-  backBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: T.card, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
-  backBtnEmpty: { marginTop: 16, paddingHorizontal: 20, paddingVertical: 10 },
-  headerTitle: { fontSize: 20, fontFamily: 'Inter_700Bold', color: T.text },
-  content: { padding: 16, gap: 16 },
-  section: { backgroundColor: T.card, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: T.border },
-  sectionTitle: { fontSize: 15, fontFamily: 'Inter_700Bold', color: T.text, marginBottom: 14 },
-  fieldRow: { flexDirection: 'row', gap: 12 },
+  orderItemName: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: TEXT },
+  orderItemSup: { fontSize: 12, color: MUTED, fontFamily: 'Inter_400Regular' },
+  orderItemQty: { fontSize: 12, color: SUB, fontFamily: 'Inter_500Medium', marginTop: 2 },
+  orderItemPrice: { fontSize: 14, fontFamily: 'Inter_700Bold', color: ACCENT },
+
+  rowFields: { flexDirection: 'row', gap: 10 },
   field: { marginBottom: 12 },
-  fieldLabel: { fontSize: 12, color: T.muted, fontFamily: 'Inter_500Medium', marginBottom: 6 },
-  input: { backgroundColor: T.cardSurface, borderRadius: 10, borderWidth: 1, borderColor: T.border, paddingHorizontal: 12, paddingVertical: 10, color: T.text, fontFamily: 'Inter_400Regular', fontSize: 14 },
-  inputMulti: { minHeight: 80, textAlignVertical: 'top', paddingTop: 10 },
-  payOption: { flexDirection: 'row', alignItems: 'center', backgroundColor: T.cardSurface, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: T.border, marginBottom: 10 },
-  payOptionActive: { borderColor: T.accent, backgroundColor: T.accentMuted },
-  payOptionTitle: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: T.muted },
-  payOptionSub: { fontSize: 11, color: T.muted, fontFamily: 'Inter_400Regular', marginTop: 2 },
-  radio: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: T.border, alignItems: 'center', justifyContent: 'center' },
-  radioActive: { borderColor: T.accent },
-  radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: T.accent },
-  summaryItem: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
-  summaryItemName: { flex: 1, fontSize: 13, color: T.textSub, fontFamily: 'Inter_400Regular' },
-  summaryItemQty: { fontSize: 13, color: T.muted, fontFamily: 'Inter_400Regular' },
-  summaryItemPrice: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: T.text },
-  divider: { height: 1, backgroundColor: T.border, marginVertical: 12 },
-  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  summaryLabel: { fontSize: 14, color: T.textSub, fontFamily: 'Inter_400Regular' },
-  summaryVal: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: T.text },
-  placeBar: { position: 'absolute', bottom: 0, left: 0, right: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 16, backgroundColor: T.bgElevated, borderTopWidth: 1, borderTopColor: T.border, gap: 16 },
-  placeLabel: { fontSize: 11, color: T.muted, fontFamily: 'Inter_400Regular' },
-  placeTotal: { fontSize: 20, fontFamily: 'Inter_700Bold', color: T.text },
-  placeBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: T.accent, borderRadius: 14, paddingVertical: 14 },
-  placeBtnTxt: { color: '#FFF', fontFamily: 'Inter_700Bold', fontSize: 16 },
+  fieldLabel: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: SUB, marginBottom: 6 },
+  inputWrap: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#F9FAFB', borderWidth: 1.5, borderColor: BORDER,
+    borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10,
+  },
+  inputWrapErr: { borderColor: DANGER, backgroundColor: '#FFF5F5' },
+  input: { flex: 1, fontSize: 14, fontFamily: 'Inter_400Regular', color: TEXT },
+  inputMulti: { height: 72, textAlignVertical: 'top', paddingTop: 4 },
+  fieldErr: { fontSize: 11, color: DANGER, fontFamily: 'Inter_400Regular', marginTop: 4 },
+
+  payOption: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    borderWidth: 1.5, borderColor: BORDER, borderRadius: 12, padding: 14, marginBottom: 8,
+    backgroundColor: '#F9FAFB',
+  },
+  payOptionActive: { borderColor: ACCENT, backgroundColor: ACCENT_BG },
+  payIconWrap: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center',
+  },
+  payLabel: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: TEXT },
+  paySub: { fontSize: 12, color: MUTED, fontFamily: 'Inter_400Regular' },
+  radio: {
+    width: 20, height: 20, borderRadius: 10,
+    borderWidth: 2, borderColor: BORDER, alignItems: 'center', justifyContent: 'center',
+  },
+  radioActive: { borderColor: ACCENT },
+  radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: ACCENT },
+
+  priceBreakCard: { backgroundColor: '#F9FAFB', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: BORDER },
+  breakRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6 },
+  breakKey: { fontSize: 13, color: SUB, fontFamily: 'Inter_400Regular' },
+  breakVal: { fontSize: 13, color: TEXT, fontFamily: 'Inter_500Medium' },
+  breakDivider: { height: 1, backgroundColor: BORDER, marginVertical: 8 },
+  breakTotal: { fontSize: 15, fontFamily: 'Inter_700Bold', color: TEXT },
+  breakTotalVal: { fontSize: 17, fontFamily: 'Inter_700Bold', color: ACCENT },
+  freeDeliveryBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: '#ECFDF5', borderRadius: 8, padding: 8, marginTop: 8,
+  },
+  freeDeliveryTxt: { fontSize: 12, color: SUCCESS, fontFamily: 'Inter_500Medium' },
+
+  errorBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: '#FFF5F5', borderRadius: 10, padding: 12, marginHorizontal: 16, marginTop: 8,
+    borderWidth: 1, borderColor: '#FECACA',
+  },
+  errorBannerTxt: { color: DANGER, fontSize: 13, fontFamily: 'Inter_400Regular', flex: 1 },
+
+  bottomBar: {
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    backgroundColor: CARD, flexDirection: 'row', alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16, paddingTop: 12,
+    borderTopWidth: 1, borderTopColor: BORDER,
+    shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 16, elevation: 16,
+    gap: 12,
+  },
+  totalLabel: { fontSize: 11, color: MUTED, fontFamily: 'Inter_400Regular' },
+  totalAmt: { fontSize: 20, fontFamily: 'Inter_700Bold', color: ACCENT },
+  placeBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    backgroundColor: ACCENT, borderRadius: 14, paddingVertical: 14,
+  },
+  placeBtnTxt: { color: '#FFF', fontSize: 15, fontFamily: 'Inter_700Bold' },
 });
