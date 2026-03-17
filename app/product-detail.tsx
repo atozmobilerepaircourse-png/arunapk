@@ -81,11 +81,26 @@ export default function ProductDetailScreen() {
 
   const imgs = product
     ? (() => {
-        try {
-          const parsed = JSON.parse(product.images || '[]');
-          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-        } catch {}
-        return (product as any).image ? [(product as any).image] : [];
+        const images = product.images || (product as any).images;
+        // If already an array (from API), use it directly
+        if (Array.isArray(images) && images.length > 0) {
+          return images.filter(img => img && String(img).trim());
+        }
+        // If a string, try parsing
+        if (typeof images === 'string' && images.trim()) {
+          try {
+            const parsed = JSON.parse(images);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              return parsed.filter(img => img && String(img).trim());
+            }
+          } catch {}
+        }
+        // Fallback to single image field
+        const singleImg = (product as any).image;
+        if (singleImg && String(singleImg).trim()) {
+          return [singleImg];
+        }
+        return [];
       })()
     : [];
 
