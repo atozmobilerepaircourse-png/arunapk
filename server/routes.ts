@@ -5303,55 +5303,38 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
     }
   });
 
-  app.post("/api/admin/delete-user", async (req, res) => {
+  app.post("/api/admin/delete-user", adminMiddleware, async (req, res) => {
     try {
       const { userId } = req.body;
       if (!userId) return res.status(400).json({ success: false, message: "userId required" });
 
-      const userCourses = await db.select().from(courses).where(eq(courses.teacherId, userId));
-      for (const course of userCourses) {
-        const cChapters = await db.select().from(courseChapters).where(eq(courseChapters.courseId, course.id));
-        for (const ch of cChapters) {
-          await db.delete(courseVideos).where(eq(courseVideos.chapterId, ch.id));
-        }
-        await db.delete(dubbedVideos).where(eq(dubbedVideos.courseId, course.id));
-        await db.delete(courseChapters).where(eq(courseChapters.courseId, course.id));
-        await db.delete(courseEnrollments).where(eq(courseEnrollments.courseId, course.id));
-        await db.delete(courseNotices).where(eq(courseNotices.courseId, course.id));
-      }
-      await db.delete(courses).where(eq(courses.teacherId, userId));
-
-      await db.delete(products).where(eq(products.userId, userId));
-      await db.delete(orders).where(eq(orders.buyerId, userId));
-      await db.delete(payments).where(eq(payments.studentId, userId));
-      await db.delete(payments).where(eq(payments.teacherId, userId));
-      await db.delete(courseEnrollments).where(eq(courseEnrollments.studentId, userId));
-      await db.delete(courseEnrollments).where(eq(courseEnrollments.teacherId, userId));
-      await db.delete(liveChatMessages).where(eq(liveChatMessages.senderId, userId));
-
-      await db.delete(messages).where(eq(messages.senderId, userId));
-      await db.delete(posts).where(eq(posts.userId, userId));
-      await db.delete(jobs).where(eq(jobs.userId, userId));
-      await db.delete(reels).where(eq(reels.userId, userId));
-
-      const userConvos = await db.select().from(conversations).where(
-        sql`${conversations.participant1Id} = ${userId} OR ${conversations.participant2Id} = ${userId}`
-      );
-      for (const convo of userConvos) {
-        await db.delete(messages).where(eq(messages.conversationId, convo.id));
-        await db.delete(conversations).where(eq(conversations.id, convo.id));
-      }
-
-      const [userProfile] = await db.select().from(profiles).where(eq(profiles.id, userId));
-      if (userProfile?.phone) {
-        await db.delete(sessions).where(eq(sessions.phone, userProfile.phone));
-      }
-      await db.delete(profiles).where(eq(profiles.id, userId));
+      // Soft delete - just mark as deleted
+      await db.update(profiles).set({ deleted: 1 } as any).where(eq(profiles.id, userId));
 
       return res.json({ success: true, message: "User deleted successfully" });
     } catch (error) {
       console.error("[Admin] Delete user error:", error);
       return res.status(500).json({ success: false, message: "Failed to delete user" });
+    }
+  });
+
+  app.get("/api/admin/deleted-users", adminMiddleware, async (_req, res) => {
+    try {
+      const deletedUsers = await db.select().from(profiles).where(eq(profiles.deleted, 1));
+      return res.json(deletedUsers);
+    } catch (error) {
+      console.error("[Admin] Get deleted users error:", error);
+      return res.status(500).json({ success: false, message: "Failed to fetch deleted users" });
+    }
+  });
+
+  app.get("/api/admin/blocked-users", adminMiddleware, async (_req, res) => {
+    try {
+      const blockedUsers = await db.select().from(profiles).where(eq(profiles.blocked, 1));
+      return res.json(blockedUsers);
+    } catch (error) {
+      console.error("[Admin] Get blocked users error:", error);
+      return res.status(500).json({ success: false, message: "Failed to fetch blocked users" });
     }
   });
 

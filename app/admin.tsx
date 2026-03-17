@@ -15,7 +15,7 @@ import { openLink } from '@/lib/open-link';
 const C = Colors.light;
 const PRIMARY = '#FF6B2C';
 
-type AdminTab = 'dashboard' | 'users' | 'customers' | 'technicians' | 'teachers' | 'suppliers' | 'blocked-users' | 'products' | 'orders' | 'reports' | 'settings' | 'posts' | 'jobs' | 'bookings' | 'subscriptions' | 'revenue' | 'links' | 'notifications' | 'payouts' | 'email' | 'insurance' | 'ads' | 'listings';
+type AdminTab = 'dashboard' | 'users' | 'customers' | 'technicians' | 'teachers' | 'suppliers' | 'blocked-users' | 'deleted-users' | 'products' | 'orders' | 'reports' | 'settings' | 'posts' | 'jobs' | 'bookings' | 'subscriptions' | 'revenue' | 'links' | 'notifications' | 'payouts' | 'email' | 'insurance' | 'ads' | 'listings';
 
 const ROLE_COLORS: Record<string, string> = {
   technician: '#34C759',
@@ -886,6 +886,7 @@ export default function AdminScreen() {
     { key: 'teachers', label: 'Teachers', icon: 'school-outline', group: 'roles' },
     { key: 'suppliers', label: 'Suppliers', icon: 'cube-outline', group: 'roles' },
     { key: 'blocked-users', label: 'Blocked Users', icon: 'ban-outline', group: 'main' },
+    { key: 'deleted-users', label: 'Deleted Users', icon: 'trash-outline', group: 'main' },
     { key: 'products', label: 'Products', icon: 'pricetag-outline', group: 'main' },
     { key: 'orders', label: 'Orders', icon: 'calendar-outline', group: 'main' },
     { key: 'reports', label: 'Reports', icon: 'bar-chart-outline', group: 'main' },
@@ -1117,16 +1118,54 @@ export default function AdminScreen() {
     );
   };
 
+  // ── Fetch deleted/blocked users from admin endpoints ──
+  const [deletedUsers, setDeletedUsers] = useState<any[]>([]);
+  const [blockedUsersData, setBlockedUsersData] = useState<any[]>([]);
+  const [deletedLoading, setDeletedLoading] = useState(false);
+
+  const fetchDeletedUsers = useCallback(async () => {
+    setDeletedLoading(true);
+    try {
+      console.log('📋 Fetching deleted users...');
+      const res = await apiRequest('GET', '/api/admin/deleted-users');
+      const data = await res.json();
+      setDeletedUsers(Array.isArray(data) ? data : []);
+      console.log('✅ Deleted users fetched:', data.length);
+    } catch (e) { 
+      console.error('Failed to fetch deleted users:', e);
+      setDeletedUsers([]);
+    } finally {
+      setDeletedLoading(false);
+    }
+  }, []);
+
+  const fetchBlockedUsersData = useCallback(async () => {
+    try {
+      console.log('🚫 Fetching blocked users...');
+      const res = await apiRequest('GET', '/api/admin/blocked-users');
+      const data = await res.json();
+      setBlockedUsersData(Array.isArray(data) ? data : []);
+      console.log('✅ Blocked users fetched:', data.length);
+    } catch (e) { 
+      console.error('Failed to fetch blocked users:', e);
+      setBlockedUsersData([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'deleted-users') fetchDeletedUsers();
+    if (activeTab === 'blocked-users') fetchBlockedUsersData();
+  }, [activeTab, fetchDeletedUsers, fetchBlockedUsersData]);
+
   // ── Blocked users view ──
   const renderBlockedUsers = () => {
-    const blockedUsers = (allProfiles || []).filter(p => p.blocked === 1);
     const searched = userSearchQuery
-      ? blockedUsers.filter(p =>
+      ? blockedUsersData.filter(p =>
           (p.name || '').toLowerCase().includes(userSearchQuery.toLowerCase()) ||
           (p.phone || '').includes(userSearchQuery) ||
           (p.city || '').toLowerCase().includes(userSearchQuery.toLowerCase())
         )
-      : blockedUsers;
+      : blockedUsersData;
     return (
       <View style={{ flex: 1 }}>
         <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 6, gap: 10 }}>
@@ -1136,7 +1175,7 @@ export default function AdminScreen() {
             </View>
             <View>
               <Text style={{ fontFamily: 'Inter_700Bold', fontSize: 15, color: C.text }}>Blocked Users</Text>
-              <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 12, color: C.textSecondary }}>{blockedUsers.length} blocked</Text>
+              <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 12, color: C.textSecondary }}>{blockedUsersData.length} blocked</Text>
             </View>
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: C.surface, borderRadius: 12, paddingHorizontal: 12, borderWidth: 1, borderColor: C.border }}>
@@ -1167,6 +1206,63 @@ export default function AdminScreen() {
               <Ionicons name="ban-outline" size={40} color={C.textTertiary} />
               <Text style={{ color: C.textTertiary, fontSize: 14, fontFamily: 'Inter_400Regular', marginTop: 8 }}>
                 {userSearchQuery ? 'No blocked users match your search' : 'No blocked users'}
+              </Text>
+            </View>
+          }
+        />
+      </View>
+    );
+  };
+
+  // ── Deleted users view ──
+  const renderDeletedUsers = () => {
+    const searched = userSearchQuery
+      ? deletedUsers.filter(p =>
+          (p.name || '').toLowerCase().includes(userSearchQuery.toLowerCase()) ||
+          (p.phone || '').includes(userSearchQuery) ||
+          (p.city || '').toLowerCase().includes(userSearchQuery.toLowerCase())
+        )
+      : deletedUsers;
+    return (
+      <View style={{ flex: 1 }}>
+        <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 6, gap: 10 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#FF3B3015', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#FF3B3030' }}>
+            <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#FF3B3025', alignItems: 'center', justifyContent: 'center' }}>
+              <Ionicons name="trash-outline" size={18} color="#FF3B30" />
+            </View>
+            <View>
+              <Text style={{ fontFamily: 'Inter_700Bold', fontSize: 15, color: C.text }}>Deleted Users</Text>
+              <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 12, color: C.textSecondary }}>{deletedUsers.length} deleted</Text>
+            </View>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: C.surface, borderRadius: 12, paddingHorizontal: 12, borderWidth: 1, borderColor: C.border }}>
+            <Ionicons name="search" size={16} color={C.textTertiary} />
+            <TextInput value={userSearchQuery} onChangeText={setUserSearchQuery}
+              placeholder="Search deleted users..."
+              placeholderTextColor={C.textTertiary}
+              style={{ flex: 1, color: C.text, paddingVertical: 10, paddingHorizontal: 8, fontFamily: 'Inter_400Regular', fontSize: 14 }} />
+            {userSearchQuery.length > 0 && (
+              <Pressable onPress={() => setUserSearchQuery('')} hitSlop={8}>
+                <Ionicons name="close-circle" size={16} color={C.textTertiary} />
+              </Pressable>
+            )}
+          </View>
+          <Text style={{ color: C.textTertiary, fontSize: 12, fontFamily: 'Inter_400Regular' }}>{searched.length} result{searched.length !== 1 ? 's' : ''}</Text>
+        </View>
+        <FlatList
+          data={searched}
+          keyExtractor={item => item.id}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 40, paddingHorizontal: 16 }}
+          renderItem={({ item }) => (
+            <UserDetailCard user={{ id: item.id, name: item.name || 'Unknown', role: item.role, city: item.city, isRegistered: true, fullProfile: item }}
+              onBlock={handleBlockUser} onVerify={executeVerifyUser} onDelete={handleDeleteUser} blockingId={blockingUserId} verifyingId={verifyingUserId} deletingId={deletingUserId} />
+          )}
+          ListEmptyComponent={
+            <View style={{ alignItems: 'center', padding: 40 }}>
+              <Ionicons name="trash-outline" size={40} color={C.textTertiary} />
+              <Text style={{ color: C.textTertiary, fontSize: 14, fontFamily: 'Inter_400Regular', marginTop: 8 }}>
+                {userSearchQuery ? 'No deleted users match your search' : 'No deleted users'}
               </Text>
             </View>
           }
@@ -2231,6 +2327,7 @@ export default function AdminScreen() {
         {activeTab === 'teachers' && renderRoleUsers('teacher', 'Teacher', 'school-outline', '#FFD60A')}
         {activeTab === 'suppliers' && renderRoleUsers('supplier', 'Supplier', 'cube-outline', '#FF6B2C')}
         {activeTab === 'blocked-users' && renderBlockedUsers()}
+        {activeTab === 'deleted-users' && renderDeletedUsers()}
         {activeTab === 'products' && renderListings()}
         {activeTab === 'orders' && renderBookings()}
         {activeTab === 'reports' && renderReports()}
