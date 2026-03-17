@@ -120,6 +120,8 @@ export default function ProductDetailScreen() {
       Animated.timing(scaleAnim, { toValue: 0.96, duration: 80, useNativeDriver: true }),
       Animated.timing(scaleAnim, { toValue: 1, duration: 80, useNativeDriver: true }),
     ]).start();
+    // Get first valid image
+    const firstImg = imgs && imgs.length > 0 ? imgs[0] : (product as any).image || '';
     if (inCart) {
       updateQuantity(product.id, cartQty + qty);
     } else {
@@ -127,7 +129,7 @@ export default function ProductDetailScreen() {
         productId: product.id,
         title: product.title,
         price,
-        image: imgs[0] || '',
+        image: firstImg,
         supplierName: product.userName,
         supplierId: product.userId,
         inStock: product.inStock || 0,
