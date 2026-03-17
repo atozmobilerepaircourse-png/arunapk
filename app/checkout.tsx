@@ -48,9 +48,8 @@ export default function CheckoutScreen() {
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
-  const gst = Math.round(totalPrice * 0.18);
   const delivery = totalPrice > 1999 ? 0 : 99;
-  const grandTotal = totalPrice + gst + delivery;
+  const grandTotal = totalPrice + delivery;
 
   const validate = () => {
     const e: Record<string, string> = {};
@@ -67,28 +66,33 @@ export default function CheckoutScreen() {
     if (!validate()) return;
     setPlacing(true);
     try {
-      const orderItems = items.map(i => ({
-        productId: i.productId,
-        title: i.title,
-        price: i.price,
-        quantity: i.quantity,
-        supplierId: i.supplierId,
-        supplierName: i.supplierName,
-      }));
-      await apiRequest('POST', '/api/orders', {
-        buyerId: profile?.id,
-        buyerName: name,
-        buyerPhone: phone,
-        deliveryAddress: { address, city, pincode, notes },
-        items: orderItems,
-        totalAmount: grandTotal,
-        paymentMethod: payMethod,
-        status: 'pending',
-      });
+      // Place an order for each item
+      for (const item of items) {
+        await apiRequest('POST', '/api/orders', {
+          productId: item.productId,
+          productTitle: item.title,
+          productPrice: item.price.toString(),
+          productImage: item.image,
+          productCategory: item.category,
+          buyerId: profile?.id,
+          buyerName: name,
+          buyerPhone: phone,
+          buyerCity: city,
+          buyerState: '',
+          sellerId: item.supplierId,
+          sellerName: item.supplierName,
+          sellerRole: 'supplier',
+          quantity: item.quantity,
+          totalAmount: (item.price * item.quantity).toString(),
+          shippingAddress: `${address}, ${city}, ${pincode}`,
+          buyerNotes: notes,
+        });
+      }
       if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       clearCart();
       setSuccess(true);
-    } catch {
+    } catch (error) {
+      console.error('Order error:', error);
       setErrors({ submit: 'Failed to place order. Please try again.' });
     } finally {
       setPlacing(false);
@@ -208,7 +212,6 @@ export default function CheckoutScreen() {
           <View style={ss.priceBreakCard}>
             {[
               ['Subtotal', `₹${totalPrice.toLocaleString('en-IN')}`],
-              ['GST (18%)', `₹${gst.toLocaleString('en-IN')}`],
               ['Delivery', delivery === 0 ? 'FREE' : `₹${delivery}`],
             ].map(([k, v]) => (
               <View key={k} style={ss.breakRow}>
@@ -218,7 +221,7 @@ export default function CheckoutScreen() {
             ))}
             <View style={ss.breakDivider} />
             <View style={ss.breakRow}>
-              <Text style={ss.breakTotal}>Grand Total</Text>
+              <Text style={ss.breakTotal}>Total</Text>
               <Text style={ss.breakTotalVal}>₹{grandTotal.toLocaleString('en-IN')}</Text>
             </View>
             {delivery === 0 && (
