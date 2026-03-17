@@ -276,8 +276,12 @@ export default function SupplierProductsScreen() {
   const loadData = useCallback(async () => {
     if (!profile?.id) return;
     try {
+      // Admins see ALL products, suppliers see only their own
+      const isAdmin = profile.role === 'admin';
+      const productsUrl = isAdmin ? '/api/products' : `/api/products?userId=${profile.id}`;
+      
       const [prodRes, ordRes] = await Promise.all([
-        apiRequest('GET', `/api/products?userId=${profile.id}`),
+        apiRequest('GET', productsUrl),
         apiRequest('GET', `/api/orders?sellerId=${profile.id}`),
       ]);
       const prodData = await prodRes.json();
@@ -290,7 +294,7 @@ export default function SupplierProductsScreen() {
     } finally {
       setLoading(false);
     }
-  }, [profile?.id]);
+  }, [profile?.id, profile?.role]);
 
   useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
 
@@ -385,13 +389,15 @@ export default function SupplierProductsScreen() {
       <View style={[styles.header, { paddingTop: topInset + 8 }]}>
         <View style={styles.headerRow}>
           <View>
-            <Text style={styles.headerTitle}>My Store</Text>
-            <Text style={styles.headerSub}>{profile?.shopName || profile?.name || 'Hi'}</Text>
+            <Text style={styles.headerTitle}>{profile?.role === 'admin' ? 'All Products' : 'My Store'}</Text>
+            <Text style={styles.headerSub}>{profile?.shopName || profile?.name || 'Hi'}{profile?.role === 'admin' ? ' (Admin)' : ''}</Text>
           </View>
-          <Pressable onPress={() => router.push('/add-product' as any)} style={styles.addBtn}>
-            <Ionicons name="add" size={20} color="#FFF" />
-            <Text style={styles.addBtnTxt}>Add Product</Text>
-          </Pressable>
+          {profile?.role !== 'admin' && (
+            <Pressable onPress={() => router.push('/add-product' as any)} style={styles.addBtn}>
+              <Ionicons name="add" size={20} color="#FFF" />
+              <Text style={styles.addBtnTxt}>Add Product</Text>
+            </Pressable>
+          )}
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 12, marginHorizontal: -16 }} contentContainerStyle={{ paddingHorizontal: 16, gap: 10 }}>
           <StatCard label="Products"   value={products.length}        icon="cube-outline"     color={PRIMARY} />
