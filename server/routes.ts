@@ -268,7 +268,7 @@ function checkOtpRateLimit(phone: string): { allowed: boolean; retryAfterMs: num
 
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Ensure admin account exists
+  // Ensure admin account exists and is always accessible
   (async () => {
     try {
       const adminPhone = "8179142535";
@@ -280,8 +280,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           name: "Admin",
           role: "admin",
           skills: "[]",
+          blocked: 0,
+          deleted: 0,
         });
         console.log("[Admin] Created admin account for 8179142535");
+      } else {
+        // Ensure admin account is never blocked or deleted
+        const admin = existing[0];
+        if (admin.blocked === 1 || admin.deleted === 1) {
+          await db.update(profiles)
+            .set({ blocked: 0, deleted: 0 } as any)
+            .where(eq(profiles.id, admin.id));
+          console.log("[Admin] Reset admin account - was blocked or deleted");
+        }
       }
     } catch (err) {
       console.error("[Admin] Error ensuring admin exists:", err);
