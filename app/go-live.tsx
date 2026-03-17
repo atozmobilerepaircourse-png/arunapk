@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, TextInput, Pressable, StyleSheet, ScrollView,
-  Alert, ActivityIndicator, Platform, Linking, Share,
+  Alert, ActivityIndicator, Platform, Linking, Share, TouchableOpacity,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -389,7 +389,7 @@ export default function GoLiveScreen() {
             )}
 
             <View style={styles.actionStack}>
-              <Pressable style={styles.sharePhotoBtn} onPress={handleShareImage} disabled={isUploading}>
+              <TouchableOpacity style={styles.sharePhotoBtn} onPress={handleShareImage} disabled={isUploading} activeOpacity={0.7}>
                 {isUploading ? (
                   <ActivityIndicator size="small" color="#FFF" />
                 ) : (
@@ -398,23 +398,24 @@ export default function GoLiveScreen() {
                     <Text style={styles.sharePhotoBtnText}>Share Photo</Text>
                   </>
                 )}
-              </Pressable>
+              </TouchableOpacity>
 
-              <Pressable
+              <TouchableOpacity
                 style={styles.watchBtn}
                 onPress={() => router.push({
                   pathname: '/live-session',
                   params: { url: activeSession.link, title: activeSession.title, platform: activeSession.platform, sessionId: activeSession.id },
                 } as any)}
+                activeOpacity={0.7}
               >
                 <Ionicons name="play-circle" size={18} color="#FFF" />
                 <Text style={styles.watchBtnText}>Watch My Stream</Text>
-              </Pressable>
+              </TouchableOpacity>
 
-              <Pressable style={styles.endBtn} onPress={handleEndLive}>
+              <TouchableOpacity style={styles.endBtn} onPress={handleEndLive} activeOpacity={0.7}>
                 <Ionicons name="stop-circle" size={16} color={RED} />
                 <Text style={styles.endBtnText}>End Session</Text>
-              </Pressable>
+              </TouchableOpacity>
             </View>
           </View>
         ) : (

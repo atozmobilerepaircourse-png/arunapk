@@ -6808,6 +6808,41 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
     }
   });
 
+  // Admin endpoint to end all live sessions
+  app.post("/api/admin/end-all-live", adminMiddleware, async (req, res) => {
+    try {
+      const firestore = getFirestore();
+      
+      // Get all active live sessions
+      const sessions = await firestore.collection("teacher_live_sessions")
+        .where("isLive", "==", true)
+        .get();
+      
+      let endedCount = 0;
+      const batch = firestore.batch();
+      
+      // End all active sessions
+      for (const doc of sessions.docs) {
+        batch.update(doc.ref, {
+          isLive: false,
+          endedAt: Date.now(),
+        });
+        endedCount++;
+      }
+      
+      // Commit batch
+      if (endedCount > 0) {
+        await batch.commit();
+      }
+      
+      console.log(`[Admin] Ended all ${endedCount} live sessions`);
+      return res.json({ success: true, endedCount });
+    } catch (error: any) {
+      console.error("[Admin End All Live] Error:", error?.message);
+      return res.status(500).json({ success: false, message: "Failed to end live sessions" });
+    }
+  });
+
   app.post("/api/admin/support-info", adminMiddleware, async (req, res) => {
     try {
       const { supportNumber, whatsappLink } = req.body;
