@@ -24,11 +24,22 @@ interface Product {
   id: string;
   title: string;
   price: string;
-  images: string;
+  images: string[];
   category: string;
   inStock: number;
   views: number;
   createdAt: number;
+  likes?: string[];
+  userId: string;
+  userName?: string;
+  userRole?: string;
+  userAvatar?: string;
+  description?: string;
+  videoUrl?: string;
+  city?: string;
+  state?: string;
+  deliveryInfo?: string;
+  contactPhone?: string;
 }
 
 interface Order {
@@ -272,18 +283,25 @@ export default function SupplierProductsScreen() {
     if (!profile?.id) return;
     try {
       console.log('[loadData] Fetching products for user:', profile.id);
+      const url = `/api/products?userId=${profile.id}`;
+      console.log('[loadData] URL:', url);
       const [prodRes, ordRes] = await Promise.all([
-        apiRequest('GET', `/api/products?userId=${profile.id}`),
+        apiRequest('GET', url),
         apiRequest('GET', `/api/orders?sellerId=${profile.id}`),
       ]);
       const prodData = await prodRes.json();
       const ordData = await ordRes.json();
       console.log('[loadData] Got products:', prodData?.length || 0);
-      console.log('[loadData] Sample product images:', prodData?.[0]?.images);
-      if (Array.isArray(prodData)) setProducts(prodData);
+      if (prodData && prodData.length > 0) {
+        console.log('[loadData] First product:', JSON.stringify(prodData[0], null, 2));
+      }
+      if (Array.isArray(prodData)) {
+        console.log('[loadData] Setting', prodData.length, 'products');
+        setProducts(prodData);
+      }
       if (Array.isArray(ordData)) setOrders(ordData);
     } catch (e) {
-      console.error('[SupplierProducts] fetch error:', e);
+      console.error('[loadData] fetch error:', e);
       Alert.alert('Error', 'Failed to load products. Pull down to refresh.');
     } finally {
       setLoading(false);
