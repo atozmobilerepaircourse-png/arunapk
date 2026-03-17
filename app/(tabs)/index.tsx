@@ -246,8 +246,8 @@ function LiveCard({ session, onJoin }: { session: LiveSession; onJoin: (s: LiveS
 
 const liveStyles = StyleSheet.create({
   card: { backgroundColor: CARD, borderRadius: 16, marginHorizontal: 16, marginVertical: 8, overflow: 'hidden', borderWidth: 1, borderColor: BORDER + '60', elevation: 2, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 6, shadowOffset: { width: 0, height: 2 } },
-  banner: { height: 140, alignItems: 'center', justifyContent: 'center', position: 'relative' },
-  thumbnail: { position: 'absolute', width: '100%', height: '100%' },
+  banner: { height: 140, alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' },
+  thumbnail: { position: 'absolute', width: '100%', height: '100%', resizeMode: 'cover' as any },
   liveBadge: { position: 'absolute', top: 10, left: 10, flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(0,0,0,0.65)', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20 },
   liveBadgeText: { color: '#FFF', fontSize: 11, fontFamily: 'Inter_700Bold', letterSpacing: 1.2 },
   info: { flexDirection: 'row', alignItems: 'center', padding: 12, gap: 10 },
