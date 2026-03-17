@@ -160,54 +160,68 @@ export default function OnboardingScreen() {
       return;
     }
 
-    console.log('[AutoLogin] Auto-logging in with phone:', digits);
+    // SET RATE LIMIT TIMER IMMEDIATELY (before any API calls)
+    console.log('[OTP] Button clicked - disabling for 60 seconds');
     setOtpSendInProgress(true);
     setOtpSending(true);
     setOtpError('');
-    
+    setUsingFallback(false);
+    setOtpResendTimer(60); // Disable button for 60 seconds
+
     try {
-      const deviceId = await getDeviceId();
-      
-      // Call auto-login endpoint (bypasses OTP entirely)
-      const res = await apiRequest('POST', '/api/auth/auto-login', {
-        phone: digits,
-        deviceId
-      });
-      
-      const data = await res.json();
-      
-      if (!data.success) {
-        console.error('[AutoLogin] Failed:', data.message);
-        setOtpError(data.message || 'Login failed');
-        Alert.alert('Error', data.message || 'Auto-login failed');
+      // PRIMARY: Try Firebase Phone Auth (all platforms)
+      console.log('[OTP] PRIMARY: Attempting Firebase Phone Auth');
+      const { initializeRecaptcha, sendFirebaseOTP } = await import('@/lib/firebase-phone-auth');
+
+      // Initialize reCAPTCHA on web
+      if (Platform.OS === 'web') {
+        initializeRecaptcha(digits).catch(() => {}); // Initialize in background
+      }
+
+      const fbResult = await Promise.race([
+        sendFirebaseOTP(digits),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Firebase timeout')), 15000)
+        )
+      ]).catch(() => ({ success: false, error: 'Firebase timeout' }));
+
+      if (fbResult.success) {
+        console.log('[OTP] ✓ Firebase OTP sent successfully');
+        setOtpSent(true);
+        setPhone(digits);
+        setScreen('otp');
+        Alert.alert('OTP Sent', 'Check your SMS for the verification code');
         return;
       }
-      
-      console.log('[AutoLogin] ✓ Auto-login successful');
-      if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      
-      // If existing user, log them in immediately
-      if (!data.isNewUser && data.profile) {
-        const p = { 
-          ...data.profile, 
-          skills: Array.isArray(data.profile.skills) 
-            ? data.profile.skills 
-            : (() => { try { return JSON.parse(data.profile.skills || '[]'); } catch { return []; } })() 
-        };
-        await loginWithProfile(p, data.sessionToken || '');
-        router.replace(getRoleRoute(p) as any);
-        return;
+
+      console.warn('[OTP] Firebase failed, falling back to Fast2SMS:', fbResult.error);
+
+      // FALLBACK: Use backend OTP (Fast2SMS)
+      console.log('[OTP] FALLBACK: Attempting Fast2SMS');
+      setUsingFallback(true);
+      const { sendFallbackOTP } = await import('@/lib/firebase-phone-auth');
+      const result = await sendFallbackOTP(digits);
+
+      if (result.success) {
+        console.log('[OTP] ✓ Fast2SMS OTP sent successfully');
+        setOtpSent(true);
+        setPhone(digits);
+        setScreen('otp');
+        setOtpAttempts(0);
+        setOtpError('');
+        Alert.alert('OTP Sent', 'Check your SMS for the verification code');
+      } else {
+        console.error('[OTP] Fast2SMS failed:', result.error);
+        setOtpError(result.error);
+        setOtpAttempts(0);
+        Alert.alert('Error', result.error || 'Failed to send OTP. Please try again.');
+        setOtpResendTimer(0);
       }
-      
-      // New user: go to details screen
-      setSessionToken(data.sessionToken || '');
-      setIsNewUser(true);
-      setPhone(digits);
-      setScreen('details');
     } catch (e: any) {
-      console.error('[AutoLogin] Error:', e?.message);
+      console.error('[OTP] Error:', e?.message);
       setOtpError(e?.message || 'Network error');
       Alert.alert('Error', 'Could not connect. Please try again.');
+      setOtpResendTimer(0);
     } finally {
       setOtpSending(false);
       setOtpSendInProgress(false);
