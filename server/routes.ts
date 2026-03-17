@@ -6562,6 +6562,46 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
     }
   });
 
+  // Temporary bulk delete endpoint - for admin cleanup only
+  app.post("/api/admin/bulk-delete-users", adminMiddleware, async (req, res) => {
+    try {
+      const { keepPhones } = req.body;
+      if (!keepPhones || !Array.isArray(keepPhones)) {
+        return res.status(400).json({ success: false, message: "keepPhones array required" });
+      }
+
+      // Build WHERE clause: block all users EXCEPT those matching any of the keepPhones patterns
+      // Uses LIKE to match phone numbers with any formatting (handles different formatting)
+      const conditions = keepPhones
+        .map((phone: string) => `phone NOT LIKE '%${phone.replace(/'/g, "''")}'`)
+        .join(' AND ');
+      
+      const query = `UPDATE profiles SET blocked = 1 WHERE ${conditions || '1=1'}`;
+      
+      await db.execute(sql.raw(query));
+
+      // Get count of affected and remaining
+      const countResult = await db.execute(sql.raw(`
+        SELECT 
+          COUNT(*) as total,
+          COUNT(CASE WHEN blocked = 1 THEN 1 END) as blocked,
+          COUNT(CASE WHEN blocked = 0 THEN 1 END) as active
+        FROM profiles
+      `));
+
+      const stats = countResult.rows?.[0] || { total: 0, blocked: 0, active: 0 };
+
+      return res.json({
+        success: true,
+        message: `Bulk delete completed`,
+        stats,
+      });
+    } catch (error) {
+      console.error("[Admin] Bulk delete error:", error);
+      return res.status(500).json({ success: false, message: "Failed to bulk delete users" });
+    }
+  });
+
   app.post("/api/admin/support-info", adminMiddleware, async (req, res) => {
     try {
       const { supportNumber, whatsappLink } = req.body;
