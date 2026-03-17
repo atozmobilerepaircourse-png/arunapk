@@ -6573,12 +6573,14 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
       }
 
       // Build WHERE clause: block all users EXCEPT those matching any of the keepPhones patterns
-      // Uses LIKE to match phone numbers with any formatting (handles different formatting)
-      const conditions = keepPhones
-        .map((phone: string) => `phone NOT LIKE '%${phone.replace(/'/g, "''")}'`)
-        .join(' AND ');
+      // Block everyone first, then unblock the admin(s)
+      const keepPhonePatterns = keepPhones
+        .map((phone: string) => `'%${phone.replace(/'/g, "''")}'`)
+        .join(',');
       
-      const query = `UPDATE profiles SET blocked = 1 WHERE ${conditions || '1=1'}`;
+      const query = keepPhones.length > 0 
+        ? `UPDATE profiles SET blocked = 1 WHERE phone NOT LIKE ANY(ARRAY[${keepPhonePatterns}])`
+        : `UPDATE profiles SET blocked = 1`;
       
       await db.execute(sql.raw(query));
 
@@ -6622,6 +6624,47 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
     } catch (error) {
       console.error("[Admin] Cleanup error:", error);
       return res.status(500).json({ success: false, message: "Failed to cleanup" });
+    }
+  });
+
+  // NUCLEAR OPTION: Delete everything except admin account
+  app.post("/api/admin/nuke-database", adminMiddleware, async (req, res) => {
+    try {
+      const { confirm } = req.body;
+      if (confirm !== "CONFIRM_DELETE_ALL") {
+        return res.status(400).json({ success: false, message: "Must confirm with 'CONFIRM_DELETE_ALL'" });
+      }
+
+      // Get admin ID(s) to preserve
+      const adminProfiles = await db.select().from(profiles).where(sql`phone LIKE '%8179142535%'`);
+      const adminIds = adminProfiles.map(p => p.id);
+
+      // Delete everything in order respecting foreign keys
+      await db.delete(messages); // Chat messages
+      await db.delete(conversations); // Conversations
+      await db.delete(jobs); // Jobs
+      await db.delete(comments); // Post comments
+      await db.delete(likes); // Post likes
+      await db.delete(posts); // Posts
+      await db.delete(products); // Products
+      
+      // Delete all users EXCEPT admin(s)
+      if (adminIds.length > 0) {
+        await db.delete(profiles).where(
+          sql`id NOT IN (${sql.join(adminIds, ',')})`
+        );
+      } else {
+        await db.delete(profiles);
+      }
+
+      return res.json({
+        success: true,
+        message: "Database nuked. Only admin account(s) remain.",
+        adminPreserved: adminIds.length,
+      });
+    } catch (error) {
+      console.error("[Admin] Nuke database error:", error);
+      return res.status(500).json({ success: false, message: "Failed to nuke database" });
     }
   });
 
