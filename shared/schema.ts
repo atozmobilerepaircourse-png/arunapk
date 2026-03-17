@@ -41,7 +41,6 @@ export const profiles = pgTable("profiles", {
   deviceChangeCount: integer("device_change_count").default(0),
   pushToken: text("push_token").default(""),
   blocked: integer("blocked").default(0),
-  deleted: integer("deleted").default(0),
   allowMarketing: integer("allow_marketing").default(1),
   notificationPrefs: text("notification_prefs").default(JSON.stringify({
     orders: true,

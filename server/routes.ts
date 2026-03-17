@@ -281,17 +281,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           role: "admin",
           skills: "[]",
           blocked: 0,
-          deleted: 0,
         });
         console.log("[Admin] Created admin account for 8179142535");
       } else {
-        // Ensure admin account is never blocked or deleted
+        // Ensure admin account is never blocked
         const admin = existing[0];
-        if (admin.blocked === 1 || admin.deleted === 1) {
+        if (admin.blocked === 1) {
           await db.update(profiles)
-            .set({ blocked: 0, deleted: 0 } as any)
+            .set({ blocked: 0 } as any)
             .where(eq(profiles.id, admin.id));
-          console.log("[Admin] Reset admin account - was blocked or deleted");
+          console.log("[Admin] Reset admin account - was blocked");
         }
       }
     } catch (err) {
