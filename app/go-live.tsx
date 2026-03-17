@@ -165,35 +165,57 @@ export default function GoLiveScreen() {
     }
   };
 
-  const handleEndLive = async () => {
-    console.log('[EndLive] Button clicked! activeSession:', activeSession?.id, 'teacherId:', profile?.id);
+  const handleEndLive = () => {
+    console.log('[EndLive] ===== START =====');
+    console.log('[EndLive] Button clicked!');
+    console.log('[EndLive] activeSession type:', typeof activeSession);
+    console.log('[EndLive] activeSession value:', activeSession);
+    console.log('[EndLive] profile type:', typeof profile);
+    console.log('[EndLive] profile value:', profile);
     
-    if (!activeSession?.id || !profile?.id) {
-      console.error('[EndLive] Missing session or teacher info');
+    if (!activeSession) {
+      console.log('[EndLive] STOP: activeSession is null/undefined');
       return;
     }
     
-    try {
-      console.log('[EndLive] Making API request...');
+    if (!profile) {
+      console.log('[EndLive] STOP: profile is null/undefined');
+      return;
+    }
+    
+    console.log('[EndLive] Validation passed. About to call API...');
+    
+    // Call API directly without async/await issues
+    const doEndSession = () => {
+      console.log('[EndLive] Inside doEndSession');
+      console.log('[EndLive] Calling apiRequest...');
       
-      const res = await apiRequest('POST', '/api/teacher/end-live', {
+      apiRequest('POST', '/api/teacher/end-live', {
         teacherId: profile.id,
         sessionId: activeSession.id,
+      }).then((res) => {
+        console.log('[EndLive] THEN: Response received');
+        console.log('[EndLive] Response status:', res.status);
+        console.log('[EndLive] Response ok:', res.ok);
+        
+        if (res.ok) {
+          console.log('[EndLive] SUCCESS: res.ok is true');
+          console.log('[EndLive] Setting activeSession to null...');
+          setActiveSession(null);
+          console.log('[EndLive] Setting streamKeyInfo to null...');
+          setStreamKeyInfo(null);
+          console.log('[EndLive] ===== DONE =====');
+        } else {
+          console.log('[EndLive] ERROR: res.ok is false, status:', res.status);
+        }
+      }).catch((err) => {
+        console.error('[EndLive] CATCH: Error caught');
+        console.error('[EndLive] Error:', err?.message || err);
       });
-      
-      console.log('[EndLive] Response received:', res.status, 'ok:', res.ok);
-      
-      if (res.ok) {
-        console.log('[EndLive] Success! Clearing state.');
-        setActiveSession(null);
-        setStreamKeyInfo(null);
-        console.log('[EndLive] State cleared. Session should be gone.');
-      } else {
-        console.error('[EndLive] Response not OK:', res.status);
-      }
-    } catch (error: any) {
-      console.error('[EndLive] Exception:', error?.message || error);
-    }
+    };
+    
+    console.log('[EndLive] Calling doEndSession...');
+    doEndSession();
   };
 
   const pickThumbnail = async () => {
