@@ -15,7 +15,7 @@ import { openLink } from '@/lib/open-link';
 const C = Colors.light;
 const PRIMARY = '#FF6B2C';
 
-type AdminTab = 'dashboard' | 'users' | 'customers' | 'technicians' | 'teachers' | 'suppliers' | 'products' | 'orders' | 'reports' | 'settings' | 'posts' | 'jobs' | 'bookings' | 'subscriptions' | 'revenue' | 'links' | 'notifications' | 'payouts' | 'email' | 'insurance' | 'ads' | 'listings';
+type AdminTab = 'dashboard' | 'users' | 'customers' | 'technicians' | 'teachers' | 'suppliers' | 'blocked-users' | 'products' | 'orders' | 'reports' | 'settings' | 'posts' | 'jobs' | 'bookings' | 'subscriptions' | 'revenue' | 'links' | 'notifications' | 'payouts' | 'email' | 'insurance' | 'ads' | 'listings';
 
 const ROLE_COLORS: Record<string, string> = {
   technician: '#34C759',
@@ -702,9 +702,12 @@ export default function AdminScreen() {
   const executeBlockUser = async (userId: string, userName: string, block: boolean) => {
     setBlockingUserId(userId);
     try {
+      console.log(`🚫 ${block ? 'Blocking' : 'Unblocking'} user:`, userId);
       const res = await apiRequest('POST', '/api/admin/block-user', { userId, blocked: block });
-      if (!res.ok) throw new Error('API error');
+      console.log('Block response status:', res.status);
+      if (!res.ok) throw new Error(`API error: ${res.status}`);
       const data = await res.json();
+      console.log('Block response:', data);
       if (data.success) {
         Alert.alert('Success', `${userName} has been ${block ? 'blocked' : 'unblocked'}.`);
         await refreshData();
@@ -712,7 +715,8 @@ export default function AdminScreen() {
         Alert.alert('Error', data.message || 'Failed to block user'); 
       }
     } catch (e: any) { 
-      Alert.alert('Error', 'Failed to block user. Check your connection.'); 
+      console.error('Block error:', e);
+      Alert.alert('Error', e.message || 'Failed to block user. Check your connection.'); 
     } finally {
       setBlockingUserId(null);
     }
@@ -740,9 +744,12 @@ export default function AdminScreen() {
   const executeDeleteUser = async (userId: string, userName: string) => {
     setDeletingUserId(userId);
     try {
+      console.log('🗑️ Deleting user:', userId);
       const res = await apiRequest('POST', '/api/admin/delete-user', { userId });
-      if (!res.ok) throw new Error('API error');
+      console.log('Delete response status:', res.status);
+      if (!res.ok) throw new Error(`API error: ${res.status}`);
       const data = await res.json();
+      console.log('Delete response:', data);
       if (data.success) {
         Alert.alert('Success', `${userName} has been deleted.`);
         await refreshData();
@@ -750,6 +757,7 @@ export default function AdminScreen() {
         Alert.alert('Error', data.message || 'Failed to delete user');
       }
     } catch (e: any) { 
+      console.error('Delete error:', e);
       Alert.alert('Error', e.message || 'Failed to delete user. Check your connection.'); 
     } finally {
       setDeletingUserId(null);
@@ -877,6 +885,7 @@ export default function AdminScreen() {
     { key: 'technicians', label: 'Technicians', icon: 'construct-outline', group: 'roles' },
     { key: 'teachers', label: 'Teachers', icon: 'school-outline', group: 'roles' },
     { key: 'suppliers', label: 'Suppliers', icon: 'cube-outline', group: 'roles' },
+    { key: 'blocked-users', label: 'Blocked Users', icon: 'ban-outline', group: 'main' },
     { key: 'products', label: 'Products', icon: 'pricetag-outline', group: 'main' },
     { key: 'orders', label: 'Orders', icon: 'calendar-outline', group: 'main' },
     { key: 'reports', label: 'Reports', icon: 'bar-chart-outline', group: 'main' },
@@ -1100,6 +1109,64 @@ export default function AdminScreen() {
               <Ionicons name={icon} size={40} color={C.textTertiary} />
               <Text style={{ color: C.textTertiary, fontSize: 14, fontFamily: 'Inter_400Regular', marginTop: 8 }}>
                 {userSearchQuery ? `No ${label.toLowerCase()}s match your search` : `No ${label.toLowerCase()}s yet`}
+              </Text>
+            </View>
+          }
+        />
+      </View>
+    );
+  };
+
+  // ── Blocked users view ──
+  const renderBlockedUsers = () => {
+    const blockedUsers = (allProfiles || []).filter(p => p.blocked === 1);
+    const searched = userSearchQuery
+      ? blockedUsers.filter(p =>
+          (p.name || '').toLowerCase().includes(userSearchQuery.toLowerCase()) ||
+          (p.phone || '').includes(userSearchQuery) ||
+          (p.city || '').toLowerCase().includes(userSearchQuery.toLowerCase())
+        )
+      : blockedUsers;
+    return (
+      <View style={{ flex: 1 }}>
+        <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 6, gap: 10 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#FF3B3015', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#FF3B3030' }}>
+            <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#FF3B3025', alignItems: 'center', justifyContent: 'center' }}>
+              <Ionicons name="ban-outline" size={18} color="#FF3B30" />
+            </View>
+            <View>
+              <Text style={{ fontFamily: 'Inter_700Bold', fontSize: 15, color: C.text }}>Blocked Users</Text>
+              <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 12, color: C.textSecondary }}>{blockedUsers.length} blocked</Text>
+            </View>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: C.surface, borderRadius: 12, paddingHorizontal: 12, borderWidth: 1, borderColor: C.border }}>
+            <Ionicons name="search" size={16} color={C.textTertiary} />
+            <TextInput value={userSearchQuery} onChangeText={setUserSearchQuery}
+              placeholder="Search blocked users..."
+              placeholderTextColor={C.textTertiary}
+              style={{ flex: 1, color: C.text, paddingVertical: 10, paddingHorizontal: 8, fontFamily: 'Inter_400Regular', fontSize: 14 }} />
+            {userSearchQuery.length > 0 && (
+              <Pressable onPress={() => setUserSearchQuery('')} hitSlop={8}>
+                <Ionicons name="close-circle" size={16} color={C.textTertiary} />
+              </Pressable>
+            )}
+          </View>
+          <Text style={{ color: C.textTertiary, fontSize: 12, fontFamily: 'Inter_400Regular' }}>{searched.length} result{searched.length !== 1 ? 's' : ''}</Text>
+        </View>
+        <FlatList
+          data={searched}
+          keyExtractor={item => item.id}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 40, paddingHorizontal: 16 }}
+          renderItem={({ item }) => (
+            <UserDetailCard user={{ id: item.id, name: item.name || 'Unknown', role: item.role, city: item.city, isRegistered: true, fullProfile: item }}
+              onBlock={handleBlockUser} onVerify={executeVerifyUser} onDelete={handleDeleteUser} blockingId={blockingUserId} verifyingId={verifyingUserId} deletingId={deletingUserId} />
+          )}
+          ListEmptyComponent={
+            <View style={{ alignItems: 'center', padding: 40 }}>
+              <Ionicons name="ban-outline" size={40} color={C.textTertiary} />
+              <Text style={{ color: C.textTertiary, fontSize: 14, fontFamily: 'Inter_400Regular', marginTop: 8 }}>
+                {userSearchQuery ? 'No blocked users match your search' : 'No blocked users'}
               </Text>
             </View>
           }
@@ -2163,6 +2230,7 @@ export default function AdminScreen() {
         {activeTab === 'technicians' && renderRoleUsers('technician', 'Technician', 'construct-outline', '#34C759')}
         {activeTab === 'teachers' && renderRoleUsers('teacher', 'Teacher', 'school-outline', '#FFD60A')}
         {activeTab === 'suppliers' && renderRoleUsers('supplier', 'Supplier', 'cube-outline', '#FF6B2C')}
+        {activeTab === 'blocked-users' && renderBlockedUsers()}
         {activeTab === 'products' && renderListings()}
         {activeTab === 'orders' && renderBookings()}
         {activeTab === 'reports' && renderReports()}
