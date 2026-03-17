@@ -122,7 +122,7 @@ export default function SupplierStoreScreen() {
   const renderHeader = () => (
     <View>
       {/* BANNER */}
-      <LinearGradient colors={['#1A0A2E', '#0F1624']} style={styles.banner}>
+      <LinearGradient colors={['#10B981', '#059669']} style={styles.banner}>
         <View style={styles.bannerOverlay}>
           <View style={styles.avatarWrap}>
             {supplier?.avatar ? (
