@@ -6250,23 +6250,30 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
     try {
       const { teacherId, sessionId } = req.body;
       if (!teacherId) return res.status(400).json({ success: false, message: "teacherId required" });
-      const firestore = getFirestore();
-      if (sessionId) {
-        await firestore.collection("teacher_live_sessions").doc(sessionId).update({
-          isLive: false, endedAt: Date.now()
-        });
-      } else {
-        const existing = await firestore.collection("teacher_live_sessions")
-          .where("teacherId", "==", teacherId)
-          .where("isLive", "==", true)
-          .get();
-        for (const doc of existing.docs) {
-          await doc.ref.update({ isLive: false, endedAt: Date.now() });
+      
+      try {
+        const firestore = getFirestore();
+        if (sessionId) {
+          await firestore.collection("teacher_live_sessions").doc(sessionId).update({
+            isLive: false, endedAt: Date.now()
+          });
+        } else {
+          const existing = await firestore.collection("teacher_live_sessions")
+            .where("teacherId", "==", teacherId)
+            .where("isLive", "==", true)
+            .get();
+          for (const doc of existing.docs) {
+            await doc.ref.update({ isLive: false, endedAt: Date.now() });
+          }
         }
+      } catch (firestoreErr: any) {
+        console.warn("[Live] Firestore warning (continuing):", firestoreErr?.message);
+        // Continue even if Firestore fails - the session still ended logically
       }
+      
       return res.json({ success: true });
-    } catch (error) {
-      console.error("[Live] End live error:", error);
+    } catch (error: any) {
+      console.error("[Live] End live error:", error?.message || error);
       return res.status(500).json({ success: false, message: "Failed to end live session" });
     }
   });
@@ -6497,20 +6504,29 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
         createdAt: Date.now(),
       };
 
-      const firestore = getFirestore();
-      if (firestore) {
-        await firestore.collection("live_chat_messages").doc(messageId).set(msgData);
-        console.log("[Live Session Upload] Message added to Firestore live_chat_messages, id:", messageId);
-        // Also update the live session document so Mobi Live card shows latest photo
-        try {
-          await firestore.collection("teacher_live_sessions").doc(sessionId).update({
-            latestImage: absoluteUrl,
-            latestImageAt: Date.now(),
-          });
-          console.log("[Live Session Upload] Updated teacher_live_sessions latestImage for:", sessionId);
-        } catch (sessErr) {
-          console.warn("[Live Session Upload] Could not update session latestImage:", sessErr);
+      try {
+        const firestore = getFirestore();
+        if (firestore) {
+          try {
+            await firestore.collection("live_chat_messages").doc(messageId).set(msgData);
+            console.log("[Live Session Upload] Message added to Firestore live_chat_messages, id:", messageId);
+          } catch (chatErr: any) {
+            console.warn("[Live Session Upload] Firestore chat error (continuing):", chatErr?.message);
+          }
+          
+          // Also update the live session document so Mobi Live card shows latest photo
+          try {
+            await firestore.collection("teacher_live_sessions").doc(sessionId).update({
+              latestImage: absoluteUrl,
+              latestImageAt: Date.now(),
+            });
+            console.log("[Live Session Upload] Updated teacher_live_sessions latestImage for:", sessionId);
+          } catch (sessErr: any) {
+            console.warn("[Live Session Upload] Could not update session latestImage:", sessErr?.message);
+          }
         }
+      } catch (firestoreErr: any) {
+        console.warn("[Live Session Upload] Firestore error (continuing):", firestoreErr?.message);
       }
 
       res.json({ success: true, url: absoluteUrl });
