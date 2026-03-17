@@ -165,24 +165,37 @@ export default function GoLiveScreen() {
     }
   };
 
-  const handleEndLive = () => {
-    if (!activeSession?.id || !profile?.id) return;
+  const handleEndLive = async () => {
+    console.log('[EndLive] Button pressed. activeSession:', activeSession?.id, 'profile:', profile?.id);
+    
+    if (!activeSession?.id || !profile?.id) {
+      console.log('[EndLive] Missing data - returning early');
+      return;
+    }
     
     // Capture values BEFORE clearing state
     const sessionId = activeSession.id;
     const teacherId = profile.id;
     
+    console.log('[EndLive] Captured sessionId:', sessionId, 'teacherId:', teacherId);
+    
     // Clear state IMMEDIATELY on frontend (for instant UI update)
     setActiveSession(null);
     setStreamKeyInfo(null);
+    console.log('[EndLive] State cleared, activeSession is now null');
     
     // Make API call in background with captured values
-    apiRequest('POST', '/api/teacher/end-live', {
-      teacherId,
-      sessionId,
-    }).catch(() => {
-      // Silently fail - UI is already updated on frontend
-    });
+    try {
+      console.log('[EndLive] Sending API request to /api/teacher/end-live');
+      const res = await apiRequest('POST', '/api/teacher/end-live', {
+        teacherId,
+        sessionId,
+      });
+      const data = await res.json();
+      console.log('[EndLive] API Response:', data);
+    } catch (err: any) {
+      console.error('[EndLive] API Error:', err.message || err);
+    }
   };
 
   const pickThumbnail = async () => {
