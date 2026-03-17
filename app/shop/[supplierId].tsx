@@ -333,12 +333,12 @@ export default function ShopScreen() {
   const fetchData = useCallback(async () => {
     try {
       const [supRes, prodsRes] = await Promise.all([
-        apiRequest('GET', `/api/users/${supplierId}`),
+        apiRequest('GET', `/api/profiles/${supplierId}`),
         apiRequest('GET', `/api/products?supplierId=${supplierId}&limit=100`),
       ]);
       const supData   = await supRes.json();
       const prodsData = await prodsRes.json();
-      setSupplier(supData.user || supData);
+      setSupplier(supData);
       const arr = Array.isArray(prodsData) ? prodsData : (prodsData.products || prodsData.items || []);
       setProducts(arr);
     } catch {

@@ -130,10 +130,10 @@ export default function MarketplaceScreen() {
 
   const fetchSuppliers = useCallback(async () => {
     try {
-      const res  = await apiRequest('GET', '/api/users?role=supplier&limit=50');
+      const res  = await apiRequest('GET', '/api/profiles');
       const data = await res.json();
-      const arr  = Array.isArray(data) ? data : (data.users || data.suppliers || []);
-      setSuppliers(arr.filter((u: any) => !u.blocked));
+      const arr  = Array.isArray(data) ? data : (data.profiles || []);
+      setSuppliers(arr.filter((u: any) => u.role === 'supplier' && !u.blocked));
     } catch {
       setSuppliers([]);
     } finally {
