@@ -113,10 +113,10 @@ function ProductRow({ product, onEdit, onDelete }: { product: Product; onEdit: (
         </View>
       </View>
       <View style={styles.productActions}>
-        <Pressable onPress={onEdit} style={styles.actionBtn}>
+        <Pressable onPress={onEdit} style={styles.actionBtn} hitSlop={8}>
           <Ionicons name="create-outline" size={18} color={PRIMARY} />
         </Pressable>
-        <Pressable onPress={onDelete} style={styles.actionBtn}>
+        <Pressable onPress={() => { console.log('[Delete] Trash pressed for', product.id); onDelete(); }} style={styles.actionBtn} hitSlop={8}>
           <Ionicons name="trash-outline" size={18} color="#FF3B30" />
         </Pressable>
       </View>
@@ -308,13 +308,17 @@ export default function SupplierProductsScreen() {
   };
 
   const handleDelete = (product: Product) => {
+    console.log('[Delete] Showing alert for:', product.title);
     Alert.alert('Delete Product', `Delete "${product.title}" permanently?`, [
-      { text: 'Keep', style: 'cancel' },
+      { text: 'Keep', style: 'cancel', onPress: () => console.log('[Delete] Cancelled') },
       {
         text: 'Delete', style: 'destructive', onPress: async () => {
+          console.log('[Delete] Confirmed for:', product.id);
           try {
+            setLoadingId(product.id);
             const res = await apiRequest('DELETE', `/api/products/${product.id}`);
             const data = await res.json();
+            console.log('[Delete] Response:', data);
             
             if (data.success) {
               setProducts(prev => prev.filter(p => p.id !== product.id));
@@ -325,8 +329,10 @@ export default function SupplierProductsScreen() {
               Alert.alert('Error', data.message || 'Failed to delete product');
             }
           } catch (e) {
-            console.error('[SupplierProducts] Delete error:', e);
+            console.error('[Delete] Error:', e);
             Alert.alert('Error', 'Failed to delete product. Check your connection and try again.');
+          } finally {
+            setLoadingId(null);
           }
         }
       }
