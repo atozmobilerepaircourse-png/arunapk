@@ -122,7 +122,7 @@ export default function SupplierStoreScreen() {
   const renderHeader = () => (
     <View>
       {/* BANNER */}
-      <LinearGradient colors={['#10B981', '#059669']} style={styles.banner}>
+      <LinearGradient colors={['#059669', '#047857']} style={styles.banner}>
         <View style={styles.bannerOverlay}>
           <View style={styles.avatarWrap}>
             {supplier?.avatar ? (
@@ -302,7 +302,7 @@ const styles = StyleSheet.create({
   headerBar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#E5E7EB', backgroundColor: '#FFFFFF' },
   backBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' },
   headerTitle: { flex: 1, textAlign: 'center', fontSize: 17, fontFamily: 'Inter_700Bold', color: '#111827' },
-  banner: { padding: 24, paddingTop: 28, paddingBottom: 32 },
+  banner: { padding: 24, paddingTop: 28, paddingBottom: 32, backgroundColor: '#059669' },
   bannerOverlay: { alignItems: 'center' },
   avatarWrap: { position: 'relative', marginBottom: 12 },
   avatar: { width: 90, height: 90, borderRadius: 45, borderWidth: 3, borderColor: T.accent },
