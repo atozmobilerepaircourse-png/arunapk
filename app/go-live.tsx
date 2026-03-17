@@ -166,21 +166,23 @@ export default function GoLiveScreen() {
   };
 
   const handleEndLive = () => {
-    if (!activeSession?.id) return;
+    if (!activeSession?.id || !profile?.id) return;
     
-    // Clear state IMMEDIATELY on frontend
+    // Capture values BEFORE clearing state
+    const sessionId = activeSession.id;
+    const teacherId = profile.id;
+    
+    // Clear state IMMEDIATELY on frontend (for instant UI update)
     setActiveSession(null);
     setStreamKeyInfo(null);
     
-    // Make API call in background (don't wait for response)
-    if (profile?.id && activeSession?.id) {
-      apiRequest('POST', '/api/teacher/end-live', {
-        teacherId: profile.id,
-        sessionId: activeSession.id,
-      }).catch(() => {
-        // Silently fail - UI is already updated
-      });
-    }
+    // Make API call in background with captured values
+    apiRequest('POST', '/api/teacher/end-live', {
+      teacherId,
+      sessionId,
+    }).catch(() => {
+      // Silently fail - UI is already updated on frontend
+    });
   };
 
   const pickThumbnail = async () => {
