@@ -6562,7 +6562,9 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
     }
   });
 
-  // Temporary bulk delete endpoint - for admin cleanup only
+  // Temporary endpoints for admin cleanup
+  
+  // Bulk delete users endpoint
   app.post("/api/admin/bulk-delete-users", adminMiddleware, async (req, res) => {
     try {
       const { keepPhones } = req.body;
@@ -6599,6 +6601,27 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
     } catch (error) {
       console.error("[Admin] Bulk delete error:", error);
       return res.status(500).json({ success: false, message: "Failed to bulk delete users" });
+    }
+  });
+
+  // Cleanup posts and products
+  app.post("/api/admin/cleanup-posts-products", adminMiddleware, async (req, res) => {
+    try {
+      // Delete all posts
+      const postsResult = await db.delete(posts);
+      
+      // Delete all products
+      const productsResult = await db.delete(products);
+
+      return res.json({
+        success: true,
+        message: "Cleanup completed",
+        deletedPosts: postsResult.rowCount || 0,
+        deletedProducts: productsResult.rowCount || 0,
+      });
+    } catch (error) {
+      console.error("[Admin] Cleanup error:", error);
+      return res.status(500).json({ success: false, message: "Failed to cleanup" });
     }
   });
 
