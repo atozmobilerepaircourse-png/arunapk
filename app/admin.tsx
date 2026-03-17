@@ -454,11 +454,26 @@ export default function AdminScreen() {
   };
 
   const deleteListing = async (id: string) => {
-    Alert.alert('Delete Listing', 'Remove this listing?', [
-      { text: 'Cancel', style: 'cancel' },
+    console.log('[Delete] deleteListing called with id:', id);
+    Alert.alert('Delete Listing', 'Remove this listing permanently?', [
+      { text: 'Cancel', style: 'cancel', onPress: () => console.log('[Delete] Cancelled') },
       { text: 'Delete', style: 'destructive', onPress: async () => {
-          try { await apiRequest('DELETE', `/api/products/${id}`); await fetchAllProducts(); }
-          catch { Alert.alert('Error', 'Failed to delete listing'); }
+          console.log('[Delete] Delete confirmed for product:', id);
+          try {
+            const res = await apiRequest('DELETE', `/api/products/${id}`);
+            const data = await res.json();
+            console.log('[Delete] Response:', { status: res.status, data });
+            if (data.success || res.status === 404) {
+              console.log('[Delete] Success! Refreshing products list');
+              await fetchAllProducts();
+              Alert.alert('Success', 'Listing deleted');
+            } else {
+              Alert.alert('Error', data.message || 'Failed to delete');
+            }
+          } catch (e) {
+            console.error('[Delete] Error:', e);
+            Alert.alert('Error', 'Failed to delete listing');
+          }
         }},
     ]);
   };
