@@ -411,7 +411,7 @@ export default function AdminScreen() {
   useEffect(() => {
     if (activeTab === 'bookings') fetchRepairBookings();
     if (activeTab === 'ads') fetchAds();
-    if (activeTab === 'listings') fetchAllProducts();
+    if (activeTab === 'products' || activeTab === 'listings') fetchAllProducts();
   }, [activeTab]);
 
   const createAd = async () => {
