@@ -24,12 +24,19 @@ const GRAY      = '#6B7280';
 const SUCCESS   = '#10B981';
 
 
-const ROLE_FILTERS: { key: UserRole | 'all'; label: string }[] = [
+const ROLE_FILTERS_ALL: { key: UserRole | 'all'; label: string }[] = [
   { key: 'all',          label: 'All' },
   { key: 'technician',   label: 'Technicians' },
   { key: 'teacher',      label: 'Teachers' },
   { key: 'supplier',     label: 'Suppliers' },
+  { key: 'shopkeeper',   label: 'Shopkeepers' },
   { key: 'job_provider', label: 'Jobs' },
+];
+
+const ROLE_FILTERS_CUSTOMER: { key: UserRole | 'all'; label: string }[] = [
+  { key: 'all',          label: 'All' },
+  { key: 'technician',   label: 'Technicians' },
+  { key: 'shopkeeper',   label: 'Shopkeepers' },
 ];
 
 type OnlineStats = Record<string, { registered: number; online: number }>;
@@ -39,12 +46,14 @@ const STAT_CONFIG: { key: string; label: string; icon: keyof typeof Ionicons.gly
   { key: 'customer',   label: 'Customers',    icon: 'people',     iconColor: '#7C3AED', iconBg: '#EDE9FE', cornerBg: '#F5F3FF' },
   { key: 'teacher',    label: 'Teachers',     icon: 'school',     iconColor: '#EA580C', iconBg: '#FFEDD5', cornerBg: '#FFF7ED' },
   { key: 'supplier',   label: 'Suppliers',    icon: 'cube',       iconColor: '#0D9488', iconBg: '#CCFBF1', cornerBg: '#F0FDFA' },
+  { key: 'shopkeeper', label: 'Shopkeepers',  icon: 'storefront',  iconColor: '#8B5CF6', iconBg: '#F5F3FF', cornerBg: '#F5F3FF' },
 ];
 
 const ROLE_MAP_COLORS: Record<string, string> = {
   technician: '#34C759',
   teacher: '#FFD60A',
   supplier: '#FF6B2C',
+  shopkeeper: '#8B5CF6',
   customer: '#FF2D55',
   job_provider: '#5E8BFF',
 };
@@ -53,6 +62,7 @@ const ROLE_BADGE: Record<string, { bg: string; text: string }> = {
   technician:   { bg: '#DBEAFE', text: '#1D4ED8' },
   teacher:      { bg: '#EDE9FE', text: '#7C3AED' },
   supplier:     { bg: '#CCFBF1', text: '#0D9488' },
+  shopkeeper:   { bg: '#F5F3FF', text: '#8B5CF6' },
   job_provider: { bg: '#DBEAFE', text: '#1D4ED8' },
   customer:     { bg: '#FEE2E2', text: '#DC2626' },
 };
@@ -91,11 +101,15 @@ function LivePing() {
   );
 }
 
-function LiveCountPills({ stats }: { stats: OnlineStats | null }) {
-  const roles = [
+function LiveCountPills({ stats, isCustomer }: { stats: OnlineStats | null; isCustomer?: boolean }) {
+  const roles = isCustomer ? [
+    { key: 'technician', label: 'Technicians', icon: 'construct' as const, color: '#2563EB' },
+    { key: 'shopkeeper', label: 'Shopkeepers', icon: 'storefront' as const, color: '#8B5CF6' },
+  ] : [
     { key: 'technician', label: 'Technicians', icon: 'construct' as const, color: '#2563EB' },
     { key: 'teacher', label: 'Teachers', icon: 'school' as const, color: '#EA580C' },
     { key: 'supplier', label: 'Suppliers', icon: 'cube' as const, color: '#0D9488' },
+    { key: 'shopkeeper', label: 'Shopkeepers', icon: 'storefront' as const, color: '#8B5CF6' },
     { key: 'customer', label: 'Customers', icon: 'people' as const, color: '#7C3AED' },
   ];
 
@@ -134,8 +148,8 @@ function ProfCard({ item, onChat, onCall, onPress }: ProfCardProps) {
     ? (item.avatar.startsWith('http') ? item.avatar : `${getApiUrl()}${item.avatar}`)
     : null;
   
-  // Only show Chat/Call buttons for Supplier and Teacher - Customer and Technician click to profile
-  const showButtons = item.role === 'supplier' || item.role === 'teacher';
+  // Show Chat/Call buttons for Supplier, Teacher, and Shopkeeper; others click to profile
+  const showButtons = item.role === 'supplier' || item.role === 'teacher' || item.role === 'shopkeeper';
 
   return (
     <Pressable style={styles.card} onPress={onPress}>
@@ -277,8 +291,14 @@ export default function DirectoryScreen() {
     }));
   }, [allProfiles]);
 
+  const isCustomer = profile?.role === 'customer';
+
   const filtered = useMemo(() => {
     let list = directory;
+    // For customers, exclude teachers and suppliers (only show technicians and shopkeepers)
+    if (isCustomer) {
+      list = list.filter(e => e.role !== 'teacher' && e.role !== 'supplier');
+    }
     if (roleFilter !== 'all') list = list.filter(e => e.role === roleFilter);
     if (search.trim()) { const q = search.toLowerCase(); list = list.filter(e => e.name.toLowerCase().includes(q) || e.city.toLowerCase().includes(q) || e.skills.some(s => s.toLowerCase().includes(q))); }
     
@@ -299,7 +319,7 @@ export default function DirectoryScreen() {
       });
     }
     return list;
-  }, [directory, roleFilter, search, userLocation]);
+  }, [directory, roleFilter, search, userLocation, isCustomer]);
 
   const mapProfiles = useMemo(() => filtered.filter(p => p.latitude && p.longitude && !isNaN(p.latitude!) && !isNaN(p.longitude!) && (p.role !== 'customer' || p.locationSharing === 'true')).map(p => ({ id: p.id, latitude: p.latitude!, longitude: p.longitude!, name: p.name, role: ROLE_LABELS[p.role] || p.role, roleKey: p.role, city: p.city, skills: p.skills, color: ROLE_MAP_COLORS[p.role] || '#1D4ED8', avatar: p.avatar, isOnline: p.isOnline, lastSeen: 0 })), [filtered]);
 
@@ -349,11 +369,11 @@ export default function DirectoryScreen() {
         </View>
 
         {/* Live Count Pills */}
-        <LiveCountPills stats={stats} />
+        <LiveCountPills stats={stats} isCustomer={profile?.role === 'customer'} />
 
         {/* Role Filter Tabs - Fixed */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs} style={{ backgroundColor: BG, paddingVertical: 6 }}>
-          {ROLE_FILTERS.map(f => (
+          {(profile?.role === 'customer' ? ROLE_FILTERS_CUSTOMER : ROLE_FILTERS_ALL).map(f => (
             <Pressable
               key={f.key}
               style={[styles.tab, roleFilter === f.key && styles.tabActive]}
@@ -375,13 +395,13 @@ export default function DirectoryScreen() {
         renderItem={({ item }) => {
           const prof = allProfiles.find(p => p.id === item.id);
           const phone = prof?.phone;
-          const showCall = (item.role === 'supplier' || item.role === 'teacher') && phone;
+          const showCall = (item.role === 'supplier' || item.role === 'teacher' || item.role === 'shopkeeper') && phone;
           return (
           <ProfCard
             item={item}
             onPress={() => {
-              // Route suppliers/teachers to shop, others to profile
-              if (item.role === 'supplier' || item.role === 'teacher') {
+              // Route suppliers/teachers/shopkeepers to shop, others to profile
+              if (item.role === 'supplier' || item.role === 'teacher' || item.role === 'shopkeeper') {
                 router.push({ pathname: '/shop/[supplierId]', params: { supplierId: item.id, supplierName: item.name } } as any);
               } else {
                 router.push({ pathname: '/user-profile', params: { id: item.id } });
