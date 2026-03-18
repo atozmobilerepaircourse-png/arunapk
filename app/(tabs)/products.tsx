@@ -645,21 +645,47 @@ export default function SupplierProductsScreen() {
               </View>
             )}
 
-            <TouchableOpacity
-              style={[styles.uploadThumbnailBtn, uploadingThumbnail && { opacity: 0.6 }]}
-              onPress={handleThumbnailUpload}
-              disabled={uploadingThumbnail}
-              activeOpacity={0.7}
-            >
-              {uploadingThumbnail ? (
-                <ActivityIndicator size="small" color="#FFF" />
-              ) : (
-                <>
-                  <Ionicons name="cloud-upload-outline" size={18} color="#FFF" />
-                  <Text style={styles.uploadThumbnailText}>Upload New Thumbnail</Text>
-                </>
-              )}
-            </TouchableOpacity>
+            {typeof window !== 'undefined' ? (
+              <button
+                onClick={handleThumbnailUpload}
+                disabled={uploadingThumbnail}
+                style={{
+                  backgroundColor: PRIMARY,
+                  color: '#FFF',
+                  border: 'none',
+                  padding: '12px 16px',
+                  borderRadius: '10px',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  fontFamily: 'Inter',
+                  width: '100%',
+                  cursor: uploadingThumbnail ? 'not-allowed' : 'pointer',
+                  opacity: uploadingThumbnail ? 0.6 : 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                } as any}
+              >
+                📤 Upload New Thumbnail
+              </button>
+            ) : (
+              <TouchableOpacity
+                style={[styles.uploadThumbnailBtn, uploadingThumbnail && { opacity: 0.6 }]}
+                onPress={handleThumbnailUpload}
+                disabled={uploadingThumbnail}
+                activeOpacity={0.7}
+              >
+                {uploadingThumbnail ? (
+                  <ActivityIndicator size="small" color="#FFF" />
+                ) : (
+                  <>
+                    <Ionicons name="cloud-upload-outline" size={18} color="#FFF" />
+                    <Text style={styles.uploadThumbnailText}>Upload New Thumbnail</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       )}
