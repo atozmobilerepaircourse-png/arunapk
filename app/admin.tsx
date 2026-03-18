@@ -15,12 +15,13 @@ import { openLink } from '@/lib/open-link';
 const C = Colors.light;
 const PRIMARY = '#FF6B2C';
 
-type AdminTab = 'dashboard' | 'users' | 'customers' | 'technicians' | 'teachers' | 'suppliers' | 'blocked-users' | 'deleted-users' | 'products' | 'orders' | 'reports' | 'settings' | 'posts' | 'jobs' | 'bookings' | 'subscriptions' | 'revenue' | 'links' | 'notifications' | 'payouts' | 'email' | 'insurance' | 'ads' | 'listings';
+type AdminTab = 'dashboard' | 'users' | 'customers' | 'technicians' | 'teachers' | 'suppliers' | 'shopkeepers' | 'blocked-users' | 'deleted-users' | 'products' | 'orders' | 'reports' | 'settings' | 'posts' | 'jobs' | 'bookings' | 'subscriptions' | 'revenue' | 'links' | 'notifications' | 'payouts' | 'email' | 'insurance' | 'ads' | 'listings';
 
 const ROLE_COLORS: Record<string, string> = {
   technician: '#34C759',
   teacher: '#FFD60A',
   supplier: '#FF6B2C',
+  shopkeeper: '#8B5CF6',
   job_provider: '#5E8BFF',
   customer: '#FF2D55',
   admin: '#AF52DE',
@@ -147,7 +148,7 @@ function UserDetailCard({ user, onBlock, onVerify, onDelete, blockingId, verifyi
     }
   };
 
-  const ROLES_LIST: UserRole[] = ['admin', 'technician', 'teacher', 'supplier', 'customer', 'job_provider'];
+  const ROLES_LIST: UserRole[] = ['admin', 'technician', 'teacher', 'supplier', 'shopkeeper', 'customer', 'job_provider'];
 
   return (
     <View style={[ss.userCard, isBlocked && { borderColor: '#FF3B30', borderWidth: 1.5 }]}>
@@ -474,7 +475,7 @@ export default function AdminScreen() {
       { text: 'Delete', style: 'destructive', onPress: async () => {
           console.log('[Delete] Delete confirmed for product:', id);
           try {
-            const res = await apiRequest('DELETE', `/api/products/${id}`);
+            const res = await apiRequest('DELETE', `/api/admin/products/${id}`);
             const data = await res.json();
             console.log('[Delete] Response:', { status: res.status, data });
             if (data.success || res.status === 404) {
@@ -695,7 +696,20 @@ export default function AdminScreen() {
   const handleDeletePost = (postId: string, userName: string) => {
     Alert.alert('Delete Post', `Delete post by ${userName}? This cannot be undone.`, [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => deletePost(postId) },
+      { text: 'Delete', style: 'destructive', onPress: async () => {
+        try {
+          const res = await apiRequest('DELETE', `/api/posts/${postId}`);
+          if (res.ok) {
+            await refreshData();
+            Alert.alert('Deleted', 'Post removed successfully.');
+          } else {
+            const data = await res.json().catch(() => ({}));
+            Alert.alert('Error', data.message || 'Failed to delete post');
+          }
+        } catch (e: any) {
+          Alert.alert('Error', e.message || 'Failed to delete post');
+        }
+      }},
     ]);
   };
 
@@ -899,6 +913,7 @@ export default function AdminScreen() {
     { key: 'technicians', label: 'Technicians', icon: 'construct-outline', group: 'roles' },
     { key: 'teachers', label: 'Teachers', icon: 'school-outline', group: 'roles' },
     { key: 'suppliers', label: 'Suppliers', icon: 'cube-outline', group: 'roles' },
+    { key: 'shopkeepers', label: 'Shopkeepers', icon: 'storefront-outline', group: 'roles' },
     { key: 'blocked-users', label: 'Blocked Users', icon: 'ban-outline', group: 'main' },
     { key: 'deleted-users', label: 'Deleted Users', icon: 'trash-outline', group: 'main' },
     { key: 'products', label: 'Products', icon: 'pricetag-outline', group: 'main' },
@@ -972,6 +987,7 @@ export default function AdminScreen() {
           { label: 'Technicians', icon: 'construct-outline' as any, color: '#34C759', tab: 'technicians' as AdminTab, count: stats.roleBreakdown?.technician || 0 },
           { label: 'Teachers', icon: 'school-outline' as any, color: '#FFD60A', tab: 'teachers' as AdminTab, count: stats.roleBreakdown?.teacher || 0 },
           { label: 'Suppliers', icon: 'cube-outline' as any, color: '#FF6B2C', tab: 'suppliers' as AdminTab, count: stats.roleBreakdown?.supplier || 0 },
+          { label: 'Shopkeepers', icon: 'storefront-outline' as any, color: '#8B5CF6', tab: 'shopkeepers' as AdminTab, count: stats.roleBreakdown?.shopkeeper || 0 },
         ].map(item => (
           <Pressable key={item.label} onPress={() => setActiveTab(item.tab)}
             style={{ flex: 1, minWidth: '46%', backgroundColor: item.color + '10', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: item.color + '30', gap: 6 }}>
@@ -1458,7 +1474,7 @@ export default function AdminScreen() {
       {subLoading ? (
         <View style={{ alignItems: 'center', paddingTop: 40 }}><ActivityIndicator size="large" color={PRIMARY} /></View>
       ) : (
-        (['technician', 'teacher', 'supplier'] as const).map(role => {
+        (['technician', 'teacher', 'supplier', 'shopkeeper'] as const).map(role => {
           const sub = subscriptions.find(s => s.role === role);
           const enabled = sub?.enabled === 1;
           const roleColor = ROLE_COLORS[role];
@@ -1467,7 +1483,7 @@ export default function AdminScreen() {
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                   <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: roleColor + '20', alignItems: 'center', justifyContent: 'center' }}>
-                    <Ionicons name={role === 'technician' ? 'construct' : role === 'teacher' ? 'school' : 'cube'} size={20} color={roleColor} />
+                    <Ionicons name={role === 'technician' ? 'construct' : role === 'teacher' ? 'school' : role === 'shopkeeper' ? 'storefront' : 'cube'} size={20} color={roleColor} />
                   </View>
                   <View>
                     <Text style={{ fontSize: 15, fontFamily: 'Inter_600SemiBold', color: C.text }}>{ROLE_LABELS[role]}</Text>
@@ -2341,6 +2357,7 @@ export default function AdminScreen() {
         {activeTab === 'technicians' && renderRoleUsers('technician', 'Technician', 'construct-outline', '#34C759')}
         {activeTab === 'teachers' && renderRoleUsers('teacher', 'Teacher', 'school-outline', '#FFD60A')}
         {activeTab === 'suppliers' && renderRoleUsers('supplier', 'Supplier', 'cube-outline', '#FF6B2C')}
+        {activeTab === 'shopkeepers' && renderRoleUsers('shopkeeper', 'Shopkeeper', 'storefront-outline', '#8B5CF6')}
         {activeTab === 'blocked-users' && renderBlockedUsers()}
         {activeTab === 'deleted-users' && renderDeletedUsers()}
         {activeTab === 'products' && renderListings()}
