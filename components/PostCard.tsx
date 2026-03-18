@@ -203,26 +203,47 @@ export default function PostCard({
 
       {/* ── Header (pr-80 to avoid badge) ── */}
       <View style={styles.header}>
-        <Pressable onPress={() => router.push(getProfileRoute(post.userId, post.userRole) as any)}>
-          {post.userAvatar && !avatarLoadFailed ? (
-            <Image
-              source={{ uri: post.userAvatar }}
-              style={[styles.avatar, { borderColor: catColor + '80' }]}
-              contentFit="cover"
-              onError={() => setAvatarLoadFailed(true)}
-            />
-          ) : (
-            <View style={[styles.avatarFallback, { backgroundColor: catColor + '25', borderColor: catColor + '80' }]}>
-              <Text style={[styles.avatarText, { color: catColor }]}>{getInitials(post.userName)}</Text>
-            </View>
-          )}
-        </Pressable>
+        {post.userRole === 'supplier' ? (
+          <View>
+            {post.userAvatar && !avatarLoadFailed ? (
+              <Image
+                source={{ uri: post.userAvatar }}
+                style={[styles.avatar, { borderColor: catColor + '80' }]}
+                contentFit="cover"
+                onError={() => setAvatarLoadFailed(true)}
+              />
+            ) : (
+              <View style={[styles.avatarFallback, { backgroundColor: catColor + '25', borderColor: catColor + '80' }]}>
+                <Text style={[styles.avatarText, { color: catColor }]}>{getInitials(post.userName)}</Text>
+              </View>
+            )}
+          </View>
+        ) : (
+          <Pressable onPress={() => router.push(getProfileRoute(post.userId, post.userRole) as any)}>
+            {post.userAvatar && !avatarLoadFailed ? (
+              <Image
+                source={{ uri: post.userAvatar }}
+                style={[styles.avatar, { borderColor: catColor + '80' }]}
+                contentFit="cover"
+                onError={() => setAvatarLoadFailed(true)}
+              />
+            ) : (
+              <View style={[styles.avatarFallback, { backgroundColor: catColor + '25', borderColor: catColor + '80' }]}>
+                <Text style={[styles.avatarText, { color: catColor }]}>{getInitials(post.userName)}</Text>
+              </View>
+            )}
+          </Pressable>
+        )}
 
         <View style={styles.headerInfo}>
           <View style={styles.nameRow}>
-            <Pressable onPress={() => router.push(getProfileRoute(post.userId, post.userRole) as any)}>
+            {post.userRole === 'supplier' ? (
               <Text style={styles.userName} numberOfLines={1}>{post.userName}</Text>
-            </Pressable>
+            ) : (
+              <Pressable onPress={() => router.push(getProfileRoute(post.userId, post.userRole) as any)}>
+                <Text style={styles.userName} numberOfLines={1}>{post.userName}</Text>
+              </Pressable>
+            )}
             {isTech && <Ionicons name="checkmark-circle" size={11} color={ACCENT_GREEN} />}
           </View>
           <Text style={styles.metaText}>{ROLE_LABELS[post.userRole]} · {timeAgo(post.createdAt)}</Text>
