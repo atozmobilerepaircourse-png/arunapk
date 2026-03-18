@@ -440,7 +440,6 @@ export default function FeedScreen() {
           <HeaderButton delay={160} onPress={() => router.push('/chats')}>
             <View style={styles.bellBtn}>
               <Ionicons name="chatbubbles" size={18} color={TEXT} />
-              {totalUnread > 0 && <View style={styles.redDot} />}
             </View>
           </HeaderButton>
         </View>
@@ -688,15 +687,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: BORDER + '80',
     position: 'relative',
-  },
-  redDot: {
-    position: 'absolute',
-    top: 6,
-    right: 6,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#EF4444',
   },
   searchRow: {
     paddingHorizontal: 16,
