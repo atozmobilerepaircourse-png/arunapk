@@ -373,40 +373,60 @@ export default function SupplierProductsScreen() {
 
 
   const handleNativeThumbnailUpload = async () => {
-    try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        quality: 0.8,
-        base64: Platform.OS === 'web',
-      });
-      if (!result.canceled && result.assets[0]) {
-        await uploadThumbnailFile(result.assets[0]);
+    if (Platform.OS === 'web') {
+      // Web: create real DOM file input and trigger it directly from user gesture
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      input.style.position = 'fixed';
+      input.style.top = '-9999px';
+      document.body.appendChild(input);
+
+      input.onchange = async (e: any) => {
+        const file = e.target?.files?.[0];
+        document.body.removeChild(input);
+        if (file) await uploadThumbnailFile(file);
+      };
+
+      input.oncancel = () => {
+        if (document.body.contains(input)) document.body.removeChild(input);
+      };
+
+      // Must call click() synchronously in the event handler
+      input.click();
+    } else {
+      try {
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ['images'],
+          quality: 0.8,
+        });
+        if (!result.canceled && result.assets[0]) {
+          await uploadThumbnailFile(result.assets[0].uri);
+        }
+      } catch (e) {
+        Alert.alert('Error', 'Failed to pick image. Please try again.');
+        console.error('[Thumbnail] Pick error:', e);
       }
-    } catch (e) {
-      Alert.alert('Error', 'Failed to pick image. Please try again.');
-      console.error('[Thumbnail] Pick error:', e);
     }
   };
 
-  const uploadThumbnailFile = async (asset: ImagePicker.ImagePickerAsset) => {
+  const uploadThumbnailFile = async (file: File | string) => {
     setUploadingThumbnail(true);
     try {
-      console.log('[Thumbnail] Uploading asset:', asset.uri?.slice(0, 60));
       const formData = new FormData();
 
-      if (Platform.OS === 'web') {
-        // On web, fetch the blob from the uri and append as File
-        const response = await fetch(asset.uri);
-        const blob = await response.blob();
-        const file = new File([blob], 'thumbnail.jpg', { type: blob.type || 'image/jpeg' });
+      if (Platform.OS === 'web' && file instanceof File) {
+        // Web: append File object directly
         formData.append('image', file);
-      } else {
-        // Native
+      } else if (typeof file === 'string') {
+        // Native: uri string
         formData.append('image', {
-          uri: asset.uri,
+          uri: file,
           name: 'thumbnail.jpg',
           type: 'image/jpeg',
         } as any);
+      } else {
+        throw new Error('Invalid file');
       }
       
       const apiUrl = getApiUrl();
