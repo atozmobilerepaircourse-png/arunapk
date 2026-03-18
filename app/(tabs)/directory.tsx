@@ -191,7 +191,7 @@ function ProfCard({ item, onChat, onCall, onPress }: ProfCardProps) {
                   <Text style={[styles.ratingText, { color: '#2563EB' }]}>{item.city}</Text>
                 </View>
               ) : (
-                !item.distance && (
+                (item.distance === undefined || item.distance === null) && (
                   <View style={styles.ratingRow}>
                     <Ionicons name="star" size={10} color="#FBBF24" />
                     <Text style={styles.ratingText}>4.8 (120)</Text>
