@@ -359,15 +359,16 @@ export default function ProductDetailScreen() {
           <View style={ss.cartUpdateRow}>
             <TouchableOpacity
               onPress={() => { if (cartQty > 1) updateQuantity(product.id, cartQty - 1); else removeFromCart(product.id); }}
+              activeOpacity={0.6}
               style={ss.qtyStepBtn}>
               <Ionicons name="remove" size={18} color={ACCENT} />
             </TouchableOpacity>
             <Text style={ss.cartQtyVal}>{cartQty}</Text>
             <TouchableOpacity
               onPress={() => { if (cartQty < stock) updateQuantity(product.id, cartQty + 1); }}
-              disabled={cartQty >= stock}
-              style={[ss.qtyStepBtn, cartQty >= stock && { opacity: 0.4 }]}>
-              <Ionicons name="add" size={18} color={ACCENT} />
+              activeOpacity={cartQty >= stock ? 0.5 : 0.6}
+              style={[ss.qtyStepBtn, cartQty >= stock && { opacity: 0.5, backgroundColor: '#F3F4F6' }]}>
+              <Ionicons name="add" size={18} color={cartQty >= stock ? MUTED : ACCENT} />
             </TouchableOpacity>
             <View style={ss.cartPriceDivider} />
             <View style={{ flex: 1 }}>
