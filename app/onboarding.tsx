@@ -150,7 +150,9 @@ export default function OnboardingScreen() {
   const sendOtp = async (phoneNumber: string) => {
     const digits = phoneNumber.replace(/\D/g, '').replace(/^91/, '');
     if (digits.length !== 10) {
-      Alert.alert('Invalid Number', 'Please enter a valid 10-digit mobile number.');
+      const errorMsg = 'Please enter a valid 10-digit mobile number.';
+      console.warn('[AutoLogin] Validation error:', errorMsg, 'Phone:', phoneNumber, 'Digits:', digits);
+      Alert.alert('Invalid Number', errorMsg);
       return;
     }
     
@@ -167,19 +169,24 @@ export default function OnboardingScreen() {
 
     try {
       const deviceId = await getDeviceId();
+      console.log('[AutoLogin] Device ID:', deviceId);
 
       // Call auto-login endpoint (no OTP needed)
+      console.log('[AutoLogin] Making API request to /api/auth/auto-login');
       const res = await apiRequest('POST', '/api/auth/auto-login', {
         phone: digits,
         deviceId
       });
 
+      console.log('[AutoLogin] Got response:', res.status);
       const data = await res.json();
+      console.log('[AutoLogin] Response data:', { success: data.success, isNewUser: data.isNewUser, hasProfile: !!data.profile });
 
       if (!data.success) {
-        console.error('[AutoLogin] Failed:', data.message);
-        setOtpError(data.message || 'Login failed');
-        Alert.alert('Error', data.message || 'Login failed');
+        const errorMsg = data.message || 'Login failed';
+        console.error('[AutoLogin] Failed:', errorMsg);
+        setOtpError(errorMsg);
+        Alert.alert('Login Error', errorMsg);
         return;
       }
 
@@ -188,26 +195,36 @@ export default function OnboardingScreen() {
 
       // If existing user, log them in immediately
       if (!data.isNewUser && data.profile) {
+        console.log('[AutoLogin] Existing user, logging in...');
         const p = {
           ...data.profile,
           skills: Array.isArray(data.profile.skills)
             ? data.profile.skills
             : (() => { try { return JSON.parse(data.profile.skills || '[]'); } catch { return []; } })()
         };
-        await loginWithProfile(p, data.sessionToken || '');
-        router.replace(getRoleRoute(p) as any);
+        try {
+          await loginWithProfile(p, data.sessionToken || '');
+          console.log('[AutoLogin] loginWithProfile completed, navigating to:', getRoleRoute(p));
+          router.replace(getRoleRoute(p) as any);
+        } catch (loginErr: any) {
+          console.error('[AutoLogin] loginWithProfile failed:', loginErr?.message);
+          Alert.alert('Login Error', 'Failed to complete login. Please try again.');
+          setOtpError(loginErr?.message || 'Login error');
+        }
         return;
       }
 
       // New user: go to details screen
+      console.log('[AutoLogin] New user, going to details screen');
       setSessionToken(data.sessionToken || '');
       setIsNewUser(true);
       setPhone(digits);
       setScreen('details');
     } catch (e: any) {
-      console.error('[AutoLogin] Error:', e?.message);
-      setOtpError(e?.message || 'Network error');
-      Alert.alert('Error', 'Could not connect. Please try again.');
+      const errorMsg = e?.message || 'Unable to connect to server';
+      console.error('[AutoLogin] Error:', errorMsg, e);
+      setOtpError(errorMsg);
+      Alert.alert('Connection Error', errorMsg || 'Could not connect. Please check your internet and try again.');
     } finally {
       setOtpSending(false);
       setOtpSendInProgress(false);
