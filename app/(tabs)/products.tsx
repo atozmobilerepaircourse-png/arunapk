@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, Pressable, Platform,
   Alert, RefreshControl, ActivityIndicator, Dimensions, ScrollView, TouchableOpacity,
@@ -273,7 +273,6 @@ export default function SupplierProductsScreen() {
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [showThumbnailModal, setShowThumbnailModal] = useState(false);
   const [uploadingThumbnail, setUploadingThumbnail] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const topInset = Platform.OS === 'web' ? webTopInset : insets.top;
 
@@ -373,83 +372,41 @@ export default function SupplierProductsScreen() {
   };
 
 
-  // Setup file input listener for web
-  React.useEffect(() => {
-    if (typeof window === 'undefined') return;
-    
-    console.log('[Thumbnail] Setting up file input listener on web');
-    const fileInput = document.getElementById('shop-thumbnail-file-input') as HTMLInputElement;
-    
-    if (!fileInput) {
-      console.error('[Thumbnail] File input not found in DOM');
-      return;
-    }
-
-    const handleFileChange = (e: Event) => {
-      const target = e.target as HTMLInputElement;
-      const file = target.files?.[0];
-      console.log('[Thumbnail] Web file selected:', file?.name);
-      if (file) {
-        uploadThumbnailFile(file);
-        // Reset input
-        target.value = '';
-      }
-    };
-
-    fileInput.addEventListener('change', handleFileChange);
-    
-    return () => {
-      fileInput.removeEventListener('change', handleFileChange);
-    };
-  }, []);
-
   const handleNativeThumbnailUpload = async () => {
     try {
-      // On web, click the file input. On native, use ImagePicker
-      if (typeof window !== 'undefined') {
-        // Web - click the file input
-        const fileInput = document.getElementById('shop-thumbnail-file-input') as HTMLInputElement;
-        console.log('[Thumbnail] Clicking file input, ref:', fileInput);
-        fileInput?.click();
-      } else {
-        // Native - use ImagePicker
-        const result = await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ['images'],
-          quality: 0.8,
-        });
-        if (!result.canceled && result.assets[0]) {
-          await uploadThumbnailFile(result.assets[0].uri);
-        }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        quality: 0.8,
+        base64: Platform.OS === 'web',
+      });
+      if (!result.canceled && result.assets[0]) {
+        await uploadThumbnailFile(result.assets[0]);
       }
     } catch (e) {
-      if (typeof window === 'undefined') {
-        // Only show alert on native
-        Alert.alert('Error', 'Failed to pick image. Please try again.');
-      }
+      Alert.alert('Error', 'Failed to pick image. Please try again.');
       console.error('[Thumbnail] Pick error:', e);
     }
   };
 
-  const uploadThumbnailFile = async (uri: string | File) => {
+  const uploadThumbnailFile = async (asset: ImagePicker.ImagePickerAsset) => {
     setUploadingThumbnail(true);
     try {
-      console.log('[Thumbnail] Starting upload...', { uri, isFile: uri instanceof File, platform: Platform.OS });
+      console.log('[Thumbnail] Uploading asset:', asset.uri?.slice(0, 60));
       const formData = new FormData();
-      
-      if (Platform.OS === 'web' && uri instanceof File) {
-        // Web: uri is a File object
-        console.log('[Thumbnail] Web file detected:', uri.name, uri.size, uri.type);
-        formData.append('image', uri);
-      } else if (Platform.OS !== 'web' && typeof uri === 'string') {
-        // Native: uri is a file path string
-        console.log('[Thumbnail] Native file path:', uri);
+
+      if (Platform.OS === 'web') {
+        // On web, fetch the blob from the uri and append as File
+        const response = await fetch(asset.uri);
+        const blob = await response.blob();
+        const file = new File([blob], 'thumbnail.jpg', { type: blob.type || 'image/jpeg' });
+        formData.append('image', file);
+      } else {
+        // Native
         formData.append('image', {
-          uri,
+          uri: asset.uri,
           name: 'thumbnail.jpg',
           type: 'image/jpeg',
         } as any);
-      } else {
-        throw new Error('Invalid file format');
       }
       
       const apiUrl = getApiUrl();
@@ -485,45 +442,21 @@ export default function SupplierProductsScreen() {
       console.log('[Thumbnail] Profile update response:', updateData);
       
       if (updateData.success && setProfile) {
-        console.log('[Thumbnail] Profile updated successfully');
         setProfile(updateData.profile);
-        console.log('[Thumbnail] New profile shopThumbnail:', updateData.profile?.shopThumbnail);
-        if (Platform.OS === 'web') {
-          window.alert('Shop thumbnail updated successfully!');
-        } else {
-          Alert.alert('Success', 'Shop thumbnail updated successfully!');
-        }
         setShowThumbnailModal(false);
+        Alert.alert('Success', 'Shop thumbnail updated!');
       } else {
         throw new Error('Update failed: ' + (updateData.message || 'Unknown error'));
       }
     } catch (e) {
       const errorMsg = e instanceof Error ? e.message : 'Failed to upload thumbnail';
       console.error('[Thumbnail] Upload error:', errorMsg);
-      console.error('[Thumbnail] Full error:', e);
-      if (Platform.OS === 'web') {
-        window.alert(`Error: ${errorMsg}`);
-      } else {
-        Alert.alert('Error', errorMsg);
-      }
+      Alert.alert('Error', errorMsg);
     } finally {
       setUploadingThumbnail(false);
     }
   };
 
-  const handleFileInputChange = (e: any) => {
-    console.log('[Thumbnail] handleFileInputChange called');
-    const file = e.target?.files?.[0];
-    console.log('[Thumbnail] Selected file:', file);
-    if (file) {
-      console.log('[Thumbnail] File selected, uploading:', file.name);
-      uploadThumbnailFile(file);
-      // Reset input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-    }
-  };
 
   const totalRevenue = orders
     .filter(o => ['delivered', 'completed'].includes(o.status))
@@ -702,46 +635,21 @@ export default function SupplierProductsScreen() {
               </View>
             )}
 
-            {typeof window !== 'undefined' ? (
-              <input
-                id="shop-thumbnail-file-input"
-                type="file"
-                accept="image/*"
-                disabled={uploadingThumbnail}
-                style={{
-                  backgroundColor: PRIMARY,
-                  color: '#FFF',
-                  border: 'none',
-                  borderRadius: '10px',
-                  padding: '12px 16px',
-                  cursor: uploadingThumbnail ? 'not-allowed' : 'pointer',
-                  opacity: uploadingThumbnail ? 0.6 : 1,
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  fontFamily: 'Inter',
-                  width: '100%',
-                  boxSizing: 'border-box',
-                  display: 'block',
-                } as any}
-              />
-            ) : (
-              // Native Expo - use TouchableOpacity
-              <TouchableOpacity
-                style={[styles.uploadThumbnailBtn, uploadingThumbnail && { opacity: 0.6 }]}
-                onPress={handleNativeThumbnailUpload}
-                disabled={uploadingThumbnail}
-                activeOpacity={uploadingThumbnail ? 1 : 0.7}
-              >
-                {uploadingThumbnail ? (
-                  <ActivityIndicator size="small" color="#FFF" />
-                ) : (
-                  <>
-                    <Ionicons name="cloud-upload-outline" size={18} color="#FFF" />
-                    <Text style={styles.uploadThumbnailText}>Upload New Thumbnail</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity
+              style={[styles.uploadThumbnailBtn, uploadingThumbnail && { opacity: 0.6 }]}
+              onPress={handleNativeThumbnailUpload}
+              disabled={uploadingThumbnail}
+              activeOpacity={0.7}
+            >
+              {uploadingThumbnail ? (
+                <ActivityIndicator size="small" color="#FFF" />
+              ) : (
+                <>
+                  <Ionicons name="cloud-upload-outline" size={18} color="#FFF" />
+                  <Text style={styles.uploadThumbnailText}>Upload New Thumbnail</Text>
+                </>
+              )}
+            </TouchableOpacity>
           </View>
         </View>
       )}
