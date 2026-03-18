@@ -432,8 +432,16 @@ export default function SupplierProductsScreen() {
       
       if (!uploadData.success) throw new Error('Upload failed: ' + (uploadData.message || 'Unknown error'));
       
-      const imageUrl = uploadData.url;
-      console.log('[Thumbnail] Image URL received:', imageUrl);
+      let imageUrl = uploadData.url;
+      console.log('[Thumbnail] Raw image URL from server:', imageUrl);
+      
+      // Ensure absolute URL for local fallback URLs
+      if (imageUrl && !imageUrl.startsWith('http')) {
+        imageUrl = `https://repair-backend-3siuld7gbq-el.a.run.app${imageUrl}`;
+        console.log('[Thumbnail] Converted to absolute URL:', imageUrl);
+      }
+      
+      console.log('[Thumbnail] Final image URL to save:', imageUrl);
       
       // Update profile with thumbnail URL
       console.log('[Thumbnail] Updating profile with thumbnail URL...');

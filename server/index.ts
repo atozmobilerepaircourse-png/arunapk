@@ -243,6 +243,7 @@ function configureExpoAndLanding(app: express.Application) {
   });
 
   app.use("/assets", express.static(path.resolve(process.cwd(), "assets")));
+  app.use("/uploads", express.static(path.resolve(process.cwd(), "uploads")));
   app.use("/download", express.static(path.resolve(process.cwd(), "static-build")));
   if (hasWebBuild) {
     app.use(express.static(distPath));
