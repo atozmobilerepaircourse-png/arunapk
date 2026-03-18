@@ -48,6 +48,13 @@ const CAT_CONFIG: Record<string, {
   },
 };
 
+function getProfileRoute(userId: string, userRole?: string) {
+  if (userRole === 'supplier') {
+    return { pathname: '/supplier-profile', params: { id: userId } };
+  }
+  return { pathname: '/user-profile', params: { id: userId } };
+}
+
 function timeAgo(ts: number): string {
   const diff = Date.now() - ts;
   const mins = Math.floor(diff / 60000);
@@ -196,7 +203,7 @@ export default function PostCard({
 
       {/* ── Header (pr-80 to avoid badge) ── */}
       <View style={styles.header}>
-        <Pressable onPress={() => router.push({ pathname: '/user-profile', params: { id: post.userId } })}>
+        <Pressable onPress={() => router.push(getProfileRoute(post.userId, post.userRole) as any)}>
           {post.userAvatar && !avatarLoadFailed ? (
             <Image
               source={{ uri: post.userAvatar }}
@@ -213,7 +220,7 @@ export default function PostCard({
 
         <View style={styles.headerInfo}>
           <View style={styles.nameRow}>
-            <Pressable onPress={() => router.push({ pathname: '/user-profile', params: { id: post.userId } })}>
+            <Pressable onPress={() => router.push(getProfileRoute(post.userId, post.userRole) as any)}>
               <Text style={styles.userName} numberOfLines={1}>{post.userName}</Text>
             </Pressable>
             {isTech && <Ionicons name="checkmark-circle" size={11} color={ACCENT_GREEN} />}
