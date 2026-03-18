@@ -228,7 +228,7 @@ const ss = StyleSheet.create({
   searchInput:{ flex: 1, height: 42, fontSize: 14, fontFamily: 'Inter_400Regular', color: DARK, paddingHorizontal: 8 },
 
   card:       { backgroundColor: WHITE, borderRadius: 16, borderWidth: 1, borderColor: BORDER, overflow: 'hidden', shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
-  bannerWrap: { height: 140, backgroundColor: '#E5E7EB', overflow: 'hidden', position: 'relative' },
+  bannerWrap: { height: 180, backgroundColor: '#E5E7EB', overflow: 'hidden', position: 'relative' },
   bannerOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.35)' },
   bannerBadge:{ position: 'absolute', top: 10, right: 10, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.55)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 20 },
 
