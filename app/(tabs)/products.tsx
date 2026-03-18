@@ -374,26 +374,33 @@ export default function SupplierProductsScreen() {
 
   const handleUploadThumbnail = async () => {
     try {
+      console.log('[Thumbnail] handleUploadThumbnail called, Platform.OS:', Platform.OS);
       if (Platform.OS === 'web') {
         // Web: use file input
+        console.log('[Thumbnail] On web, attempting to click file input');
         if (fileInputRef.current) {
+          console.log('[Thumbnail] File input ref exists, clicking...');
           fileInputRef.current.click();
+        } else {
+          console.log('[Thumbnail] File input ref is null!');
         }
       } else {
         // Native: use ImagePicker
+        console.log('[Thumbnail] On native, launching ImagePicker');
         const result = await ImagePicker.launchImageLibraryAsync({
           mediaTypes: ['images'],
           quality: 0.8,
         });
+        console.log('[Thumbnail] ImagePicker result:', result);
         if (!result.canceled && result.assets[0]) {
           await uploadThumbnailFile(result.assets[0].uri);
         }
       }
     } catch (e) {
+      console.error('[Thumbnail] Pick error:', e);
       if (Platform.OS !== 'web') {
         Alert.alert('Error', 'Failed to pick image. Please try again.');
       }
-      console.error('[Thumbnail] Pick error:', e);
     }
   };
 
@@ -455,8 +462,11 @@ export default function SupplierProductsScreen() {
   };
 
   const handleFileInputChange = (e: any) => {
+    console.log('[Thumbnail] handleFileInputChange called');
     const file = e.target?.files?.[0];
+    console.log('[Thumbnail] Selected file:', file);
     if (file) {
+      console.log('[Thumbnail] File selected, uploading:', file.name);
       uploadThumbnailFile(file);
       // Reset input
       if (fileInputRef.current) {
