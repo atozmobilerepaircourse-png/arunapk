@@ -365,12 +365,10 @@ function CustomerProfileScreen() {
               </View>
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 3 }}>
-              <Ionicons name="call-outline" size={13} color="#888" />
               <Text style={{ fontSize: 13, color: '#555' }}>+91 {profile.phone?.replace(/\D/g, '').slice(-10)}</Text>
             </View>
             {profile.email ? (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Ionicons name="mail-outline" size={13} color="#888" />
                 <Text style={{ fontSize: 13, color: '#555' }}>{profile.email}</Text>
               </View>
             ) : null}
