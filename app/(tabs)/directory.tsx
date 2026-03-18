@@ -178,22 +178,27 @@ function ProfCard({ item, onChat, onCall, onPress }: ProfCardProps) {
             <View style={[styles.roleBadge, { backgroundColor: badge.bg }]}>
               <Text style={[styles.roleBadgeText, { color: badge.text }]}>{skillLabel}</Text>
             </View>
-            {item.distance !== undefined && item.distance !== null ? (
-              <View style={[styles.ratingRow, { backgroundColor: '#FEE2E2', paddingHorizontal: 8, borderRadius: 4 }]}>
-                <Ionicons name="location" size={10} color="#DC2626" />
-                <Text style={[styles.ratingText, { color: '#DC2626' }]}>{item.distance.toFixed(1)} km</Text>
-              </View>
-            ) : item.city ? (
-              <View style={[styles.ratingRow, { backgroundColor: '#DBEAFE', paddingHorizontal: 8, borderRadius: 4 }]}>
-                <Ionicons name="location" size={10} color="#2563EB" />
-                <Text style={[styles.ratingText, { color: '#2563EB' }]}>{item.city}</Text>
-              </View>
-            ) : (
-              <View style={styles.ratingRow}>
-                <Ionicons name="star" size={10} color="#FBBF24" />
-                <Text style={styles.ratingText}>4.8 (120)</Text>
-              </View>
-            )}
+            <View style={{ flexDirection: 'row', gap: 4, alignItems: 'center' }}>
+              {item.distance !== undefined && item.distance !== null && (
+                <View style={[styles.ratingRow, { backgroundColor: '#FEE2E2', paddingHorizontal: 8, borderRadius: 4 }]}>
+                  <Ionicons name="location" size={10} color="#DC2626" />
+                  <Text style={[styles.ratingText, { color: '#DC2626' }]}>{item.distance.toFixed(1)} km</Text>
+                </View>
+              )}
+              {item.city ? (
+                <View style={[styles.ratingRow, { backgroundColor: '#DBEAFE', paddingHorizontal: 8, borderRadius: 4 }]}>
+                  <Ionicons name="location-outline" size={10} color="#2563EB" />
+                  <Text style={[styles.ratingText, { color: '#2563EB' }]}>{item.city}</Text>
+                </View>
+              ) : (
+                !item.distance && (
+                  <View style={styles.ratingRow}>
+                    <Ionicons name="star" size={10} color="#FBBF24" />
+                    <Text style={styles.ratingText}>4.8 (120)</Text>
+                  </View>
+                )
+              )}
+            </View>
           </View>
 
           {item.skills.length > 0 ? (
@@ -299,19 +304,13 @@ export default function DirectoryScreen() {
 
   const filtered = useMemo(() => {
     let list = directory;
+
     // For customers, exclude teachers and suppliers (only show technicians and shopkeepers)
     if (isCustomer) {
       list = list.filter(e => e.role !== 'teacher' && e.role !== 'supplier');
     }
-    // Handle "nearby" filter: show only people within 5km
-    if (roleFilter === 'nearby') {
-      list = list.filter(e => e.distance !== undefined && e.distance !== null && e.distance <= 5);
-    } else if (roleFilter !== 'all') {
-      list = list.filter(e => e.role === roleFilter);
-    }
-    if (search.trim()) { const q = search.toLowerCase(); list = list.filter(e => e.name.toLowerCase().includes(q) || e.city.toLowerCase().includes(q) || e.skills.some(s => s.toLowerCase().includes(q))); }
-    
-    // Add distance calculations if user location is available
+
+    // Calculate distances FIRST so the "Nearby" filter can use them
     if (userLocation) {
       list = list.map(item => {
         if (item.latitude && item.longitude && !isNaN(item.latitude) && !isNaN(item.longitude)) {
@@ -320,13 +319,26 @@ export default function DirectoryScreen() {
         }
         return item;
       });
-      // Sort by distance (nearest first)
-      list.sort((a, b) => {
-        const distA = a.distance ?? Infinity;
-        const distB = b.distance ?? Infinity;
-        return distA - distB;
-      });
     }
+
+    // Apply role / nearby filter AFTER distances are attached
+    if (roleFilter === 'nearby') {
+      list = list.filter(e => e.distance !== undefined && e.distance !== null && e.distance <= 5);
+    } else if (roleFilter !== 'all') {
+      list = list.filter(e => e.role === roleFilter);
+    }
+
+    // Text search
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter(e => e.name.toLowerCase().includes(q) || e.city.toLowerCase().includes(q) || e.skills.some(s => s.toLowerCase().includes(q)));
+    }
+
+    // Sort by distance nearest first when location available
+    if (userLocation) {
+      list.sort((a, b) => (a.distance ?? Infinity) - (b.distance ?? Infinity));
+    }
+
     return list;
   }, [directory, roleFilter, search, userLocation, isCustomer]);
 
