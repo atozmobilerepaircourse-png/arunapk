@@ -404,7 +404,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // For regular phone numbers, match by cleaned digits
         const cleanPhone = phone.replace(/\D/g, '');
         const allProfiles = await db.select().from(profiles);
-        profileRows = allProfiles.filter((p: any) => p.phone.replace(/\D/g, '') === cleanPhone);
+        profileRows = allProfiles.filter((p: any) => p.phone && p.phone.replace(/\D/g, '') === cleanPhone);
       }
       
       if (!profileRows || !profileRows[0]) {

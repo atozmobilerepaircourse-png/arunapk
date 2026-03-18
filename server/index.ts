@@ -331,6 +331,7 @@ function setupErrorHandler(app: express.Application) {
         created_at bigint NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW()) * 1000
       )
     `);
+    await pool.query(`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS banner_image TEXT DEFAULT ''`);
     await pool.end();
     log("Startup migration: otp_tokens table ready");
   } catch (err) {
