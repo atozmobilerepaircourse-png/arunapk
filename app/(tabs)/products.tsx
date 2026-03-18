@@ -639,28 +639,62 @@ export default function SupplierProductsScreen() {
               </View>
             )}
 
-            <TouchableOpacity
-              style={[styles.uploadThumbnailBtn, uploadingThumbnail && { opacity: 0.6 }]}
-              onPress={handleNativeThumbnailUpload}
-              disabled={uploadingThumbnail}
-              activeOpacity={uploadingThumbnail ? 1 : 0.7}
-            >
-              {uploadingThumbnail ? (
-                <ActivityIndicator size="small" color="#FFF" />
-              ) : (
-                <>
-                  <Ionicons name="cloud-upload-outline" size={18} color="#FFF" />
-                  <Text style={styles.uploadThumbnailText}>Upload New Thumbnail</Text>
-                </>
-              )}
-            </TouchableOpacity>
+            {typeof window !== 'undefined' && fileInputRef.current ? (
+              // Mobile/Desktop browser - use HTML label (only reliable way)
+              <label
+                htmlFor="shop-thumbnail-input"
+                style={{
+                  backgroundColor: PRIMARY,
+                  flexDirection: 'row' as any,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  paddingVertical: '12px',
+                  paddingHorizontal: '16px',
+                  borderRadius: '10px',
+                  opacity: uploadingThumbnail ? 0.6 : 1,
+                  pointerEvents: uploadingThumbnail ? 'none' : 'auto',
+                  cursor: uploadingThumbnail ? 'not-allowed' : 'pointer',
+                  display: 'flex',
+                  width: '100%',
+                  boxSizing: 'border-box' as any,
+                } as any}
+              >
+                {uploadingThumbnail ? (
+                  <ActivityIndicator size="small" color="#FFF" />
+                ) : (
+                  <>
+                    <Ionicons name="cloud-upload-outline" size={18} color="#FFF" />
+                    <Text style={styles.uploadThumbnailText}>Upload New Thumbnail</Text>
+                  </>
+                )}
+              </label>
+            ) : (
+              // Native Expo - use TouchableOpacity
+              <TouchableOpacity
+                style={[styles.uploadThumbnailBtn, uploadingThumbnail && { opacity: 0.6 }]}
+                onPress={handleNativeThumbnailUpload}
+                disabled={uploadingThumbnail}
+                activeOpacity={uploadingThumbnail ? 1 : 0.7}
+              >
+                {uploadingThumbnail ? (
+                  <ActivityIndicator size="small" color="#FFF" />
+                ) : (
+                  <>
+                    <Ionicons name="cloud-upload-outline" size={18} color="#FFF" />
+                    <Text style={styles.uploadThumbnailText}>Upload New Thumbnail</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       )}
 
-      {/* Hidden file input for web */}
+      {/* Hidden file input for browsers */}
       {typeof window !== 'undefined' && (
         <input
+          id="shop-thumbnail-input"
           ref={fileInputRef as any}
           type="file"
           accept="image/*"
