@@ -342,7 +342,10 @@ export default function ProductDetailScreen() {
               style={ss.qtyStepBtn}>
               <Ionicons name="remove" size={18} color={ACCENT} />
             </TouchableOpacity>
-            <Text style={ss.cartQtyVal}>{cartQty}</Text>
+            <View style={ss.qtyDisplay}>
+              <Text style={ss.cartQtyVal}>{cartQty}</Text>
+              <Text style={ss.stockLimitTxt}>of {stock}</Text>
+            </View>
             <TouchableOpacity
               onPress={() => { if (cartQty < stock) updateQuantity(product.id, cartQty + 1); }}
               activeOpacity={cartQty >= stock ? 0.5 : 0.6}
@@ -507,7 +510,9 @@ const ss = StyleSheet.create({
     width: 36, height: 36, borderRadius: 8, alignItems: 'center', justifyContent: 'center',
     backgroundColor: '#FFF', borderWidth: 1, borderColor: ACCENT,
   },
-  cartQtyVal: { fontSize: 16, fontFamily: 'Inter_700Bold', color: ACCENT, minWidth: 28, textAlign: 'center' },
+  qtyDisplay: { alignItems: 'center', gap: 1 },
+  cartQtyVal: { fontSize: 16, fontFamily: 'Inter_700Bold', color: ACCENT },
+  stockLimitTxt: { fontSize: 10, color: MUTED, fontFamily: 'Inter_400Regular' },
   cartPriceDivider: { width: 1, height: 24, backgroundColor: ACCENT + '40', marginHorizontal: 4 },
   cartPriceLabel: { fontSize: 10, color: MUTED, fontFamily: 'Inter_400Regular' },
   cartPriceVal: { fontSize: 16, fontFamily: 'Inter_700Bold', color: ACCENT },
