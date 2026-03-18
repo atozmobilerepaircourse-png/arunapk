@@ -57,7 +57,6 @@ function SupplierCard({ item, onPress }: { item: any; onPress: () => void }) {
             <Ionicons name="storefront" size={36} color={ACCENT} />
           </View>
         )}
-        <View style={ss.bannerOverlay} />
         <View style={ss.bannerBadge}>
           <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#27AE60', marginRight: 4 }} />
           <Text style={{ fontSize: 10, color: WHITE, fontFamily: 'Inter_600SemiBold' }}>Verified</Text>
@@ -110,9 +109,6 @@ function SupplierCard({ item, onPress }: { item: any; onPress: () => void }) {
               </View>
             )}
           </View>
-          <TouchableOpacity style={ss.visitBtn} onPress={onPress}>
-            <Text style={ss.visitBtnText}>Visit Shop</Text>
-          </TouchableOpacity>
         </View>
       </View>
     </TouchableOpacity>
