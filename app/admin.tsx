@@ -152,7 +152,7 @@ function UserDetailCard({ user, onBlock, onVerify, onDelete, blockingId, verifyi
 
   return (
     <View style={[ss.userCard, isBlocked && { borderColor: '#FF3B30', borderWidth: 1.5 }]}>
-      <Pressable onPress={() => { setShowRolePicker(false); setExpanded(!expanded); }}>
+      <TouchableOpacity activeOpacity={0.7} onPress={() => { setShowRolePicker(false); setExpanded(!expanded); }}>
         <View style={ss.userCardTop}>
           {profile?.avatar
             ? <Image source={{ uri: profile.avatar }} style={[ss.userAvatarImg, isBlocked && { opacity: 0.5 }]} contentFit="cover" />
@@ -176,7 +176,7 @@ function UserDetailCard({ user, onBlock, onVerify, onDelete, blockingId, verifyi
           </View>
           <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={16} color={C.textTertiary} />
         </View>
-      </Pressable>
+      </TouchableOpacity>
 
       {expanded && (
         <View style={ss.userCardExpanded}>
@@ -206,51 +206,51 @@ function UserDetailCard({ user, onBlock, onVerify, onDelete, blockingId, verifyi
           )}
 
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
-            <Pressable
+            <TouchableOpacity activeOpacity={0.7}
               onPress={() => setShowRolePicker(!showRolePicker)}
               style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: C.surfaceElevated, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: C.border }}
             >
               {changingRole ? <ActivityIndicator size="small" color={PRIMARY} /> : <Ionicons name="swap-horizontal" size={13} color={PRIMARY} />}
               <Text style={{ fontSize: 12, color: PRIMARY, fontFamily: 'Inter_600SemiBold' }}>Change Role</Text>
-            </Pressable>
-            <Pressable
+            </TouchableOpacity>
+            <TouchableOpacity activeOpacity={0.7}
               onPress={() => onBlock(user.id, user.name, !isBlocked)}
               disabled={isBlockingThisUser}
               style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: isBlocked ? '#34C75915' : '#FF3B3015', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: isBlocked ? '#34C75940' : '#FF3B3040', opacity: isBlockingThisUser ? 0.6 : 1 }}
             >
               {isBlockingThisUser ? <ActivityIndicator size="small" color={isBlocked ? '#34C759' : '#FF3B30'} /> : <Ionicons name={isBlocked ? 'lock-open-outline' : 'ban-outline'} size={13} color={isBlocked ? '#34C759' : '#FF3B30'} />}
               <Text style={{ fontSize: 12, color: isBlocked ? '#34C759' : '#FF3B30', fontFamily: 'Inter_600SemiBold' }}>{isBlockingThisUser ? 'Working...' : (isBlocked ? 'Unblock' : 'Block')}</Text>
-            </Pressable>
-            <Pressable
+            </TouchableOpacity>
+            <TouchableOpacity activeOpacity={0.7}
               onPress={() => onVerify(user.id, user.name, !isVerified)}
               disabled={isVerifyingThisUser}
               style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: isVerified ? '#5E8BFF15' : '#34C75915', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: isVerified ? '#5E8BFF40' : '#34C75940', opacity: isVerifyingThisUser ? 0.6 : 1 }}
             >
               {isVerifyingThisUser ? <ActivityIndicator size="small" color={isVerified ? '#5E8BFF' : '#34C759'} /> : <Ionicons name={isVerified ? 'close-circle-outline' : 'checkmark-circle-outline'} size={13} color={isVerified ? '#5E8BFF' : '#34C759'} />}
               <Text style={{ fontSize: 12, color: isVerified ? '#5E8BFF' : '#34C759', fontFamily: 'Inter_600SemiBold' }}>{isVerifyingThisUser ? 'Working...' : (isVerified ? 'Unverify' : 'Verify')}</Text>
-            </Pressable>
-            <Pressable
+            </TouchableOpacity>
+            <TouchableOpacity activeOpacity={0.7}
               onPress={() => onDelete(user.id, user.name)}
               disabled={isDeletingThisUser}
               style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#FF3B3010', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: '#FF3B3030', opacity: isDeletingThisUser ? 0.6 : 1 }}
             >
               {isDeletingThisUser ? <ActivityIndicator size="small" color="#FF3B30" /> : <Ionicons name="trash-outline" size={13} color="#FF3B30" />}
               <Text style={{ fontSize: 12, color: '#FF3B30', fontFamily: 'Inter_600SemiBold' }}>{isDeletingThisUser ? 'Deleting...' : 'Delete'}</Text>
-            </Pressable>
+            </TouchableOpacity>
           </View>
 
           {showRolePicker && (
             <View style={{ marginTop: 10, backgroundColor: C.surfaceElevated, borderRadius: 10, padding: 10, gap: 6, borderWidth: 1, borderColor: C.border }}>
               <Text style={{ fontSize: 11, color: C.textTertiary, fontFamily: 'Inter_600SemiBold', marginBottom: 2 }}>SELECT NEW ROLE</Text>
               {ROLES_LIST.map(r => (
-                <Pressable key={r} onPress={() => changeRole(r)}
+                <TouchableOpacity key={r} activeOpacity={0.7} onPress={() => changeRole(r)}
                   style={{ flexDirection: 'row', alignItems: 'center', gap: 8, padding: 8, borderRadius: 8, backgroundColor: user.role === r ? ROLE_COLORS[r] + '15' : 'transparent' }}>
                   <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: ROLE_COLORS[r] }} />
                   <Text style={{ fontSize: 13, color: user.role === r ? ROLE_COLORS[r] : C.text, fontFamily: user.role === r ? 'Inter_600SemiBold' : 'Inter_400Regular' }}>
                     {ROLE_LABELS[r]}
                   </Text>
                   {user.role === r && <Ionicons name="checkmark" size={14} color={ROLE_COLORS[r]} style={{ marginLeft: 'auto' }} />}
-                </Pressable>
+                </TouchableOpacity>
               ))}
             </View>
           )}
