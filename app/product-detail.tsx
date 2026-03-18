@@ -370,35 +370,18 @@ export default function ProductDetailScreen() {
               style={[ss.qtyStepBtn, cartQty >= stock && { opacity: 0.5, backgroundColor: '#F3F4F6' }]}>
               <Ionicons name="add" size={18} color={cartQty >= stock ? MUTED : ACCENT} />
             </TouchableOpacity>
-            <View style={ss.cartPriceDivider} />
-            <View style={{ flex: 1 }}>
-              <Text style={ss.cartPriceLabel}>Total</Text>
-              <Text style={ss.cartPriceVal}>₹{(price * cartQty).toLocaleString('en-IN')}</Text>
-            </View>
           </View>
         ) : (
-          <>
-            <View style={ss.priceTag}>
-              <Text style={ss.priceTagSub}>Total</Text>
-              <Text style={ss.priceTagVal}>₹{(price * qty).toLocaleString('en-IN')}</Text>
-            </View>
-            <Animated.View style={[{ flex: 1, transform: [{ scale: scaleAnim }] }]}>
-              <TouchableOpacity
-                onPress={handleAddToCart}
-                disabled={stock === 0}
-                style={[ss.addBtn, stock === 0 && { opacity: 0.4 }]}>
-                <Ionicons name="bag-add-outline" size={18} color="#FFF" />
-                <Text style={ss.addBtnTxt}>Add to Cart</Text>
-              </TouchableOpacity>
-            </Animated.View>
-          </>
+          <Animated.View style={[{ flex: 1, transform: [{ scale: scaleAnim }] }]}>
+            <TouchableOpacity
+              onPress={handleAddToCart}
+              disabled={stock === 0}
+              style={[ss.addBtn, stock === 0 && { opacity: 0.4 }]}>
+              <Ionicons name="bag-add-outline" size={18} color="#FFF" />
+              <Text style={ss.addBtnTxt}>Add to Cart</Text>
+            </TouchableOpacity>
+          </Animated.View>
         )}
-        <TouchableOpacity
-          onPress={() => { handleAddToCart(); router.push('/checkout' as any); }}
-          disabled={stock === 0}
-          style={[ss.buyBtn, stock === 0 && { opacity: 0.4 }]}>
-          <Text style={ss.buyBtnTxt}>Buy Now</Text>
-        </TouchableOpacity>
       </View>
     </View>
   );
@@ -531,13 +514,13 @@ const ss = StyleSheet.create({
 
   bottomBar: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
-    backgroundColor: CARD, flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: CARD, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     paddingHorizontal: 16, paddingTop: 12,
     borderTopWidth: 1, borderTopColor: BORDER,
     shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 12, elevation: 12,
   },
   cartUpdateRow: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8,
+    flexDirection: 'row', alignItems: 'center', gap: 8,
     backgroundColor: ACCENT_BG, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10,
     borderWidth: 1.5, borderColor: ACCENT,
   },
@@ -553,8 +536,9 @@ const ss = StyleSheet.create({
   priceTagSub: { fontSize: 10, color: MUTED, fontFamily: 'Inter_400Regular' },
   priceTagVal: { fontSize: 18, fontFamily: 'Inter_700Bold', color: ACCENT },
   addBtn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    backgroundColor: ACCENT, borderRadius: 12, paddingVertical: 13,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    backgroundColor: ACCENT, borderRadius: 12, paddingVertical: 13, paddingHorizontal: 24,
+    minWidth: 200,
   },
   addBtnTxt: { color: '#FFF', fontSize: 14, fontFamily: 'Inter_600SemiBold' },
   buyBtn: {
