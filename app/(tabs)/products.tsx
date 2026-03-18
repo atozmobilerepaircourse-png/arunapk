@@ -274,6 +274,7 @@ export default function SupplierProductsScreen() {
   const [showThumbnailModal, setShowThumbnailModal] = useState(false);
   const [uploadingThumbnail, setUploadingThumbnail] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isWeb = typeof window !== 'undefined';
 
   const topInset = Platform.OS === 'web' ? webTopInset : insets.top;
 
@@ -374,7 +375,7 @@ export default function SupplierProductsScreen() {
 
   const handleUploadThumbnail = async () => {
     try {
-      if (Platform.OS === 'web') {
+      if (isWeb) {
         // Web: use file input
         if (fileInputRef.current) {
           fileInputRef.current.click();
@@ -390,26 +391,32 @@ export default function SupplierProductsScreen() {
         }
       }
     } catch (e) {
-      Alert.alert('Error', 'Failed to pick image. Please try again.');
+      if (isWeb) {
+        console.error('[Thumbnail] Pick error:', e);
+      } else {
+        Alert.alert('Error', 'Failed to pick image. Please try again.');
+      }
       console.error('[Thumbnail] Pick error:', e);
     }
   };
 
-  const uploadThumbnailFile = async (uri: string) => {
+  const uploadThumbnailFile = async (uri: string | File) => {
     setUploadingThumbnail(true);
     try {
       const formData = new FormData();
       
-      if (Platform.OS === 'web') {
+      if (isWeb && uri instanceof File) {
         // Web: uri is a File object
-        formData.append('image', uri as any);
-      } else {
+        formData.append('image', uri);
+      } else if (!isWeb && typeof uri === 'string') {
         // Native: uri is a file path string
         formData.append('image', {
           uri,
           name: 'thumbnail.jpg',
           type: 'image/jpeg',
         } as any);
+      } else {
+        throw new Error('Invalid file format');
       }
       
       const uploadRes = await fetch(`${getApiUrl()}/api/upload`, {
@@ -428,7 +435,7 @@ export default function SupplierProductsScreen() {
       
       if (updateData.success && setProfile) {
         setProfile(updateData.profile);
-        if (Platform.OS === 'web') {
+        if (isWeb) {
           window.alert('Shop thumbnail updated successfully!');
         } else {
           Alert.alert('Success', 'Shop thumbnail updated successfully!');
@@ -439,7 +446,7 @@ export default function SupplierProductsScreen() {
       }
     } catch (e) {
       const errorMsg = e instanceof Error ? e.message : 'Failed to upload thumbnail';
-      if (Platform.OS === 'web') {
+      if (isWeb) {
         window.alert(`Error: ${errorMsg}`);
       } else {
         Alert.alert('Error', errorMsg);
@@ -650,7 +657,7 @@ export default function SupplierProductsScreen() {
       )}
 
       {/* Hidden file input for web */}
-      {Platform.OS === 'web' && (
+      {isWeb && (
         <input
           ref={fileInputRef as any}
           type="file"
