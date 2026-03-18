@@ -1962,7 +1962,7 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
     try {
       const { id, userId, userName, userRole, userAvatar, title, description, price, category, images, thumbnail, city, state, inStock, deliveryInfo, contactPhone, videoUrl } = req.body;
       if (!userId || !title) return res.status(400).json({ success: false, message: "Missing required fields" });
-      if (userRole !== 'teacher' && userRole !== 'supplier') return res.status(403).json({ success: false, message: "Only teachers and suppliers can list products" });
+      if (userRole !== 'teacher' && userRole !== 'supplier' && userRole !== 'shopkeeper') return res.status(403).json({ success: false, message: "Only teachers, suppliers and shopkeepers can list products" });
 
       const productId = id || randomUUID();
       const existing = await db.select().from(products).where(eq(products.id, productId));

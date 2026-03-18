@@ -1,4 +1,4 @@
-export type UserRole = 'technician' | 'teacher' | 'supplier' | 'job_provider' | 'customer' | 'admin';
+export type UserRole = 'technician' | 'teacher' | 'supplier' | 'shopkeeper' | 'job_provider' | 'customer' | 'admin';
 
 export interface UserProfile {
   id: string;
@@ -252,10 +252,13 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   technician: 'Technician',
   teacher: 'Teacher',
   supplier: 'Supplier',
+  shopkeeper: 'Shopkeeper',
   job_provider: 'Job Provider',
   customer: 'Customer',
   admin: 'Admin',
 };
+
+export const SHOPKEEPER_SELL_TYPES = ['Mobile Accessories', 'Phone Cases', 'Chargers & Cables', 'Screen Protectors', 'Earphones', 'Power Banks', 'Spare Parts', 'Other'];
 
 export const CATEGORY_LABELS: Record<PostCategory, string> = {
   repair: 'Repair Work',

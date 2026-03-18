@@ -20,7 +20,7 @@ import Colors from '@/constants/colors';
 import { useApp } from '@/lib/context';
 import {
   UserRole, ROLE_LABELS, SKILLS_LIST, INDIAN_STATES, UserProfile,
-  SUPPLIER_SELL_TYPES, TEACHER_TEACH_TYPES,
+  SUPPLIER_SELL_TYPES, TEACHER_TEACH_TYPES, SHOPKEEPER_SELL_TYPES,
 } from '@/lib/types';
 import { apiRequest, getApiUrl } from '@/lib/query-client';
 import { getDeviceId } from '@/lib/device-fingerprint';
@@ -49,6 +49,7 @@ const ROLES: { key: UserRole; label: string; icon: keyof typeof Ionicons.glyphMa
   { key: 'technician', label: 'Technician', icon: 'construct', color: '#22C55E', bg: '#F0FDF4' },
   { key: 'teacher', label: 'Teacher', icon: 'school', color: '#F59E0B', bg: '#FFFBEB' },
   { key: 'supplier', label: 'Supplier', icon: 'cube', color: '#3B82F6', bg: '#EFF6FF' },
+  { key: 'shopkeeper', label: 'Shopkeeper', icon: 'storefront', color: '#8B5CF6', bg: '#F5F3FF' },
 ];
 
 type Screen = 'welcome' | 'phone' | 'otp' | 'google-phone' | 'details' | 'selfie' | 'skills' | 'sellType' | 'teachType' | 'businessDocs' | 'location';
@@ -111,6 +112,7 @@ export default function OnboardingScreen() {
 
   const isCustomer = role === 'customer';
   const isSupplier = role === 'supplier';
+  const isShopkeeper = role === 'shopkeeper';
   const isTeacher = role === 'teacher';
   const isTechnician = role === 'technician';
 
@@ -457,12 +459,12 @@ export default function OnboardingScreen() {
       experience: experience.trim(),
       shopName: shopName.trim() || undefined, bio: '',
       avatar: avatarUrl || undefined,
-      sellType: isSupplier ? sellTypes.join(', ') : undefined,
+      sellType: (isSupplier || isShopkeeper) ? sellTypes.join(', ') : undefined,
       teachType: isTeacher ? teachType : undefined,
       shopAddress: isSupplier ? shopAddress.trim() : undefined,
-      gstNumber: isSupplier ? gstNumber.trim() : undefined,
-      aadhaarNumber: (isSupplier || isTeacher) ? aadhaarNumber.trim() : undefined,
-      panNumber: (isSupplier || isTeacher) ? panNumber.trim() : undefined,
+      gstNumber: (isSupplier || isShopkeeper) ? gstNumber.trim() : undefined,
+      aadhaarNumber: (isSupplier || isTeacher || isShopkeeper) ? aadhaarNumber.trim() : undefined,
+      panNumber: (isSupplier || isTeacher || isShopkeeper) ? panNumber.trim() : undefined,
       latitude: latitude || undefined, longitude: longitude || undefined,
       locationSharing: 'true', createdAt: Date.now(),
     };
@@ -480,7 +482,7 @@ export default function OnboardingScreen() {
   const getNextScreen = (current: Screen): Screen | null => {
     switch (current) {
       case 'details': return isCustomer ? 'location' : 'selfie';
-      case 'selfie': return isTechnician ? 'skills' : isSupplier ? 'sellType' : isTeacher ? 'teachType' : 'location';
+      case 'selfie': return isTechnician ? 'skills' : (isSupplier || isShopkeeper) ? 'sellType' : isTeacher ? 'teachType' : 'location';
       case 'skills': return 'location';
       case 'sellType': return 'businessDocs';
       case 'teachType': return 'businessDocs';
@@ -869,7 +871,7 @@ export default function OnboardingScreen() {
           <Text style={s.formSubtitle}>Select all that apply</Text>
         </View>
         <ScrollView contentContainerStyle={s.skillsGrid}>
-          {SUPPLIER_SELL_TYPES.map(type => {
+          {(isShopkeeper ? SHOPKEEPER_SELL_TYPES : SUPPLIER_SELL_TYPES).map(type => {
             const selected = sellTypes.includes(type);
             return (
               <Pressable key={type} style={[s.skillChip, selected && s.skillChipSelected]} onPress={() => setSellTypes(prev => prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type])}>
@@ -935,7 +937,7 @@ export default function OnboardingScreen() {
             <Text style={s.label}>PAN Number</Text>
             <TextInput style={s.input} placeholder="10-character PAN" placeholderTextColor="#9CA3AF" value={panNumber} onChangeText={v => setPanNumber(v.toUpperCase())} maxLength={10} />
           </View>
-          {isSupplier && (
+          {(isSupplier || isShopkeeper) && (
             <View style={s.field}>
               <Text style={s.label}>GST Number (optional)</Text>
               <TextInput style={s.input} placeholder="GST registration number" placeholderTextColor="#9CA3AF" value={gstNumber} onChangeText={setGstNumber} />

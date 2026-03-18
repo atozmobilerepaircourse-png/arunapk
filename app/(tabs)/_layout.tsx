@@ -17,10 +17,11 @@ function NativeTabLayout() {
   const isCustomer = profile?.role === 'customer';
   const isTeacher = profile?.role === 'teacher';
   const isSupplier = profile?.role === 'supplier';
+  const isShopkeeper = profile?.role === 'shopkeeper';
 
   const getRoleTab = () => {
     if (isTeacher) return { name: 'content', icon: 'radio', label: 'Live' };
-    if (isSupplier) return { name: 'products', icon: 'cube', label: 'Products' };
+    if (isSupplier || isShopkeeper) return { name: 'products', icon: 'cube', label: 'My Store' };
     return { name: 'marketplace', icon: 'bag', label: 'Shop' };
   };
 
@@ -37,13 +38,13 @@ function NativeTabLayout() {
           <Icon sf={{ default: "wrench.and.screwdriver", selected: "wrench.and.screwdriver.fill" }} />
           <Label>Find Nearby</Label>
         </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="create">
-          <Icon sf={{ default: "plus.circle", selected: "plus.circle.fill" }} />
-          <Label>Post</Label>
+        <NativeTabs.Trigger name="nearby-shops">
+          <Icon sf={{ default: "storefront", selected: "storefront.fill" }} />
+          <Label>Nearby Shops</Label>
         </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="profile">
-          <Icon sf={{ default: "person", selected: "person.fill" }} />
-          <Label>Profile</Label>
+        <NativeTabs.Trigger name="orders">
+          <Icon sf={{ default: "wrench.adjustable", selected: "wrench.adjustable.fill" }} />
+          <Label>Ask for Repair</Label>
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="support" hidden />
         <NativeTabs.Trigger name="index" hidden />
@@ -51,6 +52,8 @@ function NativeTabLayout() {
         <NativeTabs.Trigger name="content" hidden />
         <NativeTabs.Trigger name="products" hidden />
         <NativeTabs.Trigger name="marketplace" hidden />
+        <NativeTabs.Trigger name="create" hidden />
+        <NativeTabs.Trigger name="profile" hidden />
       </NativeTabs>
     );
   }
@@ -78,11 +81,13 @@ function NativeTabLayout() {
         <Label>Profile</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="customer-home" hidden />
+      <NativeTabs.Trigger name="nearby-shops" hidden />
+      <NativeTabs.Trigger name="orders" hidden />
       <NativeTabs.Trigger name="jobs" hidden />
       <NativeTabs.Trigger name="technician-jobs" hidden />
       <NativeTabs.Trigger name="content" hidden={!isTeacher} />
-      <NativeTabs.Trigger name="products" hidden={!isSupplier} />
-      <NativeTabs.Trigger name="marketplace" hidden={isTeacher || isSupplier} />
+      <NativeTabs.Trigger name="products" hidden={!isSupplier && !isShopkeeper} />
+      <NativeTabs.Trigger name="marketplace" hidden={isTeacher || isSupplier || isShopkeeper} />
     </NativeTabs>
   );
 }
@@ -94,6 +99,7 @@ function ClassicTabLayout() {
   const isCustomer = profile?.role === 'customer';
   const isTeacher = profile?.role === 'teacher';
   const isSupplier = profile?.role === 'supplier';
+  const isShopkeeper = profile?.role === 'shopkeeper';
 
   return (
     <Tabs
@@ -154,7 +160,7 @@ function ClassicTabLayout() {
         name="support"
         options={{
           title: "Support",
-          href: isCustomer ? null : null,
+          href: null,
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? "headset" : "headset-outline"} size={22} color={color} />
           ),
@@ -167,6 +173,16 @@ function ClassicTabLayout() {
           href: isCustomer ? '/orders' : null,
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? "list" : "list-outline"} size={22} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="nearby-shops"
+        options={{
+          title: "Nearby Shops",
+          href: isCustomer ? '/nearby-shops' : null,
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? "storefront" : "storefront-outline"} size={22} color={color} />
           ),
         }}
       />
@@ -188,7 +204,7 @@ function ClassicTabLayout() {
         name="create"
         options={{
           title: "Post",
-          href: '/create',
+          href: isCustomer ? null : '/create',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? "add-circle" : "add-circle-outline"} size={24} color={color} />
           ),
@@ -211,8 +227,8 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="products"
         options={{
-          title: "Products",
-          href: isSupplier && navigationMode === 'default' ? '/products' : null,
+          title: (isSupplier || isShopkeeper) ? "My Store" : "Products",
+          href: (isSupplier || isShopkeeper) && navigationMode === 'default' ? '/products' : null,
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? "cube" : "cube-outline"}
@@ -226,7 +242,7 @@ function ClassicTabLayout() {
         name="marketplace"
         options={{
           title: "Shop",
-          href: !isCustomer && !isTeacher && !isSupplier && navigationMode === 'default' ? '/marketplace' : null,
+          href: !isCustomer && !isTeacher && !isSupplier && !isShopkeeper && navigationMode === 'default' ? '/marketplace' : null,
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? "bag" : "bag-outline"}
@@ -260,6 +276,7 @@ function ClassicTabLayout() {
         name="profile"
         options={{
           title: "Profile",
+          href: isCustomer ? null : undefined,
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? "person" : "person-outline"} size={22} color={color} />
           ),
@@ -273,7 +290,7 @@ export default function TabLayout() {
   const { profile } = useApp();
   const cleanPhone = profile?.phone?.replace(/\D/g, "");
   const isAdmin = profile?.role === 'admin' || cleanPhone === "8179142535" || cleanPhone === "9876543210" || profile?.email === 'atozmobilerepaircourse@gmail.com';
-  const needsSub = (profile?.role === 'technician' || profile?.role === 'supplier' || profile?.role === 'teacher') && !isAdmin;
+  const needsSub = (profile?.role === 'technician' || profile?.role === 'supplier' || profile?.role === 'shopkeeper' || profile?.role === 'teacher') && !isAdmin;
 
   const tabs = isLiquidGlassAvailable() ? <NativeTabLayout /> : <ClassicTabLayout />;
 

@@ -1,8 +1,9 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import {
   View, Text, StyleSheet, FlatList, RefreshControl,
-  Pressable, Platform, Alert, ScrollView,
+  Pressable, Platform, Alert, ScrollView, TouchableOpacity,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -168,10 +169,11 @@ export default function OrdersScreen() {
     return (
       <View style={styles.container}>
         <View style={[styles.header, { paddingTop: topPad }]}>
-          <View style={styles.logoBox}>
-            <Ionicons name="phone-portrait" size={22} color="#FFF" />
+          <View style={styles.profileAvatar}>
+            <Ionicons name="person" size={20} color={PRIMARY} />
           </View>
-          <Text style={styles.headerTitle}>Mobi</Text>
+          <Text style={styles.headerTitle}>Ask for Repair</Text>
+          <View style={styles.headerActions} />
         </View>
         {[1, 2, 3].map(i => <PostSkeleton key={i} />)}
       </View>
@@ -181,9 +183,15 @@ export default function OrdersScreen() {
   return (
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: topPad }]}>
-        <View style={styles.logoBox}>
-          <Ionicons name="phone-portrait" size={22} color="#FFF" />
-        </View>
+        <TouchableOpacity onPress={() => router.push('/profile' as any)} activeOpacity={0.7} style={styles.profileAvatarBtn}>
+          {profile?.avatar ? (
+            <Image source={{ uri: profile.avatar }} style={styles.profileAvatarImg} contentFit="cover" />
+          ) : (
+            <View style={styles.profileAvatar}>
+              <Ionicons name="person" size={20} color={PRIMARY} />
+            </View>
+          )}
+        </TouchableOpacity>
 
         <View style={styles.headerActions}>
           <HeaderButton delay={0} onPress={() => router.push('/ai-repair')}>
@@ -207,6 +215,12 @@ export default function OrdersScreen() {
             <View style={styles.bellBtn}>
               <Ionicons name="notifications-outline" size={18} color={TEXT} />
               {totalUnread > 0 && <View style={styles.redDot} />}
+            </View>
+          </HeaderButton>
+
+          <HeaderButton delay={240} onPress={() => router.push('/create')}>
+            <View style={styles.composeBtn}>
+              <Ionicons name="create-outline" size={18} color={TEXT} />
             </View>
           </HeaderButton>
         </View>
@@ -331,23 +345,41 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: BORDER + '40',
   },
-  logoBox: {
-    width: 50,
-    height: 50,
-    borderRadius: 14,
+  profileAvatarBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  profileAvatarImg: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+  },
+  profileAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#CA8A04',
-    shadowColor: '#EAB308',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 8,
+    backgroundColor: PRIMARY + '18',
+    borderWidth: 1,
+    borderColor: PRIMARY + '30',
   },
   headerTitle: {
-    fontSize: 22,
+    fontSize: 17,
     fontFamily: 'Inter_700Bold',
     color: TEXT,
+  },
+  composeBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: SURFACE,
+    borderWidth: 1,
+    borderColor: BORDER + '80',
   },
   headerActions: {
     flexDirection: 'row',
