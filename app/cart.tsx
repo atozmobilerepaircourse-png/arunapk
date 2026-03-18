@@ -14,7 +14,7 @@ import { useCart, CartItem } from '@/lib/cart-context';
 const T = {
   bg: '#F9FAFB', card: '#FFFFFF', cardSurface: '#F3F4F6', bgElevated: '#FFFFFF',
   border: '#E5E7EB', text: '#111827', muted: '#9CA3AF', textSub: '#4B5563',
-  accent: '#1B4D3E', accentMuted: '#D1FAE5', green: '#10B981', red: '#EF4444',
+  accent: '#6B46C1', accentMuted: '#F3EEFF', green: '#10B981', red: '#EF4444',
 };
 
 const webTop = Platform.OS === 'web' ? 67 : 0;
