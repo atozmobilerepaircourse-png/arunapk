@@ -85,9 +85,10 @@ function NativeTabLayout() {
       <NativeTabs.Trigger name="orders" hidden />
       <NativeTabs.Trigger name="jobs" hidden />
       <NativeTabs.Trigger name="technician-jobs" hidden />
-      <NativeTabs.Trigger name="content" hidden={!isTeacher} />
-      <NativeTabs.Trigger name="products" hidden={!isSupplier && !isShopkeeper} />
-      <NativeTabs.Trigger name="marketplace" hidden={isTeacher || isSupplier || isShopkeeper} />
+      {/* content/products/marketplace are already shown as roleTab above — keep hidden here */}
+      <NativeTabs.Trigger name="content" hidden={true} />
+      <NativeTabs.Trigger name="products" hidden={true} />
+      <NativeTabs.Trigger name="marketplace" hidden={true} />
     </NativeTabs>
   );
 }
