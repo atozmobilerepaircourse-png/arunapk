@@ -177,10 +177,15 @@ function ProfCard({ item, onChat, onCall, onPress }: ProfCardProps) {
             <View style={[styles.roleBadge, { backgroundColor: badge.bg }]}>
               <Text style={[styles.roleBadgeText, { color: badge.text }]}>{skillLabel}</Text>
             </View>
-            {item.distance !== undefined ? (
+            {item.distance !== undefined && item.distance !== null ? (
               <View style={[styles.ratingRow, { backgroundColor: '#FEE2E2', paddingHorizontal: 8, borderRadius: 4 }]}>
                 <Ionicons name="location" size={10} color="#DC2626" />
                 <Text style={[styles.ratingText, { color: '#DC2626' }]}>{item.distance.toFixed(1)} km</Text>
+              </View>
+            ) : item.city ? (
+              <View style={[styles.ratingRow, { backgroundColor: '#DBEAFE', paddingHorizontal: 8, borderRadius: 4 }]}>
+                <Ionicons name="location" size={10} color="#2563EB" />
+                <Text style={[styles.ratingText, { color: '#2563EB' }]}>{item.city}</Text>
               </View>
             ) : (
               <View style={styles.ratingRow}>
