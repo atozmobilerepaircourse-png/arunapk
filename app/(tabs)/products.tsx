@@ -629,9 +629,9 @@ export default function SupplierProductsScreen() {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Edit Shop Thumbnail</Text>
-              <Pressable onPress={() => setShowThumbnailModal(false)} hitSlop={12}>
+              <TouchableOpacity onPress={() => setShowThumbnailModal(false)} hitSlop={12}>
                 <Ionicons name="close" size={24} color={C.text} />
-              </Pressable>
+              </TouchableOpacity>
             </View>
 
             {profile?.shopThumbnail ? (
@@ -645,10 +645,11 @@ export default function SupplierProductsScreen() {
               </View>
             )}
 
-            <Pressable
+            <TouchableOpacity
               style={[styles.uploadThumbnailBtn, uploadingThumbnail && { opacity: 0.6 }]}
               onPress={handleUploadThumbnail}
               disabled={uploadingThumbnail}
+              activeOpacity={uploadingThumbnail ? 1 : 0.7}
             >
               {uploadingThumbnail ? (
                 <ActivityIndicator size="small" color="#FFF" />
@@ -658,7 +659,7 @@ export default function SupplierProductsScreen() {
                   <Text style={styles.uploadThumbnailText}>Upload New Thumbnail</Text>
                 </>
               )}
-            </Pressable>
+            </TouchableOpacity>
           </View>
         </View>
       )}
