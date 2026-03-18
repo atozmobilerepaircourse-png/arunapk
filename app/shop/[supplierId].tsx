@@ -53,13 +53,12 @@ function discPct(p: any, m: any) {
 
 // ─── Banner Slider ─────────────────────────────────────────────────────────────
 function BannerSlider({
-  images, onBack, title, insetTop, shopThumbnail,
+  images, onBack, title, insetTop,
 }: {
-  images: string[]; onBack: () => void; title: string; insetTop: number; shopThumbnail?: string;
+  images: string[]; onBack: () => void; title: string; insetTop: number;
 }) {
   const [idx, setIdx]   = useState(0);
   const scrollRef       = useRef<ScrollView>(null);
-  const thumbUri = getImgUri(shopThumbnail || '');
 
   useEffect(() => {
     if (images.length <= 1) return;
@@ -78,15 +77,14 @@ function BannerSlider({
 
   return (
     <View style={ss.bannerWrap}>
-      {thumbUri ? (
-        <Image source={{ uri: thumbUri }} style={{ width: SW, height: BANNER_H }} contentFit="cover" />
-      ) : images.length > 0 ? (
+      {images.length > 0 ? (
         <ScrollView
           ref={scrollRef}
           horizontal pagingEnabled
           showsHorizontalScrollIndicator={false}
           onMomentumScrollEnd={onScroll}
           style={{ flex: 1 }}
+          scrollEnabled={images.length > 1}
         >
           {images.map((uri, i) => (
             <Image key={i} source={{ uri }} style={{ width: SW, height: BANNER_H }} contentFit="cover" />
@@ -360,8 +358,7 @@ export default function ShopScreen() {
 
   const bannerImages: string[] = supplier
     ? [
-        getImgUri(supplier.bannerImage || supplier.shopBanner || ''),
-        getImgUri(supplier.avatar || ''),
+        getImgUri(supplier.shopThumbnail || supplier.bannerImage || supplier.shopBanner || ''),
       ].filter(Boolean)
     : [];
 
@@ -375,7 +372,6 @@ export default function ShopScreen() {
         onBack={() => router.back()}
         title={supplierName || supplier?.businessName || supplier?.name || 'Shop'}
         insetTop={insetTop + webTop}
-        shopThumbnail={supplier?.shopThumbnail}
       />
 
       {/* Supplier info */}
