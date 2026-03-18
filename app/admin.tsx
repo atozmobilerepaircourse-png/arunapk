@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, Pressable, Platform, Alert, ScrollView, TextInput, Switch, ActivityIndicator, RefreshControl, TouchableOpacity
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -758,9 +759,20 @@ export default function AdminScreen() {
     setDeletingUserId(userId);
     try {
       console.log('🗑️ Deleting user:', userId);
+      const sessionToken = await AsyncStorage.getItem('mobi_session_token') || (typeof window !== 'undefined' && window.localStorage?.getItem('mobi_session_token'));
+      if (!sessionToken) {
+        console.warn('⚠️ No session token found - user may not be authenticated');
+        Alert.alert('Error', 'Your session has expired. Please log in again.');
+        setDeletingUserId(null);
+        return;
+      }
+      console.log('✓ Session token found, making delete request');
       const res = await apiRequest('POST', '/api/admin/delete-user', { userId });
       console.log('Delete response status:', res.status);
-      if (!res.ok) throw new Error(`API error: ${res.status}`);
+      if (!res.ok) {
+        const body = await res.clone().json();
+        throw new Error(body.message || `API error: ${res.status}`);
+      }
       const data = await res.json();
       console.log('Delete response:', data);
       if (data.success) {
