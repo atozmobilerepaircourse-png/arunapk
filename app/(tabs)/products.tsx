@@ -274,7 +274,6 @@ export default function SupplierProductsScreen() {
   const [showThumbnailModal, setShowThumbnailModal] = useState(false);
   const [uploadingThumbnail, setUploadingThumbnail] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const isWeb = typeof window !== 'undefined';
 
   const topInset = Platform.OS === 'web' ? webTopInset : insets.top;
 
@@ -375,7 +374,7 @@ export default function SupplierProductsScreen() {
 
   const handleUploadThumbnail = async () => {
     try {
-      if (isWeb) {
+      if (Platform.OS === 'web') {
         // Web: use file input
         if (fileInputRef.current) {
           fileInputRef.current.click();
@@ -391,9 +390,7 @@ export default function SupplierProductsScreen() {
         }
       }
     } catch (e) {
-      if (isWeb) {
-        console.error('[Thumbnail] Pick error:', e);
-      } else {
+      if (Platform.OS !== 'web') {
         Alert.alert('Error', 'Failed to pick image. Please try again.');
       }
       console.error('[Thumbnail] Pick error:', e);
@@ -405,10 +402,10 @@ export default function SupplierProductsScreen() {
     try {
       const formData = new FormData();
       
-      if (isWeb && uri instanceof File) {
+      if (Platform.OS === 'web' && uri instanceof File) {
         // Web: uri is a File object
         formData.append('image', uri);
-      } else if (!isWeb && typeof uri === 'string') {
+      } else if (Platform.OS !== 'web' && typeof uri === 'string') {
         // Native: uri is a file path string
         formData.append('image', {
           uri,
@@ -435,7 +432,7 @@ export default function SupplierProductsScreen() {
       
       if (updateData.success && setProfile) {
         setProfile(updateData.profile);
-        if (isWeb) {
+        if (Platform.OS === 'web') {
           window.alert('Shop thumbnail updated successfully!');
         } else {
           Alert.alert('Success', 'Shop thumbnail updated successfully!');
@@ -446,7 +443,7 @@ export default function SupplierProductsScreen() {
       }
     } catch (e) {
       const errorMsg = e instanceof Error ? e.message : 'Failed to upload thumbnail';
-      if (isWeb) {
+      if (Platform.OS === 'web') {
         window.alert(`Error: ${errorMsg}`);
       } else {
         Alert.alert('Error', errorMsg);
@@ -657,7 +654,7 @@ export default function SupplierProductsScreen() {
       )}
 
       {/* Hidden file input for web */}
-      {isWeb && (
+      {Platform.OS === 'web' && (
         <input
           ref={fileInputRef as any}
           type="file"
