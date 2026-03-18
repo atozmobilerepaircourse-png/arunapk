@@ -305,9 +305,9 @@ export default function DirectoryScreen() {
   const filtered = useMemo(() => {
     let list = directory;
 
-    // For customers, exclude teachers and suppliers (only show technicians and shopkeepers)
+    // For customers, exclude teachers, suppliers, and other customers (only show technicians and shopkeepers)
     if (isCustomer) {
-      list = list.filter(e => e.role !== 'teacher' && e.role !== 'supplier');
+      list = list.filter(e => e.role !== 'teacher' && e.role !== 'supplier' && e.role !== 'customer');
     }
 
     // Calculate distances FIRST so the "Nearby" filter can use them
