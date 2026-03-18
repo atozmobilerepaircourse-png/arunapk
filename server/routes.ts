@@ -5463,8 +5463,13 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
       const { userId } = req.body;
       if (!userId) return res.status(400).json({ success: false, message: "userId required" });
 
-      // Block the user instead of deleting (soft delete via block status)
-      await db.update(profiles).set({ blocked: 1 } as any).where(eq(profiles.id, userId));
+      await db.transaction(async (tx) => {
+        const [profile] = await tx.select({ phone: profiles.phone }).from(profiles).where(eq(profiles.id, userId));
+        if (profile?.phone) {
+          await tx.delete(sessions).where(eq(sessions.phone, profile.phone));
+        }
+        await tx.delete(profiles).where(eq(profiles.id, userId));
+      });
 
       return res.json({ success: true, message: "User deleted successfully" });
     } catch (error) {
@@ -5475,8 +5480,6 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
 
   app.get("/api/admin/deleted-users", adminMiddleware, async (_req, res) => {
     try {
-      // Deleted users are tracked via blocked status (soft delete)
-      // For now, return empty array as we use blocked status for deletion
       return res.json([]);
     } catch (error) {
       console.error("[Admin] Get deleted users error:", error);
