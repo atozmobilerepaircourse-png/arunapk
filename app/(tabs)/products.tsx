@@ -372,35 +372,24 @@ export default function SupplierProductsScreen() {
     return def ? orders.filter(o => def.statuses.includes(o.status)) : [];
   };
 
-  const handleUploadThumbnail = async () => {
+  const handleUploadThumbnail = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleNativeThumbnailUpload = async () => {
     try {
-      console.log('[Thumbnail] handleUploadThumbnail called, Platform.OS:', Platform.OS);
-      if (Platform.OS === 'web') {
-        // Web: use file input
-        console.log('[Thumbnail] On web, attempting to click file input');
-        if (fileInputRef.current) {
-          console.log('[Thumbnail] File input ref exists, clicking...');
-          fileInputRef.current.click();
-        } else {
-          console.log('[Thumbnail] File input ref is null!');
-        }
-      } else {
-        // Native: use ImagePicker
-        console.log('[Thumbnail] On native, launching ImagePicker');
-        const result = await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ['images'],
-          quality: 0.8,
-        });
-        console.log('[Thumbnail] ImagePicker result:', result);
-        if (!result.canceled && result.assets[0]) {
-          await uploadThumbnailFile(result.assets[0].uri);
-        }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        quality: 0.8,
+      });
+      if (!result.canceled && result.assets[0]) {
+        await uploadThumbnailFile(result.assets[0].uri);
       }
     } catch (e) {
+      Alert.alert('Error', 'Failed to pick image. Please try again.');
       console.error('[Thumbnail] Pick error:', e);
-      if (Platform.OS !== 'web') {
-        Alert.alert('Error', 'Failed to pick image. Please try again.');
-      }
     }
   };
 
@@ -629,90 +618,42 @@ export default function SupplierProductsScreen() {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Edit Shop Thumbnail</Text>
-              {Platform.OS === 'web' ? (
-                <button
-                  onClick={() => setShowThumbnailModal(false)}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                    padding: '8px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                  onMouseDown={(e) => e.preventDefault()}
-                >
-                  <Ionicons name="close" size={24} color={C.text} />
-                </button>
-              ) : (
-                <TouchableOpacity onPress={() => setShowThumbnailModal(false)} hitSlop={12}>
-                  <Ionicons name="close" size={24} color={C.text} />
-                </TouchableOpacity>
-              )}
+              <TouchableOpacity onPress={() => setShowThumbnailModal(false)} hitSlop={12}>
+                <Ionicons name="close" size={24} color={C.text} />
+              </TouchableOpacity>
             </View>
 
-            {profile?.shopThumbnail ? (
-              <View style={styles.thumbnailPreview}>
+            <TouchableOpacity
+              style={[styles.thumbnailPreview, { alignItems: 'center', justifyContent: 'center' }]}
+              onPress={Platform.OS === 'web' ? handleUploadThumbnail : handleNativeThumbnailUpload}
+              disabled={uploadingThumbnail}
+              activeOpacity={uploadingThumbnail ? 1 : 0.8}
+            >
+              {profile?.shopThumbnail ? (
                 <Image source={{ uri: profile.shopThumbnail }} style={StyleSheet.absoluteFill} contentFit="cover" />
-              </View>
-            ) : (
-              <View style={[styles.thumbnailPreview, { alignItems: 'center', justifyContent: 'center', backgroundColor: C.surfaceElevated }]}>
-                <Ionicons name="image-outline" size={48} color={C.textTertiary} />
-                <Text style={{ marginTop: 12, color: C.textTertiary, fontFamily: 'Inter_400Regular' }}>No thumbnail yet</Text>
-              </View>
-            )}
+              ) : (
+                <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+                  <Ionicons name="image-outline" size={48} color={C.textTertiary} />
+                  <Text style={{ marginTop: 12, color: C.textTertiary, fontFamily: 'Inter_400Regular' }}>Click to upload</Text>
+                </View>
+              )}
+            </TouchableOpacity>
 
-            {Platform.OS === 'web' ? (
-              <button
-                onClick={handleUploadThumbnail}
-                disabled={uploadingThumbnail}
-                style={{
-                  backgroundColor: PRIMARY,
-                  color: '#FFF',
-                  border: 'none',
-                  borderRadius: '10px',
-                  paddingVertical: '12px',
-                  paddingHorizontal: '16px',
-                  cursor: uploadingThumbnail ? 'not-allowed' : 'pointer',
-                  opacity: uploadingThumbnail ? 0.6 : 1,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  fontFamily: 'Inter',
-                  width: '100%',
-                }}
-                onMouseDown={(e) => e.preventDefault()}
-              >
-                {uploadingThumbnail ? (
-                  <ActivityIndicator size="small" color="#FFF" />
-                ) : (
-                  <>
-                    <Ionicons name="cloud-upload-outline" size={18} color="#FFF" />
-                    Upload New Thumbnail
-                  </>
-                )}
-              </button>
-            ) : (
-              <TouchableOpacity
-                style={[styles.uploadThumbnailBtn, uploadingThumbnail && { opacity: 0.6 }]}
-                onPress={handleUploadThumbnail}
-                disabled={uploadingThumbnail}
-                activeOpacity={uploadingThumbnail ? 1 : 0.7}
-              >
-                {uploadingThumbnail ? (
-                  <ActivityIndicator size="small" color="#FFF" />
-                ) : (
-                  <>
-                    <Ionicons name="cloud-upload-outline" size={18} color="#FFF" />
-                    <Text style={styles.uploadThumbnailText}>Upload New Thumbnail</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity
+              style={[styles.uploadThumbnailBtn, uploadingThumbnail && { opacity: 0.6 }]}
+              onPress={Platform.OS === 'web' ? handleUploadThumbnail : handleNativeThumbnailUpload}
+              disabled={uploadingThumbnail}
+              activeOpacity={uploadingThumbnail ? 1 : 0.7}
+            >
+              {uploadingThumbnail ? (
+                <ActivityIndicator size="small" color="#FFF" />
+              ) : (
+                <>
+                  <Ionicons name="cloud-upload-outline" size={18} color="#FFF" />
+                  <Text style={styles.uploadThumbnailText}>Upload New Thumbnail</Text>
+                </>
+              )}
+            </TouchableOpacity>
           </View>
         </View>
       )}
