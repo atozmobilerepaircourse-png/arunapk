@@ -33,9 +33,10 @@ const ROLE_FILTERS_ALL: { key: UserRole | 'all'; label: string }[] = [
   { key: 'job_provider', label: 'Jobs' },
 ];
 
-const ROLE_FILTERS_CUSTOMER: { key: UserRole | 'all'; label: string }[] = [
+const ROLE_FILTERS_CUSTOMER: { key: UserRole | 'all' | 'nearby'; label: string }[] = [
   { key: 'technician',   label: 'Technicians' },
   { key: 'shopkeeper',   label: 'Shopkeepers' },
+  { key: 'nearby',       label: 'Nearby' },
 ];
 
 type OnlineStats = Record<string, { registered: number; online: number }>;
@@ -302,7 +303,12 @@ export default function DirectoryScreen() {
     if (isCustomer) {
       list = list.filter(e => e.role !== 'teacher' && e.role !== 'supplier');
     }
-    if (roleFilter !== 'all') list = list.filter(e => e.role === roleFilter);
+    // Handle "nearby" filter: show only people within 5km
+    if (roleFilter === 'nearby') {
+      list = list.filter(e => e.distance !== undefined && e.distance !== null && e.distance <= 5);
+    } else if (roleFilter !== 'all') {
+      list = list.filter(e => e.role === roleFilter);
+    }
     if (search.trim()) { const q = search.toLowerCase(); list = list.filter(e => e.name.toLowerCase().includes(q) || e.city.toLowerCase().includes(q) || e.skills.some(s => s.toLowerCase().includes(q))); }
     
     // Add distance calculations if user location is available
