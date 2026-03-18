@@ -629,9 +629,27 @@ export default function SupplierProductsScreen() {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Edit Shop Thumbnail</Text>
-              <TouchableOpacity onPress={() => setShowThumbnailModal(false)} hitSlop={12}>
-                <Ionicons name="close" size={24} color={C.text} />
-              </TouchableOpacity>
+              {Platform.OS === 'web' ? (
+                <button
+                  onClick={() => setShowThumbnailModal(false)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    padding: '8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                  onMouseDown={(e) => e.preventDefault()}
+                >
+                  <Ionicons name="close" size={24} color={C.text} />
+                </button>
+              ) : (
+                <TouchableOpacity onPress={() => setShowThumbnailModal(false)} hitSlop={12}>
+                  <Ionicons name="close" size={24} color={C.text} />
+                </TouchableOpacity>
+              )}
             </View>
 
             {profile?.shopThumbnail ? (
@@ -645,21 +663,56 @@ export default function SupplierProductsScreen() {
               </View>
             )}
 
-            <TouchableOpacity
-              style={[styles.uploadThumbnailBtn, uploadingThumbnail && { opacity: 0.6 }]}
-              onPress={handleUploadThumbnail}
-              disabled={uploadingThumbnail}
-              activeOpacity={uploadingThumbnail ? 1 : 0.7}
-            >
-              {uploadingThumbnail ? (
-                <ActivityIndicator size="small" color="#FFF" />
-              ) : (
-                <>
-                  <Ionicons name="cloud-upload-outline" size={18} color="#FFF" />
-                  <Text style={styles.uploadThumbnailText}>Upload New Thumbnail</Text>
-                </>
-              )}
-            </TouchableOpacity>
+            {Platform.OS === 'web' ? (
+              <button
+                onClick={handleUploadThumbnail}
+                disabled={uploadingThumbnail}
+                style={{
+                  backgroundColor: PRIMARY,
+                  color: '#FFF',
+                  border: 'none',
+                  borderRadius: '10px',
+                  paddingVertical: '12px',
+                  paddingHorizontal: '16px',
+                  cursor: uploadingThumbnail ? 'not-allowed' : 'pointer',
+                  opacity: uploadingThumbnail ? 0.6 : 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  fontFamily: 'Inter',
+                  width: '100%',
+                }}
+                onMouseDown={(e) => e.preventDefault()}
+              >
+                {uploadingThumbnail ? (
+                  <ActivityIndicator size="small" color="#FFF" />
+                ) : (
+                  <>
+                    <Ionicons name="cloud-upload-outline" size={18} color="#FFF" />
+                    Upload New Thumbnail
+                  </>
+                )}
+              </button>
+            ) : (
+              <TouchableOpacity
+                style={[styles.uploadThumbnailBtn, uploadingThumbnail && { opacity: 0.6 }]}
+                onPress={handleUploadThumbnail}
+                disabled={uploadingThumbnail}
+                activeOpacity={uploadingThumbnail ? 1 : 0.7}
+              >
+                {uploadingThumbnail ? (
+                  <ActivityIndicator size="small" color="#FFF" />
+                ) : (
+                  <>
+                    <Ionicons name="cloud-upload-outline" size={18} color="#FFF" />
+                    <Text style={styles.uploadThumbnailText}>Upload New Thumbnail</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       )}
