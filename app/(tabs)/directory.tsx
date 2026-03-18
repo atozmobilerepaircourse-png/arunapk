@@ -34,7 +34,6 @@ const ROLE_FILTERS_ALL: { key: UserRole | 'all'; label: string }[] = [
 ];
 
 const ROLE_FILTERS_CUSTOMER: { key: UserRole | 'all'; label: string }[] = [
-  { key: 'all',          label: 'All' },
   { key: 'technician',   label: 'Technicians' },
   { key: 'shopkeeper',   label: 'Shopkeepers' },
 ];
@@ -231,8 +230,9 @@ export default function DirectoryScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ view?: string }>();
   const { allProfiles, profile, startConversation, refreshData } = useApp();
+  const isCustomer = profile?.role === 'customer';
   const [search, setSearch]         = useState('');
-  const [roleFilter, setRoleFilter] = useState<UserRole | 'all'>('all');
+  const [roleFilter, setRoleFilter] = useState<UserRole | 'all'>(isCustomer ? 'technician' : 'all');
   const [refreshing, setRefreshing] = useState(false);
   const [stats, setStats]           = useState<OnlineStats | null>(null);
   const [viewMode, setViewMode]     = useState<'list' | 'map'>(params.view === 'map' ? 'map' : 'list');
@@ -290,8 +290,6 @@ export default function DirectoryScreen() {
       locationSharing: (p as any).locationSharing,
     }));
   }, [allProfiles]);
-
-  const isCustomer = profile?.role === 'customer';
 
   const filtered = useMemo(() => {
     let list = directory;
