@@ -374,7 +374,20 @@ export default function SupplierProductsScreen() {
 
   const handleUploadThumbnail = () => {
     if (fileInputRef.current) {
-      fileInputRef.current.click();
+      console.log('[Thumbnail] Clicking file input ref');
+      try {
+        fileInputRef.current.click();
+      } catch (e) {
+        console.error('[Thumbnail] Failed to click file input:', e);
+        // Fallback: try to focus and trigger
+        fileInputRef.current?.focus();
+        // On web, try using the element directly
+        if (typeof fileInputRef.current?.dispatchEvent === 'function') {
+          fileInputRef.current.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        }
+      }
+    } else {
+      console.log('[Thumbnail] File input ref is null');
     }
   };
 
@@ -658,15 +671,17 @@ export default function SupplierProductsScreen() {
         </View>
       )}
 
-      {/* Hidden file input for web */}
+      {/* File input for web */}
       {Platform.OS === 'web' && (
-        <input
-          ref={fileInputRef as any}
-          type="file"
-          accept="image/*"
-          onChange={handleFileInputChange}
-          style={{ display: 'none' }}
-        />
+        <>
+          <input
+            ref={fileInputRef as any}
+            type="file"
+            accept="image/*"
+            onChange={handleFileInputChange}
+            style={{ position: 'absolute', opacity: 0, width: 0, height: 0, pointerEvents: 'none' }}
+          />
+        </>
       )}
     </View>
   );
