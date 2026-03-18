@@ -34,6 +34,7 @@ export default function AddProductScreen() {
   const [price, setPrice] = useState('');
   const [category, setCategory] = useState<ProductCategory>(categories[0].key);
   const [images, setImages] = useState<string[]>([]);
+  const [thumbnail, setThumbnail] = useState<string>('');
   const [inStock, setInStock] = useState(true);
   const [videoUri, setVideoUri] = useState<string | null>(null);
   const [videoFileName, setVideoFileName] = useState<string>('');
@@ -63,6 +64,7 @@ export default function AddProductScreen() {
           setInStock(data.inStock !== 0);
           const imgs = (() => { try { return JSON.parse(data.images || '[]'); } catch { return []; } })();
           setImages(imgs);
+          setThumbnail(data.thumbnail || '');
           setLoadingEdit(false);
         })
         .catch(e => {
@@ -194,6 +196,12 @@ export default function AddProductScreen() {
         uploadedImages.push(url);
       }
 
+      let uploadedThumbnail = '';
+      if (thumbnail) {
+        setUploadProgress('Uploading thumbnail...');
+        uploadedThumbnail = await uploadImage(thumbnail);
+      }
+
       let uploadedVideoUrl = '';
       if (videoUri) {
         setUploadProgress('Uploading video... This may take a while for large files');
@@ -212,6 +220,7 @@ export default function AddProductScreen() {
         price: price.trim(),
         category,
         images: uploadedImages,
+        thumbnail: uploadedThumbnail,
         videoUrl: uploadedVideoUrl,
         city: profile.city,
         state: profile.state,
@@ -346,6 +355,37 @@ export default function AddProductScreen() {
             </View>
           ))}
         </ScrollView>
+
+        <Text style={styles.sectionLabel}>Thumbnail (Discover page)</Text>
+        <View style={{ flexDirection: 'row', gap: 12 }}>
+          {thumbnail ? (
+            <View style={[styles.imageWrapper, { flex: 1 }]}>
+              <Image source={{ uri: thumbnail }} style={styles.imageThumb} contentFit="cover" />
+              <Pressable
+                style={styles.removeImageBtn}
+                onPress={() => setThumbnail('')}
+              >
+                <Ionicons name="close-circle" size={22} color={C.error} />
+              </Pressable>
+            </View>
+          ) : (
+            <Pressable 
+              style={[styles.addImageBtn, { flex: 1, height: 100 }]} 
+              onPress={async () => {
+                const result = await ImagePicker.launchImageLibraryAsync({
+                  mediaTypes: ['images'],
+                  quality: 0.8,
+                });
+                if (!result.canceled && result.assets[0]) {
+                  setThumbnail(result.assets[0].uri);
+                }
+              }}
+            >
+              <Ionicons name="image-outline" size={28} color={C.textTertiary} />
+              <Text style={styles.addImageText}>Pick Thumbnail</Text>
+            </Pressable>
+          )}
+        </View>
 
         {isTeacher && (
           <>

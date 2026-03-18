@@ -1960,7 +1960,7 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
 
   app.post("/api/products", async (req, res) => {
     try {
-      const { id, userId, userName, userRole, userAvatar, title, description, price, category, images, city, state, inStock, deliveryInfo, contactPhone, videoUrl } = req.body;
+      const { id, userId, userName, userRole, userAvatar, title, description, price, category, images, thumbnail, city, state, inStock, deliveryInfo, contactPhone, videoUrl } = req.body;
       if (!userId || !title) return res.status(400).json({ success: false, message: "Missing required fields" });
       if (userRole !== 'teacher' && userRole !== 'supplier') return res.status(403).json({ success: false, message: "Only teachers and suppliers can list products" });
 
@@ -1970,7 +1970,7 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
       if (existing.length > 0) {
         await db.update(products).set({
           title, description, price: price || "0", category: category || "other",
-          images: JSON.stringify(images || []), city: city || "", state: state || "",
+          images: JSON.stringify(images || []), thumbnail: thumbnail || "", city: city || "", state: state || "",
           inStock: inStock ?? 1, deliveryInfo: deliveryInfo || "", contactPhone: contactPhone || "",
           videoUrl: videoUrl || "",
         }).where(eq(products.id, productId));
@@ -1978,7 +1978,7 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
         await db.insert(products).values({
           id: productId, userId, userName, userRole, userAvatar: userAvatar || "",
           title, description: description || "", price: price || "0", category: category || "other",
-          images: JSON.stringify(images || []), city: city || "", state: state || "",
+          images: JSON.stringify(images || []), thumbnail: thumbnail || "", city: city || "", state: state || "",
           inStock: inStock ?? 1, deliveryInfo: deliveryInfo || "", contactPhone: contactPhone || "",
           videoUrl: videoUrl || "", createdAt: Date.now(),
         });

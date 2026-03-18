@@ -165,7 +165,8 @@ function CategoryTabs({ active, onSelect }: { active: string; onSelect: (t: stri
 // ─── Product Card ──────────────────────────────────────────────────────────────
 function ProductCard({ item, onPress }: { item: any; onPress: () => void }) {
   const imgs = parseImages(item.images);
-  const uri  = getImgUri(imgs[0] || item.image || '');
+  const thumbUri = getImgUri(item.thumbnail || '');
+  const uri  = getImgUri(thumbUri || imgs[0] || item.image || '');
   const disc = discPct(item.price, item.mrp);
   const isNew = item.badge === 'new' || item.isNew;
 

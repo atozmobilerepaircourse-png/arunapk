@@ -332,6 +332,7 @@ function setupErrorHandler(app: express.Application) {
       )
     `);
     await pool.query(`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS banner_image TEXT DEFAULT ''`);
+    await pool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS thumbnail TEXT DEFAULT ''`);
     await pool.end();
     log("Startup migration: otp_tokens table ready");
   } catch (err) {

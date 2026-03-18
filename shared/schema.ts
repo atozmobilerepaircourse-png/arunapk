@@ -156,6 +156,7 @@ export const products = pgTable("products", {
   price: text("price").notNull().default("0"),
   category: text("category").notNull().default("other"),
   images: text("images").notNull().default("[]"),
+  thumbnail: text("thumbnail").default(""),
   city: text("city").notNull().default(""),
   state: text("state").notNull().default(""),
   inStock: integer("in_stock").notNull().default(1),
