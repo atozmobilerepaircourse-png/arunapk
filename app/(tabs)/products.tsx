@@ -9,7 +9,6 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import * as ImagePicker from 'expo-image-picker';
 import Colors from '@/constants/colors';
 import { useApp } from '@/lib/context';
 import { apiRequest, getApiUrl } from '@/lib/query-client';
@@ -389,10 +388,12 @@ export default function SupplierProductsScreen() {
       console.log('🟢 [Thumbnail] Clicking file input...');
       input.click();
     } else {
-      // Native - use ImagePicker
-      console.log('🟠 [Thumbnail] On native - using ImagePicker');
+      // Native - use ImagePicker (lazy import)
+      console.log('🟠 [Thumbnail] On native - importing ImagePicker');
       try {
-        const result = await ImagePicker.launchImageLibraryAsync({
+        const ImagePicker = await import('expo-image-picker');
+        console.log('🟠 [Thumbnail] ImagePicker imported, launching library');
+        const result = await ImagePicker.default.launchImageLibraryAsync({
           mediaTypes: ['images'],
           quality: 0.8,
         });
