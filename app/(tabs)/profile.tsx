@@ -62,7 +62,7 @@ function isSuperAdmin(userPhone?: string, userEmail?: string): boolean {
 
 function getAllowedRoles(currentRole: UserRole, userPhone?: string, userEmail?: string): UserRole[] {
   if (currentRole === 'admin' || isSuperAdmin(userPhone, userEmail)) {
-    return ['admin', 'teacher', 'technician', 'supplier', 'customer', 'job_provider'];
+    return ['admin', 'teacher', 'technician', 'supplier', 'shopkeeper', 'customer', 'job_provider'];
   }
   return [];
 }
@@ -505,7 +505,7 @@ function CustomerProfileScreen() {
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                   <Ionicons
-                    name={r === 'admin' ? 'shield-outline' : r === 'technician' ? 'construct-outline' : r === 'teacher' ? 'school-outline' : r === 'supplier' ? 'cube-outline' : r === 'job_provider' ? 'briefcase-outline' : 'person-outline'}
+                    name={r === 'admin' ? 'shield-outline' : r === 'technician' ? 'construct-outline' : r === 'teacher' ? 'school-outline' : r === 'supplier' ? 'cube-outline' : r === 'shopkeeper' ? 'storefront-outline' : r === 'job_provider' ? 'briefcase-outline' : 'person-outline'}
                     size={20}
                     color={profile?.role === r ? ORANGE : '#555'}
                   />
