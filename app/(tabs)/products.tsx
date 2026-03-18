@@ -262,7 +262,7 @@ function OrderCard({
 
 export default function SupplierProductsScreen() {
   const insets = useSafeAreaInsets();
-  const { profile } = useApp();
+  const { profile, setProfile } = useApp();
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -270,6 +270,8 @@ export default function SupplierProductsScreen() {
   const [activeTab, setActiveTab] = useState<'products' | 'orders'>('products');
   const [orderTab, setOrderTab] = useState<OrderTab>('pending');
   const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [showThumbnailModal, setShowThumbnailModal] = useState(false);
+  const [uploadingThumbnail, setUploadingThumbnail] = useState(false);
 
   const topInset = Platform.OS === 'web' ? webTopInset : insets.top;
 
@@ -368,6 +370,54 @@ export default function SupplierProductsScreen() {
     return def ? orders.filter(o => def.statuses.includes(o.status)) : [];
   };
 
+  const handleUploadThumbnail = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        quality: 0.8,
+      });
+      if (!result.canceled && result.assets[0]) {
+        setUploadingThumbnail(true);
+        const uri = result.assets[0].uri;
+        
+        // Upload image first using existing /api/upload
+        const formData = new FormData();
+        formData.append('image', {
+          uri,
+          name: 'thumbnail.jpg',
+          type: 'image/jpeg',
+        } as any);
+        
+        const uploadRes = await fetch(`${getApiUrl()}/api/upload`, {
+          method: 'POST',
+          body: formData,
+        });
+        const uploadData = await uploadRes.json();
+        
+        if (!uploadData.success) throw new Error('Upload failed');
+        
+        // Update profile with thumbnail URL
+        const updateRes = await apiRequest('PUT', `/api/profiles/${profile?.id}`, {
+          shopThumbnail: uploadData.url,
+        });
+        const updateData = await updateRes.json();
+        
+        if (updateData.success && setProfile) {
+          setProfile(updateData.profile);
+          Alert.alert('Success', 'Shop thumbnail updated successfully!');
+          setShowThumbnailModal(false);
+        } else {
+          throw new Error('Update failed');
+        }
+      }
+    } catch (e) {
+      Alert.alert('Error', 'Failed to upload thumbnail. Please try again.');
+      console.error('[Thumbnail] Upload error:', e);
+    } finally {
+      setUploadingThumbnail(false);
+    }
+  };
+
   const totalRevenue = orders
     .filter(o => ['delivered', 'completed'].includes(o.status))
     .reduce((s, o) => s + (parseFloat(o.totalAmount) || 0), 0);
@@ -393,10 +443,16 @@ export default function SupplierProductsScreen() {
             <Text style={styles.headerSub}>{profile?.shopName || profile?.name || 'Hi'}{profile?.role === 'admin' ? ' (Admin)' : ''}</Text>
           </View>
           {profile?.role !== 'admin' && (
-            <Pressable onPress={() => router.push('/add-product' as any)} style={styles.addBtn}>
-              <Ionicons name="add" size={20} color="#FFF" />
-              <Text style={styles.addBtnTxt}>Add Product</Text>
-            </Pressable>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <Pressable onPress={() => setShowThumbnailModal(true)} style={[styles.addBtn, { backgroundColor: '#8B5CF6' }]}>
+                <Ionicons name="image-outline" size={20} color="#FFF" />
+                <Text style={styles.addBtnTxt}>Thumbnail</Text>
+              </Pressable>
+              <Pressable onPress={() => router.push('/add-product' as any)} style={styles.addBtn}>
+                <Ionicons name="add" size={20} color="#FFF" />
+                <Text style={styles.addBtnTxt}>Add Product</Text>
+              </Pressable>
+            </View>
           )}
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 12, marginHorizontal: -16 }} contentContainerStyle={{ paddingHorizontal: 16, gap: 10 }}>
@@ -509,6 +565,46 @@ export default function SupplierProductsScreen() {
           />
         </View>
       )}
+
+      {/* Thumbnail Modal */}
+      {showThumbnailModal && (
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Edit Shop Thumbnail</Text>
+              <Pressable onPress={() => setShowThumbnailModal(false)} hitSlop={12}>
+                <Ionicons name="close" size={24} color={C.text} />
+              </Pressable>
+            </View>
+
+            {profile?.shopThumbnail ? (
+              <View style={styles.thumbnailPreview}>
+                <Image source={{ uri: profile.shopThumbnail }} style={StyleSheet.absoluteFill} contentFit="cover" />
+              </View>
+            ) : (
+              <View style={[styles.thumbnailPreview, { alignItems: 'center', justifyContent: 'center', backgroundColor: C.surfaceElevated }]}>
+                <Ionicons name="image-outline" size={48} color={C.textTertiary} />
+                <Text style={{ marginTop: 12, color: C.textTertiary, fontFamily: 'Inter_400Regular' }}>No thumbnail yet</Text>
+              </View>
+            )}
+
+            <Pressable
+              style={[styles.uploadThumbnailBtn, uploadingThumbnail && { opacity: 0.6 }]}
+              onPress={handleUploadThumbnail}
+              disabled={uploadingThumbnail}
+            >
+              {uploadingThumbnail ? (
+                <ActivityIndicator size="small" color="#FFF" />
+              ) : (
+                <>
+                  <Ionicons name="cloud-upload-outline" size={18} color="#FFF" />
+                  <Text style={styles.uploadThumbnailText}>Upload New Thumbnail</Text>
+                </>
+              )}
+            </Pressable>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -521,6 +617,13 @@ const styles = StyleSheet.create({
   headerSub: { fontSize: 12, color: C.textTertiary, fontFamily: 'Inter_400Regular', marginTop: 2 },
   addBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: PRIMARY, paddingHorizontal: 14, paddingVertical: 9, borderRadius: 10 },
   addBtnTxt: { color: '#FFF', fontFamily: 'Inter_600SemiBold', fontSize: 13 },
+  modalOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end', zIndex: 999 },
+  modalContent: { backgroundColor: C.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingHorizontal: 16, paddingVertical: 20, paddingBottom: Platform.OS === 'web' ? 100 : 80 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  modalTitle: { fontSize: 20, fontFamily: 'Inter_600SemiBold', color: C.text },
+  thumbnailPreview: { width: '100%', height: 180, backgroundColor: C.surfaceElevated, borderRadius: 12, marginBottom: 16, overflow: 'hidden' },
+  uploadThumbnailBtn: { backgroundColor: PRIMARY, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12, borderRadius: 10 },
+  uploadThumbnailText: { color: '#FFF', fontFamily: 'Inter_600SemiBold', fontSize: 14 },
   statCard: { backgroundColor: C.surfaceElevated, borderRadius: 12, padding: 14, minWidth: 110, borderLeftWidth: 3 },
   statIcon: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
   statValue: { fontSize: 20, fontFamily: 'Inter_700Bold', color: C.text },

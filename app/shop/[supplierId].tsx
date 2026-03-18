@@ -53,12 +53,13 @@ function discPct(p: any, m: any) {
 
 // ─── Banner Slider ─────────────────────────────────────────────────────────────
 function BannerSlider({
-  images, onBack, title, insetTop,
+  images, onBack, title, insetTop, shopThumbnail,
 }: {
-  images: string[]; onBack: () => void; title: string; insetTop: number;
+  images: string[]; onBack: () => void; title: string; insetTop: number; shopThumbnail?: string;
 }) {
   const [idx, setIdx]   = useState(0);
   const scrollRef       = useRef<ScrollView>(null);
+  const thumbUri = getImgUri(shopThumbnail || '');
 
   useEffect(() => {
     if (images.length <= 1) return;
@@ -77,7 +78,9 @@ function BannerSlider({
 
   return (
     <View style={ss.bannerWrap}>
-      {images.length > 0 ? (
+      {thumbUri ? (
+        <Image source={{ uri: thumbUri }} style={{ width: SW, height: BANNER_H }} contentFit="cover" />
+      ) : images.length > 0 ? (
         <ScrollView
           ref={scrollRef}
           horizontal pagingEnabled
@@ -372,6 +375,7 @@ export default function ShopScreen() {
         onBack={() => router.back()}
         title={supplierName || supplier?.businessName || supplier?.name || 'Shop'}
         insetTop={insetTop + webTop}
+        shopThumbnail={supplier?.shopThumbnail}
       />
 
       {/* Supplier info */}

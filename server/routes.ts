@@ -3759,13 +3759,14 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
 
   app.put("/api/profiles/:id", async (req, res) => {
     try {
-      const { shopName, bio, city, state, bannerImage } = req.body;
+      const { shopName, bio, city, state, bannerImage, shopThumbnail } = req.body;
       const updates: any = {};
       if (shopName !== undefined) updates.shopName = shopName;
       if (bio !== undefined) updates.bio = bio;
       if (city !== undefined) updates.city = city;
       if (state !== undefined) updates.state = state;
       if (bannerImage !== undefined) updates.bannerImage = bannerImage;
+      if (shopThumbnail !== undefined) updates.shopThumbnail = shopThumbnail;
       if (Object.keys(updates).length === 0) {
         return res.json({ success: true, profile: await db.query.profiles.findFirst({ where: eq(profiles.id, req.params.id) }) });
       }
@@ -3775,6 +3776,39 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
     } catch (error) {
       console.error("[Profiles] PUT error:", error);
       return res.status(500).json({ success: false, message: "Failed to update profile" });
+    }
+  });
+
+  app.post("/api/supplier/upload-thumbnail", async (req, res) => {
+    try {
+      const sessionToken = req.headers['x-session-token'] as string;
+      if (!sessionToken) {
+        return res.status(401).json({ success: false, message: "Unauthorized" });
+      }
+
+      const sessionRows = await db.select().from(sessions).where(eq(sessions.sessionToken, sessionToken));
+      if (!sessionRows || sessionRows.length === 0) {
+        return res.status(401).json({ success: false, message: "Session expired" });
+      }
+
+      const phone = sessionRows[0].phone;
+      const allProfiles = await db.select().from(profiles);
+      const profile = allProfiles.find((p: any) => p.phone && p.phone.replace(/\D/g, '') === phone.replace(/\D/g, ''));
+
+      if (!profile || profile.role !== 'supplier') {
+        return res.status(403).json({ success: false, message: "Only suppliers can upload thumbnails" });
+      }
+
+      const uploadUrl = req.body.uploadUrl;
+      if (!uploadUrl) {
+        return res.status(400).json({ success: false, message: "No image URL provided" });
+      }
+
+      await db.update(profiles).set({ shopThumbnail: uploadUrl }).where(eq(profiles.id, profile.id));
+      return res.json({ success: true, url: uploadUrl });
+    } catch (error) {
+      console.error("[Supplier] Upload thumbnail error:", error);
+      return res.status(500).json({ success: false, message: "Failed to upload thumbnail" });
     }
   });
 
