@@ -373,18 +373,24 @@ export default function SupplierProductsScreen() {
 
 
   const handleThumbnailUpload = async () => {
+    console.log('🔵 [Thumbnail] Button clicked!');
     if (typeof window !== 'undefined') {
+      console.log('🟢 [Thumbnail] On browser - creating file input');
       // Browser - create DOM file input
       const input = document.createElement('input');
       input.type = 'file';
       input.accept = 'image/*';
+      console.log('🟢 [Thumbnail] Input created, setting onChange handler');
       input.onchange = async (e: any) => {
+        console.log('🟢 [Thumbnail] File selected:', e.target?.files?.[0]?.name);
         const file = e.target?.files?.[0];
         if (file) await uploadThumbnailFile(file);
       };
+      console.log('🟢 [Thumbnail] Clicking file input...');
       input.click();
     } else {
       // Native - use ImagePicker
+      console.log('🟠 [Thumbnail] On native - using ImagePicker');
       try {
         const result = await ImagePicker.launchImageLibraryAsync({
           mediaTypes: ['images'],
