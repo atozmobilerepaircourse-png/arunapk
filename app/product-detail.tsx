@@ -55,7 +55,6 @@ export default function ProductDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [activeImg, setActiveImg] = useState(0);
   const [liked, setLiked] = useState(false);
-  const [qty, setQty] = useState(1);
   const [activeTab, setActiveTab] = useState<'desc' | 'specs'>('desc');
   const [chatLoading, setChatLoading] = useState(false);
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -123,7 +122,7 @@ export default function ProductDetailScreen() {
     // Get first valid image
     const firstImg = imgs && imgs.length > 0 ? imgs[0] : (product as any).image || '';
     if (inCart) {
-      updateQuantity(product.id, cartQty + qty);
+      updateQuantity(product.id, cartQty + 1);
     } else {
       addToCart({
         productId: product.id,
@@ -274,26 +273,6 @@ export default function ProductDetailScreen() {
             ))}
           </View>
 
-          {/* Quantity selector */}
-          <View style={ss.qtyRow}>
-            <Text style={ss.qtyLabel}>Quantity</Text>
-            <View style={ss.qtyStepper}>
-              <TouchableOpacity
-                onPress={() => setQty(q => Math.max(1, q - 1))}
-                style={ss.qtyStepBtn}>
-                <Ionicons name="remove" size={16} color={TEXT} />
-              </TouchableOpacity>
-              <Text style={ss.qtyVal}>{qty}</Text>
-              <TouchableOpacity
-                onPress={() => setQty(q => q + 1)}
-                style={ss.qtyStepBtn}>
-                <Ionicons name="add" size={16} color={TEXT} />
-              </TouchableOpacity>
-            </View>
-            <Text style={ss.totalPriceLbl}>
-              Total: <Text style={{ color: ACCENT, fontFamily: 'Inter_700Bold' }}>₹{(price * qty).toLocaleString('en-IN')}</Text>
-            </Text>
-          </View>
 
           {/* Supplier Card */}
           <View style={ss.supplierCard}>
