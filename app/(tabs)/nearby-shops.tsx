@@ -82,6 +82,14 @@ function ProductCard({ item }: { item: Product }) {
           )}
           <Text style={styles.sellerName} numberOfLines={1}>{item.userName}</Text>
         </View>
+        <TouchableOpacity
+          style={styles.viewShopBtn}
+          activeOpacity={0.75}
+          onPress={() => router.push(`/shop/${item.userId}` as any)}
+        >
+          <Ionicons name="storefront-outline" size={11} color={PURPLE} />
+          <Text style={styles.viewShopText}>View Shop</Text>
+        </TouchableOpacity>
       </View>
     </TouchableOpacity>
   );
@@ -289,5 +297,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'Inter_400Regular',
     color: MUTED,
+  },
+  viewShopBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 6,
+    backgroundColor: PURPLE + '12',
+    borderRadius: 6,
+    paddingVertical: 5,
+    paddingHorizontal: 8,
+    alignSelf: 'flex-start',
+  },
+  viewShopText: {
+    fontSize: 11,
+    fontFamily: 'Inter_600SemiBold',
+    color: PURPLE,
   },
 });
