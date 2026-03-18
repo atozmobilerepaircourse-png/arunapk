@@ -688,7 +688,9 @@ export default function AdminScreen() {
       technician: allUsers.filter(u => u.role === 'technician').length,
       teacher: allUsers.filter(u => u.role === 'teacher').length,
       supplier: allUsers.filter(u => u.role === 'supplier').length,
+      shopkeeper: allUsers.filter(u => u.role === 'shopkeeper').length,
       job_provider: allUsers.filter(u => u.role === 'job_provider').length,
+      customer: allUsers.filter(u => u.role === 'customer').length,
     },
   }), [allUsers, posts, jobs, conversations]);
 
