@@ -137,10 +137,11 @@ function ClassicTabLayout() {
           ) : null,
       }}
     >
+      {/* --- Tab 1: Home (customer) or Feed (others) --- */}
       <Tabs.Screen
         name="customer-home"
         options={{
-          title: isCustomer ? "Home" : "Find",
+          title: "Home",
           href: isCustomer ? '/customer-home' : null,
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? "home" : "home-outline"} size={24} color={color} />
@@ -150,43 +151,14 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "Feed",
+          title: "Home",
           href: isCustomer ? null : '/',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? "home" : "home-outline"} size={24} color={color} />
           ),
         }}
       />
-      <Tabs.Screen
-        name="support"
-        options={{
-          title: "Support",
-          href: null,
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? "headset" : "headset-outline"} size={22} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="orders"
-        options={{
-          title: isCustomer ? "Ask for Repair" : "Orders",
-          href: isCustomer ? '/orders' : null,
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? "list" : "list-outline"} size={22} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="nearby-shops"
-        options={{
-          title: "Nearby Shops",
-          href: isCustomer ? '/nearby-shops' : null,
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? "storefront" : "storefront-outline"} size={22} color={color} />
-          ),
-        }}
-      />
+      {/* --- Tab 2: Find Nearby (customer) or Directory (others) --- */}
       <Tabs.Screen
         name="directory"
         options={{
@@ -201,6 +173,17 @@ function ClassicTabLayout() {
           ),
         }}
       />
+      {/* --- Tab 3: Nearby Shops (customer) or Post (others) --- */}
+      <Tabs.Screen
+        name="nearby-shops"
+        options={{
+          title: "Nearby Shops",
+          href: isCustomer ? '/nearby-shops' : null,
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? "storefront" : "storefront-outline"} size={22} color={color} />
+          ),
+        }}
+      />
       <Tabs.Screen
         name="create"
         options={{
@@ -211,31 +194,34 @@ function ClassicTabLayout() {
           ),
         }}
       />
+      {/* --- Tab 4: Ask for Repair (customer) or Role tab (others) --- */}
+      <Tabs.Screen
+        name="orders"
+        options={{
+          title: isCustomer ? "Ask for Repair" : "Orders",
+          href: isCustomer ? '/orders' : null,
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? "list" : "list-outline"} size={22} color={color} />
+          ),
+        }}
+      />
       <Tabs.Screen
         name="content"
         options={{
-          title: "Content",
+          title: "Live",
           href: isTeacher && navigationMode === 'default' ? '/content' : null,
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? "book" : "book-outline"}
-              size={22}
-              color={color}
-            />
+            <Ionicons name={focused ? "radio" : "radio-outline"} size={22} color={color} />
           ),
         }}
       />
       <Tabs.Screen
         name="products"
         options={{
-          title: (isSupplier || isShopkeeper) ? "My Store" : "Products",
+          title: "My Store",
           href: (isSupplier || isShopkeeper) && navigationMode === 'default' ? '/products' : null,
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? "cube" : "cube-outline"}
-              size={22}
-              color={color}
-            />
+            <Ionicons name={focused ? "cube" : "cube-outline"} size={22} color={color} />
           ),
         }}
       />
@@ -245,11 +231,29 @@ function ClassicTabLayout() {
           title: "Shop",
           href: !isCustomer && !isTeacher && !isSupplier && !isShopkeeper && navigationMode === 'default' ? '/marketplace' : null,
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? "bag" : "bag-outline"}
-              size={22}
-              color={color}
-            />
+            <Ionicons name={focused ? "bag" : "bag-outline"} size={22} color={color} />
+          ),
+        }}
+      />
+      {/* --- Tab 5: Profile (non-customer only) --- */}
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: "Profile",
+          href: isCustomer ? null : undefined,
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? "person" : "person-outline"} size={22} color={color} />
+          ),
+        }}
+      />
+      {/* --- Hidden screens --- */}
+      <Tabs.Screen
+        name="support"
+        options={{
+          title: "Support",
+          href: null,
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? "headset" : "headset-outline"} size={22} color={color} />
           ),
         }}
       />
@@ -270,16 +274,6 @@ function ClassicTabLayout() {
           href: null,
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? "construct" : "construct-outline"} size={22} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: "Profile",
-          href: isCustomer ? null : undefined,
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? "person" : "person-outline"} size={22} color={color} />
           ),
         }}
       />
