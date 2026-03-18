@@ -373,12 +373,44 @@ export default function SupplierProductsScreen() {
   };
 
 
+  // Setup file input listener for web
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    console.log('[Thumbnail] Setting up file input listener on web');
+    const fileInput = document.getElementById('shop-thumbnail-file-input') as HTMLInputElement;
+    
+    if (!fileInput) {
+      console.error('[Thumbnail] File input not found in DOM');
+      return;
+    }
+
+    const handleFileChange = (e: Event) => {
+      const target = e.target as HTMLInputElement;
+      const file = target.files?.[0];
+      console.log('[Thumbnail] Web file selected:', file?.name);
+      if (file) {
+        uploadThumbnailFile(file);
+        // Reset input
+        target.value = '';
+      }
+    };
+
+    fileInput.addEventListener('change', handleFileChange);
+    
+    return () => {
+      fileInput.removeEventListener('change', handleFileChange);
+    };
+  }, []);
+
   const handleNativeThumbnailUpload = async () => {
     try {
-      // On web, trigger file input. On native, use ImagePicker
-      if (typeof window !== 'undefined' && fileInputRef.current) {
+      // On web, click the file input. On native, use ImagePicker
+      if (typeof window !== 'undefined') {
         // Web - click the file input
-        fileInputRef.current.click();
+        const fileInput = document.getElementById('shop-thumbnail-file-input') as HTMLInputElement;
+        console.log('[Thumbnail] Clicking file input, ref:', fileInput);
+        fileInput?.click();
       } else {
         // Native - use ImagePicker
         const result = await ImagePicker.launchImageLibraryAsync({
@@ -671,12 +703,10 @@ export default function SupplierProductsScreen() {
             )}
 
             {typeof window !== 'undefined' ? (
-              // Browser - render file input as styled button (only way to reliably open file picker)
               <input
-                ref={fileInputRef as any}
+                id="shop-thumbnail-file-input"
                 type="file"
                 accept="image/*"
-                onChange={handleFileInputChange}
                 disabled={uploadingThumbnail}
                 style={{
                   backgroundColor: PRIMARY,
