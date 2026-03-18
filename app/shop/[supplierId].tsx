@@ -96,15 +96,8 @@ function BannerSlider({
         </View>
       )}
 
-      {/* Dark overlay at bottom */}
-      <View style={[ss.bannerOverlay, { pointerEvents: 'none' } as any]} />
-
-      {/* Top bar with back button and share button */}
-      <View style={[ss.bannerTopBar, { top: insetTop + 8 }]}>
-        <TouchableOpacity style={ss.bannerBtn} onPress={onBack}>
-          <Ionicons name="arrow-back" size={20} color={WHITE} />
-        </TouchableOpacity>
-        <View style={{ flex: 1 }} />
+      {/* Top bar with share button only */}
+      <View style={[ss.bannerTopBar, { top: insetTop + 8, justifyContent: 'flex-end' }]}>
         <TouchableOpacity style={ss.bannerBtn}>
           <Ionicons name="share-outline" size={20} color={WHITE} />
         </TouchableOpacity>
