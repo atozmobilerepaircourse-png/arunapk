@@ -671,13 +671,12 @@ export default function SupplierProductsScreen() {
             )}
 
             {typeof window !== 'undefined' ? (
-              // Browser - use native HTML button that clicks file input
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  console.log('[Thumbnail] Button clicked, ref:', fileInputRef.current);
-                  fileInputRef.current?.click();
-                }}
+              // Browser - render file input as styled button (only way to reliably open file picker)
+              <input
+                ref={fileInputRef as any}
+                type="file"
+                accept="image/*"
+                onChange={handleFileInputChange}
                 disabled={uploadingThumbnail}
                 style={{
                   backgroundColor: PRIMARY,
@@ -691,11 +690,10 @@ export default function SupplierProductsScreen() {
                   fontWeight: '600',
                   fontFamily: 'Inter',
                   width: '100%',
-                  boxSizing: 'border-box' as any,
+                  boxSizing: 'border-box',
+                  display: 'block',
                 } as any}
-              >
-                {uploadingThumbnail ? '⏳ Uploading...' : '📤 Upload New Thumbnail'}
-              </button>
+              />
             ) : (
               // Native Expo - use TouchableOpacity
               <TouchableOpacity
@@ -716,18 +714,6 @@ export default function SupplierProductsScreen() {
             )}
           </View>
         </View>
-      )}
-
-      {/* Hidden file input for browsers */}
-      {typeof window !== 'undefined' && (
-        <input
-          id="shop-thumbnail-input"
-          ref={fileInputRef as any}
-          type="file"
-          accept="image/*"
-          onChange={handleFileInputChange}
-          style={{ display: 'none' }}
-        />
       )}
     </View>
   );
