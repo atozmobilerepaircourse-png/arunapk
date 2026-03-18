@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, FlatList, Pressable, Platform,
   Alert, RefreshControl, ActivityIndicator, Dimensions, ScrollView, TouchableOpacity,
@@ -9,6 +9,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import * as ImagePicker from 'expo-image-picker';
 import Colors from '@/constants/colors';
 import { useApp } from '@/lib/context';
 import { apiRequest, getApiUrl } from '@/lib/query-client';
@@ -272,6 +273,7 @@ export default function SupplierProductsScreen() {
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [showThumbnailModal, setShowThumbnailModal] = useState(false);
   const [uploadingThumbnail, setUploadingThumbnail] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const topInset = Platform.OS === 'web' ? webTopInset : insets.top;
 
@@ -372,49 +374,90 @@ export default function SupplierProductsScreen() {
 
   const handleUploadThumbnail = async () => {
     try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        quality: 0.8,
-      });
-      if (!result.canceled && result.assets[0]) {
-        setUploadingThumbnail(true);
-        const uri = result.assets[0].uri;
-        
-        // Upload image first using existing /api/upload
-        const formData = new FormData();
+      if (Platform.OS === 'web') {
+        // Web: use file input
+        if (fileInputRef.current) {
+          fileInputRef.current.click();
+        }
+      } else {
+        // Native: use ImagePicker
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ['images'],
+          quality: 0.8,
+        });
+        if (!result.canceled && result.assets[0]) {
+          await uploadThumbnailFile(result.assets[0].uri);
+        }
+      }
+    } catch (e) {
+      Alert.alert('Error', 'Failed to pick image. Please try again.');
+      console.error('[Thumbnail] Pick error:', e);
+    }
+  };
+
+  const uploadThumbnailFile = async (uri: string) => {
+    setUploadingThumbnail(true);
+    try {
+      const formData = new FormData();
+      
+      if (Platform.OS === 'web') {
+        // Web: uri is a File object
+        formData.append('image', uri as any);
+      } else {
+        // Native: uri is a file path string
         formData.append('image', {
           uri,
           name: 'thumbnail.jpg',
           type: 'image/jpeg',
         } as any);
-        
-        const uploadRes = await fetch(`${getApiUrl()}/api/upload`, {
-          method: 'POST',
-          body: formData,
-        });
-        const uploadData = await uploadRes.json();
-        
-        if (!uploadData.success) throw new Error('Upload failed');
-        
-        // Update profile with thumbnail URL
-        const updateRes = await apiRequest('PUT', `/api/profiles/${profile?.id}`, {
-          shopThumbnail: uploadData.url,
-        });
-        const updateData = await updateRes.json();
-        
-        if (updateData.success && setProfile) {
-          setProfile(updateData.profile);
-          Alert.alert('Success', 'Shop thumbnail updated successfully!');
-          setShowThumbnailModal(false);
+      }
+      
+      const uploadRes = await fetch(`${getApiUrl()}/api/upload`, {
+        method: 'POST',
+        body: formData,
+      });
+      const uploadData = await uploadRes.json();
+      
+      if (!uploadData.success) throw new Error('Upload failed');
+      
+      // Update profile with thumbnail URL
+      const updateRes = await apiRequest('PUT', `/api/profiles/${profile?.id}`, {
+        shopThumbnail: uploadData.url,
+      });
+      const updateData = await updateRes.json();
+      
+      if (updateData.success && setProfile) {
+        setProfile(updateData.profile);
+        if (Platform.OS === 'web') {
+          window.alert('Shop thumbnail updated successfully!');
         } else {
-          throw new Error('Update failed');
+          Alert.alert('Success', 'Shop thumbnail updated successfully!');
         }
+        setShowThumbnailModal(false);
+      } else {
+        throw new Error('Update failed');
       }
     } catch (e) {
-      Alert.alert('Error', 'Failed to upload thumbnail. Please try again.');
+      const errorMsg = e instanceof Error ? e.message : 'Failed to upload thumbnail';
+      if (Platform.OS === 'web') {
+        window.alert(`Error: ${errorMsg}`);
+      } else {
+        Alert.alert('Error', errorMsg);
+      }
       console.error('[Thumbnail] Upload error:', e);
     } finally {
       setUploadingThumbnail(false);
+    }
+  };
+
+  const handleFileInputChange = (e: any) => {
+    const file = e.target?.files?.[0];
+    if (file) {
+      uploadThumbnailFile(file);
+      // Reset input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 
@@ -604,6 +647,17 @@ export default function SupplierProductsScreen() {
             </Pressable>
           </View>
         </View>
+      )}
+
+      {/* Hidden file input for web */}
+      {Platform.OS === 'web' && (
+        <input
+          ref={fileInputRef as any}
+          type="file"
+          accept="image/*"
+          onChange={handleFileInputChange}
+          style={{ display: 'none' }}
+        />
       )}
     </View>
   );
