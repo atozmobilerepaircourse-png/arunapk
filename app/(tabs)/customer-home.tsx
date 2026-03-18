@@ -243,6 +243,23 @@ export default function CustomerHomeScreen() {
           ))}
         </View>
       )}
+
+      {/* ── Ask for Repair ────────────────────────────────────────────────── */}
+      <View style={styles.sectionRow}>
+        <Text style={styles.sectionTitle}>Ask for Repair</Text>
+      </View>
+      <Pressable style={styles.askRepairCard} onPress={() => go('/create')}>
+        <View style={styles.askRepairIcon}>
+          <Ionicons name="create-outline" size={28} color={PRIMARY} />
+        </View>
+        <View style={styles.askRepairContent}>
+          <Text style={styles.askRepairTitle}>Post Your Repair Request</Text>
+          <Text style={styles.askRepairDesc}>Tell technicians what you need repaired</Text>
+        </View>
+        <View style={styles.askRepairArrow}>
+          <Ionicons name="chevron-forward" size={18} color={MUTED} />
+        </View>
+      </Pressable>
     </ScrollView>
   );
 }
@@ -436,4 +453,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+
+  askRepairCard: {
+    backgroundColor: CARD,
+    borderWidth: 1,
+    borderColor: BORDER,
+    borderRadius: 16,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    marginBottom: 20,
+    ...SHADOW,
+  },
+  askRepairIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: 12,
+    backgroundColor: PRIMARY_L,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  askRepairContent: { flex: 1, minWidth: 0 },
+  askRepairTitle: { fontSize: 15, fontFamily: 'Inter_700Bold', color: FORE, marginBottom: 2 },
+  askRepairDesc: { fontSize: 12, fontFamily: 'Inter_400Regular', color: MUTED },
+  askRepairArrow: { paddingLeft: 8 },
 });
