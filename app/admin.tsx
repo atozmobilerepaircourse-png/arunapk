@@ -230,10 +230,7 @@ function UserDetailCard({ user, onBlock, onVerify, onDelete, blockingId, verifyi
               <Text style={{ fontSize: 12, color: isVerified ? '#5E8BFF' : '#34C759', fontFamily: 'Inter_600SemiBold' }}>{isVerifyingThisUser ? 'Working...' : (isVerified ? 'Unverify' : 'Verify')}</Text>
             </Pressable>
             <Pressable
-              onPress={() => Alert.alert('Delete User', `Delete ${user.name}? This cannot be undone.`, [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'Delete', style: 'destructive', onPress: () => onDelete(user.id, user.name) },
-              ])}
+              onPress={() => onDelete(user.id, user.name)}
               disabled={isDeletingThisUser}
               style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#FF3B3010', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: '#FF3B3030', opacity: isDeletingThisUser ? 0.6 : 1 }}
             >
