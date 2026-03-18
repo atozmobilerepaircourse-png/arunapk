@@ -375,15 +375,25 @@ export default function SupplierProductsScreen() {
 
   const handleNativeThumbnailUpload = async () => {
     try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        quality: 0.8,
-      });
-      if (!result.canceled && result.assets[0]) {
-        await uploadThumbnailFile(result.assets[0].uri);
+      // On web, trigger file input. On native, use ImagePicker
+      if (typeof window !== 'undefined' && fileInputRef.current) {
+        // Web - click the file input
+        fileInputRef.current.click();
+      } else {
+        // Native - use ImagePicker
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ['images'],
+          quality: 0.8,
+        });
+        if (!result.canceled && result.assets[0]) {
+          await uploadThumbnailFile(result.assets[0].uri);
+        }
       }
     } catch (e) {
-      Alert.alert('Error', 'Failed to pick image. Please try again.');
+      if (typeof window === 'undefined') {
+        // Only show alert on native
+        Alert.alert('Error', 'Failed to pick image. Please try again.');
+      }
       console.error('[Thumbnail] Pick error:', e);
     }
   };
@@ -607,132 +617,8 @@ export default function SupplierProductsScreen() {
         </View>
       )}
 
-      {/* Thumbnail Modal */}
-      {showThumbnailModal && Platform.OS === 'web' ? (
-        <div
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            display: 'flex',
-            justifyContent: 'flex-end',
-            zIndex: 999,
-          } as any}
-        >
-          <div
-            style={{
-              backgroundColor: C.surface,
-              borderTopLeftRadius: '20px',
-              borderTopRightRadius: '20px',
-              paddingLeft: '16px',
-              paddingRight: '16px',
-              paddingTop: '20px',
-              paddingBottom: '100px',
-              maxWidth: '100%',
-              marginTop: 'auto',
-            } as any}
-          >
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: '16px',
-              } as any}
-            >
-              <h2 style={{ fontSize: '20px', fontWeight: '600', margin: 0, color: C.text }}>
-                Edit Shop Thumbnail
-              </h2>
-              <button
-                onClick={() => setShowThumbnailModal(false)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  padding: '8px',
-                }}
-              >
-                ✕
-              </button>
-            </div>
-
-            {profile?.shopThumbnail ? (
-              <div
-                style={{
-                  width: '100%',
-                  height: '180px',
-                  backgroundColor: C.surfaceElevated,
-                  borderRadius: '12px',
-                  marginBottom: '16px',
-                  overflow: 'hidden',
-                  backgroundImage: `url(${profile.shopThumbnail})`,
-                  backgroundSize: 'cover',
-                  backgroundPosition: 'center',
-                }}
-              />
-            ) : (
-              <div
-                style={{
-                  width: '100%',
-                  height: '180px',
-                  backgroundColor: C.surfaceElevated,
-                  borderRadius: '12px',
-                  marginBottom: '16px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexDirection: 'column',
-                }}
-              >
-                <Ionicons name="image-outline" size={48} color={C.textTertiary} />
-                <p style={{ marginTop: '12px', color: C.textTertiary, fontFamily: 'Inter_400Regular' }}>
-                  No thumbnail yet
-                </p>
-              </div>
-            )}
-
-            <label
-              htmlFor="thumbnail-input"
-              style={{
-                backgroundColor: PRIMARY,
-                color: '#FFF',
-                border: 'none',
-                borderRadius: '10px',
-                paddingTop: '12px',
-                paddingBottom: '12px',
-                paddingLeft: '16px',
-                paddingRight: '16px',
-                cursor: uploadingThumbnail ? 'not-allowed' : 'pointer',
-                opacity: uploadingThumbnail ? 0.6 : 1,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                fontSize: '14px',
-                fontWeight: '600',
-                fontFamily: 'Inter',
-                width: '100%',
-                boxSizing: 'border-box',
-                pointerEvents: uploadingThumbnail ? 'none' : 'auto',
-              } as any}
-            >
-              {uploadingThumbnail ? <ActivityIndicator size="small" color="#FFF" /> : <>📤 Upload New Thumbnail</>}
-            </label>
-
-            <input
-              id="thumbnail-input"
-              ref={fileInputRef as any}
-              type="file"
-              accept="image/*"
-              onChange={handleFileInputChange}
-              style={{ display: 'none' }}
-            />
-          </div>
-        </div>
-      ) : (
+      {/* Thumbnail Modal - Works everywhere */}
+      {showThumbnailModal && (
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
@@ -742,21 +628,16 @@ export default function SupplierProductsScreen() {
               </TouchableOpacity>
             </View>
 
-            <TouchableOpacity
-              style={[styles.thumbnailPreview, { alignItems: 'center', justifyContent: 'center' }]}
-              onPress={handleNativeThumbnailUpload}
-              disabled={uploadingThumbnail}
-              activeOpacity={uploadingThumbnail ? 1 : 0.8}
-            >
-              {profile?.shopThumbnail ? (
+            {profile?.shopThumbnail ? (
+              <View style={styles.thumbnailPreview}>
                 <Image source={{ uri: profile.shopThumbnail }} style={StyleSheet.absoluteFill} contentFit="cover" />
-              ) : (
-                <View style={{ alignItems: 'center', justifyContent: 'center' }}>
-                  <Ionicons name="image-outline" size={48} color={C.textTertiary} />
-                  <Text style={{ marginTop: 12, color: C.textTertiary, fontFamily: 'Inter_400Regular' }}>Click to upload</Text>
-                </View>
-              )}
-            </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={[styles.thumbnailPreview, { alignItems: 'center', justifyContent: 'center', backgroundColor: C.surfaceElevated }]}>
+                <Ionicons name="image-outline" size={48} color={C.textTertiary} />
+                <Text style={{ marginTop: 12, color: C.textTertiary, fontFamily: 'Inter_400Regular' }}>No thumbnail yet</Text>
+              </View>
+            )}
 
             <TouchableOpacity
               style={[styles.uploadThumbnailBtn, uploadingThumbnail && { opacity: 0.6 }]}
@@ -777,6 +658,16 @@ export default function SupplierProductsScreen() {
         </View>
       )}
 
+      {/* Hidden file input for web */}
+      {typeof window !== 'undefined' && (
+        <input
+          ref={fileInputRef as any}
+          type="file"
+          accept="image/*"
+          onChange={handleFileInputChange}
+          style={{ display: 'none' }}
+        />
+      )}
     </View>
   );
 }
