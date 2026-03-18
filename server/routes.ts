@@ -346,7 +346,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/admin/change-role", adminMiddleware, async (req, res) => {
     try {
       const { userId, newRole } = req.body;
-      const allowedRoles = ["admin", "teacher", "technician", "customer", "supplier", "job_provider"];
+      const allowedRoles = ["admin", "teacher", "technician", "customer", "supplier", "shopkeeper", "job_provider"];
       if (!allowedRoles.includes(newRole)) {
         return res.status(400).json({ success: false, message: "Invalid role" });
       }
@@ -362,7 +362,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const sessionToken = req.headers['x-session-token'] as string;
       const { newRole, userPhone } = req.body;
-      const allowedRoles = ["teacher", "technician", "customer", "supplier", "job_provider", "admin"];
+      const allowedRoles = ["teacher", "technician", "customer", "supplier", "shopkeeper", "job_provider", "admin"];
       if (!allowedRoles.includes(newRole)) {
         return res.status(400).json({ success: false, message: "Invalid role" });
       }
