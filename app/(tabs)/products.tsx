@@ -401,13 +401,16 @@ export default function SupplierProductsScreen() {
   const uploadThumbnailFile = async (uri: string | File) => {
     setUploadingThumbnail(true);
     try {
+      console.log('[Thumbnail] Starting upload...', { uri, isFile: uri instanceof File, platform: Platform.OS });
       const formData = new FormData();
       
       if (Platform.OS === 'web' && uri instanceof File) {
         // Web: uri is a File object
+        console.log('[Thumbnail] Web file detected:', uri.name, uri.size, uri.type);
         formData.append('image', uri);
       } else if (Platform.OS !== 'web' && typeof uri === 'string') {
         // Native: uri is a file path string
+        console.log('[Thumbnail] Native file path:', uri);
         formData.append('image', {
           uri,
           name: 'thumbnail.jpg',
@@ -417,22 +420,34 @@ export default function SupplierProductsScreen() {
         throw new Error('Invalid file format');
       }
       
-      const uploadRes = await fetch(`${getApiUrl()}/api/upload`, {
+      const apiUrl = getApiUrl();
+      console.log('[Thumbnail] Uploading to:', `${apiUrl}/api/upload`);
+      const uploadRes = await fetch(`${apiUrl}/api/upload`, {
         method: 'POST',
         body: formData,
       });
       const uploadData = await uploadRes.json();
       
-      if (!uploadData.success) throw new Error('Upload failed');
+      console.log('[Thumbnail] Upload response:', uploadData);
+      
+      if (!uploadData.success) throw new Error('Upload failed: ' + (uploadData.message || 'Unknown error'));
+      
+      const imageUrl = uploadData.url;
+      console.log('[Thumbnail] Image URL received:', imageUrl);
       
       // Update profile with thumbnail URL
+      console.log('[Thumbnail] Updating profile with thumbnail URL...');
       const updateRes = await apiRequest('PUT', `/api/profiles/${profile?.id}`, {
-        shopThumbnail: uploadData.url,
+        shopThumbnail: imageUrl,
       });
       const updateData = await updateRes.json();
       
+      console.log('[Thumbnail] Profile update response:', updateData);
+      
       if (updateData.success && setProfile) {
+        console.log('[Thumbnail] Profile updated successfully');
         setProfile(updateData.profile);
+        console.log('[Thumbnail] New profile shopThumbnail:', updateData.profile?.shopThumbnail);
         if (Platform.OS === 'web') {
           window.alert('Shop thumbnail updated successfully!');
         } else {
@@ -440,16 +455,17 @@ export default function SupplierProductsScreen() {
         }
         setShowThumbnailModal(false);
       } else {
-        throw new Error('Update failed');
+        throw new Error('Update failed: ' + (updateData.message || 'Unknown error'));
       }
     } catch (e) {
       const errorMsg = e instanceof Error ? e.message : 'Failed to upload thumbnail';
+      console.error('[Thumbnail] Upload error:', errorMsg);
+      console.error('[Thumbnail] Full error:', e);
       if (Platform.OS === 'web') {
         window.alert(`Error: ${errorMsg}`);
       } else {
         Alert.alert('Error', errorMsg);
       }
-      console.error('[Thumbnail] Upload error:', e);
     } finally {
       setUploadingThumbnail(false);
     }
@@ -630,7 +646,14 @@ export default function SupplierProductsScreen() {
 
             {profile?.shopThumbnail ? (
               <View style={styles.thumbnailPreview}>
-                <Image source={{ uri: profile.shopThumbnail }} style={StyleSheet.absoluteFill} contentFit="cover" />
+                <Image 
+                  source={{ uri: profile.shopThumbnail }} 
+                  style={StyleSheet.absoluteFill} 
+                  contentFit="cover"
+                  onLoadStart={() => console.log('[Thumbnail] Image loading:', profile.shopThumbnail)}
+                  onLoad={() => console.log('[Thumbnail] Image loaded successfully:', profile.shopThumbnail)}
+                  onError={(e) => console.error('[Thumbnail] Image failed to load:', profile.shopThumbnail, e)}
+                />
               </View>
             ) : (
               <View style={[styles.thumbnailPreview, { alignItems: 'center', justifyContent: 'center', backgroundColor: C.surfaceElevated }]}>
