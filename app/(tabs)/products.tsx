@@ -671,9 +671,14 @@ export default function SupplierProductsScreen() {
             )}
 
             {typeof window !== 'undefined' ? (
-              // Browser (mobile/desktop) - use HTML label (only reliable way)
-              <label
-                htmlFor="shop-thumbnail-input"
+              // Browser - use native HTML button that clicks file input
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  console.log('[Thumbnail] Button clicked, ref:', fileInputRef.current);
+                  fileInputRef.current?.click();
+                }}
+                disabled={uploadingThumbnail}
                 style={{
                   backgroundColor: PRIMARY,
                   color: '#FFF',
@@ -682,11 +687,6 @@ export default function SupplierProductsScreen() {
                   padding: '12px 16px',
                   cursor: uploadingThumbnail ? 'not-allowed' : 'pointer',
                   opacity: uploadingThumbnail ? 0.6 : 1,
-                  pointerEvents: uploadingThumbnail ? 'none' : 'auto',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
                   fontSize: '14px',
                   fontWeight: '600',
                   fontFamily: 'Inter',
@@ -694,15 +694,8 @@ export default function SupplierProductsScreen() {
                   boxSizing: 'border-box' as any,
                 } as any}
               >
-                {uploadingThumbnail ? (
-                  <ActivityIndicator size="small" color="#FFF" />
-                ) : (
-                  <>
-                    <span style={{ fontSize: '18px' }}>📤</span>
-                    Upload New Thumbnail
-                  </>
-                )}
-              </label>
+                {uploadingThumbnail ? '⏳ Uploading...' : '📤 Upload New Thumbnail'}
+              </button>
             ) : (
               // Native Expo - use TouchableOpacity
               <TouchableOpacity
