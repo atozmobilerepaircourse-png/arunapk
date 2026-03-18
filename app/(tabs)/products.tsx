@@ -639,23 +639,26 @@ export default function SupplierProductsScreen() {
               </View>
             )}
 
-            {typeof window !== 'undefined' && fileInputRef.current ? (
-              // Mobile/Desktop browser - use HTML label (only reliable way)
+            {typeof window !== 'undefined' ? (
+              // Browser (mobile/desktop) - use HTML label (only reliable way)
               <label
                 htmlFor="shop-thumbnail-input"
                 style={{
                   backgroundColor: PRIMARY,
-                  flexDirection: 'row' as any,
+                  color: '#FFF',
+                  border: 'none',
+                  borderRadius: '10px',
+                  padding: '12px 16px',
+                  cursor: uploadingThumbnail ? 'not-allowed' : 'pointer',
+                  opacity: uploadingThumbnail ? 0.6 : 1,
+                  pointerEvents: uploadingThumbnail ? 'none' : 'auto',
+                  display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: '8px',
-                  paddingVertical: '12px',
-                  paddingHorizontal: '16px',
-                  borderRadius: '10px',
-                  opacity: uploadingThumbnail ? 0.6 : 1,
-                  pointerEvents: uploadingThumbnail ? 'none' : 'auto',
-                  cursor: uploadingThumbnail ? 'not-allowed' : 'pointer',
-                  display: 'flex',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  fontFamily: 'Inter',
                   width: '100%',
                   boxSizing: 'border-box' as any,
                 } as any}
@@ -664,8 +667,8 @@ export default function SupplierProductsScreen() {
                   <ActivityIndicator size="small" color="#FFF" />
                 ) : (
                   <>
-                    <Ionicons name="cloud-upload-outline" size={18} color="#FFF" />
-                    <Text style={styles.uploadThumbnailText}>Upload New Thumbnail</Text>
+                    <span style={{ fontSize: '18px' }}>📤</span>
+                    Upload New Thumbnail
                   </>
                 )}
               </label>
