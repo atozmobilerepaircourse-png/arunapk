@@ -372,28 +372,32 @@ export default function SupplierProductsScreen() {
   };
 
 
-  const handleNativeThumbnailUpload = async () => {
-    // Native only - web uses HTML input directly
-    if (Platform.OS === 'web') return;
-    try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        quality: 0.8,
-      });
-      if (!result.canceled && result.assets[0]) {
-        await uploadThumbnailFile(result.assets[0].uri);
+  const handleThumbnailUpload = async () => {
+    if (typeof window !== 'undefined') {
+      // Browser - create DOM file input
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      input.onchange = async (e: any) => {
+        const file = e.target?.files?.[0];
+        if (file) await uploadThumbnailFile(file);
+      };
+      input.click();
+    } else {
+      // Native - use ImagePicker
+      try {
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ['images'],
+          quality: 0.8,
+        });
+        if (!result.canceled && result.assets[0]) {
+          await uploadThumbnailFile(result.assets[0].uri);
+        }
+      } catch (e) {
+        Alert.alert('Error', 'Failed to pick image');
+        console.error('[Thumbnail] Pick error:', e);
       }
-    } catch (e) {
-      Alert.alert('Error', 'Failed to pick image');
-      console.error('[Thumbnail] Pick error:', e);
     }
-  };
-
-  const handleWebFileSelect = async (e: any) => {
-    const file = e.target?.files?.[0];
-    if (file) await uploadThumbnailFile(file);
-    // Reset input value so same file can be picked again
-    e.target.value = '';
   };
 
   const uploadThumbnailFile = async (file: File | string) => {
@@ -641,44 +645,21 @@ export default function SupplierProductsScreen() {
               </View>
             )}
 
-            {Platform.OS === 'web' ? (
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleWebFileSelect}
-                disabled={uploadingThumbnail}
-                style={{
-                  backgroundColor: PRIMARY,
-                  color: '#FFF',
-                  padding: '12px 16px',
-                  borderRadius: '10px',
-                  border: 'none',
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  fontFamily: 'Inter',
-                  width: '100%',
-                  boxSizing: 'border-box',
-                  cursor: uploadingThumbnail ? 'not-allowed' : 'pointer',
-                  opacity: uploadingThumbnail ? 0.6 : 1,
-                } as any}
-              />
-            ) : (
-              <TouchableOpacity
-                style={[styles.uploadThumbnailBtn, uploadingThumbnail && { opacity: 0.6 }]}
-                onPress={handleNativeThumbnailUpload}
-                disabled={uploadingThumbnail}
-                activeOpacity={0.7}
-              >
-                {uploadingThumbnail ? (
-                  <ActivityIndicator size="small" color="#FFF" />
-                ) : (
-                  <>
-                    <Ionicons name="cloud-upload-outline" size={18} color="#FFF" />
-                    <Text style={styles.uploadThumbnailText}>Upload New Thumbnail</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity
+              style={[styles.uploadThumbnailBtn, uploadingThumbnail && { opacity: 0.6 }]}
+              onPress={handleThumbnailUpload}
+              disabled={uploadingThumbnail}
+              activeOpacity={0.7}
+            >
+              {uploadingThumbnail ? (
+                <ActivityIndicator size="small" color="#FFF" />
+              ) : (
+                <>
+                  <Ionicons name="cloud-upload-outline" size={18} color="#FFF" />
+                  <Text style={styles.uploadThumbnailText}>Upload New Thumbnail</Text>
+                </>
+              )}
+            </TouchableOpacity>
           </View>
         </View>
       )}
