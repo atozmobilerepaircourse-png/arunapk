@@ -104,8 +104,11 @@ export default function NearbyShopsScreen() {
       url.searchParams.set('role', 'shopkeeper');
       const res = await fetch(url.toString());
       const data = await res.json();
-      if (data.success) {
-        setProducts(data.products || []);
+      // /api/products returns a raw array (not { success, products })
+      if (Array.isArray(data)) {
+        setProducts(data);
+      } else if (data.success && Array.isArray(data.products)) {
+        setProducts(data.products);
       }
     } catch (e) {
       console.error('NearbyShops load error', e);

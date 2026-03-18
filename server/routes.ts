@@ -1877,11 +1877,27 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
           { id: 'sub_technician', role: 'technician', enabled: 0, amount: "99", period: "monthly", commissionPercent: "0" },
           { id: 'sub_teacher', role: 'teacher', enabled: 0, amount: "0", period: "monthly", commissionPercent: "30" },
           { id: 'sub_supplier', role: 'supplier', enabled: 0, amount: "999", period: "monthly", commissionPercent: "0" },
+          { id: 'sub_shopkeeper', role: 'shopkeeper', enabled: 0, amount: "999", period: "monthly", commissionPercent: "0" },
         ];
         for (const d of defaults) {
           await db.insert(subscriptionSettings).values({ ...d, updatedAt: Date.now() });
         }
         return res.json(defaults.map(d => ({ ...d, updatedAt: Date.now() })));
+      }
+      // Ensure shopkeeper row exists for existing databases
+      const hasShopkeeper = settings.some(s => s.role === 'shopkeeper');
+      if (!hasShopkeeper) {
+        const supplierSetting = settings.find(s => s.role === 'supplier');
+        const shopkeeperDefault = {
+          id: 'sub_shopkeeper', role: 'shopkeeper',
+          enabled: supplierSetting?.enabled ?? 0,
+          amount: supplierSetting?.amount ?? "999",
+          period: supplierSetting?.period ?? "monthly",
+          commissionPercent: "0",
+          updatedAt: Date.now(),
+        };
+        await db.insert(subscriptionSettings).values(shopkeeperDefault);
+        return res.json([...settings, shopkeeperDefault]);
       }
       return res.json(settings);
     } catch (error) {

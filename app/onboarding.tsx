@@ -947,8 +947,8 @@ export default function OnboardingScreen() {
             style={({ pressed }) => [s.primaryBtn, { marginTop: 8, opacity: pressed ? 0.85 : 1 }]}
             onPress={() => {
               if (isSupplier && !shopAddress.trim()) { Alert.alert('Required', 'Please enter your shop address.'); return; }
-              if (!aadhaarNumber.trim()) { Alert.alert('Required', 'Please enter your Aadhaar number.'); return; }
-              if (!panNumber.trim()) { Alert.alert('Required', 'Please enter your PAN number.'); return; }
+              if (!isShopkeeper && !aadhaarNumber.trim()) { Alert.alert('Required', 'Please enter your Aadhaar number.'); return; }
+              if (!isShopkeeper && !panNumber.trim()) { Alert.alert('Required', 'Please enter your PAN number.'); return; }
               nextScreen();
             }}
           >
