@@ -5461,20 +5461,59 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
   app.post("/api/admin/delete-user", adminMiddleware, async (req, res) => {
     try {
       const { userId } = req.body;
-      if (!userId) return res.status(400).json({ success: false, message: "userId required" });
+      console.log("[Admin Delete] Request received:", { userId });
+      
+      if (!userId) {
+        console.error("[Admin Delete] userId missing from request body");
+        return res.status(400).json({ success: false, message: "userId required" });
+      }
 
-      await db.transaction(async (tx) => {
-        const [profile] = await tx.select({ phone: profiles.phone }).from(profiles).where(eq(profiles.id, userId));
-        if (profile?.phone) {
-          await tx.delete(sessions).where(eq(sessions.phone, profile.phone));
-        }
-        await tx.delete(profiles).where(eq(profiles.id, userId));
+      // Check if user exists
+      console.log("[Admin Delete] Checking if user exists:", userId);
+      const existingUser = await db.select().from(profiles).where(eq(profiles.id, userId));
+      
+      if (!existingUser || existingUser.length === 0) {
+        console.error("[Admin Delete] User not found:", userId);
+        return res.status(404).json({ success: false, message: "User not found" });
+      }
+
+      const userToDelete = existingUser[0];
+      console.log("[Admin Delete] User found, proceeding with deletion:", {
+        id: userToDelete.id,
+        name: userToDelete.name,
+        phone: userToDelete.phone,
+        role: userToDelete.role
       });
 
-      return res.json({ success: true, message: "User deleted successfully" });
+      // Delete in a transaction to ensure consistency
+      const result = await db.transaction(async (tx) => {
+        // Get phone to delete sessions
+        const [profile] = await tx.select({ phone: profiles.phone }).from(profiles).where(eq(profiles.id, userId));
+        
+        if (profile?.phone) {
+          console.log("[Admin Delete] Deleting sessions for phone:", profile.phone);
+          const sessionDeleteResult = await tx.delete(sessions).where(eq(sessions.phone, profile.phone));
+          console.log("[Admin Delete] Sessions deleted");
+        }
+
+        // Delete the profile
+        console.log("[Admin Delete] Deleting profile:", userId);
+        const profileDeleteResult = await tx.delete(profiles).where(eq(profiles.id, userId));
+        console.log("[Admin Delete] Profile deleted");
+        
+        return { success: true };
+      });
+
+      console.log("[Admin Delete] ✅ User deleted successfully:", userId);
+      return res.json({ success: true, message: "User deleted successfully", userId });
     } catch (error) {
-      console.error("[Admin] Delete user error:", error);
-      return res.status(500).json({ success: false, message: "Failed to delete user" });
+      console.error("[Admin Delete] ❌ Error:", {
+        message: (error as any).message,
+        code: (error as any).code,
+        detail: (error as any).detail,
+        fullError: error
+      });
+      return res.status(500).json({ success: false, message: "Failed to delete user", error: (error as any).message });
     }
   });
 

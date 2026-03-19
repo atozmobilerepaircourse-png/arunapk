@@ -758,32 +758,61 @@ export default function AdminScreen() {
   const executeDeleteUser = async (userId: string, userName: string) => {
     setDeletingUserId(userId);
     try {
-      console.log('🗑️ Deleting user:', userId);
-      const sessionToken = await AsyncStorage.getItem('mobi_session_token') || (typeof window !== 'undefined' && window.localStorage?.getItem('mobi_session_token'));
+      console.log('🗑️ [DELETE] Starting delete for user:', { userId, userName });
+      
+      // Get session token with detailed logging
+      const legacyToken = await AsyncStorage.getItem('mobi_session_token');
+      const newToken = await AsyncStorage.getItem('mobi_session_token_v2');
+      const webToken = typeof window !== 'undefined' ? window.localStorage?.getItem('mobi_session_token_v2') : null;
+      const sessionToken = newToken || webToken || legacyToken;
+      
+      console.log('🔑 [DELETE] Session token check:', {
+        hasLegacyToken: !!legacyToken,
+        hasNewToken: !!newToken,
+        hasWebToken: !!webToken,
+        finalToken: sessionToken ? `${sessionToken.substring(0, 20)}...` : 'MISSING'
+      });
+      
       if (!sessionToken) {
-        console.warn('⚠️ No session token found - user may not be authenticated');
-        Alert.alert('Error', 'Your session has expired. Please log in again.');
+        console.error('❌ [DELETE] No session token found');
+        Alert.alert('Authentication Error', 'Your session has expired. Please log in again.');
         setDeletingUserId(null);
         return;
       }
-      console.log('✓ Session token found, making delete request');
+      
+      console.log('✓ [DELETE] Session token found, making DELETE request to /api/admin/delete-user');
+      
+      // Make the delete request
       const res = await apiRequest('POST', '/api/admin/delete-user', { userId });
-      console.log('Delete response status:', res.status);
-      if (!res.ok) {
-        const body = await res.clone().json();
-        throw new Error(body.message || `API error: ${res.status}`);
-      }
+      
+      console.log('📡 [DELETE] Response received:', {
+        status: res.status,
+        ok: res.ok,
+        statusText: res.statusText
+      });
+      
       const data = await res.json();
-      console.log('Delete response:', data);
+      console.log('📋 [DELETE] Response body:', data);
+      
       if (data.success) {
-        Alert.alert('Success', `${userName} has been deleted.`);
+        console.log('✅ [DELETE] User deletion successful!');
+        Alert.alert('Success', `${userName} has been permanently deleted.`);
+        
+        // Refresh data to remove user from list
+        console.log('🔄 [DELETE] Refreshing user list...');
         await refreshData();
+        console.log('✅ [DELETE] User list refreshed');
       } else {
-        Alert.alert('Error', data.message || 'Failed to delete user');
+        console.error('❌ [DELETE] Server returned success: false', { message: data.message });
+        Alert.alert('Deletion Failed', data.message || 'Failed to delete user from database');
       }
-    } catch (e: any) { 
-      console.error('Delete error:', e);
-      Alert.alert('Error', e.message || 'Failed to delete user. Check your connection.'); 
+    } catch (e: any) {
+      console.error('❌ [DELETE] Exception thrown:', {
+        message: e.message,
+        stack: e.stack,
+        fullError: e
+      });
+      Alert.alert('Deletion Error', e.message || 'Network error. Please check your connection and try again.');
     } finally {
       setDeletingUserId(null);
     }
