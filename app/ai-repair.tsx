@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import * as ImagePicker from 'expo-image-picker';
+import { Audio } from 'expo-av';
 import { fetch } from 'expo/fetch';
 import { getApiUrl } from '@/lib/query-client';
 
@@ -165,6 +166,9 @@ export default function AIRepairScreen() {
   const [streamingText, setStreamingText] = useState('');
   const chatListRef = useRef<FlatList>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const [voiceEnabled, setVoiceEnabled] = useState(true);
+  const [playingMessageId, setPlayingMessageId] = useState<string | null>(null);
+  const soundRef = useRef<Audio.Sound | null>(null);
 
   // Scan state
   const [scanImage, setScanImage] = useState<{ uri: string; base64?: string | null; mimeType: string } | null>(null);
@@ -297,6 +301,63 @@ export default function AIRepairScreen() {
     });
   };
 
+  const playVoice = useCallback(async (messageId: string, text: string) => {
+    try {
+      // Stop current playback
+      if (soundRef.current) {
+        await soundRef.current.stopAsync();
+        await soundRef.current.unloadAsync();
+        soundRef.current = null;
+      }
+
+      if (playingMessageId === messageId) {
+        setPlayingMessageId(null);
+        return;
+      }
+
+      setPlayingMessageId(messageId);
+
+      // Request audio from backend TTS endpoint
+      const apiUrl = getApiUrl();
+      const response = await fetch(`${apiUrl}/api/ai/repair/tts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+
+      if (!response.ok) {
+        Alert.alert('Error', 'Could not generate voice');
+        setPlayingMessageId(null);
+        return;
+      }
+
+      const blob = await response.blob();
+      const uri = 'data:audio/mp3;base64,' + (await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result?.toString().split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      }));
+
+      const sound = new Audio.Sound();
+      soundRef.current = sound;
+      
+      await sound.loadAsync({ uri });
+      await sound.playAsync();
+
+      // Handle playback completion
+      sound.setOnPlaybackStatusUpdate((status: any) => {
+        if (status.didJustFinish) {
+          setPlayingMessageId(null);
+        }
+      });
+    } catch (error) {
+      console.error('Voice playback error:', error);
+      setPlayingMessageId(null);
+      Alert.alert('Error', 'Could not play voice');
+    }
+  }, [playingMessageId]);
+
   // ─── Scan Logic ─────────────────────────────────────────────────────────────
 
   const pickImage = async (fromCamera: boolean) => {
@@ -384,6 +445,7 @@ export default function AIRepairScreen() {
 
     const isUser = item.role === 'user';
     const contentStr = String(item.content).trim();
+    const isPlaying = playingMessageId === item.id;
     
     if (!contentStr) {
       return null;
@@ -401,18 +463,29 @@ export default function AIRepairScreen() {
             {contentStr}
           </Text>
           {!isUser && (
-            <Pressable
-              style={s.shareBtn}
-              onPress={() => shareAsPost(contentStr)}
-            >
-              <Ionicons name="share-outline" size={12} color={MUTED} />
-              <Text style={s.shareBtnText}>Share as Post</Text>
-            </Pressable>
+            <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+              {voiceEnabled && (
+                <Pressable
+                  style={[s.actionBtn, isPlaying && { backgroundColor: ACCENT + '30' }]}
+                  onPress={() => playVoice(item.id, contentStr)}
+                >
+                  <Ionicons name={isPlaying ? "pause" : "volume-high"} size={12} color={ACCENT} />
+                  <Text style={[s.actionBtnText, { color: ACCENT }]}>{isPlaying ? 'Playing' : 'Listen'}</Text>
+                </Pressable>
+              )}
+              <Pressable
+                style={s.actionBtn}
+                onPress={() => shareAsPost(contentStr)}
+              >
+                <Ionicons name="share-outline" size={12} color={MUTED} />
+                <Text style={s.actionBtnText}>Share</Text>
+              </Pressable>
+            </View>
           )}
         </View>
       </View>
     );
-  }, []);
+  }, [playingMessageId, voiceEnabled, playVoice]);
 
   const renderChat = () => (
     <KeyboardAvoidingView
@@ -428,14 +501,23 @@ export default function AIRepairScreen() {
               <Ionicons name="chatbubbles" size={16} color={ACCENT} />
               <Text style={s.chatHeaderText}>Conversation ({messages.length} messages)</Text>
             </View>
-            <Pressable style={s.clearBtn} onPress={() => {
-              setMessages([]);
-              setInputText('');
-              setStreamingText('');
-            }}>
-              <Ionicons name="close-circle-outline" size={16} color={MUTED} />
-              <Text style={s.clearBtnText}>Clear</Text>
-            </Pressable>
+            <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+              <Pressable 
+                style={[s.clearBtn, voiceEnabled && { backgroundColor: ACCENT + '15' }]} 
+                onPress={() => setVoiceEnabled(!voiceEnabled)}
+              >
+                <Ionicons name={voiceEnabled ? "volume-high" : "volume-mute"} size={16} color={voiceEnabled ? ACCENT : MUTED} />
+                <Text style={[s.clearBtnText, voiceEnabled && { color: ACCENT }]}>{voiceEnabled ? 'Voice On' : 'Voice Off'}</Text>
+              </Pressable>
+              <Pressable style={s.clearBtn} onPress={() => {
+                setMessages([]);
+                setInputText('');
+                setStreamingText('');
+              }}>
+                <Ionicons name="close-circle-outline" size={16} color={MUTED} />
+                <Text style={s.clearBtnText}>Clear</Text>
+              </Pressable>
+            </View>
           </View>
         )}
         {messages.length === 0 && !isStreaming ? (
@@ -827,6 +909,8 @@ const s = StyleSheet.create({
   typingDots: { marginTop: 4 },
   shareBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6, paddingTop: 6, borderTopWidth: 1, borderTopColor: BORDER },
   shareBtnText: { fontSize: 11, color: MUTED, fontFamily: 'Inter_400Regular' },
+  actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, backgroundColor: SURFACE },
+  actionBtnText: { fontSize: 11, color: MUTED, fontFamily: 'Inter_400Regular' },
   
   chatHeader: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',

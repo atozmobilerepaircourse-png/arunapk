@@ -7177,6 +7177,63 @@ Be specific about component locations and names. If image quality is poor or not
     }
   });
 
+  // ─── TTS for AI Chat ──────────────────────────────────────────────────────────
+  app.post("/api/ai/repair/tts", async (req, res) => {
+    try {
+      const { text } = req.body;
+      if (!text) return res.status(400).json({ error: 'No text provided' });
+
+      // For now, use a simple approach with Google Cloud Text-to-Speech
+      // This requires GCP_SA_KEY environment variable
+      const gcpKey = process.env.GCP_SA_KEY;
+      if (!gcpKey) {
+        // Fallback: Return a silent MP3 or error
+        console.warn('[TTS] GCP_SA_KEY not configured');
+        return res.status(503).json({ error: 'TTS service not available' });
+      }
+
+      try {
+        // Parse GCP credentials
+        const credentials = JSON.parse(gcpKey);
+        
+        // Create TTS client
+        const textToSpeech = require('@google-cloud/text-to-speech');
+        const client = new textToSpeech.TextToSpeechClient({
+          credentials,
+          projectId: credentials.project_id,
+        });
+
+        // Create TTS request
+        const request = {
+          input: { text },
+          voice: {
+            languageCode: 'en-US',
+            name: 'en-US-Neural2-C', // Professional voice
+            ssmlGender: 'FEMALE',
+          },
+          audioConfig: {
+            audioEncoding: 'MP3',
+            pitch: 0,
+            speakingRate: 1,
+          },
+        };
+
+        const [response] = await client.synthesizeSpeech(request);
+        const audioContent = response.audioContent;
+
+        // Return MP3 audio
+        res.setHeader('Content-Type', 'audio/mpeg');
+        res.send(Buffer.from(audioContent, 'binary'));
+      } catch (gErr: any) {
+        console.error('[TTS] Google Cloud error:', gErr.message);
+        return res.status(503).json({ error: 'TTS service error' });
+      }
+    } catch (error: any) {
+      console.error('[TTS] Error:', error?.message);
+      res.status(500).json({ error: 'Failed to generate speech' });
+    }
+  });
+
   // ─────────────────────────────────────────────────────────────────────────────
 
   const httpServer = createServer(app);
