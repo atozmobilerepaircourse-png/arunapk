@@ -6,7 +6,7 @@ Mobile app (Expo/React Native) for repair professionals with social feed, direct
 **Backend**: Express/TypeScript on Cloud Run @ `https://repair-backend-3siuld7gbq-el.a.run.app`
 **Frontend**: Firebase Hosting @ `https://mobile-repair-app-276b6.web.app`
 
-## Latest Session - Admin Panel Fixes & Rejected Plan "Try Again" Button
+## Latest Session - Admin Panel & User Information Display
 
 ### ✅ COMPLETED:
 
@@ -36,6 +36,16 @@ Mobile app (Expo/React Native) for repair professionals with social feed, direct
   - Allows resubmission with updated information
 - UI: Red background card (#FFEEEE) with clear visual hierarchy
 - Deployed ✓
+
+**User Information Display in Admin Panel**
+- Schema: Added `userEmail` field to protection_plans table
+- Backend: Updated `/api/protection/apply` to fetch and save user email from profiles table
+- Admin Panel: 
+  - New "Customer Details" section showing Name, Mobile, Email
+  - Displayed in light gray box (#F8F8F8) above device images
+  - Clean formatting with labels and values
+  - Shows "N/A" for missing information
+- Workflow: Deployment in progress ✓
 
 **Previous Session - Auto-Login & Database Cleanup**
 

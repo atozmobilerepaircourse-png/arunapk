@@ -2398,19 +2398,38 @@ export default function AdminScreen() {
           ) : (
             protectionPlans.map(plan => (
               <SectionCard key={plan.id} style={{ marginBottom: 10 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                  <Text style={{ color: C.text, fontFamily: 'Inter_700Bold', fontSize: 15 }}>{plan.brand} {plan.model}</Text>
-                  <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, backgroundColor: `${statusColor[plan.status] || '#999'}20` }}>
+                {/* Status badge */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <Text style={{ color: C.text, fontFamily: 'Inter_700Bold', fontSize: 16 }}>{plan.brand} {plan.model}</Text>
+                  <View style={{ paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10, backgroundColor: `${statusColor[plan.status] || '#999'}20` }}>
                     <Text style={{ fontSize: 11, fontFamily: 'Inter_700Bold', color: statusColor[plan.status] || '#999' }}>
                       {statusLabel[plan.status] || plan.status}
                     </Text>
                   </View>
                 </View>
+
+                {/* User info section */}
+                <View style={{ backgroundColor: '#F8F8F8', borderRadius: 10, padding: 12, marginBottom: 12 }}>
+                  <Text style={{ color: C.text, fontFamily: 'Inter_600SemiBold', fontSize: 13, marginBottom: 8 }}>Customer Details</Text>
+                  <Text style={{ color: C.text, fontSize: 13, marginBottom: 6 }}>
+                    <Text style={{ fontFamily: 'Inter_600SemiBold' }}>Name: </Text>
+                    {plan.userName || 'N/A'}
+                  </Text>
+                  <Text style={{ color: C.text, fontSize: 13, marginBottom: 6 }}>
+                    <Text style={{ fontFamily: 'Inter_600SemiBold' }}>Mobile: </Text>
+                    {plan.userPhone || 'N/A'}
+                  </Text>
+                  <Text style={{ color: C.text, fontSize: 13 }}>
+                    <Text style={{ fontFamily: 'Inter_600SemiBold' }}>Email: </Text>
+                    {plan.userEmail || 'N/A'}
+                  </Text>
+                </View>
+
+                {/* Device details */}
                 <Text style={{ color: C.textSecondary, fontSize: 12, marginBottom: 2 }}>IMEI: {plan.imei}</Text>
                 <Text style={{ color: C.textSecondary, fontSize: 12, marginBottom: 2 }}>Model No: {plan.modelNumber}</Text>
                 <Text style={{ color: C.textSecondary, fontSize: 12, marginBottom: 2 }}>Plan: {plan.planType === 'yearly' ? 'Yearly ₹1499' : 'Monthly ₹447'} | Claim: {plan.claimUsed ? 'Used' : 'Available'}</Text>
-                <Text style={{ color: C.textSecondary, fontSize: 12, marginBottom: 2 }}>User: {plan.userName || plan.userId}</Text>
-                <Text style={{ color: C.textSecondary, fontSize: 11, marginBottom: 8 }}>{new Date(plan.createdAt).toLocaleString('en-IN')}</Text>
+                <Text style={{ color: C.textSecondary, fontSize: 11, marginBottom: 12 }}>{new Date(plan.createdAt).toLocaleString('en-IN')}</Text>
 
                 {/* Device images section */}
                 <View style={{ marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: C.border }}>

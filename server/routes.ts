@@ -7312,6 +7312,12 @@ Be specific about component locations and names. If image quality is poor or not
         return res.status(409).json({ error: 'A plan already exists for this IMEI number' });
       }
 
+      // Fetch user email from profiles table
+      const userProfile = await db.select().from(profiles)
+        .where(eq(profiles.id, userId))
+        .limit(1);
+      const userEmail = userProfile.length > 0 ? (userProfile[0].email || '') : '';
+
       const price = planType === 'yearly' ? 1499 : 447;
       const id = randomUUID();
       await db.insert(protectionPlans).values({
@@ -7319,6 +7325,7 @@ Be specific about component locations and names. If image quality is poor or not
         userId,
         userName: userName || '',
         userPhone: userPhone || '',
+        userEmail: userEmail || '',
         imei,
         brand,
         model,

@@ -438,6 +438,7 @@ export const protectionPlans = pgTable("protection_plans", {
   userId: text("user_id").notNull(),
   userName: text("user_name").notNull(),
   userPhone: text("user_phone").default(""),
+  userEmail: text("user_email").default(""),
   imei: text("imei").notNull(),
   brand: text("brand").notNull(),
   model: text("model").notNull(),
