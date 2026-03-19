@@ -305,136 +305,55 @@ export default function AIRepairScreen() {
     });
   };
 
-  const startVoiceRecord = useCallback(async () => {
-    try {
-      console.log('[Voice] Starting recording...');
+  const startVoiceRecord = useCallback(() => {
+    // Use Web Speech API for browsers
+    if (typeof window !== 'undefined' && (window as any).webkitSpeechRecognition) {
+      const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
+      const recognition = new SpeechRecognition();
       
-      const perms = await Audio.requestPermissionsAsync();
-      console.log('[Voice] Permissions:', perms);
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = 'en-US';
       
-      if (!perms.granted) {
-        Alert.alert('Error', 'Microphone permission denied. Please allow microphone access.');
-        return;
-      }
-
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
-      });
-
-      const recording = new Audio.Recording();
-      recordingRef.current = recording;
+      recognition.onstart = () => {
+        console.log('[Voice] Recognition started');
+        setIsRecording(true);
+      };
       
-      console.log('[Voice] Preparing to record...');
-      await recording.prepareToRecordAsync(
-        Audio.RecordingOptionsPresets.HIGH_QUALITY
-      );
+      recognition.onresult = (event: any) => {
+        let transcript = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          transcript += event.results[i][0].transcript;
+        }
+        console.log('[Voice] Got transcript:', transcript);
+        setInputText(transcript);
+        setTimeout(() => sendMessage(transcript), 100);
+      };
       
-      console.log('[Voice] Starting recording...');
-      await recording.startAsync();
-      setIsRecording(true);
-      console.log('[Voice] Recording started!');
-    } catch (error: any) {
-      console.error('[Voice] Start error:', error?.message || error);
-      Alert.alert('Error Starting Voice', `${error?.message || 'Could not start recording'}\n\nTry: Grant microphone permission, refresh page, or try again.`);
-    }
-  }, []);
-
-  const stopVoiceRecord = useCallback(async () => {
-    try {
-      console.log('[Voice] Stopping recording...');
+      recognition.onerror = (event: any) => {
+        console.error('[Voice] Error:', event.error);
+        setIsRecording(false);
+        Alert.alert('Voice Error', event.error || 'Could not understand speech');
+      };
       
-      if (!recordingRef.current) {
-        console.error('[Voice] No recording to stop');
-        return;
-      }
-
-      setIsRecording(false);
-      console.log('[Voice] Calling stopAndUnloadAsync...');
+      recognition.onend = () => {
+        console.log('[Voice] Recognition ended');
+        setIsRecording(false);
+      };
       
-      await recordingRef.current.stopAndUnloadAsync();
-      const uri = recordingRef.current.getURI();
-      
-      console.log('[Voice] Recording stopped, uri:', uri);
-      
-      if (!uri) {
-        console.error('[Voice] No URI from recording');
-        Alert.alert('Error', 'No audio recorded');
-        return;
-      }
-
-      // Read file as base64
-      console.log('[Voice] Fetching audio from uri...');
-      const fileResponse = await fetch(uri);
-      
-      if (!fileResponse.ok) {
-        console.error('[Voice] Fetch failed:', fileResponse.status);
-        Alert.alert('Error', 'Could not read audio file');
-        return;
-      }
-      
-      const blob = await fileResponse.blob();
-      console.log('[Voice] Blob created, size:', blob.size);
-      
-      const base64Audio = await new Promise<string>((resolve, reject) => {
-        const fileReader = new FileReader();
-        fileReader.onload = () => {
-          try {
-            const result = fileReader.result as string;
-            const base64 = result.split(',')[1];
-            console.log('[Voice] Base64 ready, length:', base64.length);
-            resolve(base64);
-          } catch (e) {
-            console.error('[Voice] FileReader onload error:', e);
-            reject(e);
-          }
-        };
-        fileReader.onerror = (err) => {
-          console.error('[Voice] FileReader error:', err);
-          reject(new Error('FileReader error'));
-        };
-        fileReader.onabort = () => {
-          console.error('[Voice] FileReader aborted');
-          reject(new Error('FileReader aborted'));
-        };
-        fileReader.readAsDataURL(blob);
-      });
-
-      // Send to backend for transcription
-      const apiUrl = getApiUrl();
-      console.log('[Voice] Sending to STT endpoint:', `${apiUrl}/api/ai/repair/stt`);
-      
-      const transcribeResponse = await fetch(`${apiUrl}/api/ai/repair/stt`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ audioBase64: base64Audio, mimeType: 'audio/m4a' }),
-      });
-
-      console.log('[Voice] STT response status:', transcribeResponse.status);
-
-      if (!transcribeResponse.ok) {
-        const errData = await transcribeResponse.json().catch(() => ({}));
-        console.error('[Voice] STT error:', transcribeResponse.status, errData);
-        Alert.alert('Transcription Failed', `${transcribeResponse.status}: ${errData?.error || 'Unknown error'}`);
-        return;
-      }
-
-      const data = await transcribeResponse.json();
-      console.log('[Voice] Transcription result:', data);
-
-      if (data.text && data.text.trim()) {
-        console.log('[Voice] Got text:', data.text);
-        setInputText(data.text.trim());
-        setTimeout(() => sendMessage(data.text.trim()), 100);
-      } else {
-        console.log('[Voice] No text in response');
-        Alert.alert('No speech detected', 'Please speak clearly and try again.');
-      }
-    } catch (error: any) {
-      console.error('[Voice] Stop record error:', error);
-      Alert.alert('Voice Error', error?.message || 'Could not process voice recording');
+      recognition.start();
+      recordingRef.current = recognition as any;
+    } else {
+      Alert.alert('Error', 'Web Speech API not supported on this device');
     }
   }, [sendMessage]);
+
+  const stopVoiceRecord = useCallback(() => {
+    if (recordingRef.current && (recordingRef.current as any).stop) {
+      (recordingRef.current as any).stop();
+      setIsRecording(false);
+    }
+  }, []);
 
   const playVoice = useCallback(async (messageId: string, text: string) => {
     try {
