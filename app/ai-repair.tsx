@@ -720,8 +720,23 @@ export default function AIRepairScreen() {
               </View>
               <Text style={s.welcomeTitle}>AI Repair Assistant</Text>
               <Text style={s.welcomeSub}>
-                Diagnose any mobile hardware problem instantly. Tap a quick problem or type your question.
+                Diagnose any mobile hardware problem instantly. Tap a quick problem, type your question, or use voice.
               </Text>
+            </View>
+            {/* Prominent "Talk to AI" Button */}
+            <View style={s.voicePromptBox}>
+              <Pressable
+                style={[s.talkToAiBtn, isRecording && { backgroundColor: ACCENT, borderColor: ACCENT }]}
+                onPress={() => isRecording ? stopVoiceRecord() : startVoiceRecord()}
+              >
+                <Ionicons 
+                  name={isRecording ? "stop-circle" : "call"} 
+                  size={36} 
+                  color={isRecording ? '#FFF' : ACCENT}
+                />
+              </Pressable>
+              <Text style={s.voicePromptText}>{isRecording ? 'Listening...' : 'Talk to AI'}</Text>
+              <Text style={s.voicePromptSub}>{isRecording ? 'Speak your repair question' : 'Just speak naturally'}</Text>
             </View>
             <Text style={s.quickTitle}>Quick Diagnosis</Text>
             <View style={s.quickGrid}>
@@ -1125,6 +1140,14 @@ const s = StyleSheet.create({
 
   quickContainer: { padding: 16, paddingBottom: 32 },
   welcomeBox: { alignItems: 'center', marginBottom: 28, paddingTop: 16 },
+  voicePromptBox: { alignItems: 'center', marginVertical: 24, paddingHorizontal: 16 },
+  talkToAiBtn: {
+    width: 80, height: 80, borderRadius: 40,
+    backgroundColor: ACCENT + '10', borderWidth: 2, borderColor: ACCENT,
+    alignItems: 'center', justifyContent: 'center', marginBottom: 12,
+  },
+  voicePromptText: { fontSize: 18, fontFamily: 'Inter_600SemiBold', color: TEXT, marginBottom: 4 },
+  voicePromptSub: { fontSize: 13, fontFamily: 'Inter_400Regular', color: MUTED, textAlign: 'center' },
   welcomeIcon: {
     width: 64, height: 64, borderRadius: 20, backgroundColor: ACCENT + '20',
     alignItems: 'center', justifyContent: 'center', marginBottom: 16,
