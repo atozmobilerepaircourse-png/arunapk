@@ -326,6 +326,7 @@ export default function AIRepairScreen() {
       }
 
       setPlayingMessageId(messageId);
+      console.log('[TTS] Requesting audio for:', text);
 
       // Request audio from backend TTS endpoint
       const apiUrl = getApiUrl();
@@ -335,36 +336,60 @@ export default function AIRepairScreen() {
         body: JSON.stringify({ text }),
       });
 
+      console.log('[TTS] Response status:', response.status);
+
       if (!response.ok) {
-        Alert.alert('Error', 'Could not generate voice');
+        const errText = await response.text();
+        console.error('[TTS] Error response:', errText);
+        Alert.alert('Error', 'Could not generate voice: ' + response.status);
         setPlayingMessageId(null);
         return;
       }
 
+      // Get blob as audio/mpeg
       const blob = await response.blob();
-      const uri = 'data:audio/mp3;base64,' + (await new Promise((resolve, reject) => {
+      console.log('[TTS] Blob size:', blob.size, 'type:', blob.type);
+
+      if (blob.size === 0) {
+        Alert.alert('Error', 'Empty audio response');
+        setPlayingMessageId(null);
+        return;
+      }
+
+      // Convert blob to base64 for React Native compatibility
+      const base64 = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
-        reader.onload = () => resolve(reader.result?.toString().split(',')[1]);
+        reader.onload = () => {
+          const result = reader.result as string;
+          const base64String = result.split(',')[1];
+          resolve(base64String);
+        };
         reader.onerror = reject;
         reader.readAsDataURL(blob);
-      }));
+      });
+
+      const uri = `data:audio/mpeg;base64,${base64}`;
+      console.log('[TTS] Created base64 URI with length:', base64.length);
 
       const sound = new Audio.Sound();
       soundRef.current = sound;
       
+      console.log('[TTS] Loading audio...');
       await sound.loadAsync({ uri });
+      console.log('[TTS] Playing audio...');
       await sound.playAsync();
 
       // Handle playback completion
       sound.setOnPlaybackStatusUpdate((status: any) => {
         if (status.didJustFinish) {
+          console.log('[TTS] Playback finished');
           setPlayingMessageId(null);
         }
       });
-    } catch (error) {
-      console.error('Voice playback error:', error);
+    } catch (error: any) {
+      console.error('[TTS] Playback error:', error);
       setPlayingMessageId(null);
-      Alert.alert('Error', 'Could not play voice');
+      Alert.alert('Voice Error', error?.message || 'Could not play voice');
     }
   }, [playingMessageId]);
 

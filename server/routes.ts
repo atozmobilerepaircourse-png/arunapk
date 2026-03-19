@@ -7234,59 +7234,53 @@ Be specific about component locations and names. If image quality is poor or not
     }
   });
 
-  // ─── TTS for AI Chat ──────────────────────────────────────────────────────────
+  // ─── TTS for AI Chat (Using OpenAI fallback) ──────────────────────────────────
   app.post("/api/ai/repair/tts", async (req, res) => {
     try {
       const { text } = req.body;
       if (!text) return res.status(400).json({ error: 'No text provided' });
 
-      // For now, use a simple approach with Google Cloud Text-to-Speech
-      // This requires GCP_SA_KEY environment variable
-      const gcpKey = process.env.GCP_SA_KEY;
-      if (!gcpKey) {
-        // Fallback: Return a silent MP3 or error
-        console.warn('[TTS] GCP_SA_KEY not configured');
+      const openaiKey = process.env.OPENAI_API_KEY;
+      if (!openaiKey) {
+        console.warn('[TTS] OPENAI_API_KEY not configured');
         return res.status(503).json({ error: 'TTS service not available' });
       }
 
       try {
-        // Parse GCP credentials
-        const credentials = JSON.parse(gcpKey);
+        console.log('[TTS] Using OpenAI TTS for:', text.substring(0, 50) + '...');
         
-        // Create TTS client
-        const textToSpeech = require('@google-cloud/text-to-speech');
-        const client = new textToSpeech.TextToSpeechClient({
-          credentials,
-          projectId: credentials.project_id,
+        const response = await fetch('https://api.openai.com/v1/audio/speech', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${openaiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'tts-1',
+            input: text,
+            voice: 'alloy', // Neutral voice
+            response_format: 'mp3',
+          }),
         });
 
-        // Create TTS request
-        const request = {
-          input: { text },
-          voice: {
-            languageCode: 'en-US',
-            name: 'en-US-Neural2-C', // Professional voice
-            ssmlGender: 'FEMALE',
-          },
-          audioConfig: {
-            audioEncoding: 'MP3',
-            pitch: 0,
-            speakingRate: 1,
-          },
-        };
+        if (!response.ok) {
+          const errData = await response.text();
+          console.error('[TTS] OpenAI error:', response.status, errData);
+          return res.status(response.status).json({ error: 'TTS service error: ' + response.statusText });
+        }
 
-        const [response] = await client.synthesizeSpeech(request);
-        const audioContent = response.audioContent;
+        const buffer = await response.arrayBuffer();
+        console.log('[TTS] Success! Audio size:', buffer.byteLength);
 
         // Return MP3 audio
         res.setHeader('Content-Type', 'audio/mpeg');
-        res.send(Buffer.from(audioContent, 'binary'));
-      } catch (gErr: any) {
-        console.error('[TTS] Google Cloud error:', gErr.message);
-        return res.status(503).json({ error: 'TTS service error' });
+        res.send(Buffer.from(buffer));
+      } catch (err: any) {
+        console.error('[TTS] Error:', err.message || err);
+        return res.status(503).json({ error: 'TTS service error: ' + (err.message || err) });
       }
     } catch (error: any) {
-      console.error('[TTS] Error:', error?.message);
+      console.error('[TTS] Error:', error?.message || error);
       res.status(500).json({ error: 'Failed to generate speech' });
     }
   });
