@@ -7180,13 +7180,12 @@ Be specific about component locations and names. If image quality is poor or not
   // ─── STT for AI Chat (Speech-to-Text) ────────────────────────────────────────
   app.post("/api/ai/repair/stt", async (req, res) => {
     try {
-      const files = req.files as any;
-      if (!files || !files.audio) {
-        return res.status(400).json({ error: 'No audio file provided' });
+      const { audioBase64, mimeType } = req.body;
+      if (!audioBase64) {
+        return res.status(400).json({ error: 'No audio provided' });
       }
 
-      const audioFile = files.audio[0];
-      const audioBuffer = audioFile.buffer;
+      console.log('[STT] Request received, audio length:', audioBase64.length, 'mime:', mimeType);
 
       const gcpKey = process.env.GCP_SA_KEY;
       if (!gcpKey) {
@@ -7202,11 +7201,10 @@ Be specific about component locations and names. If image quality is poor or not
           projectId: credentials.project_id,
         });
 
-        // Encode audio to base64
-        const audioContent = audioBuffer.toString('base64');
+        console.log('[STT] Sending to Google Cloud Speech API...');
 
         const request = {
-          audio: { content: audioContent },
+          audio: { content: audioBase64 },
           config: {
             encoding: 'M4A',
             languageCode: 'en-US',
@@ -7219,18 +7217,20 @@ Be specific about component locations and names. If image quality is poor or not
           ?.map(result => result.alternatives?.[0]?.transcript)
           .join('\n') || '';
 
+        console.log('[STT] Transcription result:', transcription);
+
         if (!transcription) {
           return res.json({ text: '', confidence: 0 });
         }
 
         res.json({ text: transcription, confidence: 100 });
       } catch (gErr: any) {
-        console.error('[STT] Google Cloud error:', gErr.message);
-        return res.status(503).json({ error: 'STT service error' });
+        console.error('[STT] Google Cloud error:', gErr.message, gErr.code);
+        return res.status(503).json({ error: 'STT service error: ' + gErr.message });
       }
     } catch (error: any) {
       console.error('[STT] Error:', error?.message);
-      res.status(500).json({ error: 'Failed to transcribe audio' });
+      res.status(500).json({ error: 'Failed to transcribe audio: ' + error?.message });
     }
   });
 

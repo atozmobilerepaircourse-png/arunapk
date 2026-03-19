@@ -339,32 +339,53 @@ export default function AIRepairScreen() {
         return;
       }
 
-      // Send audio to backend for transcription
-      const formData = new FormData();
-      formData.append('audio', {
-        uri,
-        type: 'audio/m4a',
-        name: 'voice.m4a',
-      } as any);
+      console.log('[Voice] Recording stopped, uri:', uri);
 
-      const apiUrl = getApiUrl();
-      const response = await fetch(`${apiUrl}/api/ai/repair/stt`, {
-        method: 'POST',
-        body: formData,
-      });
+      // Read file as base64
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      
+      const reader = new FileReader();
+      reader.onload = async () => {
+        try {
+          const base64Audio = (reader.result as string).split(',')[1];
+          
+          // Send base64 audio to backend for transcription
+          const apiUrl = getApiUrl();
+          const transcribeResponse = await fetch(`${apiUrl}/api/ai/repair/stt`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ audioBase64: base64Audio, mimeType: 'audio/m4a' }),
+          });
 
-      if (!response.ok) {
-        Alert.alert('Error', 'Could not transcribe audio');
-        return;
-      }
+          if (!transcribeResponse.ok) {
+            const errData = await transcribeResponse.json().catch(() => ({}));
+            console.error('[Voice] Transcribe error:', errData);
+            Alert.alert('Error', 'Could not transcribe audio. Try again.');
+            return;
+          }
 
-      const data = await response.json();
-      if (data.text && data.text.trim()) {
-        setInputText(data.text);
-      }
+          const data = await transcribeResponse.json();
+          console.log('[Voice] Transcription result:', data);
+          
+          if (data.text && data.text.trim()) {
+            console.log('[Voice] Setting input text:', data.text);
+            setInputText(data.text);
+          } else {
+            Alert.alert('No speech detected', 'Please speak clearly and try again.');
+          }
+        } catch (error) {
+          console.error('[Voice] Processing error:', error);
+          Alert.alert('Error', 'Could not process recording');
+        }
+      };
+      reader.onerror = () => {
+        Alert.alert('Error', 'Could not read audio file');
+      };
+      reader.readAsDataURL(blob);
     } catch (error) {
-      console.error('Recording stop error:', error);
-      Alert.alert('Error', 'Could not process recording');
+      console.error('[Voice] Recording stop error:', error);
+      Alert.alert('Error', 'Could not stop recording');
     }
   }, []);
 
