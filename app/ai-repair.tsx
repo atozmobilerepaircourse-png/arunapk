@@ -172,6 +172,7 @@ export default function AIRepairScreen() {
   const soundRef = useRef<Audio.Sound | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const recordingRef = useRef<Audio.Recording | null>(null);
+  const [autoPlayNextResponse, setAutoPlayNextResponse] = useState(false);
 
   // Scan state
   const [scanImage, setScanImage] = useState<{ uri: string; base64?: string | null; mimeType: string } | null>(null);
@@ -369,8 +370,107 @@ export default function AIRepairScreen() {
           console.log('[Voice] Transcription result:', data);
           
           if (data.text && data.text.trim()) {
-            console.log('[Voice] Setting input text:', data.text);
-            setInputText(data.text);
+            console.log('[Voice] Transcription complete:', data.text);
+            // Auto-send voice message and set flag to auto-play TTS response
+            setAutoPlayNextResponse(true);
+            setInputText('');
+            setIsRecording(false);
+            // Auto-send the transcribed message
+            const userMsg: ChatMessage = {
+              id: Date.now().toString(),
+              role: 'user',
+              content: data.text.trim(),
+              timestamp: new Date(),
+            };
+            setMessages(prev => {
+              const updated = [userMsg, ...prev];
+              return updated.slice(0, 20);
+            });
+            setIsStreaming(true);
+            setStreamingText('');
+            
+            // Send to AI and auto-play response
+            const url = new URL('/api/ai/repair/chat', getApiUrl());
+            const fullHistory = [...messages, userMsg].reverse().map(m => ({
+              role: m.role,
+              content: m.content,
+            }));
+            const history = [
+              { role: 'system' as const, content: 'You are an expert mobile phone hardware repair technician with 20+ years of experience. Help diagnose and repair mobile phone hardware issues. Be specific about components, tools, and repair steps.' },
+              ...fullHistory,
+            ];
+            
+            abortRef.current = new AbortController();
+            const response = await fetch(url.toString(), {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ messages: history }),
+              signal: abortRef.current.signal,
+            });
+
+            if (!response.ok) {
+              const errData = await response.json().catch(() => ({}));
+              console.error('[Voice] AI error:', errData);
+              setIsStreaming(false);
+              setAutoPlayNextResponse(false);
+              return;
+            }
+
+            const reader = response.body?.getReader();
+            if (!reader) throw new Error('No reader');
+
+            const decoder = new TextDecoder();
+            let fullText = '';
+            let isDone = false;
+
+            while (!isDone) {
+              const { done, value } = await reader.read();
+              if (done) break;
+
+              const chunk = decoder.decode(value, { stream: true });
+              const lines = chunk.split('\n');
+
+              for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                  const dataStr = line.slice(6).trim();
+                  if (dataStr === '[DONE]') {
+                    isDone = true;
+                    break;
+                  }
+                  if (!dataStr) continue;
+                  
+                  try {
+                    const parsed = JSON.parse(dataStr);
+                    if (parsed && typeof parsed.content === 'string') {
+                      fullText += parsed.content;
+                      setStreamingText(prev => prev + parsed.content);
+                    }
+                  } catch (parseErr) {
+                    console.warn('[Voice] JSON parse error:', parseErr);
+                  }
+                }
+              }
+            }
+
+            setIsStreaming(false);
+            const aiMsg: ChatMessage = {
+              id: (Date.now() + 1).toString(),
+              role: 'assistant',
+              content: fullText,
+              timestamp: new Date(),
+            };
+            setMessages(prev => {
+              const updated = [aiMsg, ...prev];
+              return updated.slice(0, 20);
+            });
+            setStreamingText('');
+
+            // Auto-play TTS response if voice was enabled
+            if (autoPlayNextResponse && voiceEnabled && fullText.trim()) {
+              console.log('[Voice] Auto-playing TTS response');
+              setTimeout(() => playVoice(aiMsg.id, fullText), 300);
+            }
+            setAutoPlayNextResponse(false);
           } else {
             Alert.alert('No speech detected', 'Please speak clearly and try again.');
           }
