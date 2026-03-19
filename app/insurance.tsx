@@ -1,135 +1,308 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
-  View, Text, StyleSheet, Pressable, Platform, ScrollView, ActivityIndicator, Alert, TextInput,
+  View, Text, StyleSheet, ScrollView, ActivityIndicator, Alert,
+  TextInput, TouchableOpacity, Platform, Image, Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { useApp } from '@/lib/context';
 import { apiRequest, getApiUrl } from '@/lib/query-client';
-import { PRICES, formatPrice } from '@/lib/pricing';
-import { useInsuranceSettings } from '@/lib/use-insurance-settings';
 
-const PRIMARY   = '#E8704A';
-const PRIMARY_L = '#FFF1EC';
-const BG        = '#F5F5F5';
-const CARD      = '#FFFFFF';
-const DARK      = '#1A1A1A';
-const MUTED     = '#888888';
-const GREEN     = '#34C759';
-const GREEN_L   = '#E8F5ED';
-const BLUE      = '#4A90D9';
-const BLUE_L    = '#E8F2FB';
-const AMBER     = '#F59E0B';
-const AMBER_L   = '#FFFBEB';
+const { width: SW } = Dimensions.get('window');
+
+const PRIMARY  = '#FF6B2C';
+const PRIMARY_L = '#FFF3ED';
+const BG       = '#F5F5F5';
+const CARD     = '#FFFFFF';
+const DARK     = '#1A1A1A';
+const MUTED    = '#8A8A8A';
+const GREEN    = '#27AE60';
+const GREEN_L  = '#E8F5ED';
+const AMBER    = '#F59E0B';
+const AMBER_L  = '#FFFBEB';
+const BLUE     = '#4A90D9';
+const BLUE_L   = '#EBF4FF';
+const RED      = '#E53E3E';
 
 const SHADOW = {
-  shadowColor: '#000',
-  shadowOffset: { width: 0, height: 2 },
-  shadowOpacity: 0.07,
-  shadowRadius: 8,
-  elevation: 2,
+  shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.08, shadowRadius: 10, elevation: 3,
 };
 
-const COVERAGE_ITEMS = [
-  { id: 'screen',    icon: 'phone-portrait-outline',  label: 'Screen Damage',             sub: '(1 Free)',   color: BLUE,  bg: BLUE_L  },
-  { id: 'liquid',    icon: 'water-outline',            label: 'Accidental Liquid Damage',  sub: '',           color: PRIMARY, bg: PRIMARY_L },
-  { id: 'hardware',  icon: 'hardware-chip-outline',    label: 'Hardware Malfunctions',     sub: '',           color: AMBER, bg: AMBER_L },
-  { id: 'pickup',    icon: 'car-outline',              label: 'Free Pickup & Drop',        sub: '',           color: GREEN, bg: GREEN_L },
+const PHONE_BRANDS = [
+  'Samsung', 'Apple', 'Xiaomi', 'Realme', 'Vivo', 'OPPO', 'OnePlus', 'Motorola',
+  'Nokia', 'Infinix', 'IQOO', 'Poco', 'Redmi', 'Tecno', 'Nothing', 'Other',
 ];
 
-const BENEFITS = [
-  { icon: 'shield-checkmark-outline', label: 'Full Coverage',    sub: 'Screen, liquid & hardware', color: PRIMARY, bg: PRIMARY_L },
-  { icon: 'people-outline',           label: 'Certified Techs',  sub: 'Verified experts only',     color: BLUE,    bg: BLUE_L   },
-  { icon: 'hardware-chip-outline',    label: 'Genuine Parts',    sub: 'OEM quality guaranteed',    color: AMBER,   bg: AMBER_L  },
-  { icon: 'car-outline',              label: 'Free Pickup',      sub: 'We come to you',            color: GREEN,   bg: GREEN_L  },
+const ISSUE_TYPES = [
+  'Screen Crack / Damage', 'Display Not Working', 'Touch Not Responding',
+  'Water Damage', 'Back Panel Damage', 'Other Hardware Issue',
 ];
 
-export default function InsuranceScreen() {
+type Step = 'plan' | 'device' | 'imei' | 'images' | 'consent' | 'dashboard';
+type PlanType = 'monthly' | 'yearly';
+type PlanStatus = 'pending_verification' | 'approved_pending_payment' | 'active' | 'rejected' | 'expired';
+type ClaimStatus = 'claim_pending' | 'under_review' | 'approved' | 'assigned' | 'completed' | 'rejected';
+
+interface Plan {
+  id: string;
+  userId: string;
+  brand: string;
+  model: string;
+  modelNumber: string;
+  imei: string;
+  planType: PlanType;
+  price: number;
+  status: PlanStatus;
+  frontImage?: string;
+  backImage?: string;
+  claimUsed: number;
+  planStartDate?: number;
+  rejectionReason?: string;
+  createdAt: number;
+}
+
+interface Claim {
+  id: string;
+  status: ClaimStatus;
+  issue: string;
+  description: string;
+  damageImage?: string;
+  technicianName?: string;
+  rejectionReason?: string;
+  createdAt: number;
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const map: Record<string, { label: string; color: string; bg: string }> = {
+    pending_verification: { label: 'Under Verification', color: AMBER, bg: AMBER_L },
+    approved_pending_payment: { label: 'Approved — Pay Now', color: BLUE, bg: BLUE_L },
+    active: { label: 'Active', color: GREEN, bg: GREEN_L },
+    rejected: { label: 'Rejected', color: RED, bg: '#FFEEEE' },
+    expired: { label: 'Expired', color: MUTED, bg: '#F0F0F0' },
+    claim_pending: { label: 'Claim Pending', color: AMBER, bg: AMBER_L },
+    under_review: { label: 'Under Review', color: BLUE, bg: BLUE_L },
+    approved: { label: 'Approved', color: GREEN, bg: GREEN_L },
+    assigned: { label: 'Technician Assigned', color: PRIMARY, bg: PRIMARY_L },
+    completed: { label: 'Completed', color: GREEN, bg: GREEN_L },
+  };
+  const s = map[status] || { label: status, color: MUTED, bg: '#F0F0F0' };
+  return (
+    <View style={{ backgroundColor: s.bg, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 5, alignSelf: 'flex-start' }}>
+      <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: s.color }}>{s.label}</Text>
+    </View>
+  );
+}
+
+export default function ProtectionPlanScreen() {
   const insets = useSafeAreaInsets();
   const { profile } = useApp();
-  const { settings: insuranceSettings } = useInsuranceSettings();
-  const [subActive, setSubActive] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [checking, setChecking] = useState(true);
-  const [subEnd, setSubEnd] = useState<number | null>(null);
-  const [mobileModel, setMobileModel] = useState('');
-  const [imeiNumber, setImeiNumber] = useState('');
-  const [agreedTerms, setAgreedTerms] = useState(false);
 
-  const topInset  = Platform.OS === 'web' ? 67 : insets.top;
-  const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom + 20;
+  const topPad = Platform.OS === 'web' ? 67 : insets.top;
+  const botPad = Platform.OS === 'web' ? 34 : insets.bottom + 20;
 
-  const checkSub = useCallback(async () => {
-    if (!profile?.id) { setChecking(false); return; }
+  const [step, setStep] = useState<Step>('plan');
+  const [loadingPlan, setLoadingPlan] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+
+  const [existingPlan, setExistingPlan] = useState<Plan | null>(null);
+  const [existingClaim, setExistingClaim] = useState<Claim | null>(null);
+
+  // Form state
+  const [planType, setPlanType] = useState<PlanType>('yearly');
+  const [brand, setBrand] = useState('');
+  const [model, setModel] = useState('');
+  const [modelNumber, setModelNumber] = useState('');
+  const [imei, setImei] = useState('');
+  const [frontImage, setFrontImage] = useState<string | null>(null);
+  const [backImage, setBackImage] = useState<string | null>(null);
+  const [frontImageBase64, setFrontImageBase64] = useState<string | null>(null);
+  const [backImageBase64, setBackImageBase64] = useState<string | null>(null);
+  const [agreed, setAgreed] = useState(false);
+
+  // Claim state
+  const [showClaim, setShowClaim] = useState(false);
+  const [claimIssue, setClaimIssue] = useState('');
+  const [claimDesc, setClaimDesc] = useState('');
+  const [claimImage, setClaimImage] = useState<string | null>(null);
+  const [claimImageBase64, setClaimImageBase64] = useState<string | null>(null);
+  const [claimSubmitting, setClaimSubmitting] = useState(false);
+
+  const fetchPlan = useCallback(async () => {
+    if (!profile?.id) { setLoadingPlan(false); return; }
     try {
-      const res = await apiRequest('GET', `/api/subscription/status/${profile.id}`);
+      const res = await apiRequest('GET', `/api/protection/my-plan/${profile.id}`);
       const data = await res.json();
-      setSubActive(data.active === true);
-      if (data.subscriptionEnd) setSubEnd(data.subscriptionEnd);
-    } catch { setSubActive(false); }
-    finally { setChecking(false); }
+      if (data.plan) {
+        setExistingPlan(data.plan);
+        setExistingClaim(data.claim || null);
+        setStep('dashboard');
+      }
+    } catch (e) {
+      console.warn('[Protection] fetch plan error:', e);
+    } finally {
+      setLoadingPlan(false);
+    }
   }, [profile?.id]);
 
-  useEffect(() => { checkSub(); }, [checkSub]);
+  useEffect(() => { fetchPlan(); }, [fetchPlan]);
 
-  const handleSubscribe = async () => {
-    if (!profile?.id) { router.push('/onboarding'); return; }
-    if (!subActive) {
-      if (!mobileModel.trim()) {
-        Alert.alert('Required', 'Please enter your mobile model.');
-        return;
-      }
-      if (!imeiNumber.trim() || imeiNumber.trim().length < 15) {
-        Alert.alert('Required', 'Please enter a valid 15-digit IMEI number.');
-        return;
-      }
-      if (!agreedTerms) {
-        Alert.alert('Terms Required', 'Please agree to the Terms & Conditions before proceeding.');
-        return;
-      }
-    }
-    if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setLoading(true);
+  // ── Image picker (camera only) ──────────────────────────────────────────────
+  const captureImage = useCallback(async (which: 'front' | 'back' | 'claim') => {
     try {
-      const res = await apiRequest('POST', '/api/customer/subscription/create-order', {
-        userId: profile.id,
-        planId: 'premium',
-        mobileModel: mobileModel.trim(),
-        imeiNumber: imeiNumber.trim(),
+      if (Platform.OS === 'web') {
+        Alert.alert('Camera', 'Use a mobile device to capture images with the camera.');
+        return;
+      }
+      const ImagePicker = await import('expo-image-picker');
+      const perm = await ImagePicker.requestCameraPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert('Camera Required', 'Please allow camera access to capture device images.');
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: 'images',
+        quality: 0.7,
+        base64: true,
+        exif: false,
+      });
+      if (!result.canceled && result.assets[0]) {
+        const asset = result.assets[0];
+        const uri = asset.uri;
+        const b64 = asset.base64 || '';
+        if (which === 'front') { setFrontImage(uri); setFrontImageBase64(b64); }
+        else if (which === 'back') { setBackImage(uri); setBackImageBase64(b64); }
+        else { setClaimImage(uri); setClaimImageBase64(b64); }
+      }
+    } catch (e) {
+      Alert.alert('Error', 'Failed to capture image');
+    }
+  }, []);
+
+  // ── Upload image to backend ─────────────────────────────────────────────────
+  const uploadImage = useCallback(async (base64: string, name: string): Promise<string> => {
+    try {
+      const res = await apiRequest('POST', '/api/protection/upload-image', {
+        base64,
+        filename: name,
       });
       const data = await res.json();
-      if (!data.success) {
-        if (Platform.OS === 'web') window.alert(data.message || 'Failed to create order');
-        else Alert.alert('Error', data.message || 'Failed to create order');
-        return;
-      }
-      const { orderId, keyId, amount, displayAmount } = data;
+      return data.url || '';
+    } catch {
+      return '';
+    }
+  }, []);
+
+  // ── Submit application ────────────────────────────────────────────────────────
+  const handleSubmit = useCallback(async () => {
+    if (!agreed) { Alert.alert('Consent Required', 'Please agree to the terms to continue.'); return; }
+    if (!profile?.id) { router.push('/onboarding'); return; }
+    setSubmitting(true);
+    try {
+      let frontUrl = '';
+      let backUrl = '';
+      if (frontImageBase64) frontUrl = await uploadImage(frontImageBase64, `front_${Date.now()}.jpg`);
+      if (backImageBase64) backUrl = await uploadImage(backImageBase64, `back_${Date.now()}.jpg`);
+
+      const res = await apiRequest('POST', '/api/protection/apply', {
+        userId: profile.id,
+        userName: profile.name,
+        userPhone: profile.phone,
+        imei: imei.trim(),
+        brand,
+        model: model.trim(),
+        modelNumber: modelNumber.trim(),
+        planType,
+        frontImage: frontUrl,
+        backImage: backUrl,
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || 'Submission failed');
+
+      Alert.alert('Application Submitted!', 'Your Mobile Protection Plan application is under verification. We will notify you within 24 hours.', [
+        { text: 'OK', onPress: () => fetchPlan() }
+      ]);
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Failed to submit. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  }, [agreed, profile, imei, brand, model, modelNumber, planType, frontImageBase64, backImageBase64, uploadImage, fetchPlan]);
+
+  // ── Make payment ──────────────────────────────────────────────────────────────
+  const handlePayment = useCallback(async () => {
+    if (!existingPlan) return;
+    try {
+      const res = await apiRequest('POST', '/api/protection/payment/create-order', {
+        planId: existingPlan.id,
+        userId: profile?.id,
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || 'Could not create payment order');
+
       const url = new URL('/api/subscription/checkout', getApiUrl());
-      url.searchParams.set('orderId', orderId);
-      url.searchParams.set('amount', String(amount));
-      url.searchParams.set('keyId', keyId);
-      url.searchParams.set('role', 'customer');
-      url.searchParams.set('displayAmount', String(displayAmount || data.displayAmount || insuranceSettings.protectionPlanPrice));
-      url.searchParams.set('userId', profile.id);
-      url.searchParams.set('userName', profile.name || '');
-      url.searchParams.set('userPhone', profile.phone || '');
+      url.searchParams.set('orderId', data.orderId);
+      url.searchParams.set('amount', String(data.amount));
+      url.searchParams.set('keyId', data.keyId);
+      url.searchParams.set('role', 'protection_plan');
+      url.searchParams.set('displayAmount', String(data.displayAmount));
+      url.searchParams.set('userId', profile?.id || '');
+      url.searchParams.set('userName', profile?.name || '');
+      url.searchParams.set('userPhone', profile?.phone || '');
+      url.searchParams.set('planId', existingPlan.id);
+      url.searchParams.set('type', 'protection_plan');
+
       if (Platform.OS === 'web') {
         window.open(url.toString(), '_blank');
-        setTimeout(checkSub, 5000);
+        setTimeout(() => fetchPlan(), 8000);
       } else {
-        router.push({ pathname: '/webview', params: { url: url.toString(), type: 'customer_sub' } } as any);
+        router.push({ pathname: '/webview', params: { url: url.toString(), type: 'protection_payment' } } as any);
       }
-    } catch {
-      if (Platform.OS === 'web') window.alert('Failed. Please try again.');
-      else Alert.alert('Error', 'Failed. Please try again.');
-    } finally {
-      setLoading(false);
+    } catch (e: any) {
+      Alert.alert('Payment Error', e.message || 'Failed to initiate payment');
     }
+  }, [existingPlan, profile, fetchPlan]);
+
+  // ── Raise Claim ───────────────────────────────────────────────────────────────
+  const handleRaiseClaim = useCallback(async () => {
+    if (!claimIssue) { Alert.alert('Required', 'Please select an issue type'); return; }
+    if (!existingPlan) return;
+    setClaimSubmitting(true);
+    try {
+      let imgUrl = '';
+      if (claimImageBase64) imgUrl = await uploadImage(claimImageBase64, `claim_${Date.now()}.jpg`);
+
+      const res = await apiRequest('POST', '/api/protection/claim/raise', {
+        planId: existingPlan.id,
+        userId: profile?.id,
+        issue: claimIssue,
+        description: claimDesc,
+        damageImage: imgUrl,
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || 'Failed to raise claim');
+
+      Alert.alert('Claim Submitted!', 'Your claim has been submitted. Our team will review and contact you within 24 hours.', [
+        { text: 'OK', onPress: () => { setShowClaim(false); fetchPlan(); } }
+      ]);
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Failed to submit claim');
+    } finally {
+      setClaimSubmitting(false);
+    }
+  }, [claimIssue, claimDesc, claimImageBase64, existingPlan, profile, uploadImage, fetchPlan]);
+
+  // ── Expiry calculation ────────────────────────────────────────────────────────
+  const getExpiryDate = (plan: Plan) => {
+    const start = plan.planStartDate || plan.createdAt;
+    const months = plan.planType === 'yearly' ? 12 : 3;
+    const expiry = new Date(start);
+    expiry.setMonth(expiry.getMonth() + months);
+    return expiry.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
   };
 
-  if (checking) {
+  if (loadingPlan) {
     return (
       <View style={{ flex: 1, backgroundColor: BG, alignItems: 'center', justifyContent: 'center' }}>
         <ActivityIndicator color={PRIMARY} size="large" />
@@ -137,281 +310,758 @@ export default function InsuranceScreen() {
     );
   }
 
-  const validTill = subEnd
-    ? new Date(subEnd).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
-    : null;
+  // ─── HEADER ──────────────────────────────────────────────────────────────────
+  const Header = () => (
+    <View style={[styles.header, { paddingTop: topPad + 8 }]}>
+      <TouchableOpacity style={styles.backBtn} onPress={() => {
+        if (step !== 'plan' && step !== 'dashboard') {
+          const prev: Record<Step, Step> = { plan: 'plan', device: 'plan', imei: 'device', images: 'imei', consent: 'images', dashboard: 'dashboard' };
+          setStep(prev[step]);
+        } else {
+          router.back();
+        }
+      }}>
+        <Ionicons name="arrow-back" size={22} color={DARK} />
+      </TouchableOpacity>
+      <Text style={styles.headerTitle}>Mobile Protection Plan</Text>
+      <View style={{ width: 44 }} />
+    </View>
+  );
 
-  return (
-    <View style={{ flex: 1, backgroundColor: BG }}>
-      {/* Nav bar */}
-      <View style={[styles.navBar, { paddingTop: topInset + 8 }]}>
-        <Pressable style={styles.backBtn} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={22} color={DARK} />
-        </Pressable>
-        <Text style={styles.navTitle}>Protection Plan</Text>
-        <View style={{ width: 44 }} />
-      </View>
+  // ════════════════════════════════════════════════════════════════════════════
+  // STEP: DASHBOARD
+  // ════════════════════════════════════════════════════════════════════════════
+  if (step === 'dashboard' && existingPlan) {
+    const plan = existingPlan;
+    const isActive = plan.status === 'active';
+    const isPendingPayment = plan.status === 'approved_pending_payment';
+    const canClaim = isActive && !plan.claimUsed;
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: bottomPad + 120, paddingHorizontal: 16 }}>
+    if (showClaim) {
+      return (
+        <View style={{ flex: 1, backgroundColor: BG }}>
+          <Header />
+          <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: botPad + 100 }}>
+            <Text style={styles.sectionTitle}>Raise a Claim</Text>
 
-        {/* Hero Card */}
-        <View style={[styles.heroCard, subActive && { borderColor: PRIMARY, borderWidth: 1.5 }]}>
-          <View style={styles.heroTop}>
-            <View style={styles.heroIconWrap}>
-              <Ionicons name="shield-checkmark" size={36} color={subActive ? '#FFF' : DARK} />
+            {/* Issue selection */}
+            <View style={[styles.card, { marginBottom: 16 }]}>
+              <Text style={styles.label}>Select Issue *</Text>
+              {ISSUE_TYPES.map(issue => (
+                <TouchableOpacity
+                  key={issue}
+                  style={[styles.radioRow, claimIssue === issue && styles.radioRowSelected]}
+                  onPress={() => setClaimIssue(issue)}
+                >
+                  <View style={[styles.radio, claimIssue === issue && styles.radioSelected]}>
+                    {claimIssue === issue && <View style={styles.radioDot} />}
+                  </View>
+                  <Text style={[styles.radioLabel, claimIssue === issue && { color: PRIMARY }]}>{issue}</Text>
+                </TouchableOpacity>
+              ))}
             </View>
-            <View style={{ flex: 1, marginLeft: 14 }}>
-              <Text style={styles.heroTitle}>Mobile Protection Plan</Text>
-              <Text style={styles.heroSub}>Mobix Premium Device Coverage</Text>
+
+            {/* Description */}
+            <View style={[styles.card, { marginBottom: 16 }]}>
+              <Text style={styles.label}>Describe the issue</Text>
+              <TextInput
+                style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
+                placeholder="Please describe the damage in detail..."
+                placeholderTextColor={MUTED}
+                value={claimDesc}
+                onChangeText={setClaimDesc}
+                multiline
+              />
             </View>
-            {subActive && (
-              <View style={styles.activeBadge}>
-                <View style={styles.pulseDot} />
-                <Text style={styles.activeText}>Active</Text>
+
+            {/* Damage image */}
+            <View style={[styles.card, { marginBottom: 16 }]}>
+              <Text style={styles.label}>Capture Damage Photo *</Text>
+              <Text style={{ fontSize: 12, color: MUTED, marginBottom: 10 }}>Camera only — tap to capture</Text>
+              <TouchableOpacity style={styles.imgPlaceholder} onPress={() => captureImage('claim')}>
+                {claimImage
+                  ? <Image source={{ uri: claimImage }} style={{ width: '100%', height: '100%', borderRadius: 12 }} resizeMode="cover" />
+                  : <View style={{ alignItems: 'center', gap: 8 }}>
+                      <Ionicons name="camera-outline" size={32} color={MUTED} />
+                      <Text style={{ color: MUTED, fontSize: 13 }}>Tap to take photo</Text>
+                    </View>
+                }
+              </TouchableOpacity>
+            </View>
+
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <TouchableOpacity style={[styles.btn, { flex: 1, backgroundColor: '#F0F0F0' }]} onPress={() => setShowClaim(false)}>
+                <Text style={[styles.btnText, { color: DARK }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.btn, { flex: 2 }]} onPress={handleRaiseClaim} disabled={claimSubmitting}>
+                {claimSubmitting ? <ActivityIndicator color="#FFF" size="small" /> : <Text style={styles.btnText}>Submit Claim</Text>}
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </View>
+      );
+    }
+
+    return (
+      <View style={{ flex: 1, backgroundColor: BG }}>
+        <Header />
+        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: botPad + 40 }}>
+
+          {/* Status card */}
+          <View style={[styles.card, { marginBottom: 16 }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+              <View style={[styles.shieldBig, { backgroundColor: isActive ? PRIMARY : AMBER }]}>
+                <Ionicons name="shield-checkmark" size={28} color="#FFF" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.planName}>Mobile Protection Plan</Text>
+                <Text style={{ fontSize: 12, color: MUTED }}>{plan.planType === 'yearly' ? 'Yearly Plan' : 'Monthly Plan (3-month)'}</Text>
+              </View>
+            </View>
+            <StatusBadge status={plan.status} />
+
+            {isActive && (
+              <View style={{ marginTop: 14, backgroundColor: GREEN_L, borderRadius: 12, padding: 12, flexDirection: 'row', gap: 10 }}>
+                <Ionicons name="calendar-outline" size={18} color={GREEN} />
+                <View>
+                  <Text style={{ fontSize: 12, color: MUTED }}>Valid Until</Text>
+                  <Text style={{ fontSize: 14, fontFamily: 'Inter_600SemiBold', color: DARK }}>{getExpiryDate(plan)}</Text>
+                </View>
+              </View>
+            )}
+
+            {isPendingPayment && (
+              <View style={{ marginTop: 14 }}>
+                <Text style={{ fontSize: 13, color: MUTED, marginBottom: 10 }}>Your application has been approved! Complete payment to activate your plan.</Text>
+                <TouchableOpacity style={styles.btn} onPress={handlePayment}>
+                  <Ionicons name="card-outline" size={18} color="#FFF" />
+                  <Text style={styles.btnText}>Pay ₹{plan.price} Now</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {plan.status === 'rejected' && (
+              <View style={{ marginTop: 14, backgroundColor: '#FFEEEE', borderRadius: 12, padding: 12 }}>
+                <Text style={{ fontSize: 13, color: RED, fontFamily: 'Inter_600SemiBold' }}>Rejection Reason:</Text>
+                <Text style={{ fontSize: 13, color: RED, marginTop: 4 }}>{plan.rejectionReason || 'Application did not meet eligibility criteria'}</Text>
               </View>
             )}
           </View>
 
-          {subActive && validTill ? (
-            <View style={styles.validRow}>
-              <Ionicons name="calendar-outline" size={14} color={MUTED} />
-              <Text style={styles.validText}>Valid till {validTill}</Text>
-            </View>
-          ) : (
-            <View style={styles.priceRow}>
-              <Text style={styles.price}>₹{insuranceSettings.protectionPlanPrice}</Text>
-              <Text style={styles.pricePer}>/month</Text>
-              <View style={styles.discountBadge}>
-                <Text style={styles.discountText}>Save ₹{insuranceSettings.repairDiscount} on repairs</Text>
-              </View>
-            </View>
-          )}
-        </View>
-
-        {/* Coverage */}
-        <Text style={styles.sectionTitle}>What's Covered</Text>
-        <View style={styles.coverageGrid}>
-          {COVERAGE_ITEMS.map(item => (
-            <View key={item.id} style={[styles.coverageItem, { backgroundColor: item.bg }]}>
-              <View style={[styles.coverageIcon, { backgroundColor: item.color + '20' }]}>
-                <Ionicons name={item.icon as any} size={20} color={item.color} />
-              </View>
-              <Text style={[styles.coverageLabel, { color: item.color }]} numberOfLines={2}>{item.label}</Text>
-              {item.sub ? <Text style={styles.coverageSub}>{item.sub}</Text> : null}
-            </View>
-          ))}
-        </View>
-
-        {/* Benefits */}
-        <Text style={styles.sectionTitle}>Why Choose Us</Text>
-        <View style={styles.benefitsList}>
-          {BENEFITS.map((b, i) => (
-            <View key={i} style={styles.benefitRow}>
-              <View style={[styles.benefitIcon, { backgroundColor: b.bg }]}>
-                <Ionicons name={b.icon as any} size={18} color={b.color} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.benefitLabel}>{b.label}</Text>
-                <Text style={styles.benefitSub}>{b.sub}</Text>
-              </View>
-              <Ionicons name="checkmark-circle" size={18} color={GREEN} />
-            </View>
-          ))}
-        </View>
-
-        {/* Device Details */}
-        {!subActive && (
-          <>
+          {/* Device details */}
+          <View style={[styles.card, { marginBottom: 16 }]}>
             <Text style={styles.sectionTitle}>Device Details</Text>
-            <View style={[styles.stepsCard, { gap: 12 }]}>
-              <View>
-                <Text style={styles.inputLabel}>Mobile Model</Text>
-                <TextInput
-                  style={styles.inputField}
-                  placeholder="e.g. Samsung Galaxy S24, iPhone 15"
-                  placeholderTextColor={MUTED}
-                  value={mobileModel}
-                  onChangeText={setMobileModel}
-                />
-              </View>
-              <View>
-                <Text style={styles.inputLabel}>IMEI Number</Text>
-                <TextInput
-                  style={styles.inputField}
-                  placeholder="15-digit IMEI number"
-                  placeholderTextColor={MUTED}
-                  value={imeiNumber}
-                  onChangeText={setImeiNumber}
-                  keyboardType="numeric"
-                  maxLength={15}
-                />
-                <Text style={{ fontSize: 11, color: MUTED, marginTop: 4 }}>Dial *#06# to find your IMEI</Text>
-              </View>
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Brand</Text>
+              <Text style={styles.detailValue}>{plan.brand}</Text>
             </View>
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Model</Text>
+              <Text style={styles.detailValue}>{plan.model}</Text>
+            </View>
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Model Number</Text>
+              <Text style={styles.detailValue}>{plan.modelNumber}</Text>
+            </View>
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>IMEI</Text>
+              <Text style={styles.detailValue}>{plan.imei}</Text>
+            </View>
+          </View>
 
-            <Pressable
-              style={styles.termsRow}
-              onPress={() => setAgreedTerms(!agreedTerms)}
-            >
-              <View style={[styles.checkbox, agreedTerms && styles.checkboxChecked]}>
-                {agreedTerms && <Ionicons name="checkmark" size={14} color="#FFF" />}
-              </View>
-              <Text style={styles.termsLabel}>
-                I agree to the{' '}
-                <Text style={{ color: PRIMARY, textDecorationLine: 'underline' }}>Terms & Conditions</Text>
-                {' '}and{' '}
-                <Text style={{ color: PRIMARY, textDecorationLine: 'underline' }}>Privacy Policy</Text>
-              </Text>
-            </Pressable>
-          </>
-        )}
-
-        {/* How it works */}
-        <Text style={styles.sectionTitle}>How It Works</Text>
-        <View style={styles.stepsCard}>
-          {[
-            { num: '1', label: 'Activate Plan', sub: `Pay ₹${insuranceSettings.protectionPlanPrice} to activate your protection` },
-            { num: '2', label: 'Get Protected',  sub: 'Instant coverage for your device' },
-            { num: '3', label: 'Book Repair',    sub: `Get ₹${insuranceSettings.repairDiscount} off on any repair service` },
-          ].map((s, i) => (
-            <View key={i}>
-              {i > 0 && <View style={{ height: 1, backgroundColor: '#F0F0F0', marginVertical: 12 }} />}
-              <View style={styles.stepRow}>
-                <View style={styles.stepNum}>
-                  <Text style={styles.stepNumText}>{s.num}</Text>
+          {/* Coverage summary */}
+          {isActive && (
+            <View style={[styles.card, { marginBottom: 16 }]}>
+              <Text style={styles.sectionTitle}>Coverage Summary</Text>
+              <View style={styles.coverageRow}>
+                <Ionicons name="phone-portrait-outline" size={18} color={PRIMARY} />
+                <Text style={styles.coverageText}>1 Screen Damage Claim</Text>
+                <View style={[styles.pill, plan.claimUsed ? { backgroundColor: '#FFEEEE' } : { backgroundColor: GREEN_L }]}>
+                  <Text style={{ fontSize: 11, fontFamily: 'Inter_600SemiBold', color: plan.claimUsed ? RED : GREEN }}>
+                    {plan.claimUsed ? 'Used' : 'Available'}
+                  </Text>
                 </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.stepLabel}>{s.label}</Text>
-                  <Text style={styles.stepSub}>{s.sub}</Text>
+              </View>
+              <View style={styles.coverageRow}>
+                <Ionicons name="car-outline" size={18} color={GREEN} />
+                <Text style={styles.coverageText}>Free Pickup & Drop</Text>
+                <View style={[styles.pill, { backgroundColor: GREEN_L }]}>
+                  <Text style={{ fontSize: 11, fontFamily: 'Inter_600SemiBold', color: GREEN }}>Included</Text>
+                </View>
+              </View>
+              <View style={styles.coverageRow}>
+                <Ionicons name="construct-outline" size={18} color={BLUE} />
+                <Text style={styles.coverageText}>Service Fee: {plan.planType === 'yearly' ? '₹99–₹149' : '₹199–₹299'}</Text>
+                <View style={[styles.pill, { backgroundColor: BLUE_L }]}>
+                  <Text style={{ fontSize: 11, fontFamily: 'Inter_600SemiBold', color: BLUE }}>Applicable</Text>
                 </View>
               </View>
             </View>
-          ))}
-        </View>
-      </ScrollView>
-
-      {/* Sticky CTA */}
-      <View style={[styles.bottomBar, { paddingBottom: bottomPad + 8 }]}>
-        <Pressable
-          style={({ pressed }) => [styles.ctaBtn, { opacity: pressed ? 0.9 : 1 }]}
-          onPress={handleSubscribe}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="#FFF" size="small" />
-          ) : (
-            <>
-              <Ionicons name={subActive ? 'add-circle-outline' : 'shield-checkmark-outline'} size={20} color="#FFF" />
-              <Text style={styles.ctaBtnText}>{subActive ? `Extend Plan — ₹${insuranceSettings.protectionPlanPrice}/mo` : `Activate Plan — ₹${insuranceSettings.protectionPlanPrice}/mo`}</Text>
-            </>
           )}
-        </Pressable>
-        <Text style={styles.termsText}>Cancel anytime · No hidden charges</Text>
+
+          {/* Claim section */}
+          {isActive && (
+            <View style={[styles.card, { marginBottom: 16 }]}>
+              <Text style={styles.sectionTitle}>Claim Status</Text>
+              {existingClaim ? (
+                <>
+                  <StatusBadge status={existingClaim.status} />
+                  <View style={{ marginTop: 12 }}>
+                    <Text style={{ fontSize: 13, color: MUTED }}>Issue: {existingClaim.issue}</Text>
+                    {existingClaim.technicianName ? (
+                      <Text style={{ fontSize: 13, color: DARK, marginTop: 4 }}>
+                        Technician: <Text style={{ fontFamily: 'Inter_600SemiBold' }}>{existingClaim.technicianName}</Text>
+                      </Text>
+                    ) : null}
+                    {existingClaim.rejectionReason ? (
+                      <Text style={{ fontSize: 13, color: RED, marginTop: 4 }}>Reason: {existingClaim.rejectionReason}</Text>
+                    ) : null}
+                  </View>
+                </>
+              ) : canClaim ? (
+                <>
+                  <Text style={{ fontSize: 13, color: MUTED, marginBottom: 14 }}>
+                    You can raise one screen damage claim per plan year.
+                  </Text>
+                  <TouchableOpacity style={styles.btn} onPress={() => setShowClaim(true)}>
+                    <Ionicons name="alert-circle-outline" size={18} color="#FFF" />
+                    <Text style={styles.btnText}>Raise a Claim</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <Text style={{ fontSize: 13, color: MUTED }}>
+                  {plan.claimUsed ? 'Your claim for this plan period has been used.' : 'Claim will be available after the waiting period.'}
+                </Text>
+              )}
+            </View>
+          )}
+
+          {/* Device images */}
+          {(plan.frontImage || plan.backImage) && (
+            <View style={[styles.card, { marginBottom: 16 }]}>
+              <Text style={styles.sectionTitle}>Device Images</Text>
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                {plan.frontImage && (
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.label}>Front</Text>
+                    <Image source={{ uri: plan.frontImage }} style={{ height: 120, borderRadius: 10 }} resizeMode="cover" />
+                  </View>
+                )}
+                {plan.backImage && (
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.label}>Back</Text>
+                    <Image source={{ uri: plan.backImage }} style={{ height: 120, borderRadius: 10 }} resizeMode="cover" />
+                  </View>
+                )}
+              </View>
+            </View>
+          )}
+        </ScrollView>
+      </View>
+    );
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // STEP: PLAN SELECTION
+  // ════════════════════════════════════════════════════════════════════════════
+  if (step === 'plan') {
+    return (
+      <View style={{ flex: 1, backgroundColor: BG }}>
+        <Header />
+        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: botPad + 100 }}>
+
+          {/* Hero banner */}
+          <View style={[styles.heroBanner, { marginBottom: 24 }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+              <View style={{ backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 12, padding: 6 }}>
+                <Ionicons name="shield-checkmark" size={26} color="#FFF" />
+              </View>
+              <Text style={{ fontSize: 20, fontFamily: 'Inter_700Bold', color: '#FFF' }}>Mobile Protection Plan</Text>
+            </View>
+            <Text style={{ fontSize: 14, color: 'rgba(255,255,255,0.9)', marginBottom: 4 }}>
+              Screen damage covered • Doorstep service • Fast claims
+            </Text>
+            <View style={{ backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 10, padding: 10, marginTop: 8 }}>
+              <Text style={{ fontSize: 13, color: '#FFF', fontFamily: 'Inter_600SemiBold' }}>
+                💡 Screen repair costs ₹2000+ — save with this plan
+              </Text>
+            </View>
+          </View>
+
+          <Text style={styles.sectionTitle}>Choose Your Plan</Text>
+
+          {/* Yearly plan */}
+          <TouchableOpacity
+            style={[styles.planCard, planType === 'yearly' && styles.planCardSelected, { marginBottom: 12 }]}
+            onPress={() => setPlanType('yearly')}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+              <View style={{ flex: 1 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                  <Text style={[styles.planTitle, planType === 'yearly' && { color: PRIMARY }]}>Yearly Plan</Text>
+                  <View style={{ backgroundColor: AMBER, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 }}>
+                    <Text style={{ fontSize: 10, fontFamily: 'Inter_700Bold', color: '#FFF' }}>BEST VALUE ⭐</Text>
+                  </View>
+                </View>
+                <Text style={styles.planPrice}>₹1499<Text style={styles.planPriceSub}>/year</Text></Text>
+                <View style={{ gap: 6, marginTop: 8 }}>
+                  {['1 screen damage claim', 'Free pickup & drop', 'Service fee: ₹99–₹149', 'Waiting period: 7 days', 'Validity: 12 months'].map(f => (
+                    <View key={f} style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                      <Ionicons name="checkmark-circle" size={15} color={GREEN} />
+                      <Text style={{ fontSize: 13, color: DARK }}>{f}</Text>
+                    </View>
+                  ))}
+                </View>
+                <View style={{ backgroundColor: GREEN_L, borderRadius: 8, padding: 8, marginTop: 10 }}>
+                  <Text style={{ fontSize: 12, color: GREEN, fontFamily: 'Inter_600SemiBold' }}>💰 Save up to ₹4000 on repairs</Text>
+                </View>
+              </View>
+              <View style={[styles.planRadio, planType === 'yearly' && styles.planRadioSelected]}>
+                {planType === 'yearly' && <View style={styles.planRadioDot} />}
+              </View>
+            </View>
+          </TouchableOpacity>
+
+          {/* Monthly plan */}
+          <TouchableOpacity
+            style={[styles.planCard, planType === 'monthly' && styles.planCardSelected, { marginBottom: 24 }]}
+            onPress={() => setPlanType('monthly')}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.planTitle, planType === 'monthly' && { color: PRIMARY }, { marginBottom: 6 }]}>Monthly Plan</Text>
+                <Text style={styles.planPrice}>₹149<Text style={styles.planPriceSub}>/month</Text></Text>
+                <Text style={{ fontSize: 12, color: PRIMARY, fontFamily: 'Inter_600SemiBold', marginTop: 2 }}>Pay ₹447 upfront (3 months min)</Text>
+                <View style={{ gap: 6, marginTop: 8 }}>
+                  {['1 claim per year', 'Free pickup & drop', 'Service fee: ₹199–₹299', 'Waiting period: 30 days'].map(f => (
+                    <View key={f} style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                      <Ionicons name="checkmark-circle" size={15} color={GREEN} />
+                      <Text style={{ fontSize: 13, color: DARK }}>{f}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+              <View style={[styles.planRadio, planType === 'monthly' && styles.planRadioSelected]}>
+                {planType === 'monthly' && <View style={styles.planRadioDot} />}
+              </View>
+            </View>
+          </TouchableOpacity>
+
+          {/* Eligibility */}
+          <View style={[styles.card, { marginBottom: 24, backgroundColor: AMBER_L }]}>
+            <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+              <Ionicons name="information-circle-outline" size={18} color={AMBER} />
+              <Text style={{ fontSize: 14, fontFamily: 'Inter_700Bold', color: DARK }}>Eligibility</Text>
+            </View>
+            {['Devices under ₹20,000 only', 'One active plan per IMEI', 'Device must not be damaged', 'IMEI must be 15 digits'].map(e => (
+              <View key={e} style={{ flexDirection: 'row', gap: 8, alignItems: 'center', marginBottom: 4 }}>
+                <Ionicons name="checkmark" size={14} color={AMBER} />
+                <Text style={{ fontSize: 13, color: DARK }}>{e}</Text>
+              </View>
+            ))}
+          </View>
+        </ScrollView>
+
+        <View style={[styles.footer, { paddingBottom: botPad + 8 }]}>
+          <TouchableOpacity style={styles.btn} onPress={() => {
+            if (!profile?.id) { router.push('/onboarding'); return; }
+            setStep('device');
+          }}>
+            <Text style={styles.btnText}>Get Protection — {planType === 'yearly' ? '₹1499/year' : '₹447 upfront'}</Text>
+            <Ionicons name="arrow-forward" size={18} color="#FFF" />
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // STEP: DEVICE DETAILS
+  // ════════════════════════════════════════════════════════════════════════════
+  if (step === 'device') {
+    return (
+      <View style={{ flex: 1, backgroundColor: BG }}>
+        <Header />
+        <ProgressBar step={2} total={5} />
+        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: botPad + 100 }} keyboardShouldPersistTaps="handled">
+          <Text style={styles.stepHeading}>Device Details</Text>
+          <Text style={styles.stepSubheading}>Tell us about your device</Text>
+
+          {/* Brand dropdown */}
+          <Text style={styles.label}>Brand *</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              {PHONE_BRANDS.map(b => (
+                <TouchableOpacity
+                  key={b}
+                  style={[styles.chip, brand === b && styles.chipSelected]}
+                  onPress={() => setBrand(b)}
+                >
+                  <Text style={[styles.chipText, brand === b && styles.chipTextSelected]}>{b}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </ScrollView>
+
+          <Text style={styles.label}>Model Name *</Text>
+          <TextInput
+            style={[styles.input, { marginBottom: 16 }]}
+            placeholder="e.g. Galaxy A54, iPhone 14"
+            placeholderTextColor={MUTED}
+            value={model}
+            onChangeText={setModel}
+          />
+
+          <Text style={styles.label}>Model Number *</Text>
+          <TextInput
+            style={[styles.input, { marginBottom: 4 }]}
+            placeholder="e.g. SM-A546B, A2650"
+            placeholderTextColor={MUTED}
+            value={modelNumber}
+            onChangeText={setModelNumber}
+          />
+          <Text style={{ fontSize: 12, color: MUTED, marginBottom: 24 }}>Find in Settings → About Phone → Model Number</Text>
+
+          <View style={[styles.card, { backgroundColor: BLUE_L, marginBottom: 16 }]}>
+            <Text style={{ fontSize: 13, color: BLUE, fontFamily: 'Inter_600SemiBold' }}>
+              ⚠️ Only devices priced under ₹20,000 are eligible for this plan.
+            </Text>
+          </View>
+        </ScrollView>
+
+        <View style={[styles.footer, { paddingBottom: botPad + 8 }]}>
+          <TouchableOpacity style={styles.btn} onPress={() => {
+            if (!brand) { Alert.alert('Required', 'Please select your phone brand'); return; }
+            if (!model.trim()) { Alert.alert('Required', 'Please enter your phone model'); return; }
+            if (!modelNumber.trim()) { Alert.alert('Required', 'Please enter your model number'); return; }
+            setStep('imei');
+          }}>
+            <Text style={styles.btnText}>Continue</Text>
+            <Ionicons name="arrow-forward" size={18} color="#FFF" />
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // STEP: IMEI
+  // ════════════════════════════════════════════════════════════════════════════
+  if (step === 'imei') {
+    const imeiValid = /^\d{15}$/.test(imei);
+    return (
+      <View style={{ flex: 1, backgroundColor: BG }}>
+        <Header />
+        <ProgressBar step={3} total={5} />
+        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: botPad + 100 }} keyboardShouldPersistTaps="handled">
+          <Text style={styles.stepHeading}>IMEI Number</Text>
+          <Text style={styles.stepSubheading}>Enter your device's 15-digit IMEI</Text>
+
+          <TextInput
+            style={[styles.input, { fontSize: 20, fontFamily: 'Inter_700Bold', letterSpacing: 2, textAlign: 'center', marginVertical: 20 }, imeiValid && { borderColor: GREEN }]}
+            placeholder="000000000000000"
+            placeholderTextColor={MUTED}
+            value={imei}
+            onChangeText={t => setImei(t.replace(/\D/g, '').slice(0, 15))}
+            keyboardType="numeric"
+            maxLength={15}
+          />
+
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+            <View style={[styles.pill, { backgroundColor: imeiValid ? GREEN_L : '#F0F0F0' }]}>
+              <Ionicons name={imeiValid ? 'checkmark-circle' : 'ellipse-outline'} size={14} color={imeiValid ? GREEN : MUTED} />
+              <Text style={{ fontSize: 12, color: imeiValid ? GREEN : MUTED }}>{imei.length}/15 digits</Text>
+            </View>
+          </View>
+
+          <View style={[styles.card, { backgroundColor: PRIMARY_L, marginTop: 16 }]}>
+            <Text style={{ fontSize: 13, fontFamily: 'Inter_600SemiBold', color: DARK, marginBottom: 6 }}>How to find your IMEI:</Text>
+            <Text style={{ fontSize: 13, color: DARK }}>1. Dial <Text style={{ fontFamily: 'Inter_700Bold' }}>*#06#</Text> on your phone</Text>
+            <Text style={{ fontSize: 13, color: DARK, marginTop: 4 }}>2. Or check Settings → About Phone → IMEI</Text>
+          </View>
+        </ScrollView>
+
+        <View style={[styles.footer, { paddingBottom: botPad + 8 }]}>
+          <TouchableOpacity style={[styles.btn, !imeiValid && { opacity: 0.5 }]} onPress={() => {
+            if (!imeiValid) { Alert.alert('Invalid IMEI', 'Please enter a valid 15-digit IMEI number'); return; }
+            setStep('images');
+          }} disabled={!imeiValid}>
+            <Text style={styles.btnText}>Continue</Text>
+            <Ionicons name="arrow-forward" size={18} color="#FFF" />
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // STEP: IMAGES
+  // ════════════════════════════════════════════════════════════════════════════
+  if (step === 'images') {
+    return (
+      <View style={{ flex: 1, backgroundColor: BG }}>
+        <Header />
+        <ProgressBar step={4} total={5} />
+        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: botPad + 100 }}>
+          <Text style={styles.stepHeading}>Capture Device Photos</Text>
+          <Text style={styles.stepSubheading}>Camera only — tap each to take a photo</Text>
+
+          <View style={[styles.card, { backgroundColor: PRIMARY_L, marginBottom: 16 }]}>
+            <Text style={{ fontSize: 13, color: PRIMARY, fontFamily: 'Inter_600SemiBold' }}>
+              📸 Timestamp will be added automatically for fraud protection
+            </Text>
+          </View>
+
+          <View style={{ flexDirection: 'row', gap: 12, marginBottom: 24 }}>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.label, { textAlign: 'center' }]}>Front *</Text>
+              <TouchableOpacity style={styles.imgPlaceholder} onPress={() => captureImage('front')}>
+                {frontImage
+                  ? <Image source={{ uri: frontImage }} style={{ width: '100%', height: '100%', borderRadius: 12 }} resizeMode="cover" />
+                  : <View style={{ alignItems: 'center', gap: 8 }}>
+                      <Ionicons name="camera-outline" size={32} color={MUTED} />
+                      <Text style={{ color: MUTED, fontSize: 12 }}>Tap to capture</Text>
+                    </View>
+                }
+              </TouchableOpacity>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.label, { textAlign: 'center' }]}>Back *</Text>
+              <TouchableOpacity style={styles.imgPlaceholder} onPress={() => captureImage('back')}>
+                {backImage
+                  ? <Image source={{ uri: backImage }} style={{ width: '100%', height: '100%', borderRadius: 12 }} resizeMode="cover" />
+                  : <View style={{ alignItems: 'center', gap: 8 }}>
+                      <Ionicons name="camera-outline" size={32} color={MUTED} />
+                      <Text style={{ color: MUTED, fontSize: 12 }}>Tap to capture</Text>
+                    </View>
+                }
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <Text style={{ fontSize: 12, color: MUTED, textAlign: 'center' }}>
+            Make sure the device screen and back panel are clearly visible. No damage should be present.
+          </Text>
+        </ScrollView>
+
+        <View style={[styles.footer, { paddingBottom: botPad + 8 }]}>
+          <TouchableOpacity style={styles.btn} onPress={() => {
+            if (!frontImage || !backImage) {
+              Alert.alert('Photos Required', 'Please capture both front and back photos of your device');
+              return;
+            }
+            setStep('consent');
+          }}>
+            <Text style={styles.btnText}>Continue</Text>
+            <Ionicons name="arrow-forward" size={18} color="#FFF" />
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // STEP: CONSENT
+  // ════════════════════════════════════════════════════════════════════════════
+  if (step === 'consent') {
+    return (
+      <View style={{ flex: 1, backgroundColor: BG }}>
+        <Header />
+        <ProgressBar step={5} total={5} />
+        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: botPad + 100 }}>
+          <Text style={styles.stepHeading}>Review & Submit</Text>
+
+          {/* Summary */}
+          <View style={[styles.card, { marginBottom: 16 }]}>
+            <Text style={styles.sectionTitle}>Application Summary</Text>
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Plan</Text>
+              <Text style={styles.detailValue}>{planType === 'yearly' ? 'Yearly — ₹1499' : 'Monthly — ₹447 (3 months)'}</Text>
+            </View>
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Brand</Text>
+              <Text style={styles.detailValue}>{brand}</Text>
+            </View>
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Model</Text>
+              <Text style={styles.detailValue}>{model}</Text>
+            </View>
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Model Number</Text>
+              <Text style={styles.detailValue}>{modelNumber}</Text>
+            </View>
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>IMEI</Text>
+              <Text style={styles.detailValue}>{imei}</Text>
+            </View>
+          </View>
+
+          {/* Consent */}
+          <View style={[styles.card, { marginBottom: 16 }]}>
+            <View style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start' }}>
+              <TouchableOpacity onPress={() => setAgreed(!agreed)}>
+                <View style={[styles.checkbox, agreed && styles.checkboxChecked]}>
+                  {agreed && <Ionicons name="checkmark" size={14} color="#FFF" />}
+                </View>
+              </TouchableOpacity>
+              <Text style={{ flex: 1, fontSize: 13, color: DARK, lineHeight: 20 }}>
+                By continuing, I agree to share my device IMEI, model details, and images for verification. I confirm that my device is not damaged and is priced under ₹20,000.
+              </Text>
+            </View>
+          </View>
+
+          {/* Legal */}
+          <View style={[styles.card, { backgroundColor: '#F8F9FA', marginBottom: 16 }]}>
+            <Text style={{ fontSize: 12, color: MUTED, lineHeight: 18 }}>
+              This is a <Text style={{ fontFamily: 'Inter_600SemiBold' }}>Mobile Protection Plan</Text> — not insurance.
+              Coverage is limited to 1 screen damage claim per plan period. Service fees apply.
+              Fraud protection measures include IMEI verification, model number matching, camera-only image capture, and timestamp validation.
+            </Text>
+          </View>
+        </ScrollView>
+
+        <View style={[styles.footer, { paddingBottom: botPad + 8 }]}>
+          <TouchableOpacity style={[styles.btn, (!agreed || submitting) && { opacity: 0.6 }]} onPress={handleSubmit} disabled={!agreed || submitting}>
+            {submitting
+              ? <ActivityIndicator color="#FFF" size="small" />
+              : <><Ionicons name="shield-checkmark-outline" size={18} color="#FFF" /><Text style={styles.btnText}>Submit Application</Text></>
+            }
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  return null;
+}
+
+function ProgressBar({ step, total }: { step: number; total: number }) {
+  const pct = (step / total) * 100;
+  return (
+    <View style={{ paddingHorizontal: 16, paddingVertical: 10, backgroundColor: CARD }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+        <Text style={{ fontSize: 12, color: MUTED }}>Step {step} of {total}</Text>
+        <Text style={{ fontSize: 12, color: PRIMARY, fontFamily: 'Inter_600SemiBold' }}>{Math.round(pct)}%</Text>
+      </View>
+      <View style={{ height: 4, backgroundColor: '#E5E7EB', borderRadius: 2 }}>
+        <View style={{ height: 4, width: `${pct}%`, backgroundColor: PRIMARY, borderRadius: 2 }} />
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  navBar: {
+  header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingBottom: 12, backgroundColor: BG,
   },
   backBtn: {
-    width: 44, height: 44, borderRadius: 22,
-    backgroundColor: CARD, ...SHADOW,
+    width: 44, height: 44, borderRadius: 22, backgroundColor: CARD,
+    alignItems: 'center', justifyContent: 'center', ...SHADOW,
+  },
+  headerTitle: { fontSize: 17, fontFamily: 'Inter_700Bold', color: DARK },
+
+  heroBanner: {
+    borderRadius: 20, padding: 20,
+    backgroundColor: PRIMARY,
+    shadowColor: PRIMARY, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 6,
+  },
+
+  sectionTitle: { fontSize: 15, fontFamily: 'Inter_700Bold', color: DARK, marginBottom: 12 },
+  stepHeading: { fontSize: 22, fontFamily: 'Inter_700Bold', color: DARK, marginBottom: 4 },
+  stepSubheading: { fontSize: 14, color: MUTED, marginBottom: 20 },
+
+  card: { backgroundColor: CARD, borderRadius: 16, padding: 16, ...SHADOW },
+
+  planCard: {
+    backgroundColor: CARD, borderRadius: 16, padding: 16, borderWidth: 2,
+    borderColor: '#E5E7EB', ...SHADOW, marginBottom: 12,
+  },
+  planCardSelected: { borderColor: PRIMARY, backgroundColor: PRIMARY_L },
+  planTitle: { fontSize: 16, fontFamily: 'Inter_700Bold', color: DARK },
+  planPrice: { fontSize: 28, fontFamily: 'Inter_700Bold', color: DARK },
+  planPriceSub: { fontSize: 14, fontFamily: 'Inter_400Regular', color: MUTED },
+  planRadio: {
+    width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: '#CCC',
     alignItems: 'center', justifyContent: 'center',
   },
-  navTitle: { fontSize: 17, fontFamily: 'Inter_700Bold', color: DARK },
+  planRadioSelected: { borderColor: PRIMARY },
+  planRadioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: PRIMARY },
 
-  heroCard: {
-    backgroundColor: CARD, borderRadius: 20, padding: 20, marginBottom: 24, ...SHADOW,
+  label: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: DARK, marginBottom: 8 },
+  input: {
+    backgroundColor: '#F9F9F9', borderRadius: 12, borderWidth: 1.5, borderColor: '#E5E5E5',
+    paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, color: DARK,
   },
-  heroTop: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
-  heroIconWrap: {
-    width: 64, height: 64, borderRadius: 32, backgroundColor: PRIMARY,
-    alignItems: 'center', justifyContent: 'center',
-    shadowColor: PRIMARY, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35, shadowRadius: 8, elevation: 4,
-  },
-  heroTitle: { fontSize: 18, fontFamily: 'Inter_700Bold', color: DARK, marginBottom: 4 },
-  heroSub:   { fontSize: 13, color: MUTED },
-  activeBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    backgroundColor: GREEN_L, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5,
-  },
-  pulseDot: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: GREEN },
-  activeText: { fontSize: 12, fontFamily: 'Inter_700Bold', color: GREEN },
-  validRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  validText: { fontSize: 13, color: MUTED },
-  priceRow: { flexDirection: 'row', alignItems: 'baseline', gap: 6 },
-  price: { fontSize: 28, fontFamily: 'Inter_700Bold', color: PRIMARY },
-  pricePer: { fontSize: 14, color: MUTED, marginRight: 8 },
-  discountBadge: { backgroundColor: PRIMARY_L, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4 },
-  discountText: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: PRIMARY },
 
-  sectionTitle: { fontSize: 16, fontFamily: 'Inter_700Bold', color: DARK, marginBottom: 12 },
-
-  coverageGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 24 },
-  coverageItem: {
-    width: '47%', borderRadius: 14, padding: 14, gap: 8,
+  chip: {
+    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20,
+    backgroundColor: CARD, borderWidth: 1.5, borderColor: '#E5E5E5',
   },
-  coverageIcon: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
-  coverageLabel: { fontSize: 13, fontFamily: 'Inter_600SemiBold', lineHeight: 18 },
-  coverageSub: { fontSize: 11, color: MUTED },
+  chipSelected: { backgroundColor: PRIMARY_L, borderColor: PRIMARY },
+  chipText: { fontSize: 13, color: DARK, fontFamily: 'Inter_500Medium' },
+  chipTextSelected: { color: PRIMARY, fontFamily: 'Inter_600SemiBold' },
 
-  benefitsList: { backgroundColor: CARD, borderRadius: 16, marginBottom: 24, overflow: 'hidden', ...SHADOW },
-  benefitRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingHorizontal: 16, paddingVertical: 14,
-    borderBottomWidth: 1, borderBottomColor: '#F5F5F5',
+  imgPlaceholder: {
+    height: 150, borderRadius: 12, backgroundColor: '#F5F5F5',
+    borderWidth: 2, borderColor: '#E5E5E5', borderStyle: 'dashed',
+    alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
   },
-  benefitIcon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-  benefitLabel: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: DARK, marginBottom: 2 },
-  benefitSub:   { fontSize: 12, color: MUTED },
 
-  stepsCard: { backgroundColor: CARD, borderRadius: 16, padding: 16, marginBottom: 24, ...SHADOW },
-  stepRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
-  stepNum: {
-    width: 28, height: 28, borderRadius: 14, backgroundColor: PRIMARY_L,
+  radioRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    padding: 12, borderRadius: 10, borderWidth: 1.5, borderColor: '#E5E5E5',
+    marginBottom: 8,
+  },
+  radioRowSelected: { borderColor: PRIMARY, backgroundColor: PRIMARY_L },
+  radio: {
+    width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: '#CCC',
     alignItems: 'center', justifyContent: 'center',
   },
-  stepNumText: { fontSize: 14, fontFamily: 'Inter_700Bold', color: PRIMARY },
-  stepLabel:   { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: DARK, marginBottom: 2 },
-  stepSub:     { fontSize: 12, color: MUTED },
+  radioSelected: { borderColor: PRIMARY },
+  radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: PRIMARY },
+  radioLabel: { fontSize: 14, color: DARK, flex: 1 },
 
-  bottomBar: {
+  detailRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F0F0F0',
+  },
+  detailLabel: { fontSize: 13, color: MUTED },
+  detailValue: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: DARK, maxWidth: '60%', textAlign: 'right' },
+
+  coverageRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#F0F0F0',
+  },
+  coverageText: { flex: 1, fontSize: 13, color: DARK },
+
+  pill: {
+    flexDirection: 'row', gap: 4, alignItems: 'center',
+    paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10,
+  },
+
+  shieldBig: {
+    width: 52, height: 52, borderRadius: 26,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  planName: { fontSize: 16, fontFamily: 'Inter_700Bold', color: DARK, marginBottom: 2 },
+
+  checkbox: {
+    width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: '#CCC',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  checkboxChecked: { backgroundColor: PRIMARY, borderColor: PRIMARY },
+
+  footer: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
     backgroundColor: CARD, paddingHorizontal: 16, paddingTop: 14,
     borderTopWidth: 1, borderTopColor: '#F0F0F0',
     shadowColor: '#000', shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 4,
-    alignItems: 'center',
   },
-  ctaBtn: {
-    width: '100%', backgroundColor: PRIMARY, borderRadius: 16,
-    paddingVertical: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+  btn: {
+    backgroundColor: PRIMARY, borderRadius: 14, paddingVertical: 15,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     shadowColor: PRIMARY, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4,
-    marginBottom: 8,
   },
-  ctaBtnText: { fontSize: 16, fontFamily: 'Inter_700Bold', color: '#FFF' },
-  termsText: { fontSize: 12, color: MUTED },
-
-  inputLabel: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: DARK, marginBottom: 6 },
-  inputField: {
-    backgroundColor: '#F9F9F9', borderRadius: 12, borderWidth: 1, borderColor: '#E5E5E5',
-    paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, fontFamily: 'Inter_400Regular',
-    color: DARK,
-  },
-  termsRow: {
-    flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 24, marginTop: 16,
-  },
-  checkbox: {
-    width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: '#D1D5DB',
-    alignItems: 'center', justifyContent: 'center', marginTop: 1,
-  },
-  checkboxChecked: {
-    backgroundColor: PRIMARY, borderColor: PRIMARY,
-  },
-  termsLabel: {
-    flex: 1, fontSize: 13, fontFamily: 'Inter_400Regular', color: DARK, lineHeight: 20,
-  },
+  btnText: { fontSize: 16, fontFamily: 'Inter_700Bold', color: '#FFF' },
 });

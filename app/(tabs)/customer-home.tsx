@@ -183,24 +183,28 @@ export default function CustomerHomeScreen() {
         />
       </View>
 
-      {/* ── Promo Banner ────────────────────────────────────────────────── */}
-      {insuranceSettings.status === 'active' && (
-        <Pressable style={styles.banner} onPress={() => go('/insurance')}>
-          <View style={styles.bannerContent}>
-            <View style={styles.bannerBadge}>
-              <Text style={styles.bannerBadgeTxt}>Limited Offer</Text>
-            </View>
-            <Text style={styles.bannerTitle}>{insuranceSettings.planName}</Text>
-            <Text style={styles.bannerDesc}>Just ₹{insuranceSettings.protectionPlanPrice}/month + ₹{insuranceSettings.repairDiscount} off on repairs</Text>
-            <View style={styles.bannerBtn}>
-              <Text style={styles.bannerBtnTxt}>Subscribe Now</Text>
-            </View>
+      {/* ── Mobile Protection Plan Banner ───────────────────────────────── */}
+      <Pressable style={styles.banner} onPress={() => go('/insurance')}>
+        <View style={styles.bannerContent}>
+          <View style={styles.bannerBadge}>
+            <Text style={styles.bannerBadgeTxt}>Mobile Protection Plan</Text>
           </View>
-          <View style={styles.bannerShield}>
-            <Ionicons name="shield-outline" size={72} color="rgba(255,255,255,0.35)" />
+          <Text style={styles.bannerTitle}>Protect Your Phone</Text>
+          <Text style={styles.bannerDesc}>
+            ₹149/month (3-month min) or ₹1499/year{'\n'}Save up to ₹4000 on repairs
+          </Text>
+          <View style={styles.bannerTags}>
+            <Text style={styles.bannerTag}>Screen damage</Text>
+            <Text style={styles.bannerTag}>Doorstep service</Text>
           </View>
-        </Pressable>
-      )}
+          <View style={styles.bannerBtn}>
+            <Text style={styles.bannerBtnTxt}>Get Protection</Text>
+          </View>
+        </View>
+        <View style={styles.bannerShield}>
+          <Ionicons name="shield-checkmark" size={72} color="rgba(255,255,255,0.35)" />
+        </View>
+      </Pressable>
 
       {/* ── Quick Services ────────────────────────────────────────────────── */}
       <View style={styles.sectionRow}>
@@ -371,6 +375,8 @@ const styles = StyleSheet.create({
   bannerBadgeTxt: { fontSize: 11, fontFamily: 'Inter_700Bold', color: '#FFF' },
   bannerTitle:    { fontSize: 18, fontFamily: 'Inter_700Bold', color: '#FFF', marginBottom: 6 },
   bannerDesc:     { fontSize: 13, fontFamily: 'Inter_400Regular', color: 'rgba(255,255,255,0.88)', marginBottom: 14 },
+  bannerTags:     { flexDirection: 'row', gap: 6, marginBottom: 12, flexWrap: 'wrap' },
+  bannerTag:      { fontSize: 11, fontFamily: 'Inter_600SemiBold', color: '#FFF', backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
   bannerBtn:      { alignSelf: 'flex-start', backgroundColor: '#FFF', paddingHorizontal: 16, paddingVertical: 9, borderRadius: 22 },
   bannerBtnTxt:   { fontSize: 13, fontFamily: 'Inter_700Bold', color: PRIMARY },
   bannerShield:   { paddingRight: 14, alignItems: 'center', justifyContent: 'center' },

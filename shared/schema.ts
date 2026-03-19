@@ -433,6 +433,49 @@ export const emailCampaigns = pgTable("email_campaigns", {
   createdAt: bigint("created_at", { mode: "number" }).notNull().default(sql`EXTRACT(EPOCH FROM NOW()) * 1000`),
 });
 
+export const protectionPlans = pgTable("protection_plans", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: text("user_id").notNull(),
+  userName: text("user_name").notNull(),
+  userPhone: text("user_phone").default(""),
+  imei: text("imei").notNull(),
+  brand: text("brand").notNull(),
+  model: text("model").notNull(),
+  modelNumber: text("model_number").notNull(),
+  planType: text("plan_type").notNull().default("monthly"),
+  price: integer("price").notNull().default(0),
+  frontImage: text("front_image").default(""),
+  backImage: text("back_image").default(""),
+  status: text("status").notNull().default("pending_verification"),
+  claimUsed: integer("claim_used").notNull().default(0),
+  paymentId: text("payment_id").default(""),
+  razorpayOrderId: text("razorpay_order_id").default(""),
+  planStartDate: bigint("plan_start_date", { mode: "number" }).default(0),
+  rejectionReason: text("rejection_reason").default(""),
+  createdAt: bigint("created_at", { mode: "number" }).notNull().default(sql`EXTRACT(EPOCH FROM NOW()) * 1000`),
+  updatedAt: bigint("updated_at", { mode: "number" }).notNull().default(sql`EXTRACT(EPOCH FROM NOW()) * 1000`),
+});
+
+export const protectionClaims = pgTable("protection_claims", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  planId: text("plan_id").notNull(),
+  userId: text("user_id").notNull(),
+  imei: text("imei").notNull(),
+  model: text("model").notNull(),
+  modelNumber: text("model_number").notNull(),
+  issue: text("issue").notNull(),
+  description: text("description").default(""),
+  damageImage: text("damage_image").default(""),
+  status: text("status").notNull().default("claim_pending"),
+  technicianId: text("technician_id").default(""),
+  technicianName: text("technician_name").default(""),
+  serviceFeePaid: integer("service_fee_paid").default(0),
+  rejectionReason: text("rejection_reason").default(""),
+  adminNotes: text("admin_notes").default(""),
+  createdAt: bigint("created_at", { mode: "number" }).notNull().default(sql`EXTRACT(EPOCH FROM NOW()) * 1000`),
+  updatedAt: bigint("updated_at", { mode: "number" }).notNull().default(sql`EXTRACT(EPOCH FROM NOW()) * 1000`),
+});
+
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
@@ -466,3 +509,5 @@ export type DbVideoProgress = typeof videoProgress.$inferSelect;
 export type DbLivePoll = typeof livePolls.$inferSelect;
 export type DbLivePollVote = typeof livePollVotes.$inferSelect;
 export type DbEmailCampaign = typeof emailCampaigns.$inferSelect;
+export type DbProtectionPlan = typeof protectionPlans.$inferSelect;
+export type DbProtectionClaim = typeof protectionClaims.$inferSelect;

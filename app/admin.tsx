@@ -16,7 +16,7 @@ import { openLink } from '@/lib/open-link';
 const C = Colors.light;
 const PRIMARY = '#FF6B2C';
 
-type AdminTab = 'dashboard' | 'users' | 'customers' | 'technicians' | 'teachers' | 'suppliers' | 'shopkeepers' | 'blocked-users' | 'deleted-users' | 'products' | 'orders' | 'reports' | 'settings' | 'posts' | 'jobs' | 'bookings' | 'subscriptions' | 'revenue' | 'links' | 'notifications' | 'payouts' | 'email' | 'insurance' | 'ads' | 'listings';
+type AdminTab = 'dashboard' | 'users' | 'customers' | 'technicians' | 'teachers' | 'suppliers' | 'shopkeepers' | 'blocked-users' | 'deleted-users' | 'products' | 'orders' | 'reports' | 'settings' | 'posts' | 'jobs' | 'bookings' | 'subscriptions' | 'revenue' | 'links' | 'notifications' | 'payouts' | 'email' | 'insurance' | 'ads' | 'listings' | 'protection-plans' | 'protection-claims';
 
 const ROLE_COLORS: Record<string, string> = {
   technician: '#34C759',
@@ -295,6 +295,14 @@ export default function AdminScreen() {
   // Active subscriptions
   const [activeSubsList, setActiveSubsList] = useState<any[]>([]);
   const [activeSubsLoading, setActiveSubsLoading] = useState(false);
+
+  // Protection Plans
+  const [protectionPlans, setProtectionPlans] = useState<any[]>([]);
+  const [protectionPlansLoading, setProtectionPlansLoading] = useState(false);
+  const [protectionClaims, setProtectionClaims] = useState<any[]>([]);
+  const [protectionClaimsLoading, setProtectionClaimsLoading] = useState(false);
+  const [protectionPlanFilter, setProtectionPlanFilter] = useState<string>('all');
+  const [protectionClaimFilter, setProtectionClaimFilter] = useState<string>('all');
 
   // Notifications
   const [notifTitle, setNotifTitle] = useState('');
@@ -641,6 +649,54 @@ export default function AdminScreen() {
     if (activeTab === 'email') fetchEmailStats();
   }, [activeTab, fetchEmailStats]);
 
+  // ── Protection Plans ──
+  const fetchProtectionPlans = useCallback(async () => {
+    setProtectionPlansLoading(true);
+    try {
+      const res = await apiRequest('GET', `/api/admin/protection/plans?status=${protectionPlanFilter}`);
+      const data = await res.json();
+      setProtectionPlans(Array.isArray(data) ? data : []);
+    } catch { setProtectionPlans([]); }
+    finally { setProtectionPlansLoading(false); }
+  }, [protectionPlanFilter]);
+
+  const fetchProtectionClaims = useCallback(async () => {
+    setProtectionClaimsLoading(true);
+    try {
+      const res = await apiRequest('GET', `/api/admin/protection/claims?status=${protectionClaimFilter}`);
+      const data = await res.json();
+      setProtectionClaims(Array.isArray(data) ? data : []);
+    } catch { setProtectionClaims([]); }
+    finally { setProtectionClaimsLoading(false); }
+  }, [protectionClaimFilter]);
+
+  useEffect(() => {
+    if (activeTab === 'protection-plans') fetchProtectionPlans();
+    if (activeTab === 'protection-claims') fetchProtectionClaims();
+  }, [activeTab, fetchProtectionPlans, fetchProtectionClaims]);
+
+  useEffect(() => {
+    if (activeTab === 'protection-plans') fetchProtectionPlans();
+  }, [protectionPlanFilter]);
+
+  useEffect(() => {
+    if (activeTab === 'protection-claims') fetchProtectionClaims();
+  }, [protectionClaimFilter]);
+
+  const handleProtectionPlanAction = useCallback(async (planId: string, action: 'approve' | 'reject', reason?: string) => {
+    try {
+      await apiRequest('PUT', `/api/admin/protection/plan/${planId}`, { action, rejectionReason: reason || '' });
+      fetchProtectionPlans();
+    } catch (e: any) { Alert.alert('Error', e.message || 'Failed to update plan'); }
+  }, [fetchProtectionPlans]);
+
+  const handleProtectionClaimAction = useCallback(async (claimId: string, action: string, extra?: any) => {
+    try {
+      await apiRequest('PUT', `/api/admin/protection/claim/${claimId}`, { action, ...extra });
+      fetchProtectionClaims();
+    } catch (e: any) { Alert.alert('Error', e.message || 'Failed to update claim'); }
+  }, [fetchProtectionClaims]);
+
   // ── User management ──
   const allUsers = useMemo(() => {
     const userMap = new Map<string, any>();
@@ -972,6 +1028,8 @@ export default function AdminScreen() {
     { key: 'notifications', label: 'Notify', icon: 'notifications-outline' },
     { key: 'email', label: 'Email', icon: 'mail-outline' },
     { key: 'payouts', label: 'Payouts', icon: 'cash-outline' },
+    { key: 'protection-plans', label: 'Protect Plans', icon: 'shield-checkmark-outline' },
+    { key: 'protection-claims', label: 'Protect Claims', icon: 'alert-circle-outline' },
   ];
 
   // ─── RENDER FUNCTIONS ──────────────────────────────────────────────────────
@@ -2265,6 +2323,190 @@ export default function AdminScreen() {
     </ScrollView>
   );
 
+  const renderProtectionPlans = () => {
+    const PLAN_FILTERS = ['all', 'pending_verification', 'approved_pending_payment', 'active', 'rejected'];
+    const statusLabel: Record<string, string> = {
+      all: 'All', pending_verification: 'Pending', approved_pending_payment: 'Approved',
+      active: 'Active', rejected: 'Rejected',
+    };
+    const statusColor: Record<string, string> = {
+      pending_verification: '#F59E0B', approved_pending_payment: '#4A90D9',
+      active: '#27AE60', rejected: '#E53E3E',
+    };
+    return (
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
+        refreshControl={<RefreshControl refreshing={protectionPlansLoading} onRefresh={fetchProtectionPlans} tintColor={PRIMARY} />}>
+        <Text style={ss.sectionTitle}>Mobile Protection Plans</Text>
+
+        {/* Filter chips */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 14 }}>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            {PLAN_FILTERS.map(f => (
+              <TouchableOpacity key={f}
+                style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, borderWidth: 1.5,
+                  borderColor: protectionPlanFilter === f ? PRIMARY : C.border,
+                  backgroundColor: protectionPlanFilter === f ? '#FFF3ED' : C.surface }}
+                onPress={() => setProtectionPlanFilter(f)}>
+                <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: protectionPlanFilter === f ? PRIMARY : C.textSecondary }}>
+                  {statusLabel[f]}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </ScrollView>
+
+        {protectionPlansLoading ? <ActivityIndicator color={PRIMARY} style={{ marginTop: 40 }} /> :
+          protectionPlans.length === 0 ? (
+            <SectionCard><Text style={{ color: C.textSecondary, textAlign: 'center', padding: 20 }}>No plans found</Text></SectionCard>
+          ) : (
+            protectionPlans.map(plan => (
+              <SectionCard key={plan.id} style={{ marginBottom: 10 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <Text style={{ color: C.text, fontFamily: 'Inter_700Bold', fontSize: 15 }}>{plan.brand} {plan.model}</Text>
+                  <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, backgroundColor: `${statusColor[plan.status] || '#999'}20` }}>
+                    <Text style={{ fontSize: 11, fontFamily: 'Inter_700Bold', color: statusColor[plan.status] || '#999' }}>
+                      {statusLabel[plan.status] || plan.status}
+                    </Text>
+                  </View>
+                </View>
+                <Text style={{ color: C.textSecondary, fontSize: 12, marginBottom: 2 }}>IMEI: {plan.imei}</Text>
+                <Text style={{ color: C.textSecondary, fontSize: 12, marginBottom: 2 }}>Model No: {plan.modelNumber}</Text>
+                <Text style={{ color: C.textSecondary, fontSize: 12, marginBottom: 2 }}>Plan: {plan.planType === 'yearly' ? 'Yearly ₹1499' : 'Monthly ₹447'} | Claim: {plan.claimUsed ? 'Used' : 'Available'}</Text>
+                <Text style={{ color: C.textSecondary, fontSize: 12, marginBottom: 2 }}>User: {plan.userName || plan.userId}</Text>
+                <Text style={{ color: C.textSecondary, fontSize: 11 }}>{new Date(plan.createdAt).toLocaleString('en-IN')}</Text>
+
+                {/* Device images */}
+                {(plan.frontImage || plan.backImage) && (
+                  <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+                    {plan.frontImage && <Image source={{ uri: plan.frontImage }} style={{ width: 80, height: 60, borderRadius: 8 }} resizeMode="cover" />}
+                    {plan.backImage && <Image source={{ uri: plan.backImage }} style={{ width: 80, height: 60, borderRadius: 8 }} resizeMode="cover" />}
+                  </View>
+                )}
+
+                {plan.status === 'pending_verification' && (
+                  <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+                    <TouchableOpacity style={{ flex: 1, padding: 8, borderRadius: 8, backgroundColor: '#E8F5ED', alignItems: 'center' }}
+                      onPress={() => Alert.alert('Approve Plan', 'Approve this plan application?', [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Approve', style: 'default', onPress: () => handleProtectionPlanAction(plan.id, 'approve') },
+                      ])}>
+                      <Text style={{ color: '#27AE60', fontFamily: 'Inter_700Bold', fontSize: 13 }}>✓ Approve</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={{ flex: 1, padding: 8, borderRadius: 8, backgroundColor: '#FFEEEE', alignItems: 'center' }}
+                      onPress={() => Alert.prompt('Reject Reason', 'Enter reason for rejection:', (reason) => handleProtectionPlanAction(plan.id, 'reject', reason || 'Does not meet eligibility criteria'))}>
+                      <Text style={{ color: '#E53E3E', fontFamily: 'Inter_700Bold', fontSize: 13 }}>✗ Reject</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </SectionCard>
+            ))
+          )
+        }
+      </ScrollView>
+    );
+  };
+
+  const renderProtectionClaims = () => {
+    const CLAIM_FILTERS = ['all', 'claim_pending', 'under_review', 'approved', 'assigned', 'completed', 'rejected'];
+    const statusLabel: Record<string, string> = {
+      all: 'All', claim_pending: 'Pending', under_review: 'Under Review',
+      approved: 'Approved', assigned: 'Assigned', completed: 'Completed', rejected: 'Rejected',
+    };
+    const statusColor: Record<string, string> = {
+      claim_pending: '#F59E0B', under_review: '#4A90D9', approved: '#27AE60',
+      assigned: '#FF6B2C', completed: '#27AE60', rejected: '#E53E3E',
+    };
+    return (
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
+        refreshControl={<RefreshControl refreshing={protectionClaimsLoading} onRefresh={fetchProtectionClaims} tintColor={PRIMARY} />}>
+        <Text style={ss.sectionTitle}>Protection Plan Claims</Text>
+
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 14 }}>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            {CLAIM_FILTERS.map(f => (
+              <TouchableOpacity key={f}
+                style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, borderWidth: 1.5,
+                  borderColor: protectionClaimFilter === f ? PRIMARY : C.border,
+                  backgroundColor: protectionClaimFilter === f ? '#FFF3ED' : C.surface }}
+                onPress={() => setProtectionClaimFilter(f)}>
+                <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: protectionClaimFilter === f ? PRIMARY : C.textSecondary }}>
+                  {statusLabel[f]}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </ScrollView>
+
+        {protectionClaimsLoading ? <ActivityIndicator color={PRIMARY} style={{ marginTop: 40 }} /> :
+          protectionClaims.length === 0 ? (
+            <SectionCard><Text style={{ color: C.textSecondary, textAlign: 'center', padding: 20 }}>No claims found</Text></SectionCard>
+          ) : (
+            protectionClaims.map(claim => (
+              <SectionCard key={claim.id} style={{ marginBottom: 10 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <Text style={{ color: C.text, fontFamily: 'Inter_700Bold', fontSize: 15 }}>{claim.issue}</Text>
+                  <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, backgroundColor: `${statusColor[claim.status] || '#999'}20` }}>
+                    <Text style={{ fontSize: 11, fontFamily: 'Inter_700Bold', color: statusColor[claim.status] || '#999' }}>
+                      {statusLabel[claim.status] || claim.status}
+                    </Text>
+                  </View>
+                </View>
+                <Text style={{ color: C.textSecondary, fontSize: 12, marginBottom: 2 }}>Device: {claim.model} ({claim.imei})</Text>
+                <Text style={{ color: C.textSecondary, fontSize: 12, marginBottom: 2 }}>Description: {claim.description || '—'}</Text>
+                {claim.technicianName && <Text style={{ color: C.textSecondary, fontSize: 12, marginBottom: 2 }}>Technician: {claim.technicianName}</Text>}
+                <Text style={{ color: C.textSecondary, fontSize: 11 }}>{new Date(claim.createdAt).toLocaleString('en-IN')}</Text>
+
+                {claim.damageImage && (
+                  <Image source={{ uri: claim.damageImage }} style={{ width: 100, height: 80, borderRadius: 8, marginTop: 8 }} resizeMode="cover" />
+                )}
+
+                {/* Actions */}
+                {claim.status === 'claim_pending' && (
+                  <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+                    <TouchableOpacity style={{ flex: 1, padding: 8, borderRadius: 8, backgroundColor: '#EBF4FF', alignItems: 'center' }}
+                      onPress={() => handleProtectionClaimAction(claim.id, 'under_review')}>
+                      <Text style={{ color: '#4A90D9', fontFamily: 'Inter_700Bold', fontSize: 12 }}>Under Review</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={{ flex: 1, padding: 8, borderRadius: 8, backgroundColor: '#FFEEEE', alignItems: 'center' }}
+                      onPress={() => handleProtectionClaimAction(claim.id, 'reject', { rejectionReason: 'Claim not eligible' })}>
+                      <Text style={{ color: '#E53E3E', fontFamily: 'Inter_700Bold', fontSize: 12 }}>Reject</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+                {claim.status === 'under_review' && (
+                  <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+                    <TouchableOpacity style={{ flex: 1, padding: 8, borderRadius: 8, backgroundColor: '#E8F5ED', alignItems: 'center' }}
+                      onPress={() => handleProtectionClaimAction(claim.id, 'approve')}>
+                      <Text style={{ color: '#27AE60', fontFamily: 'Inter_700Bold', fontSize: 12 }}>Approve</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={{ flex: 1, padding: 8, borderRadius: 8, backgroundColor: '#FFEEEE', alignItems: 'center' }}
+                      onPress={() => handleProtectionClaimAction(claim.id, 'reject', { rejectionReason: 'Claim rejected after review' })}>
+                      <Text style={{ color: '#E53E3E', fontFamily: 'Inter_700Bold', fontSize: 12 }}>Reject</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+                {claim.status === 'approved' && (
+                  <TouchableOpacity style={{ marginTop: 10, padding: 10, borderRadius: 8, backgroundColor: '#FFF3ED', alignItems: 'center' }}
+                    onPress={() => Alert.prompt('Assign Technician', 'Enter technician name:', (name) => {
+                      if (name) handleProtectionClaimAction(claim.id, 'assign', { technicianName: name });
+                    })}>
+                    <Text style={{ color: PRIMARY, fontFamily: 'Inter_700Bold', fontSize: 13 }}>Assign Technician</Text>
+                  </TouchableOpacity>
+                )}
+                {claim.status === 'assigned' && (
+                  <TouchableOpacity style={{ marginTop: 10, padding: 10, borderRadius: 8, backgroundColor: '#E8F5ED', alignItems: 'center' }}
+                    onPress={() => handleProtectionClaimAction(claim.id, 'complete')}>
+                    <Text style={{ color: '#27AE60', fontFamily: 'Inter_700Bold', fontSize: 13 }}>Mark Completed</Text>
+                  </TouchableOpacity>
+                )}
+              </SectionCard>
+            ))
+          )
+        }
+      </ScrollView>
+    );
+  };
+
   const renderPayouts = () => {
     const pending = payoutsData.filter(p => p.status === 'pending');
     const completed = payoutsData.filter(p => p.status !== 'pending');
@@ -2416,6 +2658,8 @@ export default function AdminScreen() {
         {activeTab === 'notifications' && renderNotifications()}
         {activeTab === 'email' && renderEmail()}
         {activeTab === 'payouts' && renderPayouts()}
+        {activeTab === 'protection-plans' && renderProtectionPlans()}
+        {activeTab === 'protection-claims' && renderProtectionClaims()}
       </View>
     </View>
   );

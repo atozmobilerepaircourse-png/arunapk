@@ -4,7 +4,7 @@ import { getFirestore, getAdminAuth, getStorage } from "./firebase-admin";
 import { db } from "./db";
 import OpenAI from "openai";
 import { notifyAllUsers, notifyNewPost, notifyUser } from "./push-notifications";
-import { profiles, conversations, messages, posts, jobs, reels, products, orders, subscriptionSettings, courses, courseChapters, courseVideos, courseEnrollments, dubbedVideos, ads, liveChatMessages, liveClasses, courseNotices, sessions, payments, teacherPayouts, appSettings, videoProgress, livePolls, livePollVotes, emailCampaigns, otpTokens, adminNotifications, repairBookings } from "@shared/schema";
+import { profiles, conversations, messages, posts, jobs, reels, products, orders, subscriptionSettings, courses, courseChapters, courseVideos, courseEnrollments, dubbedVideos, ads, liveChatMessages, liveClasses, courseNotices, sessions, payments, teacherPayouts, appSettings, videoProgress, livePolls, livePollVotes, emailCampaigns, otpTokens, adminNotifications, repairBookings, protectionPlans, protectionClaims } from "@shared/schema";
 import { sendWelcomeEmail } from "./lib/sendEmail";
 import { eq, or, and, desc, gt, lt, sql, ne, isNotNull } from "drizzle-orm";
 import { randomUUID } from "crypto";
@@ -7231,6 +7231,412 @@ Be specific about component locations and names. If image quality is poor or not
     } catch (error: any) {
       console.error('[STT] Error:', error?.message);
       res.status(500).json({ error: 'Failed to transcribe audio: ' + error?.message });
+    }
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // ─── MOBILE PROTECTION PLAN ROUTES ────────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════════════════
+
+  // Migrate tables on startup
+  (async () => {
+    try {
+      await db.execute(sql`
+        CREATE TABLE IF NOT EXISTS protection_plans (
+          id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+          user_id TEXT NOT NULL,
+          user_name TEXT NOT NULL DEFAULT '',
+          user_phone TEXT DEFAULT '',
+          imei TEXT NOT NULL,
+          brand TEXT NOT NULL DEFAULT '',
+          model TEXT NOT NULL DEFAULT '',
+          model_number TEXT NOT NULL DEFAULT '',
+          plan_type TEXT NOT NULL DEFAULT 'monthly',
+          price INTEGER NOT NULL DEFAULT 0,
+          front_image TEXT DEFAULT '',
+          back_image TEXT DEFAULT '',
+          status TEXT NOT NULL DEFAULT 'pending_verification',
+          claim_used INTEGER NOT NULL DEFAULT 0,
+          payment_id TEXT DEFAULT '',
+          razorpay_order_id TEXT DEFAULT '',
+          plan_start_date BIGINT DEFAULT 0,
+          rejection_reason TEXT DEFAULT '',
+          created_at BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW()) * 1000,
+          updated_at BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW()) * 1000
+        )
+      `);
+      await db.execute(sql`
+        CREATE TABLE IF NOT EXISTS protection_claims (
+          id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+          plan_id TEXT NOT NULL,
+          user_id TEXT NOT NULL,
+          imei TEXT NOT NULL DEFAULT '',
+          model TEXT NOT NULL DEFAULT '',
+          model_number TEXT NOT NULL DEFAULT '',
+          issue TEXT NOT NULL DEFAULT '',
+          description TEXT DEFAULT '',
+          damage_image TEXT DEFAULT '',
+          status TEXT NOT NULL DEFAULT 'claim_pending',
+          technician_id TEXT DEFAULT '',
+          technician_name TEXT DEFAULT '',
+          service_fee_paid INTEGER DEFAULT 0,
+          rejection_reason TEXT DEFAULT '',
+          admin_notes TEXT DEFAULT '',
+          created_at BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW()) * 1000,
+          updated_at BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW()) * 1000
+        )
+      `);
+      console.log('[Protection] Tables ready');
+    } catch (e: any) { console.warn('[Protection] Table migration:', e.message); }
+  })();
+
+  // ── Apply for a Protection Plan ──────────────────────────────────────────────
+  app.post('/api/protection/apply', async (req, res) => {
+    try {
+      const { userId, userName, userPhone, imei, brand, model, modelNumber, planType, frontImage, backImage } = req.body;
+      if (!userId || !imei || !brand || !model || !modelNumber || !planType) {
+        return res.status(400).json({ error: 'Missing required fields' });
+      }
+      if (!/^\d{15}$/.test(imei)) {
+        return res.status(400).json({ error: 'IMEI must be exactly 15 digits' });
+      }
+      if (!['monthly', 'yearly'].includes(planType)) {
+        return res.status(400).json({ error: 'Invalid plan type' });
+      }
+
+      // Block duplicate IMEI
+      const existing = await db.select().from(protectionPlans)
+        .where(and(eq(protectionPlans.imei, imei), ne(protectionPlans.status, 'rejected')))
+        .limit(1);
+      if (existing.length > 0) {
+        return res.status(409).json({ error: 'A plan already exists for this IMEI number' });
+      }
+
+      const price = planType === 'yearly' ? 1499 : 447;
+      const id = randomUUID();
+      await db.insert(protectionPlans).values({
+        id,
+        userId,
+        userName: userName || '',
+        userPhone: userPhone || '',
+        imei,
+        brand,
+        model,
+        modelNumber,
+        planType,
+        price,
+        frontImage: frontImage || '',
+        backImage: backImage || '',
+        status: 'pending_verification',
+        claimUsed: 0,
+        paymentId: '',
+        razorpayOrderId: '',
+        planStartDate: 0,
+        rejectionReason: '',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+
+      return res.json({ success: true, planId: id, message: 'Application submitted successfully' });
+    } catch (e: any) {
+      console.error('[Protection] Apply error:', e.message);
+      return res.status(500).json({ error: 'Failed to submit application' });
+    }
+  });
+
+  // ── Get user's protection plan ───────────────────────────────────────────────
+  app.get('/api/protection/my-plan/:userId', async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const plans = await db.select().from(protectionPlans)
+        .where(eq(protectionPlans.userId, userId))
+        .orderBy(desc(protectionPlans.createdAt))
+        .limit(1);
+
+      if (plans.length === 0) return res.json({ plan: null });
+
+      const plan = plans[0];
+      let claim = null;
+      if (plan.status === 'active') {
+        const claims = await db.select().from(protectionClaims)
+          .where(eq(protectionClaims.planId, plan.id))
+          .orderBy(desc(protectionClaims.createdAt))
+          .limit(1);
+        if (claims.length > 0) claim = claims[0];
+      }
+      return res.json({ plan, claim });
+    } catch (e: any) {
+      console.error('[Protection] Get plan error:', e.message);
+      return res.status(500).json({ error: 'Failed to get plan' });
+    }
+  });
+
+  // ── Create Razorpay payment order for Protection Plan ──────────────────────
+  app.post('/api/protection/payment/create-order', async (req, res) => {
+    try {
+      const { planId, userId } = req.body;
+      if (!planId || !userId) return res.status(400).json({ error: 'Missing planId or userId' });
+
+      const plans = await db.select().from(protectionPlans)
+        .where(and(eq(protectionPlans.id, planId), eq(protectionPlans.userId, userId)))
+        .limit(1);
+      if (plans.length === 0) return res.status(404).json({ error: 'Plan not found' });
+
+      const plan = plans[0];
+      if (plan.status !== 'approved_pending_payment') {
+        return res.status(400).json({ error: 'Plan is not approved for payment' });
+      }
+
+      if (!razorpayAvailable || !razorpayInstance) {
+        return res.status(503).json({ error: 'Payment gateway not available' });
+      }
+
+      const amount = plan.price * 100; // paise
+      const order = await razorpayInstance.orders.create({
+        amount,
+        currency: 'INR',
+        receipt: `prot_${planId.slice(0, 8)}`,
+        notes: { planId, userId, type: 'protection_plan' },
+      });
+
+      await db.update(protectionPlans).set({ razorpayOrderId: order.id, updatedAt: Date.now() })
+        .where(eq(protectionPlans.id, planId));
+
+      return res.json({
+        success: true,
+        orderId: order.id,
+        amount,
+        keyId: razorpayKeyId,
+        displayAmount: plan.price,
+        planType: plan.planType,
+      });
+    } catch (e: any) {
+      console.error('[Protection] Create order error:', e.message);
+      return res.status(500).json({ error: 'Failed to create payment order' });
+    }
+  });
+
+  // ── Verify Protection Plan payment ────────────────────────────────────────
+  app.post('/api/protection/payment/verify', async (req, res) => {
+    try {
+      const { planId, razorpayPaymentId, razorpayOrderId, razorpaySignature } = req.body;
+      if (!planId || !razorpayPaymentId || !razorpayOrderId || !razorpaySignature) {
+        return res.status(400).json({ error: 'Missing payment details' });
+      }
+
+      if (!razorpayAvailable) return res.status(503).json({ error: 'Payment gateway not available' });
+
+      const body = razorpayOrderId + '|' + razorpayPaymentId;
+      const expectedSig = crypto.createHmac('sha256', razorpayKeySecret).update(body).digest('hex');
+      if (expectedSig !== razorpaySignature) {
+        return res.status(400).json({ error: 'Invalid payment signature' });
+      }
+
+      const now = Date.now();
+      await db.update(protectionPlans).set({
+        status: 'active',
+        paymentId: razorpayPaymentId,
+        planStartDate: now,
+        updatedAt: now,
+      }).where(eq(protectionPlans.id, planId));
+
+      return res.json({ success: true, message: 'Payment verified, plan is now active' });
+    } catch (e: any) {
+      console.error('[Protection] Verify payment error:', e.message);
+      return res.status(500).json({ error: 'Failed to verify payment' });
+    }
+  });
+
+  // ── Raise a Claim ────────────────────────────────────────────────────────────
+  app.post('/api/protection/claim/raise', async (req, res) => {
+    try {
+      const { planId, userId, issue, description, damageImage } = req.body;
+      if (!planId || !userId || !issue) return res.status(400).json({ error: 'Missing required fields' });
+
+      const plans = await db.select().from(protectionPlans)
+        .where(and(eq(protectionPlans.id, planId), eq(protectionPlans.userId, userId)))
+        .limit(1);
+      if (plans.length === 0) return res.status(404).json({ error: 'Plan not found' });
+
+      const plan = plans[0];
+      if (plan.status !== 'active') return res.status(400).json({ error: 'Plan is not active' });
+      if (plan.claimUsed) return res.status(400).json({ error: 'Claim already used for this plan year' });
+
+      // Waiting period check
+      const waitDays = plan.planType === 'yearly' ? 7 : 30;
+      const waitMs = waitDays * 24 * 60 * 60 * 1000;
+      const startDate = plan.planStartDate || plan.createdAt;
+      if (Date.now() - startDate < waitMs) {
+        const daysLeft = Math.ceil((waitMs - (Date.now() - startDate)) / (24 * 60 * 60 * 1000));
+        return res.status(400).json({ error: `Waiting period not complete. ${daysLeft} day(s) remaining.` });
+      }
+
+      // Check no pending/approved claim exists
+      const existingClaims = await db.select().from(protectionClaims)
+        .where(and(eq(protectionClaims.planId, planId), ne(protectionClaims.status, 'rejected')))
+        .limit(1);
+      if (existingClaims.length > 0) {
+        return res.status(409).json({ error: 'A claim already exists for this plan' });
+      }
+
+      const claimId = randomUUID();
+      await db.insert(protectionClaims).values({
+        id: claimId,
+        planId,
+        userId,
+        imei: plan.imei,
+        model: plan.model,
+        modelNumber: plan.modelNumber,
+        issue,
+        description: description || '',
+        damageImage: damageImage || '',
+        status: 'claim_pending',
+        technicianId: '',
+        technicianName: '',
+        serviceFeePaid: 0,
+        rejectionReason: '',
+        adminNotes: '',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+
+      return res.json({ success: true, claimId, message: 'Claim submitted successfully' });
+    } catch (e: any) {
+      console.error('[Protection] Raise claim error:', e.message);
+      return res.status(500).json({ error: 'Failed to raise claim' });
+    }
+  });
+
+  // ── Get claim for a plan ──────────────────────────────────────────────────────
+  app.get('/api/protection/claim/:planId', async (req, res) => {
+    try {
+      const { planId } = req.params;
+      const claims = await db.select().from(protectionClaims)
+        .where(eq(protectionClaims.planId, planId))
+        .orderBy(desc(protectionClaims.createdAt))
+        .limit(1);
+      return res.json({ claim: claims[0] || null });
+    } catch (e: any) {
+      return res.status(500).json({ error: 'Failed to get claim' });
+    }
+  });
+
+  // ── Upload image for protection plan (base64) ─────────────────────────────
+  app.post('/api/protection/upload-image', async (req, res) => {
+    try {
+      const { base64, filename } = req.body;
+      if (!base64 || !filename) return res.status(400).json({ error: 'Missing base64 or filename' });
+
+      const buffer = Buffer.from(base64, 'base64');
+      const uniqueName = `protection/${Date.now()}_${filename}`;
+      const cdnUrl = await uploadFileToBunny(buffer, uniqueName, 'image/jpeg');
+
+      return res.json({ success: true, url: cdnUrl });
+    } catch (e: any) {
+      console.error('[Protection] Upload error:', e.message);
+      return res.status(500).json({ error: 'Upload failed' });
+    }
+  });
+
+  // ── ADMIN: Get all protection plans ─────────────────────────────────────────
+  app.get('/api/admin/protection/plans', async (req, res) => {
+    try {
+      const { status } = req.query;
+      let query = db.select().from(protectionPlans);
+      if (status && status !== 'all') {
+        const plans = await db.select().from(protectionPlans)
+          .where(eq(protectionPlans.status, status as string))
+          .orderBy(desc(protectionPlans.createdAt));
+        return res.json(plans);
+      }
+      const plans = await db.select().from(protectionPlans)
+        .orderBy(desc(protectionPlans.createdAt));
+      return res.json(plans);
+    } catch (e: any) {
+      return res.status(500).json({ error: 'Failed to get plans' });
+    }
+  });
+
+  // ── ADMIN: Approve or Reject a plan ──────────────────────────────────────────
+  app.put('/api/admin/protection/plan/:planId', async (req, res) => {
+    try {
+      const { planId } = req.params;
+      const { action, rejectionReason } = req.body;
+      if (!action || !['approve', 'reject'].includes(action)) {
+        return res.status(400).json({ error: 'Invalid action' });
+      }
+
+      const newStatus = action === 'approve' ? 'approved_pending_payment' : 'rejected';
+      await db.update(protectionPlans).set({
+        status: newStatus,
+        rejectionReason: rejectionReason || '',
+        updatedAt: Date.now(),
+      }).where(eq(protectionPlans.id, planId));
+
+      return res.json({ success: true, status: newStatus });
+    } catch (e: any) {
+      return res.status(500).json({ error: 'Failed to update plan' });
+    }
+  });
+
+  // ── ADMIN: Get all claims ─────────────────────────────────────────────────────
+  app.get('/api/admin/protection/claims', async (req, res) => {
+    try {
+      const { status } = req.query;
+      if (status && status !== 'all') {
+        const claims = await db.select().from(protectionClaims)
+          .where(eq(protectionClaims.status, status as string))
+          .orderBy(desc(protectionClaims.createdAt));
+        return res.json(claims);
+      }
+      const claims = await db.select().from(protectionClaims)
+        .orderBy(desc(protectionClaims.createdAt));
+      return res.json(claims);
+    } catch (e: any) {
+      return res.status(500).json({ error: 'Failed to get claims' });
+    }
+  });
+
+  // ── ADMIN: Update claim status ────────────────────────────────────────────────
+  app.put('/api/admin/protection/claim/:claimId', async (req, res) => {
+    try {
+      const { claimId } = req.params;
+      const { action, technicianId, technicianName, adminNotes, rejectionReason } = req.body;
+      if (!action) return res.status(400).json({ error: 'Missing action' });
+
+      const statusMap: Record<string, string> = {
+        approve: 'approved',
+        reject: 'rejected',
+        assign: 'assigned',
+        complete: 'completed',
+      };
+      const newStatus = statusMap[action] || action;
+
+      const updateData: any = {
+        status: newStatus,
+        adminNotes: adminNotes || '',
+        updatedAt: Date.now(),
+      };
+      if (rejectionReason) updateData.rejectionReason = rejectionReason;
+      if (technicianId) updateData.technicianId = technicianId;
+      if (technicianName) updateData.technicianName = technicianName;
+
+      await db.update(protectionClaims).set(updateData).where(eq(protectionClaims.id, claimId));
+
+      // If completed, mark claimUsed = 1 on the plan
+      if (newStatus === 'completed') {
+        const claims = await db.select().from(protectionClaims)
+          .where(eq(protectionClaims.id, claimId)).limit(1);
+        if (claims.length > 0) {
+          await db.update(protectionPlans).set({ claimUsed: 1, updatedAt: Date.now() })
+            .where(eq(protectionPlans.id, claims[0].planId));
+        }
+      }
+
+      return res.json({ success: true, status: newStatus });
+    } catch (e: any) {
+      console.error('[Protection] Update claim error:', e.message);
+      return res.status(500).json({ error: 'Failed to update claim' });
     }
   });
 
