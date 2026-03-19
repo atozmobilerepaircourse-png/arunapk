@@ -989,7 +989,7 @@ const s = StyleSheet.create({
   shareBtnText: { fontSize: 11, color: MUTED, fontFamily: 'Inter_400Regular' },
   actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, backgroundColor: SURFACE },
   actionBtnText: { fontSize: 11, color: MUTED, fontFamily: 'Inter_400Regular' },
-  iconBtn: { padding: 8, borderRadius: 8, marginHorizontal: 4 },
+  iconBtn: { width: 42, height: 42, borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginHorizontal: 4 },
   iconBtnActive: { backgroundColor: ACCENT + '20' },
   
   chatHeader: {
