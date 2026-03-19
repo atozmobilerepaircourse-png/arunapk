@@ -655,8 +655,16 @@ export default function AdminScreen() {
     try {
       const res = await apiRequest('GET', `/api/admin/protection/plans?status=${protectionPlanFilter}`);
       const data = await res.json();
+      console.log('[Admin] Protection plans fetched:', data);
+      if (Array.isArray(data) && data.length > 0) {
+        console.log('[Admin] First plan:', data[0]);
+        console.log('[Admin] Image URLs - Front:', data[0].frontImage, 'Back:', data[0].backImage);
+      }
       setProtectionPlans(Array.isArray(data) ? data : []);
-    } catch { setProtectionPlans([]); }
+    } catch (e: any) { 
+      console.error('[Admin] Error fetching plans:', e);
+      setProtectionPlans([]); 
+    }
     finally { setProtectionPlansLoading(false); }
   }, [protectionPlanFilter]);
 
@@ -2373,15 +2381,40 @@ export default function AdminScreen() {
                 <Text style={{ color: C.textSecondary, fontSize: 12, marginBottom: 2 }}>Model No: {plan.modelNumber}</Text>
                 <Text style={{ color: C.textSecondary, fontSize: 12, marginBottom: 2 }}>Plan: {plan.planType === 'yearly' ? 'Yearly ₹1499' : 'Monthly ₹447'} | Claim: {plan.claimUsed ? 'Used' : 'Available'}</Text>
                 <Text style={{ color: C.textSecondary, fontSize: 12, marginBottom: 2 }}>User: {plan.userName || plan.userId}</Text>
-                <Text style={{ color: C.textSecondary, fontSize: 11 }}>{new Date(plan.createdAt).toLocaleString('en-IN')}</Text>
+                <Text style={{ color: C.textSecondary, fontSize: 11, marginBottom: 8 }}>{new Date(plan.createdAt).toLocaleString('en-IN')}</Text>
 
-                {/* Device images */}
-                {(plan.frontImage || plan.backImage) && (
-                  <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
-                    {plan.frontImage && <Image source={{ uri: plan.frontImage }} style={{ width: 80, height: 60, borderRadius: 8 }} resizeMode="cover" />}
-                    {plan.backImage && <Image source={{ uri: plan.backImage }} style={{ width: 80, height: 60, borderRadius: 8 }} resizeMode="cover" />}
-                  </View>
-                )}
+                {/* Device images section */}
+                <View style={{ marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: C.border }}>
+                  <Text style={{ color: C.text, fontFamily: 'Inter_600SemiBold', fontSize: 12, marginBottom: 8 }}>Device Images:</Text>
+                  {plan.frontImage || plan.backImage ? (
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                      {plan.frontImage ? (
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ color: C.textSecondary, fontSize: 11, marginBottom: 4 }}>Front</Text>
+                          <Image source={{ uri: plan.frontImage }} style={{ width: '100%', height: 100, borderRadius: 8, backgroundColor: '#F0F0F0' }} resizeMode="cover" />
+                        </View>
+                      ) : (
+                        <View style={{ flex: 1, height: 100, backgroundColor: C.surfaceElevated, borderRadius: 8, alignItems: 'center', justifyContent: 'center' }}>
+                          <Text style={{ color: C.textSecondary, fontSize: 11 }}>No front image</Text>
+                        </View>
+                      )}
+                      {plan.backImage ? (
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ color: C.textSecondary, fontSize: 11, marginBottom: 4 }}>Back</Text>
+                          <Image source={{ uri: plan.backImage }} style={{ width: '100%', height: 100, borderRadius: 8, backgroundColor: '#F0F0F0' }} resizeMode="cover" />
+                        </View>
+                      ) : (
+                        <View style={{ flex: 1, height: 100, backgroundColor: C.surfaceElevated, borderRadius: 8, alignItems: 'center', justifyContent: 'center' }}>
+                          <Text style={{ color: C.textSecondary, fontSize: 11 }}>No back image</Text>
+                        </View>
+                      )}
+                    </View>
+                  ) : (
+                    <View style={{ padding: 12, backgroundColor: C.surfaceElevated, borderRadius: 8, alignItems: 'center' }}>
+                      <Text style={{ color: C.textSecondary, fontSize: 12 }}>📸 No images uploaded</Text>
+                    </View>
+                  )}
+                </View>
 
                 {plan.status === 'pending_verification' && (
                   <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
@@ -2454,11 +2487,19 @@ export default function AdminScreen() {
                 <Text style={{ color: C.textSecondary, fontSize: 12, marginBottom: 2 }}>Device: {claim.model} ({claim.imei})</Text>
                 <Text style={{ color: C.textSecondary, fontSize: 12, marginBottom: 2 }}>Description: {claim.description || '—'}</Text>
                 {claim.technicianName && <Text style={{ color: C.textSecondary, fontSize: 12, marginBottom: 2 }}>Technician: {claim.technicianName}</Text>}
-                <Text style={{ color: C.textSecondary, fontSize: 11 }}>{new Date(claim.createdAt).toLocaleString('en-IN')}</Text>
+                <Text style={{ color: C.textSecondary, fontSize: 11, marginBottom: 8 }}>{new Date(claim.createdAt).toLocaleString('en-IN')}</Text>
 
-                {claim.damageImage && (
-                  <Image source={{ uri: claim.damageImage }} style={{ width: 100, height: 80, borderRadius: 8, marginTop: 8 }} resizeMode="cover" />
-                )}
+                {/* Damage image section */}
+                <View style={{ paddingTop: 8, borderTopWidth: 1, borderTopColor: C.border }}>
+                  <Text style={{ color: C.text, fontFamily: 'Inter_600SemiBold', fontSize: 12, marginBottom: 8 }}>Damage Image:</Text>
+                  {claim.damageImage ? (
+                    <Image source={{ uri: claim.damageImage }} style={{ width: '100%', height: 120, borderRadius: 8, backgroundColor: '#F0F0F0' }} resizeMode="cover" />
+                  ) : (
+                    <View style={{ width: '100%', height: 120, backgroundColor: C.surfaceElevated, borderRadius: 8, alignItems: 'center', justifyContent: 'center' }}>
+                      <Text style={{ color: C.textSecondary, fontSize: 12 }}>📸 No damage image uploaded</Text>
+                    </View>
+                  )}
+                </View>
 
                 {/* Actions */}
                 {claim.status === 'claim_pending' && (
