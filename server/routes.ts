@@ -7605,6 +7605,7 @@ Be specific about component locations and names. If image quality is poor or not
       if (!action) return res.status(400).json({ error: 'Missing action' });
 
       const statusMap: Record<string, string> = {
+        under_review: 'under_review',
         approve: 'approved',
         reject: 'rejected',
         assign: 'assigned',

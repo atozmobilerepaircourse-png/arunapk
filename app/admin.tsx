@@ -693,16 +693,45 @@ export default function AdminScreen() {
 
   const handleProtectionPlanAction = useCallback(async (planId: string, action: 'approve' | 'reject', reason?: string) => {
     try {
-      await apiRequest('PUT', `/api/admin/protection/plan/${planId}`, { action, rejectionReason: reason || '' });
+      console.log('[Admin] Executing plan action:', { planId, action, reason });
+      const res = await apiRequest('PUT', `/api/admin/protection/plan/${planId}`, { 
+        action, 
+        rejectionReason: reason || '' 
+      });
+      
+      if (!res.ok) {
+        throw new Error(`Server error: ${res.status}`);
+      }
+      
+      const data = await res.json();
+      console.log('[Admin] Plan action response:', data);
+      
+      Alert.alert('Success', action === 'approve' ? 'Plan approved!' : 'Plan rejected.');
       fetchProtectionPlans();
-    } catch (e: any) { Alert.alert('Error', e.message || 'Failed to update plan'); }
+    } catch (e: any) { 
+      console.error('[Admin] Plan action error:', e);
+      Alert.alert('Error', e.message || `Failed to ${action} plan`); 
+    }
   }, [fetchProtectionPlans]);
 
   const handleProtectionClaimAction = useCallback(async (claimId: string, action: string, extra?: any) => {
     try {
-      await apiRequest('PUT', `/api/admin/protection/claim/${claimId}`, { action, ...extra });
+      console.log('[Admin] Executing claim action:', { claimId, action, extra });
+      const res = await apiRequest('PUT', `/api/admin/protection/claim/${claimId}`, { action, ...extra });
+      
+      if (!res.ok) {
+        throw new Error(`Server error: ${res.status}`);
+      }
+      
+      const data = await res.json();
+      console.log('[Admin] Claim action response:', data);
+      
+      Alert.alert('Success', `Claim ${action} successful!`);
       fetchProtectionClaims();
-    } catch (e: any) { Alert.alert('Error', e.message || 'Failed to update claim'); }
+    } catch (e: any) { 
+      console.error('[Admin] Claim action error:', e);
+      Alert.alert('Error', e.message || `Failed to ${action} claim`); 
+    }
   }, [fetchProtectionClaims]);
 
   // ── User management ──
@@ -2418,15 +2447,51 @@ export default function AdminScreen() {
 
                 {plan.status === 'pending_verification' && (
                   <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
-                    <TouchableOpacity style={{ flex: 1, padding: 8, borderRadius: 8, backgroundColor: '#E8F5ED', alignItems: 'center' }}
-                      onPress={() => Alert.alert('Approve Plan', 'Approve this plan application?', [
-                        { text: 'Cancel', style: 'cancel' },
-                        { text: 'Approve', style: 'default', onPress: () => handleProtectionPlanAction(plan.id, 'approve') },
-                      ])}>
+                    <TouchableOpacity 
+                      style={{ flex: 1, padding: 10, borderRadius: 8, backgroundColor: '#E8F5ED', alignItems: 'center', justifyContent: 'center', minHeight: 40 }}
+                      onPress={() => {
+                        Alert.alert('Approve Plan', 'Approve this Mobile Protection Plan application?', [
+                          { text: 'Cancel', style: 'cancel' },
+                          { 
+                            text: 'Approve', 
+                            style: 'default', 
+                            onPress: () => {
+                              console.log('[Admin] Approve button pressed for plan:', plan.id);
+                              handleProtectionPlanAction(plan.id, 'approve');
+                            },
+                          },
+                        ]);
+                      }}
+                      activeOpacity={0.7}>
                       <Text style={{ color: '#27AE60', fontFamily: 'Inter_700Bold', fontSize: 13 }}>✓ Approve</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity style={{ flex: 1, padding: 8, borderRadius: 8, backgroundColor: '#FFEEEE', alignItems: 'center' }}
-                      onPress={() => Alert.prompt('Reject Reason', 'Enter reason for rejection:', (reason) => handleProtectionPlanAction(plan.id, 'reject', reason || 'Does not meet eligibility criteria'))}>
+                    <TouchableOpacity 
+                      style={{ flex: 1, padding: 10, borderRadius: 8, backgroundColor: '#FFEEEE', alignItems: 'center', justifyContent: 'center', minHeight: 40 }}
+                      onPress={() => {
+                        const isWeb = typeof window !== 'undefined';
+                        if (isWeb) {
+                          // Web: Use browser prompt
+                          const reason = window.prompt('Enter reason for rejection:', 'Does not meet eligibility criteria');
+                          if (reason !== null) {
+                            console.log('[Admin] Reject button pressed for plan:', plan.id);
+                            handleProtectionPlanAction(plan.id, 'reject', reason);
+                          }
+                        } else {
+                          // Mobile: Use Alert.alert with custom message
+                          Alert.alert('Reject Plan', 'This plan will be rejected. Are you sure?', [
+                            { text: 'Cancel', style: 'cancel' },
+                            { 
+                              text: 'Reject', 
+                              style: 'destructive',
+                              onPress: () => {
+                                console.log('[Admin] Reject button pressed for plan:', plan.id);
+                                handleProtectionPlanAction(plan.id, 'reject', 'Does not meet eligibility criteria');
+                              },
+                            },
+                          ]);
+                        }
+                      }}
+                      activeOpacity={0.7}>
                       <Text style={{ color: '#E53E3E', fontFamily: 'Inter_700Bold', fontSize: 13 }}>✗ Reject</Text>
                     </TouchableOpacity>
                   </View>
@@ -2504,39 +2569,80 @@ export default function AdminScreen() {
                 {/* Actions */}
                 {claim.status === 'claim_pending' && (
                   <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
-                    <TouchableOpacity style={{ flex: 1, padding: 8, borderRadius: 8, backgroundColor: '#EBF4FF', alignItems: 'center' }}
-                      onPress={() => handleProtectionClaimAction(claim.id, 'under_review')}>
+                    <TouchableOpacity 
+                      style={{ flex: 1, padding: 10, borderRadius: 8, backgroundColor: '#EBF4FF', alignItems: 'center', justifyContent: 'center', minHeight: 40 }}
+                      onPress={() => {
+                        console.log('[Admin] Under Review button pressed for claim:', claim.id);
+                        handleProtectionClaimAction(claim.id, 'under_review');
+                      }}
+                      activeOpacity={0.7}>
                       <Text style={{ color: '#4A90D9', fontFamily: 'Inter_700Bold', fontSize: 12 }}>Under Review</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity style={{ flex: 1, padding: 8, borderRadius: 8, backgroundColor: '#FFEEEE', alignItems: 'center' }}
-                      onPress={() => handleProtectionClaimAction(claim.id, 'reject', { rejectionReason: 'Claim not eligible' })}>
+                    <TouchableOpacity 
+                      style={{ flex: 1, padding: 10, borderRadius: 8, backgroundColor: '#FFEEEE', alignItems: 'center', justifyContent: 'center', minHeight: 40 }}
+                      onPress={() => {
+                        console.log('[Admin] Reject button pressed for claim:', claim.id);
+                        handleProtectionClaimAction(claim.id, 'reject', { rejectionReason: 'Claim not eligible' });
+                      }}
+                      activeOpacity={0.7}>
                       <Text style={{ color: '#E53E3E', fontFamily: 'Inter_700Bold', fontSize: 12 }}>Reject</Text>
                     </TouchableOpacity>
                   </View>
                 )}
                 {claim.status === 'under_review' && (
                   <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
-                    <TouchableOpacity style={{ flex: 1, padding: 8, borderRadius: 8, backgroundColor: '#E8F5ED', alignItems: 'center' }}
-                      onPress={() => handleProtectionClaimAction(claim.id, 'approve')}>
+                    <TouchableOpacity 
+                      style={{ flex: 1, padding: 10, borderRadius: 8, backgroundColor: '#E8F5ED', alignItems: 'center', justifyContent: 'center', minHeight: 40 }}
+                      onPress={() => {
+                        console.log('[Admin] Approve claim button pressed:', claim.id);
+                        handleProtectionClaimAction(claim.id, 'approve');
+                      }}
+                      activeOpacity={0.7}>
                       <Text style={{ color: '#27AE60', fontFamily: 'Inter_700Bold', fontSize: 12 }}>Approve</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity style={{ flex: 1, padding: 8, borderRadius: 8, backgroundColor: '#FFEEEE', alignItems: 'center' }}
-                      onPress={() => handleProtectionClaimAction(claim.id, 'reject', { rejectionReason: 'Claim rejected after review' })}>
+                    <TouchableOpacity 
+                      style={{ flex: 1, padding: 10, borderRadius: 8, backgroundColor: '#FFEEEE', alignItems: 'center', justifyContent: 'center', minHeight: 40 }}
+                      onPress={() => {
+                        console.log('[Admin] Reject claim button pressed:', claim.id);
+                        handleProtectionClaimAction(claim.id, 'reject', { rejectionReason: 'Claim rejected after review' });
+                      }}
+                      activeOpacity={0.7}>
                       <Text style={{ color: '#E53E3E', fontFamily: 'Inter_700Bold', fontSize: 12 }}>Reject</Text>
                     </TouchableOpacity>
                   </View>
                 )}
                 {claim.status === 'approved' && (
-                  <TouchableOpacity style={{ marginTop: 10, padding: 10, borderRadius: 8, backgroundColor: '#FFF3ED', alignItems: 'center' }}
-                    onPress={() => Alert.prompt('Assign Technician', 'Enter technician name:', (name) => {
-                      if (name) handleProtectionClaimAction(claim.id, 'assign', { technicianName: name });
-                    })}>
+                  <TouchableOpacity 
+                    style={{ marginTop: 10, padding: 12, borderRadius: 8, backgroundColor: '#FFF3ED', alignItems: 'center', justifyContent: 'center', minHeight: 44 }}
+                    onPress={() => {
+                      const isWeb = typeof window !== 'undefined';
+                      if (isWeb) {
+                        const name = window.prompt('Enter technician name:', 'Technician Name');
+                        if (name) {
+                          console.log('[Admin] Assign technician button pressed for claim:', claim.id);
+                          handleProtectionClaimAction(claim.id, 'assign', { technicianName: name });
+                        }
+                      } else {
+                        Alert.prompt('Assign Technician', 'Enter technician name:', [(name) => {
+                          if (name) {
+                            console.log('[Admin] Assign technician button pressed for claim:', claim.id);
+                            handleProtectionClaimAction(claim.id, 'assign', { technicianName: name });
+                          }
+                        }]);
+                      }
+                    }}
+                    activeOpacity={0.7}>
                     <Text style={{ color: PRIMARY, fontFamily: 'Inter_700Bold', fontSize: 13 }}>Assign Technician</Text>
                   </TouchableOpacity>
                 )}
                 {claim.status === 'assigned' && (
-                  <TouchableOpacity style={{ marginTop: 10, padding: 10, borderRadius: 8, backgroundColor: '#E8F5ED', alignItems: 'center' }}
-                    onPress={() => handleProtectionClaimAction(claim.id, 'complete')}>
+                  <TouchableOpacity 
+                    style={{ marginTop: 10, padding: 12, borderRadius: 8, backgroundColor: '#E8F5ED', alignItems: 'center', justifyContent: 'center', minHeight: 44 }}
+                    onPress={() => {
+                      console.log('[Admin] Mark Completed button pressed for claim:', claim.id);
+                      handleProtectionClaimAction(claim.id, 'complete');
+                    }}
+                    activeOpacity={0.7}>
                     <Text style={{ color: '#27AE60', fontFamily: 'Inter_700Bold', fontSize: 13 }}>Mark Completed</Text>
                   </TouchableOpacity>
                 )}
