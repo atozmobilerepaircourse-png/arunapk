@@ -6989,12 +6989,23 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
     });
   }
 
+  function createNvidiaClient() {
+    const apiKey = process.env.NVIDIA_API_KEY;
+    if (!apiKey) {
+      throw new Error('NVIDIA API key not configured. Please set NVIDIA_API_KEY.');
+    }
+    return new OpenAI({
+      apiKey,
+      baseURL: 'https://integrate.api.nvidia.com/v1',
+    });
+  }
+
   app.post("/api/ai/repair/chat", async (req, res) => {
     try {
       const { messages } = req.body;
-      let openai: OpenAI;
+      let nvidia: OpenAI;
       try {
-        openai = createOpenAIClient();
+        nvidia = createNvidiaClient();
       } catch (keyErr: any) {
         console.error('[AI Chat] Config error:', keyErr.message);
         return res.status(503).json({ error: keyErr.message });
@@ -7027,8 +7038,8 @@ Be concise, practical, and specific. Only answer mobile hardware repair question
       res.setHeader('Connection', 'keep-alive');
       res.setHeader('Access-Control-Allow-Origin', '*');
 
-      const stream = await openai.chat.completions.create({
-        model: 'gpt-4o-mini',
+      const stream = await nvidia.chat.completions.create({
+        model: 'meta/llama-3.1-70b-instruct',
         messages: [{ role: 'system', content: systemPrompt }, ...messages],
         stream: true,
         max_tokens: 800,
@@ -7046,8 +7057,8 @@ Be concise, practical, and specific. Only answer mobile hardware repair question
     } catch (error: any) {
       console.error('[AI Repair Chat] Error:', error?.message, '| code:', error?.code, '| status:', error?.status, '| type:', error?.type);
       if (!res.headersSent) {
-        const userMsg = error?.code === 'insufficient_quota' ? 'OpenAI quota exceeded. Please check your plan.' :
-                        error?.status === 401 ? 'Invalid OpenAI API key.' :
+        const userMsg = error?.status === 401 ? 'Invalid NVIDIA API key.' :
+                        error?.status === 429 ? 'NVIDIA API rate limit reached. Please try again shortly.' :
                         error?.message || 'AI service unavailable';
         res.status(500).json({ error: userMsg });
       }
@@ -7062,16 +7073,16 @@ Be concise, practical, and specific. Only answer mobile hardware repair question
         return res.status(400).json({ error: 'No image provided' });
       }
 
-      let openai: OpenAI;
+      let nvidia: OpenAI;
       try {
-        openai = createOpenAIClient();
+        nvidia = createNvidiaClient();
       } catch (keyErr: any) {
         console.error('[AI Analyze] Config error:', keyErr.message);
         return res.status(503).json({ error: keyErr.message });
       }
 
-      const response = await openai.chat.completions.create({
-        model: 'gpt-4o',
+      const response = await nvidia.chat.completions.create({
+        model: 'microsoft/phi-3-vision-128k-instruct',
         messages: [
           {
             role: 'user',
@@ -7108,7 +7119,6 @@ Be specific about component locations and names. If image quality is poor or not
                 type: 'image_url',
                 image_url: {
                   url: `data:${mimeType};base64,${imageBase64}`,
-                  detail: 'high',
                 },
               },
             ],
@@ -7121,8 +7131,8 @@ Be specific about component locations and names. If image quality is poor or not
       res.json({ analysis });
     } catch (error: any) {
       console.error('[AI Motherboard Analyze] Error:', error?.message, '| code:', error?.code, '| status:', error?.status);
-      const userMsg = error?.code === 'insufficient_quota' ? 'OpenAI quota exceeded. Please check your plan.' :
-                      error?.status === 401 ? 'Invalid OpenAI API key.' :
+      const userMsg = error?.status === 401 ? 'Invalid NVIDIA API key.' :
+                      error?.status === 429 ? 'NVIDIA API rate limit reached. Please try again shortly.' :
                       error?.message || 'Image analysis failed. Please try again.';
       res.status(500).json({ error: userMsg });
     }
