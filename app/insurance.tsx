@@ -148,46 +148,89 @@ export default function ProtectionPlanScreen() {
 
   useEffect(() => { fetchPlan(); }, [fetchPlan]);
 
-  // ── Image picker (camera on mobile, file picker on web) ───────────────────
+  // ── Camera capture (direct camera on mobile and web) ────────────────────────
   const captureImage = useCallback(async (which: 'front' | 'back' | 'claim') => {
     try {
-      const ImagePicker = await import('expo-image-picker');
       const isWeb = typeof window !== 'undefined';
-      let result;
 
       if (isWeb) {
-        // On web, use file picker
-        result = await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: 'images',
-          quality: 0.7,
-          base64: true,
-          exif: false,
-        });
+        // On web: Use HTML5 file input with capture="environment" to force rear camera
+        const hiddenInput = document.createElement('input');
+        hiddenInput.type = 'file';
+        hiddenInput.accept = 'image/*';
+        hiddenInput.capture = 'environment'; // Force rear camera on web
+        
+        hiddenInput.onchange = async (e: any) => {
+          const file = e.target.files?.[0];
+          if (file) {
+            const reader = new FileReader();
+            reader.onload = (event: any) => {
+              const base64 = event.target.result?.split(',')[1] || '';
+              const uri = event.target.result;
+              if (which === 'front') { setFrontImage(uri); setFrontImageBase64(base64); }
+              else if (which === 'back') { setBackImage(uri); setBackImageBase64(base64); }
+              else { setClaimImage(uri); setClaimImageBase64(base64); }
+            };
+            reader.readAsDataURL(file);
+          }
+        };
+        hiddenInput.click();
       } else {
-        // On mobile, use camera
+        // On mobile: Use expo-image-picker camera with permission handling
+        const ImagePicker = await import('expo-image-picker');
         const perm = await ImagePicker.requestCameraPermissionsAsync();
+        
         if (!perm.granted) {
-          Alert.alert('Camera Required', 'Please allow camera access to capture device images.');
+          // Fallback: Ask user to allow or use gallery
+          Alert.alert('Camera Permission Required', 'Please allow camera access. Would you like to use gallery instead?', [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Use Gallery',
+              onPress: async () => {
+                try {
+                  const result = await ImagePicker.launchImageLibraryAsync({
+                    mediaTypes: 'images',
+                    quality: 0.7,
+                    base64: true,
+                    exif: false,
+                  });
+                  if (!result.canceled && result.assets[0]) {
+                    const asset = result.assets[0];
+                    const uri = asset.uri;
+                    const b64 = asset.base64 || '';
+                    if (which === 'front') { setFrontImage(uri); setFrontImageBase64(b64); }
+                    else if (which === 'back') { setBackImage(uri); setBackImageBase64(b64); }
+                    else { setClaimImage(uri); setClaimImageBase64(b64); }
+                  }
+                } catch (err) {
+                  Alert.alert('Error', 'Failed to pick image from gallery.');
+                }
+              },
+            },
+          ]);
           return;
         }
-        result = await ImagePicker.launchCameraAsync({
+
+        // Camera permission granted - launch camera directly
+        const result = await ImagePicker.launchCameraAsync({
           mediaTypes: 'images',
           quality: 0.7,
           base64: true,
           exif: false,
+          allowsEditing: false,
         });
-      }
 
-      if (!result.canceled && result.assets[0]) {
-        const asset = result.assets[0];
-        const uri = asset.uri;
-        const b64 = asset.base64 || '';
-        if (which === 'front') { setFrontImage(uri); setFrontImageBase64(b64); }
-        else if (which === 'back') { setBackImage(uri); setBackImageBase64(b64); }
-        else { setClaimImage(uri); setClaimImageBase64(b64); }
+        if (!result.canceled && result.assets[0]) {
+          const asset = result.assets[0];
+          const uri = asset.uri;
+          const b64 = asset.base64 || '';
+          if (which === 'front') { setFrontImage(uri); setFrontImageBase64(b64); }
+          else if (which === 'back') { setBackImage(uri); setBackImageBase64(b64); }
+          else { setClaimImage(uri); setClaimImageBase64(b64); }
+        }
       }
     } catch (e) {
-      Alert.alert('Error', 'Failed to pick image. Please try again.');
+      Alert.alert('Error', 'Failed to capture image. Please try again.');
     }
   }, []);
 
@@ -387,14 +430,14 @@ export default function ProtectionPlanScreen() {
 
             {/* Damage image */}
             <View style={[styles.card, { marginBottom: 16 }]}>
-              <Text style={styles.label}>Upload Damage Photo *</Text>
-              <Text style={{ fontSize: 12, color: MUTED, marginBottom: 10 }}>Tap to select or capture an image</Text>
+              <Text style={styles.label}>Capture Damage Photo *</Text>
+              <Text style={{ fontSize: 12, color: MUTED, marginBottom: 10 }}>Use your device camera to capture the damage</Text>
               <TouchableOpacity style={styles.imgPlaceholder} onPress={() => captureImage('claim')}>
                 {claimImage
                   ? <Image source={{ uri: claimImage }} style={{ width: '100%', height: '100%', borderRadius: 12 }} resizeMode="cover" />
                   : <View style={{ alignItems: 'center', gap: 8 }}>
-                      <Ionicons name="camera-outline" size={32} color={MUTED} />
-                      <Text style={{ color: MUTED, fontSize: 13 }}>Tap to take photo</Text>
+                      <Ionicons name="camera" size={32} color={MUTED} />
+                      <Text style={{ color: MUTED, fontSize: 13, fontFamily: 'Inter_600SemiBold' }}>Tap to Capture</Text>
                     </View>
                 }
               </TouchableOpacity>
@@ -819,7 +862,7 @@ export default function ProtectionPlanScreen() {
 
           <View style={[styles.card, { backgroundColor: PRIMARY_L, marginBottom: 16 }]}>
             <Text style={{ fontSize: 13, color: PRIMARY, fontFamily: 'Inter_600SemiBold' }}>
-              📸 Upload clear photos of your device (mobile: camera, web: file picker)
+              📸 Capture clear photos using your device camera
             </Text>
           </View>
 
@@ -830,8 +873,8 @@ export default function ProtectionPlanScreen() {
                 {frontImage
                   ? <Image source={{ uri: frontImage }} style={{ width: '100%', height: '100%', borderRadius: 12 }} resizeMode="cover" />
                   : <View style={{ alignItems: 'center', gap: 8 }}>
-                      <Ionicons name="image-outline" size={32} color={MUTED} />
-                      <Text style={{ color: MUTED, fontSize: 12 }}>Tap to select</Text>
+                      <Ionicons name="camera" size={32} color={MUTED} />
+                      <Text style={{ color: MUTED, fontSize: 12, fontFamily: 'Inter_600SemiBold' }}>Tap to Capture</Text>
                     </View>
                 }
               </TouchableOpacity>
@@ -842,8 +885,8 @@ export default function ProtectionPlanScreen() {
                 {backImage
                   ? <Image source={{ uri: backImage }} style={{ width: '100%', height: '100%', borderRadius: 12 }} resizeMode="cover" />
                   : <View style={{ alignItems: 'center', gap: 8 }}>
-                      <Ionicons name="image-outline" size={32} color={MUTED} />
-                      <Text style={{ color: MUTED, fontSize: 12 }}>Tap to select</Text>
+                      <Ionicons name="camera" size={32} color={MUTED} />
+                      <Text style={{ color: MUTED, fontSize: 12, fontFamily: 'Inter_600SemiBold' }}>Tap to Capture</Text>
                     </View>
                 }
               </TouchableOpacity>
