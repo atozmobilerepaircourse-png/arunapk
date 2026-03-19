@@ -300,39 +300,38 @@ export default function ProtectionPlanScreen() {
     if (!brand) { Alert.alert('Missing Information', 'Please select your phone brand.'); return; }
     if (!model) { Alert.alert('Missing Information', 'Please enter your phone model.'); return; }
     if (!modelNumber) { Alert.alert('Missing Information', 'Please enter your model number.'); return; }
-    if (!frontImageBase64 || !backImageBase64) { Alert.alert('Missing Images', 'Please capture both front and back photos of your device.'); return; }
 
     setSubmitting(true);
     try {
-      console.log('[Protection] Submitting application...', { profile: profile.id, brand, model, imei });
+      console.log('[Protection] Starting application submission...', { profile: profile.id, brand, model, imei });
       
       let frontUrl = '';
       let backUrl = '';
       
-      // Upload front image
+      // Upload images if available (optional for now)
       if (frontImageBase64) {
-        console.log('[Protection] Uploading front image...');
-        frontUrl = await uploadImage(frontImageBase64, `front_${Date.now()}.jpg`);
-        if (!frontUrl) throw new Error('Failed to upload front image');
-        console.log('[Protection] Front image uploaded:', frontUrl);
+        try {
+          console.log('[Protection] Uploading front image...');
+          frontUrl = await uploadImage(frontImageBase64, `front_${Date.now()}.jpg`);
+          console.log('[Protection] Front image uploaded:', frontUrl || 'failed, continuing...');
+        } catch (imgErr: any) {
+          console.warn('[Protection] Front image upload failed, continuing:', imgErr.message);
+        }
       }
       
-      // Upload back image
       if (backImageBase64) {
-        console.log('[Protection] Uploading back image...');
-        backUrl = await uploadImage(backImageBase64, `back_${Date.now()}.jpg`);
-        if (!backUrl) throw new Error('Failed to upload back image');
-        console.log('[Protection] Back image uploaded:', backUrl);
+        try {
+          console.log('[Protection] Uploading back image...');
+          backUrl = await uploadImage(backImageBase64, `back_${Date.now()}.jpg`);
+          console.log('[Protection] Back image uploaded:', backUrl || 'failed, continuing...');
+        } catch (imgErr: any) {
+          console.warn('[Protection] Back image upload failed, continuing:', imgErr.message);
+        }
       }
 
       console.log('[Protection] Submitting protection plan application...');
       
-      // Create timeout promise for the apply request (30 seconds)
-      const applyTimeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Application submission timeout')), 30000)
-      );
-      
-      const applyPromise = apiRequest('POST', '/api/protection/apply', {
+      const payload = {
         userId: profile.id,
         userName: profile.name,
         userPhone: profile.phone,
@@ -341,13 +340,25 @@ export default function ProtectionPlanScreen() {
         model: model.trim(),
         modelNumber: modelNumber.trim(),
         planType,
-        frontImage: frontUrl,
-        backImage: backUrl,
-      });
+        frontImage: frontUrl || '',
+        backImage: backUrl || '',
+      };
+      console.log('[Protection] Payload:', payload);
+      
+      // Create timeout promise for the apply request (30 seconds)
+      const applyTimeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Application submission timeout - server not responding')), 30000)
+      );
+      
+      const applyPromise = apiRequest('POST', '/api/protection/apply', payload);
       
       const res = await Promise.race([applyPromise, applyTimeoutPromise]);
       
-      if (!res || !res.ok) throw new Error(`Server error: ${res?.status || 'no response'} ${res?.statusText || ''}`);
+      console.log('[Protection] Response status:', res?.status);
+      if (!res || !res.ok) {
+        const errText = res ? await res.text() : 'No response';
+        throw new Error(`Server error: ${res?.status || 'no response'} - ${errText}`);
+      }
       
       const data = await res.json();
       console.log('[Protection] Application response:', data);
