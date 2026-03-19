@@ -7293,33 +7293,52 @@ Be specific about component locations and names. If image quality is poor or not
   // ── Apply for a Protection Plan ──────────────────────────────────────────────
   app.post('/api/protection/apply', async (req, res) => {
     try {
+      console.log('[Protection] Apply endpoint called with:', { userId: req.body.userId, imei: req.body.imei });
+      
       const { userId, userName, userPhone, imei, brand, model, modelNumber, planType, frontImage, backImage } = req.body;
+      console.log('[Protection] Request data extracted');
+      
       if (!userId || !imei || !brand || !model || !modelNumber || !planType) {
+        console.warn('[Protection] Missing required fields');
         return res.status(400).json({ error: 'Missing required fields' });
       }
       if (!/^\d{15}$/.test(imei)) {
+        console.warn('[Protection] Invalid IMEI format');
         return res.status(400).json({ error: 'IMEI must be exactly 15 digits' });
       }
       if (!['monthly', 'yearly'].includes(planType)) {
+        console.warn('[Protection] Invalid plan type');
         return res.status(400).json({ error: 'Invalid plan type' });
       }
 
       // Block duplicate IMEI
+      console.log('[Protection] Checking for duplicate IMEI...');
       const existing = await db.select().from(protectionPlans)
         .where(and(eq(protectionPlans.imei, imei), ne(protectionPlans.status, 'rejected')))
         .limit(1);
       if (existing.length > 0) {
+        console.warn('[Protection] Duplicate IMEI found');
         return res.status(409).json({ error: 'A plan already exists for this IMEI number' });
       }
 
-      // Fetch user email from profiles table
-      const userProfile = await db.select().from(profiles)
-        .where(eq(profiles.id, userId))
-        .limit(1);
-      const userEmail = userProfile.length > 0 ? (userProfile[0].email || '') : '';
+      // Try to fetch user email from profiles table
+      let userEmail = '';
+      try {
+        console.log('[Protection] Fetching user email for userId:', userId);
+        const userProfile = await db.select().from(profiles)
+          .where(eq(profiles.id, userId))
+          .limit(1);
+        userEmail = userProfile.length > 0 ? (userProfile[0].email || '') : '';
+        console.log('[Protection] User email fetched:', userEmail || '(not found)');
+      } catch (emailErr: any) {
+        console.warn('[Protection] Could not fetch user email:', emailErr.message);
+        userEmail = '';
+      }
 
+      console.log('[Protection] Creating new protection plan...');
       const price = planType === 'yearly' ? 1499 : 447;
       const id = randomUUID();
+      
       await db.insert(protectionPlans).values({
         id,
         userId,
@@ -7344,10 +7363,11 @@ Be specific about component locations and names. If image quality is poor or not
         updatedAt: Date.now(),
       });
 
+      console.log('[Protection] Plan created successfully:', id);
       return res.json({ success: true, planId: id, message: 'Application submitted successfully' });
     } catch (e: any) {
-      console.error('[Protection] Apply error:', e.message);
-      return res.status(500).json({ error: 'Failed to submit application' });
+      console.error('[Protection] Apply error:', e.message, 'Stack:', e.stack);
+      return res.status(500).json({ error: 'Failed to submit application: ' + e.message });
     }
   });
 
