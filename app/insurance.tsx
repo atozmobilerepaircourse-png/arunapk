@@ -263,14 +263,30 @@ export default function ProtectionPlanScreen() {
   // ── Upload image to backend ─────────────────────────────────────────────────
   const uploadImage = useCallback(async (base64: string, name: string): Promise<string> => {
     try {
-      const res = await apiRequest('POST', '/api/protection/upload-image', {
+      console.log('[Protection] Uploading image:', name, 'size:', base64.length);
+      
+      // Create a timeout promise
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Image upload timeout')), 15000)
+      );
+      
+      const uploadPromise = apiRequest('POST', '/api/protection/upload-image', {
         base64,
         filename: name,
       });
+      
+      const res = await Promise.race([uploadPromise, timeoutPromise]);
+      
+      if (!res || !res.ok) {
+        throw new Error(`Upload failed: ${res?.status || 'no response'}`);
+      }
+      
       const data = await res.json();
+      console.log('[Protection] Image uploaded successfully:', data.url);
       return data.url || '';
-    } catch {
-      return '';
+    } catch (e: any) {
+      console.error('[Protection] Image upload error:', e.message);
+      throw new Error(`Failed to upload ${name}: ${e.message}`);
     }
   }, []);
 
@@ -310,7 +326,13 @@ export default function ProtectionPlanScreen() {
       }
 
       console.log('[Protection] Submitting protection plan application...');
-      const res = await apiRequest('POST', '/api/protection/apply', {
+      
+      // Create timeout promise for the apply request (30 seconds)
+      const applyTimeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Application submission timeout')), 30000)
+      );
+      
+      const applyPromise = apiRequest('POST', '/api/protection/apply', {
         userId: profile.id,
         userName: profile.name,
         userPhone: profile.phone,
@@ -323,7 +345,9 @@ export default function ProtectionPlanScreen() {
         backImage: backUrl,
       });
       
-      if (!res.ok) throw new Error(`Server error: ${res.status} ${res.statusText}`);
+      const res = await Promise.race([applyPromise, applyTimeoutPromise]);
+      
+      if (!res || !res.ok) throw new Error(`Server error: ${res?.status || 'no response'} ${res?.statusText || ''}`);
       
       const data = await res.json();
       console.log('[Protection] Application response:', data);
