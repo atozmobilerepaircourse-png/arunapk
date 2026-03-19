@@ -26,7 +26,7 @@ const PURPLE  = '#8B5CF6';
 const GREEN   = '#10B981';
 const AMBER   = '#F59E0B';
 
-type Tab = 'chat' | 'scan' | 'library';
+type Tab = 'chat' | 'scan' | 'voice' | 'library';
 
 interface ChatMessage {
   id: string;
@@ -184,6 +184,11 @@ export default function AIRepairScreen() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [expandedSolution, setExpandedSolution] = useState<string | null>(null);
 
+  // Voice Chat state (separate from text chat)
+  const [voiceChatMessages, setVoiceChatMessages] = useState<ChatMessage[]>([]);
+  const [voiceChatStreaming, setVoiceChatStreaming] = useState(false);
+  const [voiceChatStreamingText, setVoiceChatStreamingText] = useState('');
+
   // ─── Chat Logic ─────────────────────────────────────────────────────────────
 
   const sendMessage = useCallback(async (text: string) => {
@@ -327,7 +332,14 @@ export default function AIRepairScreen() {
         }
         console.log('[Voice] Got transcript:', transcript);
         setInputText(transcript);
-        setTimeout(() => sendMessage(transcript), 100);
+        // Use sendVoiceMessage for voice tab, sendMessage for chat tab
+        setTimeout(() => {
+          if (activeTab === 'voice') {
+            sendVoiceMessage(transcript);
+          } else {
+            sendMessage(transcript);
+          }
+        }, 100);
       };
       
       recognition.onerror = (event: any) => {
@@ -346,7 +358,7 @@ export default function AIRepairScreen() {
     } else {
       Alert.alert('Error', 'Web Speech API not supported on this device');
     }
-  }, [sendMessage]);
+  }, [activeTab, sendMessage, sendVoiceMessage]);
 
   const stopVoiceRecord = useCallback(() => {
     if (recordingRef.current && (recordingRef.current as any).stop) {
@@ -354,6 +366,121 @@ export default function AIRepairScreen() {
       setIsRecording(false);
     }
   }, []);
+
+  // Send voice message to the appropriate chat
+  const sendVoiceMessage = useCallback(async (text: string) => {
+    if (!text.trim()) return;
+
+    const isVoiceTab = activeTab === 'voice';
+    const userMsg: ChatMessage = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: text.trim(),
+      timestamp: new Date(),
+    };
+
+    if (isVoiceTab) {
+      setVoiceChatMessages(prev => [userMsg, ...prev].slice(0, 20));
+      setVoiceChatStreaming(true);
+      setVoiceChatStreamingText('');
+    } else {
+      setMessages(prev => [userMsg, ...prev].slice(0, 20));
+      setIsStreaming(true);
+      setStreamingText('');
+    }
+
+    try {
+      const fullHistory = (isVoiceTab ? voiceChatMessages : messages);
+      const history = [
+        { role: 'system' as const, content: 'You are an expert mobile phone hardware repair technician with 20+ years of experience. Help diagnose and repair mobile phone hardware issues. Be specific about components, tools, and repair steps.' },
+        ...fullHistory.map(m => ({ role: m.role, content: m.content })).reverse(),
+        userMsg,
+      ];
+
+      const url = new URL('/api/ai/repair/chat', getApiUrl());
+      abortRef.current = new AbortController();
+
+      const response = await fetch(url.toString(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: history }),
+        signal: abortRef.current.signal,
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'AI service error');
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error('No reader');
+
+      const decoder = new TextDecoder();
+      let fullText = '';
+      let isDone = false;
+
+      while (!isDone) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split('\n');
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const dataStr = line.slice(6).trim();
+            if (dataStr === '[DONE]') {
+              isDone = true;
+              break;
+            }
+            if (!dataStr) continue;
+
+            try {
+              const parsed = JSON.parse(dataStr);
+              if (parsed && typeof parsed.content === 'string') {
+                fullText += parsed.content;
+                if (isVoiceTab) {
+                  setVoiceChatStreamingText(prev => prev + parsed.content);
+                } else {
+                  setStreamingText(prev => prev + parsed.content);
+                }
+              }
+            } catch (parseErr) {
+              console.warn('[AI] JSON parse error:', parseErr);
+            }
+          }
+        }
+      }
+
+      const aiMsg: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: fullText,
+        timestamp: new Date(),
+      };
+
+      if (isVoiceTab) {
+        setVoiceChatMessages(prev => [aiMsg, ...prev].slice(0, 20));
+        setVoiceChatStreaming(false);
+        setVoiceChatStreamingText('');
+        // Auto-play TTS response if voice enabled
+        if (voiceEnabled && fullText.trim()) {
+          setTimeout(() => playVoice(aiMsg.id, fullText), 300);
+        }
+      } else {
+        setMessages(prev => [aiMsg, ...prev].slice(0, 20));
+        setIsStreaming(false);
+        setStreamingText('');
+      }
+    } catch (error: any) {
+      console.error('[Voice] Message send error:', error);
+      if (isVoiceTab) {
+        setVoiceChatStreaming(false);
+      } else {
+        setIsStreaming(false);
+      }
+    }
+  }, [activeTab, messages, voiceChatMessages, voiceEnabled, playVoice]);
 
   const playVoice = useCallback(async (messageId: string, text: string) => {
     try {
@@ -763,6 +890,99 @@ export default function AIRepairScreen() {
     </ScrollView>
   );
 
+  const renderVoiceChat = () => (
+    <View style={{ flex: 1 }}>
+      {/* Messages */}
+      {voiceChatMessages.length > 0 ? (
+        <FlatList
+          data={voiceChatMessages}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => {
+            const isUser = item.role === 'user';
+            const contentStr = String(item.content).trim();
+            const isPlaying = playingMessageId === item.id;
+            
+            if (!contentStr) return null;
+            
+            return (
+              <View style={[s.msgRow, isUser ? s.msgRowUser : s.msgRowAI]}>
+                {!isUser && (
+                  <View style={s.aiAvatar}>
+                    <Ionicons name="hardware-chip" size={16} color={ACCENT} />
+                  </View>
+                )}
+                <View style={[s.bubble, isUser ? s.bubbleUser : s.bubbleAI]}>
+                  <Text style={[s.bubbleText, isUser ? s.bubbleTextUser : s.bubbleTextAI]}>
+                    {contentStr}
+                  </Text>
+                  {!isUser && voiceEnabled && (
+                    <Pressable
+                      style={[s.actionBtn, isPlaying && { backgroundColor: ACCENT + '30' }]}
+                      onPress={() => playVoice(item.id, contentStr)}
+                    >
+                      <Ionicons name={isPlaying ? "pause" : "volume-high"} size={12} color={ACCENT} />
+                      <Text style={[s.actionBtnText, { color: ACCENT }]}>{isPlaying ? 'Playing' : 'Listen'}</Text>
+                    </Pressable>
+                  )}
+                </View>
+              </View>
+            );
+          }}
+          inverted
+          contentContainerStyle={{ paddingHorizontal: 12, paddingVertical: 8 }}
+          showsVerticalScrollIndicator={false}
+        />
+      ) : (
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={[s.quickContainer, { justifyContent: 'center', alignItems: 'center', paddingBottom: botPad }]}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={{ alignItems: 'center' }}>
+            <View style={[s.welcomeIcon, { marginBottom: 20 }]}>
+              <Ionicons name="call" size={36} color={ACCENT} />
+            </View>
+            <Text style={s.welcomeTitle}>Live Voice Chat</Text>
+            <Text style={[s.welcomeSub, { marginBottom: 32 }]}>
+              Speak naturally with the AI repair expert. Get instant voice guidance.
+            </Text>
+          </View>
+        </ScrollView>
+      )}
+
+      {/* Voice Chat Button */}
+      {!voiceChatStreaming && (
+        <View style={{ padding: 16, paddingBottom: botPad + 8, backgroundColor: CARD, borderTopWidth: 1, borderTopColor: BORDER, alignItems: 'center' }}>
+          <Pressable
+            style={[s.talkToAiBtn, isRecording && { backgroundColor: ACCENT, borderColor: ACCENT }]}
+            onPress={() => isRecording ? stopVoiceRecord() : startVoiceRecord()}
+          >
+            <Ionicons 
+              name={isRecording ? "stop-circle" : "call"} 
+              size={36} 
+              color={isRecording ? '#FFF' : ACCENT}
+            />
+          </Pressable>
+          <Text style={s.voicePromptText}>{isRecording ? 'Listening...' : 'Tap to Speak'}</Text>
+          <Text style={s.voicePromptSub}>{isRecording ? 'Say your question' : 'Ask a repair question'}</Text>
+        </View>
+      )}
+
+      {/* Clear button */}
+      {voiceChatMessages.length > 0 && (
+        <View style={{ padding: 8, paddingBottom: botPad + 8, backgroundColor: CARD, alignItems: 'center' }}>
+          <Pressable 
+            style={s.clearBtn}
+            onPress={() => setVoiceChatMessages([])}
+          >
+            <Ionicons name="close-circle-outline" size={16} color={MUTED} />
+            <Text style={s.clearBtnText}>Clear</Text>
+          </Pressable>
+        </View>
+      )}
+    </View>
+  );
+
   const renderLibrary = () => (
     <View style={{ flex: 1 }}>
       {/* Search */}
@@ -910,6 +1130,7 @@ export default function AIRepairScreen() {
         {([
           { key: 'chat', label: 'AI Chat', icon: 'chatbubble-ellipses-outline' },
           { key: 'scan', label: 'Scan', icon: 'scan-outline' },
+          { key: 'voice', label: 'Voice', icon: 'call' },
           { key: 'library', label: 'Library', icon: 'library-outline' },
         ] as const).map(tab => (
           <Pressable
@@ -933,6 +1154,7 @@ export default function AIRepairScreen() {
       <View style={{ flex: 1 }}>
         {activeTab === 'chat' && renderChat()}
         {activeTab === 'scan' && renderScan()}
+        {activeTab === 'voice' && renderVoiceChat()}
         {activeTab === 'library' && renderLibrary()}
       </View>
     </View>
