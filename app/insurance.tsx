@@ -148,25 +148,36 @@ export default function ProtectionPlanScreen() {
 
   useEffect(() => { fetchPlan(); }, [fetchPlan]);
 
-  // ── Image picker (camera only) ──────────────────────────────────────────────
+  // ── Image picker (camera on mobile, file picker on web) ───────────────────
   const captureImage = useCallback(async (which: 'front' | 'back' | 'claim') => {
     try {
-      if (Platform.OS === 'web') {
-        Alert.alert('Camera', 'Use a mobile device to capture images with the camera.');
-        return;
-      }
       const ImagePicker = await import('expo-image-picker');
-      const perm = await ImagePicker.requestCameraPermissionsAsync();
-      if (!perm.granted) {
-        Alert.alert('Camera Required', 'Please allow camera access to capture device images.');
-        return;
+      const isWeb = typeof window !== 'undefined';
+      let result;
+
+      if (isWeb) {
+        // On web, use file picker
+        result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: 'images',
+          quality: 0.7,
+          base64: true,
+          exif: false,
+        });
+      } else {
+        // On mobile, use camera
+        const perm = await ImagePicker.requestCameraPermissionsAsync();
+        if (!perm.granted) {
+          Alert.alert('Camera Required', 'Please allow camera access to capture device images.');
+          return;
+        }
+        result = await ImagePicker.launchCameraAsync({
+          mediaTypes: 'images',
+          quality: 0.7,
+          base64: true,
+          exif: false,
+        });
       }
-      const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: 'images',
-        quality: 0.7,
-        base64: true,
-        exif: false,
-      });
+
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
         const uri = asset.uri;
@@ -176,7 +187,7 @@ export default function ProtectionPlanScreen() {
         else { setClaimImage(uri); setClaimImageBase64(b64); }
       }
     } catch (e) {
-      Alert.alert('Error', 'Failed to capture image');
+      Alert.alert('Error', 'Failed to pick image. Please try again.');
     }
   }, []);
 
@@ -376,8 +387,8 @@ export default function ProtectionPlanScreen() {
 
             {/* Damage image */}
             <View style={[styles.card, { marginBottom: 16 }]}>
-              <Text style={styles.label}>Capture Damage Photo *</Text>
-              <Text style={{ fontSize: 12, color: MUTED, marginBottom: 10 }}>Camera only — tap to capture</Text>
+              <Text style={styles.label}>Upload Damage Photo *</Text>
+              <Text style={{ fontSize: 12, color: MUTED, marginBottom: 10 }}>Tap to select or capture an image</Text>
               <TouchableOpacity style={styles.imgPlaceholder} onPress={() => captureImage('claim')}>
                 {claimImage
                   ? <Image source={{ uri: claimImage }} style={{ width: '100%', height: '100%', borderRadius: 12 }} resizeMode="cover" />
@@ -808,7 +819,7 @@ export default function ProtectionPlanScreen() {
 
           <View style={[styles.card, { backgroundColor: PRIMARY_L, marginBottom: 16 }]}>
             <Text style={{ fontSize: 13, color: PRIMARY, fontFamily: 'Inter_600SemiBold' }}>
-              📸 Timestamp will be added automatically for fraud protection
+              📸 Upload clear photos of your device (mobile: camera, web: file picker)
             </Text>
           </View>
 
@@ -819,8 +830,8 @@ export default function ProtectionPlanScreen() {
                 {frontImage
                   ? <Image source={{ uri: frontImage }} style={{ width: '100%', height: '100%', borderRadius: 12 }} resizeMode="cover" />
                   : <View style={{ alignItems: 'center', gap: 8 }}>
-                      <Ionicons name="camera-outline" size={32} color={MUTED} />
-                      <Text style={{ color: MUTED, fontSize: 12 }}>Tap to capture</Text>
+                      <Ionicons name="image-outline" size={32} color={MUTED} />
+                      <Text style={{ color: MUTED, fontSize: 12 }}>Tap to select</Text>
                     </View>
                 }
               </TouchableOpacity>
@@ -831,8 +842,8 @@ export default function ProtectionPlanScreen() {
                 {backImage
                   ? <Image source={{ uri: backImage }} style={{ width: '100%', height: '100%', borderRadius: 12 }} resizeMode="cover" />
                   : <View style={{ alignItems: 'center', gap: 8 }}>
-                      <Ionicons name="camera-outline" size={32} color={MUTED} />
-                      <Text style={{ color: MUTED, fontSize: 12 }}>Tap to capture</Text>
+                      <Ionicons name="image-outline" size={32} color={MUTED} />
+                      <Text style={{ color: MUTED, fontSize: 12 }}>Tap to select</Text>
                     </View>
                 }
               </TouchableOpacity>
