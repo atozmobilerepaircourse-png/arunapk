@@ -336,158 +336,64 @@ export default function AIRepairScreen() {
       const uri = recordingRef.current.getURI();
       
       if (!uri) {
-        Alert.alert('Error', 'Could not get audio file');
+        console.error('[Voice] No URI from recording');
         return;
       }
 
       console.log('[Voice] Recording stopped, uri:', uri);
 
-      // Read file as base64
-      const response = await fetch(uri);
-      const blob = await response.blob();
+      // Read file as base64 (use Blob API with Promise wrapper)
+      const fileResponse = await fetch(uri);
+      const blob = await fileResponse.blob();
       
-      const reader = new FileReader();
-      reader.onload = async () => {
-        try {
-          const base64Audio = (reader.result as string).split(',')[1];
-          
-          // Send base64 audio to backend for transcription
-          const apiUrl = getApiUrl();
-          const transcribeResponse = await fetch(`${apiUrl}/api/ai/repair/stt`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ audioBase64: base64Audio, mimeType: 'audio/m4a' }),
-          });
+      const base64Audio = await new Promise<string>((resolve, reject) => {
+        const fileReader = new FileReader();
+        fileReader.onload = () => {
+          const result = fileReader.result as string;
+          const base64 = result.split(',')[1];
+          resolve(base64);
+        };
+        fileReader.onerror = (err) => {
+          console.error('[Voice] FileReader error:', err);
+          reject(err);
+        };
+        fileReader.readAsDataURL(blob);
+      });
 
-          if (!transcribeResponse.ok) {
-            const errData = await transcribeResponse.json().catch(() => ({}));
-            console.error('[Voice] Transcribe error:', errData);
-            Alert.alert('Error', 'Could not transcribe audio. Try again.');
-            return;
-          }
+      console.log('[Voice] Base64 audio prepared, length:', base64Audio.length);
 
-          const data = await transcribeResponse.json();
-          console.log('[Voice] Transcription result:', data);
-          
-          if (data.text && data.text.trim()) {
-            console.log('[Voice] Transcription complete:', data.text);
-            // Auto-send voice message and set flag to auto-play TTS response
-            setAutoPlayNextResponse(true);
-            setInputText('');
-            setIsRecording(false);
-            // Auto-send the transcribed message
-            const userMsg: ChatMessage = {
-              id: Date.now().toString(),
-              role: 'user',
-              content: data.text.trim(),
-              timestamp: new Date(),
-            };
-            setMessages(prev => {
-              const updated = [userMsg, ...prev];
-              return updated.slice(0, 20);
-            });
-            setIsStreaming(true);
-            setStreamingText('');
-            
-            // Send to AI and auto-play response
-            const url = new URL('/api/ai/repair/chat', getApiUrl());
-            const fullHistory = [...messages, userMsg].reverse().map(m => ({
-              role: m.role,
-              content: m.content,
-            }));
-            const history = [
-              { role: 'system' as const, content: 'You are an expert mobile phone hardware repair technician with 20+ years of experience. Help diagnose and repair mobile phone hardware issues. Be specific about components, tools, and repair steps.' },
-              ...fullHistory,
-            ];
-            
-            abortRef.current = new AbortController();
-            const response = await fetch(url.toString(), {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ messages: history }),
-              signal: abortRef.current.signal,
-            });
+      // Send to backend for transcription
+      const apiUrl = getApiUrl();
+      const transcribeResponse = await fetch(`${apiUrl}/api/ai/repair/stt`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ audioBase64: base64Audio, mimeType: 'audio/m4a' }),
+      });
 
-            if (!response.ok) {
-              const errData = await response.json().catch(() => ({}));
-              console.error('[Voice] AI error:', errData);
-              setIsStreaming(false);
-              setAutoPlayNextResponse(false);
-              return;
-            }
+      if (!transcribeResponse.ok) {
+        const errData = await transcribeResponse.json().catch(() => ({}));
+        console.error('[Voice] STT error:', transcribeResponse.status, errData);
+        Alert.alert('Error', 'Could not transcribe audio');
+        return;
+      }
 
-            const reader = response.body?.getReader();
-            if (!reader) throw new Error('No reader');
+      const data = await transcribeResponse.json();
+      console.log('[Voice] Transcription result:', data);
 
-            const decoder = new TextDecoder();
-            let fullText = '';
-            let isDone = false;
-
-            while (!isDone) {
-              const { done, value } = await reader.read();
-              if (done) break;
-
-              const chunk = decoder.decode(value, { stream: true });
-              const lines = chunk.split('\n');
-
-              for (const line of lines) {
-                if (line.startsWith('data: ')) {
-                  const dataStr = line.slice(6).trim();
-                  if (dataStr === '[DONE]') {
-                    isDone = true;
-                    break;
-                  }
-                  if (!dataStr) continue;
-                  
-                  try {
-                    const parsed = JSON.parse(dataStr);
-                    if (parsed && typeof parsed.content === 'string') {
-                      fullText += parsed.content;
-                      setStreamingText(prev => prev + parsed.content);
-                    }
-                  } catch (parseErr) {
-                    console.warn('[Voice] JSON parse error:', parseErr);
-                  }
-                }
-              }
-            }
-
-            setIsStreaming(false);
-            const aiMsg: ChatMessage = {
-              id: (Date.now() + 1).toString(),
-              role: 'assistant',
-              content: fullText,
-              timestamp: new Date(),
-            };
-            setMessages(prev => {
-              const updated = [aiMsg, ...prev];
-              return updated.slice(0, 20);
-            });
-            setStreamingText('');
-
-            // Auto-play TTS response if voice was enabled
-            if (autoPlayNextResponse && voiceEnabled && fullText.trim()) {
-              console.log('[Voice] Auto-playing TTS response');
-              setTimeout(() => playVoice(aiMsg.id, fullText), 300);
-            }
-            setAutoPlayNextResponse(false);
-          } else {
-            Alert.alert('No speech detected', 'Please speak clearly and try again.');
-          }
-        } catch (error) {
-          console.error('[Voice] Processing error:', error);
-          Alert.alert('Error', 'Could not process recording');
-        }
-      };
-      reader.onerror = () => {
-        Alert.alert('Error', 'Could not read audio file');
-      };
-      reader.readAsDataURL(blob);
+      if (data.text && data.text.trim()) {
+        console.log('[Voice] Got text, auto-sending:', data.text);
+        // Just set the input - let user see it first
+        setInputText(data.text.trim());
+        // Auto-send after a short delay
+        setTimeout(() => sendMessage(data.text.trim()), 100);
+      } else {
+        Alert.alert('No speech detected', 'Please speak clearly and try again.');
+      }
     } catch (error) {
-      console.error('[Voice] Recording stop error:', error);
-      Alert.alert('Error', 'Could not stop recording');
+      console.error('[Voice] Stop record error:', error);
+      Alert.alert('Error', 'Could not process voice recording');
     }
-  }, []);
+  }, [sendMessage]);
 
   const playVoice = useCallback(async (messageId: string, text: string) => {
     try {
