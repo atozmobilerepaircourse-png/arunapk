@@ -163,15 +163,41 @@ export default function ProtectionPlanScreen() {
         hiddenInput.onchange = async (e: any) => {
           const file = e.target.files?.[0];
           if (file) {
-            const reader = new FileReader();
-            reader.onload = (event: any) => {
-              const base64 = event.target.result?.split(',')[1] || '';
-              const uri = event.target.result;
-              if (which === 'front') { setFrontImage(uri); setFrontImageBase64(base64); }
-              else if (which === 'back') { setBackImage(uri); setBackImageBase64(base64); }
-              else { setClaimImage(uri); setClaimImageBase64(base64); }
-            };
-            reader.readAsDataURL(file);
+            try {
+              // Use Promise-based FileReader for proper async handling
+              const base64 = await new Promise<string>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (event: any) => {
+                  try {
+                    const result = event.target.result || '';
+                    const b64 = typeof result === 'string' ? result.split(',')[1] || '' : '';
+                    if (!b64) reject(new Error('Failed to encode image'));
+                    resolve(b64);
+                  } catch (err) {
+                    reject(err);
+                  }
+                };
+                reader.onerror = () => reject(new Error('Failed to read file'));
+                reader.readAsDataURL(file);
+              });
+
+              // Now safely set state with the base64 data
+              const uri = URL.createObjectURL(file);
+              if (which === 'front') { 
+                setFrontImage(uri); 
+                setFrontImageBase64(base64); 
+              }
+              else if (which === 'back') { 
+                setBackImage(uri); 
+                setBackImageBase64(base64); 
+              }
+              else { 
+                setClaimImage(uri); 
+                setClaimImageBase64(base64); 
+              }
+            } catch (err: any) {
+              Alert.alert('Error', 'Failed to process image: ' + (err.message || 'Unknown error'));
+            }
           }
         };
         hiddenInput.click();
@@ -251,14 +277,39 @@ export default function ProtectionPlanScreen() {
   // ── Submit application ────────────────────────────────────────────────────────
   const handleSubmit = useCallback(async () => {
     if (!agreed) { Alert.alert('Consent Required', 'Please agree to the terms to continue.'); return; }
-    if (!profile?.id) { router.push('/onboarding'); return; }
+    if (!profile?.id) { Alert.alert('Login Required', 'Please log in to continue.'); router.push('/onboarding'); return; }
+    
+    // Validate all required fields
+    if (!imei || imei.length !== 15) { Alert.alert('Invalid IMEI', 'Please enter a valid 15-digit IMEI number.'); return; }
+    if (!brand) { Alert.alert('Missing Information', 'Please select your phone brand.'); return; }
+    if (!model) { Alert.alert('Missing Information', 'Please enter your phone model.'); return; }
+    if (!modelNumber) { Alert.alert('Missing Information', 'Please enter your model number.'); return; }
+    if (!frontImageBase64 || !backImageBase64) { Alert.alert('Missing Images', 'Please capture both front and back photos of your device.'); return; }
+
     setSubmitting(true);
     try {
+      console.log('[Protection] Submitting application...', { profile: profile.id, brand, model, imei });
+      
       let frontUrl = '';
       let backUrl = '';
-      if (frontImageBase64) frontUrl = await uploadImage(frontImageBase64, `front_${Date.now()}.jpg`);
-      if (backImageBase64) backUrl = await uploadImage(backImageBase64, `back_${Date.now()}.jpg`);
+      
+      // Upload front image
+      if (frontImageBase64) {
+        console.log('[Protection] Uploading front image...');
+        frontUrl = await uploadImage(frontImageBase64, `front_${Date.now()}.jpg`);
+        if (!frontUrl) throw new Error('Failed to upload front image');
+        console.log('[Protection] Front image uploaded:', frontUrl);
+      }
+      
+      // Upload back image
+      if (backImageBase64) {
+        console.log('[Protection] Uploading back image...');
+        backUrl = await uploadImage(backImageBase64, `back_${Date.now()}.jpg`);
+        if (!backUrl) throw new Error('Failed to upload back image');
+        console.log('[Protection] Back image uploaded:', backUrl);
+      }
 
+      console.log('[Protection] Submitting protection plan application...');
       const res = await apiRequest('POST', '/api/protection/apply', {
         userId: profile.id,
         userName: profile.name,
@@ -271,14 +322,20 @@ export default function ProtectionPlanScreen() {
         frontImage: frontUrl,
         backImage: backUrl,
       });
+      
+      if (!res.ok) throw new Error(`Server error: ${res.status} ${res.statusText}`);
+      
       const data = await res.json();
+      console.log('[Protection] Application response:', data);
+      
       if (!data.success) throw new Error(data.error || 'Submission failed');
 
       Alert.alert('Application Submitted!', 'Your Mobile Protection Plan application is under verification. We will notify you within 24 hours.', [
         { text: 'OK', onPress: () => fetchPlan() }
       ]);
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'Failed to submit. Please try again.');
+      console.error('[Protection] Submission error:', e);
+      Alert.alert('Submission Failed', e.message || 'Failed to submit application. Please try again.');
     } finally {
       setSubmitting(false);
     }
