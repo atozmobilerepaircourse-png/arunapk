@@ -310,7 +310,65 @@ export default function AIRepairScreen() {
     });
   };
 
-  // Send voice message to the appropriate chat (DEFINED FIRST)
+  // DEFINE PLAYVICE FIRST (before sendVoiceMessage which uses it)
+  const playVoice = useCallback(async (messageId: string, text: string) => {
+    try {
+      // Stop current playback
+      if (soundRef.current) {
+        await soundRef.current.stopAsync();
+        await soundRef.current.unloadAsync();
+        soundRef.current = null;
+      }
+
+      if (playingMessageId === messageId) {
+        setPlayingMessageId(null);
+        return;
+      }
+
+      setPlayingMessageId(messageId);
+
+      // Request audio from backend TTS endpoint
+      const apiUrl = getApiUrl();
+      const response = await fetch(`${apiUrl}/api/ai/repair/tts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+
+      if (!response.ok) {
+        Alert.alert('Error', 'Could not generate voice');
+        setPlayingMessageId(null);
+        return;
+      }
+
+      const blob = await response.blob();
+      const uri = 'data:audio/mp3;base64,' + (await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result?.toString().split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      }));
+
+      const sound = new Audio.Sound();
+      soundRef.current = sound;
+      
+      await sound.loadAsync({ uri });
+      await sound.playAsync();
+
+      // Handle playback completion
+      sound.setOnPlaybackStatusUpdate((status: any) => {
+        if (status.didJustFinish) {
+          setPlayingMessageId(null);
+        }
+      });
+    } catch (error) {
+      console.error('Voice playback error:', error);
+      setPlayingMessageId(null);
+      Alert.alert('Error', 'Could not play voice');
+    }
+  }, [playingMessageId]);
+
+  // Send voice message to the appropriate chat (DEFINED SECOND, after playVoice)
   const sendVoiceMessage = useCallback(async (text: string) => {
     if (!text.trim()) return;
 
@@ -477,63 +535,6 @@ export default function AIRepairScreen() {
       setIsRecording(false);
     }
   }, []);
-
-  const playVoice = useCallback(async (messageId: string, text: string) => {
-    try {
-      // Stop current playback
-      if (soundRef.current) {
-        await soundRef.current.stopAsync();
-        await soundRef.current.unloadAsync();
-        soundRef.current = null;
-      }
-
-      if (playingMessageId === messageId) {
-        setPlayingMessageId(null);
-        return;
-      }
-
-      setPlayingMessageId(messageId);
-
-      // Request audio from backend TTS endpoint
-      const apiUrl = getApiUrl();
-      const response = await fetch(`${apiUrl}/api/ai/repair/tts`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text }),
-      });
-
-      if (!response.ok) {
-        Alert.alert('Error', 'Could not generate voice');
-        setPlayingMessageId(null);
-        return;
-      }
-
-      const blob = await response.blob();
-      const uri = 'data:audio/mp3;base64,' + (await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result?.toString().split(',')[1]);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-      }));
-
-      const sound = new Audio.Sound();
-      soundRef.current = sound;
-      
-      await sound.loadAsync({ uri });
-      await sound.playAsync();
-
-      // Handle playback completion
-      sound.setOnPlaybackStatusUpdate((status: any) => {
-        if (status.didJustFinish) {
-          setPlayingMessageId(null);
-        }
-      });
-    } catch (error) {
-      console.error('Voice playback error:', error);
-      setPlayingMessageId(null);
-      Alert.alert('Error', 'Could not play voice');
-    }
-  }, [playingMessageId]);
 
   // ─── Scan Logic ─────────────────────────────────────────────────────────────
 
