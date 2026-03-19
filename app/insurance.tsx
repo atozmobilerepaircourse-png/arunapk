@@ -552,9 +552,33 @@ export default function ProtectionPlanScreen() {
             )}
 
             {plan.status === 'rejected' && (
-              <View style={{ marginTop: 14, backgroundColor: '#FFEEEE', borderRadius: 12, padding: 12 }}>
-                <Text style={{ fontSize: 13, color: RED, fontFamily: 'Inter_600SemiBold' }}>Rejection Reason:</Text>
-                <Text style={{ fontSize: 13, color: RED, marginTop: 4 }}>{plan.rejectionReason || 'Application did not meet eligibility criteria'}</Text>
+              <View style={{ marginTop: 14, backgroundColor: '#FFEEEE', borderRadius: 12, padding: 14 }}>
+                <Text style={{ fontSize: 14, color: RED, fontFamily: 'Inter_700Bold', marginBottom: 8 }}>Application Rejected</Text>
+                <Text style={{ fontSize: 12, color: RED, marginBottom: 12 }}>
+                  Reason: {plan.rejectionReason || 'Application did not meet eligibility criteria'}
+                </Text>
+                <Text style={{ fontSize: 12, color: DARK, marginBottom: 12, lineHeight: 18 }}>
+                  You can update your details and apply again. We'll help you get your Mobile Protection Plan approved.
+                </Text>
+                <TouchableOpacity 
+                  style={{ 
+                    backgroundColor: PRIMARY, 
+                    borderRadius: 8, 
+                    paddingVertical: 11, 
+                    alignItems: 'center',
+                    activeOpacity: 0.8
+                  }}
+                  onPress={() => {
+                    // Pre-fill form with previous data
+                    setBrand(plan.brand);
+                    setModel(plan.model);
+                    setModelNumber(plan.modelNumber);
+                    setImei(plan.imei);
+                    // Navigate to device step for editing
+                    setStep('device');
+                  }}>
+                  <Text style={{ fontSize: 14, color: '#FFF', fontFamily: 'Inter_700Bold' }}>Try Again</Text>
+                </TouchableOpacity>
               </View>
             )}
           </View>

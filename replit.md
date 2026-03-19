@@ -6,9 +6,38 @@ Mobile app (Expo/React Native) for repair professionals with social feed, direct
 **Backend**: Express/TypeScript on Cloud Run @ `https://repair-backend-3siuld7gbq-el.a.run.app`
 **Frontend**: Firebase Hosting @ `https://mobile-repair-app-276b6.web.app`
 
-## Latest Session - Auto-Login & Database Cleanup
+## Latest Session - Admin Panel Fixes & Rejected Plan "Try Again" Button
 
 ### ✅ COMPLETED:
+
+**Admin Panel Action Buttons Fixed**
+- Fixed Approve/Reject buttons for Protection Plans
+  - Web: Uses `window.prompt()` for rejection reason input
+  - Mobile: Uses `Alert.alert()` for confirmation
+  - Added console logging for debugging: `[Admin] button pressed`
+- Fixed all Claim action buttons (Under Review, Approve, Reject, Assign Technician, Mark Completed)
+  - Added platform detection (web vs mobile)
+  - All buttons have working handlers with logging
+  - Better touch targets (minHeight: 40px+)
+  - Success/error alerts after action
+- Backend: Added 'under_review' status handling to claim route
+- Enhanced image display: Device images side-by-side, damage images full-width with proper placeholders
+- Deployed ✓
+
+**Rejected Plans - "Try Again" Button**
+- When plan status === 'rejected', display:
+  - Clear "Application Rejected" heading
+  - Rejection reason from database
+  - Helpful message: "You can update your details and apply again"
+  - Orange "Try Again" button (full-width, matching app theme)
+- Button functionality:
+  - Pre-fills form with previous data (brand, model, modelNumber, imei)
+  - Navigates to device details step so user can edit
+  - Allows resubmission with updated information
+- UI: Red background card (#FFEEEE) with clear visual hierarchy
+- Deployed ✓
+
+**Previous Session - Auto-Login & Database Cleanup**
 
 **Auto-Login (OTP Bypass)**
 - Created `/api/auth/auto-login` endpoint (backend)
@@ -16,14 +45,11 @@ Mobile app (Expo/React Native) for repair professionals with social feed, direct
 - Instant session creation for existing users
 - New users go directly to profile details screen
 - Deployed to production ✓
-- Tested and verified working ✓
 
 **Database Cleanup**
 - Added `/api/admin/complete-wipe` endpoint
-- Deleted ALL non-admin users, posts, products, courses, reels, messages, payments, ads
 - Cleaned both local dev DB and production DB
 - Only admin (8179142535) remains as active user
-- App ready for fresh setup
 
 ### Previous Sessions - Feature Completion
 
