@@ -7177,6 +7177,63 @@ Be specific about component locations and names. If image quality is poor or not
     }
   });
 
+  // ─── STT for AI Chat (Speech-to-Text) ────────────────────────────────────────
+  app.post("/api/ai/repair/stt", async (req, res) => {
+    try {
+      const files = req.files as any;
+      if (!files || !files.audio) {
+        return res.status(400).json({ error: 'No audio file provided' });
+      }
+
+      const audioFile = files.audio[0];
+      const audioBuffer = audioFile.buffer;
+
+      const gcpKey = process.env.GCP_SA_KEY;
+      if (!gcpKey) {
+        console.warn('[STT] GCP_SA_KEY not configured');
+        return res.status(503).json({ error: 'STT service not available' });
+      }
+
+      try {
+        const credentials = JSON.parse(gcpKey);
+        const speech = require('@google-cloud/speech');
+        const client = new speech.SpeechClient({
+          credentials,
+          projectId: credentials.project_id,
+        });
+
+        // Encode audio to base64
+        const audioContent = audioBuffer.toString('base64');
+
+        const request = {
+          audio: { content: audioContent },
+          config: {
+            encoding: 'M4A',
+            languageCode: 'en-US',
+            model: 'default',
+          },
+        };
+
+        const [response] = await client.recognize(request);
+        const transcription = response.results
+          ?.map(result => result.alternatives?.[0]?.transcript)
+          .join('\n') || '';
+
+        if (!transcription) {
+          return res.json({ text: '', confidence: 0 });
+        }
+
+        res.json({ text: transcription, confidence: 100 });
+      } catch (gErr: any) {
+        console.error('[STT] Google Cloud error:', gErr.message);
+        return res.status(503).json({ error: 'STT service error' });
+      }
+    } catch (error: any) {
+      console.error('[STT] Error:', error?.message);
+      res.status(500).json({ error: 'Failed to transcribe audio' });
+    }
+  });
+
   // ─── TTS for AI Chat ──────────────────────────────────────────────────────────
   app.post("/api/ai/repair/tts", async (req, res) => {
     try {

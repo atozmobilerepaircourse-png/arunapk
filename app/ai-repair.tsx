@@ -10,6 +10,7 @@ import { router } from 'expo-router';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import * as ImagePicker from 'expo-image-picker';
 import { Audio } from 'expo-av';
+import * as Speech from 'expo-speech';
 import { fetch } from 'expo/fetch';
 import { getApiUrl } from '@/lib/query-client';
 
@@ -169,6 +170,8 @@ export default function AIRepairScreen() {
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [playingMessageId, setPlayingMessageId] = useState<string | null>(null);
   const soundRef = useRef<Audio.Sound | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const recordingRef = useRef<Audio.Recording | null>(null);
 
   // Scan state
   const [scanImage, setScanImage] = useState<{ uri: string; base64?: string | null; mimeType: string } | null>(null);
@@ -300,6 +303,70 @@ export default function AIRepairScreen() {
       },
     });
   };
+
+  const startVoiceRecord = useCallback(async () => {
+    try {
+      await Audio.requestPermissionsAsync();
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+      });
+
+      const recording = new Audio.Recording();
+      recordingRef.current = recording;
+      
+      await recording.prepareToRecordAsync(
+        Audio.RecordingOptionsPresets.HIGH_QUALITY
+      );
+      await recording.startAsync();
+      setIsRecording(true);
+    } catch (error) {
+      console.error('Recording start error:', error);
+      Alert.alert('Error', 'Could not start recording');
+    }
+  }, []);
+
+  const stopVoiceRecord = useCallback(async () => {
+    try {
+      if (!recordingRef.current) return;
+
+      setIsRecording(false);
+      await recordingRef.current.stopAndUnloadAsync();
+      const uri = recordingRef.current.getURI();
+      
+      if (!uri) {
+        Alert.alert('Error', 'Could not get audio file');
+        return;
+      }
+
+      // Send audio to backend for transcription
+      const formData = new FormData();
+      formData.append('audio', {
+        uri,
+        type: 'audio/m4a',
+        name: 'voice.m4a',
+      } as any);
+
+      const apiUrl = getApiUrl();
+      const response = await fetch(`${apiUrl}/api/ai/repair/stt`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        Alert.alert('Error', 'Could not transcribe audio');
+        return;
+      }
+
+      const data = await response.json();
+      if (data.text && data.text.trim()) {
+        setInputText(data.text);
+      }
+    } catch (error) {
+      console.error('Recording stop error:', error);
+      Alert.alert('Error', 'Could not process recording');
+    }
+  }, []);
 
   const playVoice = useCallback(async (messageId: string, text: string) => {
     try {
@@ -594,16 +661,27 @@ export default function AIRepairScreen() {
             style={s.input}
             value={inputText}
             onChangeText={setInputText}
-            placeholder="Ask a repair question..."
-            placeholderTextColor={MUTED}
+            placeholder={isRecording ? 'Recording...' : 'Ask a repair question...'}
+            placeholderTextColor={isRecording ? ACCENT : MUTED}
             multiline
             maxLength={500}
             onSubmitEditing={() => sendMessage(inputText)}
+            editable={!isRecording}
           />
           <Pressable
-            style={[s.sendBtn, (!inputText.trim() || isStreaming) && s.sendBtnDisabled]}
+            style={[s.iconBtn, isRecording && s.iconBtnActive]}
+            onPress={() => isRecording ? stopVoiceRecord() : startVoiceRecord()}
+          >
+            <Ionicons 
+              name={isRecording ? "stop-circle" : "mic-outline"} 
+              size={18} 
+              color={isRecording ? ACCENT : MUTED}
+            />
+          </Pressable>
+          <Pressable
+            style={[s.sendBtn, (!inputText.trim() || isStreaming || isRecording) && s.sendBtnDisabled]}
             onPress={() => sendMessage(inputText)}
-            disabled={!inputText.trim() || isStreaming}
+            disabled={!inputText.trim() || isStreaming || isRecording}
           >
             <Ionicons name="send" size={18} color="#FFF" />
           </Pressable>
@@ -911,6 +989,8 @@ const s = StyleSheet.create({
   shareBtnText: { fontSize: 11, color: MUTED, fontFamily: 'Inter_400Regular' },
   actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, backgroundColor: SURFACE },
   actionBtnText: { fontSize: 11, color: MUTED, fontFamily: 'Inter_400Regular' },
+  iconBtn: { padding: 8, borderRadius: 8, marginHorizontal: 4 },
+  iconBtnActive: { backgroundColor: ACCENT + '20' },
   
   chatHeader: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
