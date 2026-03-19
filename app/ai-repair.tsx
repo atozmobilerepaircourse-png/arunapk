@@ -310,64 +310,7 @@ export default function AIRepairScreen() {
     });
   };
 
-  const startVoiceRecord = useCallback(() => {
-    // Use Web Speech API for browsers
-    if (typeof window !== 'undefined' && (window as any).webkitSpeechRecognition) {
-      const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
-      const recognition = new SpeechRecognition();
-      
-      recognition.continuous = false;
-      recognition.interimResults = false;
-      recognition.lang = 'en-US';
-      
-      recognition.onstart = () => {
-        console.log('[Voice] Recognition started');
-        setIsRecording(true);
-      };
-      
-      recognition.onresult = (event: any) => {
-        let transcript = '';
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          transcript += event.results[i][0].transcript;
-        }
-        console.log('[Voice] Got transcript:', transcript);
-        setInputText(transcript);
-        // Use sendVoiceMessage for voice tab, sendMessage for chat tab
-        setTimeout(() => {
-          if (activeTab === 'voice') {
-            sendVoiceMessage(transcript);
-          } else {
-            sendMessage(transcript);
-          }
-        }, 100);
-      };
-      
-      recognition.onerror = (event: any) => {
-        console.error('[Voice] Error:', event.error);
-        setIsRecording(false);
-        Alert.alert('Voice Error', event.error || 'Could not understand speech');
-      };
-      
-      recognition.onend = () => {
-        console.log('[Voice] Recognition ended');
-        setIsRecording(false);
-      };
-      
-      recognition.start();
-      recordingRef.current = recognition as any;
-    } else {
-      Alert.alert('Error', 'Web Speech API not supported on this device');
-    }
-  }, [activeTab, sendMessage, sendVoiceMessage]);
-
-  const stopVoiceRecord = useCallback(() => {
-    if (recordingRef.current && (recordingRef.current as any).stop) {
-      (recordingRef.current as any).stop();
-      setIsRecording(false);
-    }
-  }, []);
-
-  // Send voice message to the appropriate chat
+  // Send voice message to the appropriate chat (DEFINED FIRST)
   const sendVoiceMessage = useCallback(async (text: string) => {
     if (!text.trim()) return;
 
@@ -481,6 +424,59 @@ export default function AIRepairScreen() {
       }
     }
   }, [activeTab, messages, voiceChatMessages, voiceEnabled, playVoice]);
+
+  const startVoiceRecord = useCallback(() => {
+    // Use Web Speech API for browsers
+    if (typeof window !== 'undefined' && (window as any).webkitSpeechRecognition) {
+      const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
+      const recognition = new SpeechRecognition();
+      
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = 'en-US';
+      
+      recognition.onstart = () => {
+        console.log('[Voice] Recognition started');
+        setIsRecording(true);
+      };
+      
+      recognition.onresult = (event: any) => {
+        let transcript = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          transcript += event.results[i][0].transcript;
+        }
+        console.log('[Voice] Got transcript:', transcript);
+        if (activeTab === 'voice') {
+          sendVoiceMessage(transcript);
+        } else {
+          sendMessage(transcript);
+        }
+      };
+      
+      recognition.onerror = (event: any) => {
+        console.error('[Voice] Error:', event.error);
+        setIsRecording(false);
+        Alert.alert('Voice Error', event.error || 'Could not understand speech');
+      };
+      
+      recognition.onend = () => {
+        console.log('[Voice] Recognition ended');
+        setIsRecording(false);
+      };
+      
+      recognition.start();
+      recordingRef.current = recognition as any;
+    } else {
+      Alert.alert('Error', 'Web Speech API not supported on this device');
+    }
+  }, [activeTab, sendMessage, sendVoiceMessage]);
+
+  const stopVoiceRecord = useCallback(() => {
+    if (recordingRef.current && (recordingRef.current as any).stop) {
+      (recordingRef.current as any).stop();
+      setIsRecording(false);
+    }
+  }, []);
 
   const playVoice = useCallback(async (messageId: string, text: string) => {
     try {
