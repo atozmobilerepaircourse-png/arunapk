@@ -368,7 +368,7 @@ export default function ProtectionPlanScreen() {
       
       if (!data.success) throw new Error(data.error || 'Submission failed');
 
-      Alert.alert('Application Submitted!', 'Your Mobile Protection Plan application is under verification. We will notify you within 24 hours.', [
+      Alert.alert('Success!', 'You have successfully submitted your Mobile Protection Plan application. We will verify and notify you within 24 hours.', [
         { text: 'OK', onPress: () => fetchPlan() }
       ]);
     } catch (e: any) {
