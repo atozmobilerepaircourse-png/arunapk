@@ -2406,7 +2406,11 @@ export default function AdminScreen() {
               <SectionCard key={plan.id} style={{ marginBottom: 10 }}>
                 {/* Status badge */}
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                  <Text style={{ color: C.text, fontFamily: 'Inter_700Bold', fontSize: 16 }}>{plan.brand} {plan.model}</Text>
+                  <Text style={{ color: C.text, fontFamily: 'Inter_700Bold', fontSize: 16 }}>
+                    {plan.devices && plan.devices.length > 0 
+                      ? `${plan.devices[0].brand} ${plan.devices[0].model}` 
+                      : plan.brand ? `${plan.brand} ${plan.model}` : 'Device'}
+                  </Text>
                   <View style={{ paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10, backgroundColor: `${statusColor[plan.status] || '#999'}20` }}>
                     <Text style={{ fontSize: 11, fontFamily: 'Inter_700Bold', color: statusColor[plan.status] || '#999' }}>
                       {statusLabel[plan.status] || plan.status}
@@ -2431,16 +2435,51 @@ export default function AdminScreen() {
                   </Text>
                 </View>
 
-                {/* Device details */}
-                <Text style={{ color: C.textSecondary, fontSize: 12, marginBottom: 2 }}>IMEI: {plan.imei}</Text>
-                <Text style={{ color: C.textSecondary, fontSize: 12, marginBottom: 2 }}>Model No: {plan.modelNumber}</Text>
+                {/* Device details - show first device or fallback to root properties */}
+                {plan.devices && Array.isArray(plan.devices) && plan.devices.length > 0 ? (
+                  <View>
+                    <Text style={{ color: C.textSecondary, fontSize: 12, marginBottom: 2 }}>IMEI: {plan.devices[0].imei || 'N/A'}</Text>
+                    <Text style={{ color: C.textSecondary, fontSize: 12, marginBottom: 2 }}>Model No: {plan.devices[0].modelNumber || 'N/A'}</Text>
+                  </View>
+                ) : (
+                  <View>
+                    <Text style={{ color: C.textSecondary, fontSize: 12, marginBottom: 2 }}>IMEI: {plan.imei || 'N/A'}</Text>
+                    <Text style={{ color: C.textSecondary, fontSize: 12, marginBottom: 2 }}>Model No: {plan.modelNumber || 'N/A'}</Text>
+                  </View>
+                )}
                 <Text style={{ color: C.textSecondary, fontSize: 12, marginBottom: 2 }}>Plan: {plan.planType === 'yearly' ? 'Yearly ₹1499' : 'Monthly ₹447'} | Claim: {plan.claimUsed ? 'Used' : 'Available'}</Text>
                 <Text style={{ color: C.textSecondary, fontSize: 11, marginBottom: 12 }}>{new Date(plan.createdAt).toLocaleString('en-IN')}</Text>
 
-                {/* Device images section */}
-                <View style={{ marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: C.border }}>
-                  <Text style={{ color: C.text, fontFamily: 'Inter_600SemiBold', fontSize: 12, marginBottom: 8 }}>Device Images:</Text>
-                  {plan.frontImage || plan.backImage ? (
+                {/* Device images section - show first device images */}
+                {plan.devices && Array.isArray(plan.devices) && plan.devices.length > 0 && (plan.devices[0].frontImage || plan.devices[0].backImage) ? (
+                  <View style={{ marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: C.border }}>
+                    <Text style={{ color: C.text, fontFamily: 'Inter_600SemiBold', fontSize: 12, marginBottom: 8 }}>Device 1 Images:</Text>
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                      {plan.devices[0].frontImage ? (
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ color: C.textSecondary, fontSize: 11, marginBottom: 4 }}>Front</Text>
+                          <Image source={{ uri: plan.devices[0].frontImage }} style={{ width: '100%', height: 100, borderRadius: 8, backgroundColor: '#F0F0F0' }} resizeMode="cover" />
+                        </View>
+                      ) : (
+                        <View style={{ flex: 1, height: 100, backgroundColor: C.surfaceElevated, borderRadius: 8, alignItems: 'center', justifyContent: 'center' }}>
+                          <Text style={{ color: C.textSecondary, fontSize: 11 }}>No front image</Text>
+                        </View>
+                      )}
+                      {plan.devices[0].backImage ? (
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ color: C.textSecondary, fontSize: 11, marginBottom: 4 }}>Back</Text>
+                          <Image source={{ uri: plan.devices[0].backImage }} style={{ width: '100%', height: 100, borderRadius: 8, backgroundColor: '#F0F0F0' }} resizeMode="cover" />
+                        </View>
+                      ) : (
+                        <View style={{ flex: 1, height: 100, backgroundColor: C.surfaceElevated, borderRadius: 8, alignItems: 'center', justifyContent: 'center' }}>
+                          <Text style={{ color: C.textSecondary, fontSize: 11 }}>No back image</Text>
+                        </View>
+                      )}
+                    </View>
+                  </View>
+                ) : (plan.frontImage || plan.backImage) ? (
+                  <View style={{ marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: C.border }}>
+                    <Text style={{ color: C.text, fontFamily: 'Inter_600SemiBold', fontSize: 12, marginBottom: 8 }}>Device Images:</Text>
                     <View style={{ flexDirection: 'row', gap: 8 }}>
                       {plan.frontImage ? (
                         <View style={{ flex: 1 }}>
@@ -2463,12 +2502,15 @@ export default function AdminScreen() {
                         </View>
                       )}
                     </View>
-                  ) : (
+                  </View>
+                ) : (
+                  <View style={{ marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: C.border }}>
+                    <Text style={{ color: C.text, fontFamily: 'Inter_600SemiBold', fontSize: 12, marginBottom: 8 }}>Device Images:</Text>
                     <View style={{ padding: 12, backgroundColor: C.surfaceElevated, borderRadius: 8, alignItems: 'center' }}>
                       <Text style={{ color: C.textSecondary, fontSize: 12 }}>📸 No images uploaded</Text>
                     </View>
-                  )}
-                </View>
+                  </View>
+                )}
 
                 {/* Additional devices section */}
                 {plan.devices && plan.devices.length > 0 && (() => {
