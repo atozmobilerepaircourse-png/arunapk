@@ -382,20 +382,23 @@ export default function ProtectionPlanScreen() {
       
       // Add any additional devices
       for (const device of devices) {
-        let additionalFrontUrl = device.frontImage || '';
-        let additionalBackUrl = device.backImage || '';
+        let additionalFrontUrl = '';
+        let additionalBackUrl = '';
         
-        if (device.frontImageBase64 && !device.frontImage) {
+        // Always upload from base64 if available
+        if (device.frontImageBase64) {
           try {
             additionalFrontUrl = await uploadImage(device.frontImageBase64, `front_${Date.now()}_${device.id}.jpg`);
+            console.log('[Protection] Additional device front image uploaded:', additionalFrontUrl);
           } catch (e) {
             console.warn('[Protection] Additional device front image upload failed:', e);
           }
         }
         
-        if (device.backImageBase64 && !device.backImage) {
+        if (device.backImageBase64) {
           try {
             additionalBackUrl = await uploadImage(device.backImageBase64, `back_${Date.now()}_${device.id}.jpg`);
+            console.log('[Protection] Additional device back image uploaded:', additionalBackUrl);
           } catch (e) {
             console.warn('[Protection] Additional device back image upload failed:', e);
           }
