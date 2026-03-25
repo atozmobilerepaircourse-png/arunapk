@@ -355,13 +355,16 @@ export default function ProtectionPlanScreen() {
       const res = await Promise.race([applyPromise, applyTimeoutPromise]);
       
       console.log('[Protection] Response status:', res?.status);
-      if (!res || !res.ok) {
-        const errText = res ? await res.text() : 'No response';
-        throw new Error(`Server error: ${res?.status || 'no response'} - ${errText}`);
-      }
-      
       const data = await res.json();
       console.log('[Protection] Application response:', data);
+      
+      if (!res.ok) {
+        // Handle specific error codes
+        if (res.status === 409 || data.error?.includes('already exists for this IMEI')) {
+          throw new Error('A protection plan already exists for this IMEI number. Please use a different device.');
+        }
+        throw new Error(data.error || `Server error: ${res.status}`);
+      }
       
       if (!data.success) throw new Error(data.error || 'Submission failed');
 
@@ -370,7 +373,13 @@ export default function ProtectionPlanScreen() {
       ]);
     } catch (e: any) {
       console.error('[Protection] Submission error:', e);
-      Alert.alert('Submission Failed', e.message || 'Failed to submit application. Please try again.');
+      let errorMessage = 'Failed to submit application. Please try again.';
+      if (e.message?.includes('already exists for this IMEI')) {
+        errorMessage = 'A protection plan already exists for this IMEI number. Please use a different device.';
+      } else if (e.message) {
+        errorMessage = e.message;
+      }
+      Alert.alert('Submission Failed', errorMessage);
     } finally {
       setSubmitting(false);
     }
