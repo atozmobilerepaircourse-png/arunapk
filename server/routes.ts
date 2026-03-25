@@ -7638,22 +7638,23 @@ Be specific about component locations and names. If image quality is poor or not
   // ── ADMIN: Get all protection plans ─────────────────────────────────────────
   app.get('/api/admin/protection/plans', async (req, res) => {
     try {
-      const { status } = req.query;
+      const status = req.query.status as string | undefined;
       console.log('[Protection] Fetching plans with status:', status);
       
+      let conditions = [];
       if (status && status !== 'all') {
-        const plans = await db.select().from(protectionPlans)
-          .where(eq(protectionPlans.status, status as string))
-          .orderBy(desc(protectionPlans.createdAt));
-        console.log('[Protection] Fetched plans with status:', plans.length);
-        return res.json(plans);
+        conditions.push(eq(protectionPlans.status, status));
       }
-      const plans = await db.select().from(protectionPlans)
-        .orderBy(desc(protectionPlans.createdAt));
-      console.log('[Protection] Fetched all plans:', plans.length);
+      
+      const query = db.select().from(protectionPlans);
+      const plans = conditions.length > 0 
+        ? await query.where(and(...conditions)).orderBy(desc(protectionPlans.createdAt))
+        : await query.orderBy(desc(protectionPlans.createdAt));
+      
+      console.log('[Protection] Fetched plans:', plans.length);
       return res.json(plans);
     } catch (e: any) {
-      console.error('[Protection] Error fetching plans:', e.message, e);
+      console.error('[Protection] Error fetching plans:', e.message, e.stack);
       return res.status(500).json({ error: 'Failed to get plans', details: e.message });
     }
   });
