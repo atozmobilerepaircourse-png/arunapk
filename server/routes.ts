@@ -268,6 +268,31 @@ function checkOtpRateLimit(phone: string): { allowed: boolean; retryAfterMs: num
 
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // ─── CORS Configuration ───
+  app.use((req, res, next) => {
+    const origin = req.headers.origin || '';
+    const allowedOrigins = [
+      'https://mobile-repair-app-276b6.web.app',
+      'https://mobile-repair-app-276b6.firebaseapp.com',
+      'http://localhost:8081',
+      'http://localhost:3000',
+      'http://localhost:5000',
+    ];
+    
+    if (allowedOrigins.includes(origin) || origin.includes('replit.dev')) {
+      res.header('Access-Control-Allow-Origin', origin);
+      res.header('Access-Control-Allow-Credentials', 'true');
+      res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+      res.header('Access-Control-Allow-Headers', 'Content-Type, x-session-token, Authorization');
+      res.header('Access-Control-Max-Age', '3600');
+    }
+    
+    if (req.method === 'OPTIONS') {
+      return res.sendStatus(200);
+    }
+    next();
+  });
+
   // Ensure admin account exists and is always accessible
   (async () => {
     try {
