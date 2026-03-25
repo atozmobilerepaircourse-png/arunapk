@@ -313,11 +313,19 @@ export default function ProtectionPlanScreen() {
     if (!agreed) { Alert.alert('Consent Required', 'Please agree to the terms to continue.'); return; }
     if (!profile?.id) { Alert.alert('Login Required', 'Please log in to continue.'); router.push('/onboarding'); return; }
     
-    // Validate all required fields
+    // Validate all required fields for main device
     if (!imei || imei.length !== 15) { Alert.alert('Invalid IMEI', 'Please enter a valid 15-digit IMEI number.'); return; }
     if (!brand) { Alert.alert('Missing Information', 'Please select your phone brand.'); return; }
     if (!model) { Alert.alert('Missing Information', 'Please enter your phone model.'); return; }
     if (!modelNumber) { Alert.alert('Missing Information', 'Please enter your model number.'); return; }
+
+    // Validate additional devices
+    for (const device of devices) {
+      if (!device.brand) { Alert.alert('Missing Information', 'Please enter brand for all additional devices.'); return; }
+      if (!device.model) { Alert.alert('Missing Information', 'Please enter model for all additional devices.'); return; }
+      if (!device.modelNumber) { Alert.alert('Missing Information', 'Please enter model number for all additional devices.'); return; }
+      if (!device.imei || device.imei.length !== 15) { Alert.alert('Invalid IMEI', 'All devices must have a valid 15-digit IMEI number.'); return; }
+    }
 
     setSubmitting(true);
     try {

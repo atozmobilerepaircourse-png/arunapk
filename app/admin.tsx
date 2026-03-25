@@ -2470,6 +2470,48 @@ export default function AdminScreen() {
                   )}
                 </View>
 
+                {/* Additional devices section */}
+                {plan.devices && plan.devices.length > 0 && (() => {
+                  try {
+                    const devices = typeof plan.devices === 'string' ? JSON.parse(plan.devices) : plan.devices;
+                    if (devices && devices.length > 0) {
+                      return (
+                        <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: C.border }}>
+                          <Text style={{ color: C.text, fontFamily: 'Inter_600SemiBold', fontSize: 12, marginBottom: 8 }}>Additional Devices ({devices.length}):</Text>
+                          {devices.map((device: any, idx: number) => (
+                            <View key={idx} style={{ backgroundColor: '#F8F8F8', borderRadius: 8, padding: 10, marginBottom: 8 }}>
+                              <Text style={{ color: C.text, fontFamily: 'Inter_600SemiBold', fontSize: 12, marginBottom: 4 }}>Device {idx + 2}</Text>
+                              <Text style={{ color: C.textSecondary, fontSize: 12 }}>Brand: {device.brand || '—'}</Text>
+                              <Text style={{ color: C.textSecondary, fontSize: 12 }}>Model: {device.model || '—'}</Text>
+                              <Text style={{ color: C.textSecondary, fontSize: 12 }}>Model No: {device.modelNumber || '—'}</Text>
+                              <Text style={{ color: C.textSecondary, fontSize: 12 }}>IMEI: {device.imei || '—'}</Text>
+                              {(device.frontImage || device.backImage) && (
+                                <View style={{ flexDirection: 'row', gap: 6, marginTop: 6 }}>
+                                  {device.frontImage ? (
+                                    <View style={{ flex: 1 }}>
+                                      <Text style={{ color: C.textSecondary, fontSize: 10, marginBottom: 2 }}>Front</Text>
+                                      <Image source={{ uri: device.frontImage }} style={{ width: '100%', height: 60, borderRadius: 6, backgroundColor: '#F0F0F0' }} resizeMode="cover" />
+                                    </View>
+                                  ) : null}
+                                  {device.backImage ? (
+                                    <View style={{ flex: 1 }}>
+                                      <Text style={{ color: C.textSecondary, fontSize: 10, marginBottom: 2 }}>Back</Text>
+                                      <Image source={{ uri: device.backImage }} style={{ width: '100%', height: 60, borderRadius: 6, backgroundColor: '#F0F0F0' }} resizeMode="cover" />
+                                    </View>
+                                  ) : null}
+                                </View>
+                              )}
+                            </View>
+                          ))}
+                        </View>
+                      );
+                    }
+                  } catch (e) {
+                    console.warn('Error parsing devices:', e);
+                  }
+                  return null;
+                })()}
+
                 {plan.status === 'pending_verification' && (
                   <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
                     <TouchableOpacity 
