@@ -7598,9 +7598,9 @@ Be specific about component locations and names. If image quality is poor or not
       }
 
       const uniqueName = `protection/${Date.now()}_${filename}`;
-      console.log('[Protection] Uploading to Bunny CDN:', uniqueName);
+      console.log('[Protection] Uploading to CDN:', uniqueName);
       
-      const cdnUrl = await uploadFileToBunny(buffer, uniqueName, 'image/jpeg');
+      const cdnUrl = await uploadToStorage(buffer, uniqueName);
       
       console.log('[Protection] Image uploaded successfully:', cdnUrl);
       return res.json({ success: true, url: cdnUrl });
