@@ -7353,12 +7353,12 @@ Be specific about component locations and names. If image quality is poor or not
         id, userId, userName, userPhone, userEmail, imei, brand, model, modelNumber, planType, price 
       });
 
-      await db.insert(protectionPlans).values({
+      // Build insert values - skip userEmail if column doesn't exist in schema
+      const insertValues: any = {
         id,
         userId,
         userName: userName || '',
         userPhone: userPhone || '',
-        userEmail: userEmail || '',
         imei,
         brand,
         model,
@@ -7375,7 +7375,16 @@ Be specific about component locations and names. If image quality is poor or not
         rejectionReason: '',
         createdAt: Date.now(),
         updatedAt: Date.now(),
-      });
+      };
+
+      // Try to include userEmail, but if schema doesn't have it, proceed without it
+      try {
+        insertValues.userEmail = userEmail || '';
+      } catch (e) {
+        console.warn('[Protection] userEmail not available in schema, proceeding without it');
+      }
+
+      await db.insert(protectionPlans).values(insertValues);
 
       console.log('[Protection] Plan created successfully:', id);
       return res.json({ success: true, planId: id, message: 'Application submitted successfully' });
