@@ -7344,7 +7344,6 @@ Be specific about component locations and names. If image quality is poor or not
         userId,
         userName: userName || '',
         userPhone: userPhone || '',
-        userEmail: '',
         imei,
         brand,
         model,
