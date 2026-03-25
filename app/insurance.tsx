@@ -368,9 +368,15 @@ export default function ProtectionPlanScreen() {
       
       if (!data.success) throw new Error(data.error || 'Submission failed');
 
-      Alert.alert('Success!', 'You have successfully submitted your Mobile Protection Plan application. We will verify and notify you within 24 hours.', [
-        { text: 'OK', onPress: () => fetchPlan() }
-      ]);
+      const isWeb = typeof window !== 'undefined';
+      if (isWeb) {
+        window.alert('Success!\n\nYou have successfully submitted your Mobile Protection Plan application. We will verify and notify you within 24 hours.');
+        fetchPlan();
+      } else {
+        Alert.alert('Success!', 'You have successfully submitted your Mobile Protection Plan application. We will verify and notify you within 24 hours.', [
+          { text: 'OK', onPress: () => fetchPlan() }
+        ]);
+      }
     } catch (e: any) {
       console.error('[Protection] Submission error:', e);
       let errorMessage = 'Failed to submit application. Please try again.';
