@@ -678,11 +678,6 @@ export default function AdminScreen() {
     finally { setProtectionClaimsLoading(false); }
   }, [protectionClaimFilter]);
 
-  // Load all data when admin screen mounts
-  useEffect(() => {
-    refreshData();
-  }, []);
-
   useEffect(() => {
     if (activeTab === 'protection-plans') fetchProtectionPlans();
     if (activeTab === 'protection-claims') fetchProtectionClaims();
