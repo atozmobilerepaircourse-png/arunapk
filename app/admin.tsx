@@ -2469,17 +2469,28 @@ export default function AdminScreen() {
                     <TouchableOpacity 
                       style={{ flex: 1, padding: 10, borderRadius: 8, backgroundColor: '#E8F5ED', alignItems: 'center', justifyContent: 'center', minHeight: 40 }}
                       onPress={() => {
-                        Alert.alert('Approve Plan', 'Approve this Mobile Protection Plan application?', [
-                          { text: 'Cancel', style: 'cancel' },
-                          { 
-                            text: 'Approve', 
-                            style: 'default', 
-                            onPress: () => {
-                              console.log('[Admin] Approve button pressed for plan:', plan.id);
-                              handleProtectionPlanAction(plan.id, 'approve');
+                        const isWeb = typeof window !== 'undefined';
+                        if (isWeb) {
+                          // Web: Use browser confirm
+                          const confirmed = window.confirm('Approve this Mobile Protection Plan application?');
+                          if (confirmed) {
+                            console.log('[Admin] Approve button pressed for plan:', plan.id);
+                            handleProtectionPlanAction(plan.id, 'approve');
+                          }
+                        } else {
+                          // Mobile: Use Alert.alert
+                          Alert.alert('Approve Plan', 'Approve this Mobile Protection Plan application?', [
+                            { text: 'Cancel', style: 'cancel' },
+                            { 
+                              text: 'Approve', 
+                              style: 'default', 
+                              onPress: () => {
+                                console.log('[Admin] Approve button pressed for plan:', plan.id);
+                                handleProtectionPlanAction(plan.id, 'approve');
+                              },
                             },
-                          },
-                        ]);
+                          ]);
+                        }
                       }}
                       activeOpacity={0.7}>
                       <Text style={{ color: '#27AE60', fontFamily: 'Inter_700Bold', fontSize: 13 }}>✓ Approve</Text>
