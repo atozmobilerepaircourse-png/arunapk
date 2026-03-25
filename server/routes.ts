@@ -7639,18 +7639,22 @@ Be specific about component locations and names. If image quality is poor or not
   app.get('/api/admin/protection/plans', async (req, res) => {
     try {
       const { status } = req.query;
-      let query = db.select().from(protectionPlans);
+      console.log('[Protection] Fetching plans with status:', status);
+      
       if (status && status !== 'all') {
         const plans = await db.select().from(protectionPlans)
           .where(eq(protectionPlans.status, status as string))
           .orderBy(desc(protectionPlans.createdAt));
+        console.log('[Protection] Fetched plans with status:', plans.length);
         return res.json(plans);
       }
       const plans = await db.select().from(protectionPlans)
         .orderBy(desc(protectionPlans.createdAt));
+      console.log('[Protection] Fetched all plans:', plans.length);
       return res.json(plans);
     } catch (e: any) {
-      return res.status(500).json({ error: 'Failed to get plans' });
+      console.error('[Protection] Error fetching plans:', e.message, e);
+      return res.status(500).json({ error: 'Failed to get plans', details: e.message });
     }
   });
 
