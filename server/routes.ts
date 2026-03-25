@@ -7293,26 +7293,36 @@ Be specific about component locations and names. If image quality is poor or not
   // ── Apply for a Protection Plan ──────────────────────────────────────────────
   app.post('/api/protection/apply', async (req, res) => {
     try {
-      console.log('[Protection] Apply endpoint called with:', { userId: req.body.userId, imei: req.body.imei });
+      console.log('[Protection] Apply endpoint called');
+      console.log('[Protection] Request body keys:', Object.keys(req.body));
       
       const { userId, userName, userPhone, imei, brand, model, modelNumber, planType, frontImage, backImage } = req.body;
-      console.log('[Protection] Request data extracted');
+      console.log('[Protection] Extracted fields:', { 
+        userId: !!userId, 
+        userName: !!userName, 
+        userPhone: !!userPhone, 
+        imei: !!imei, 
+        brand: !!brand, 
+        model: !!model, 
+        modelNumber: !!modelNumber, 
+        planType: !!planType 
+      });
       
       if (!userId || !imei || !brand || !model || !modelNumber || !planType) {
-        console.warn('[Protection] Missing required fields');
-        return res.status(400).json({ error: 'Missing required fields' });
+        console.warn('[Protection] Missing required fields:', { userId, imei, brand, model, modelNumber, planType });
+        return res.status(400).json({ error: 'Missing required fields: userId, imei, brand, model, modelNumber, planType' });
       }
       if (!/^\d{15}$/.test(imei)) {
-        console.warn('[Protection] Invalid IMEI format');
+        console.warn('[Protection] Invalid IMEI format:', imei);
         return res.status(400).json({ error: 'IMEI must be exactly 15 digits' });
       }
       if (!['monthly', 'yearly'].includes(planType)) {
-        console.warn('[Protection] Invalid plan type');
-        return res.status(400).json({ error: 'Invalid plan type' });
+        console.warn('[Protection] Invalid plan type:', planType);
+        return res.status(400).json({ error: 'Invalid plan type. Must be monthly or yearly' });
       }
 
       // Block duplicate IMEI
-      console.log('[Protection] Checking for duplicate IMEI...');
+      console.log('[Protection] Checking for duplicate IMEI:', imei);
       const existing = await db.select().from(protectionPlans)
         .where(and(eq(protectionPlans.imei, imei), ne(protectionPlans.status, 'rejected')))
         .limit(1);
@@ -7339,6 +7349,10 @@ Be specific about component locations and names. If image quality is poor or not
       const price = planType === 'yearly' ? 1499 : 447;
       const id = randomUUID();
       
+      console.log('[Protection] Inserting with fields:', { 
+        id, userId, userName, userPhone, userEmail, imei, brand, model, modelNumber, planType, price 
+      });
+
       await db.insert(protectionPlans).values({
         id,
         userId,
@@ -7366,7 +7380,8 @@ Be specific about component locations and names. If image quality is poor or not
       console.log('[Protection] Plan created successfully:', id);
       return res.json({ success: true, planId: id, message: 'Application submitted successfully' });
     } catch (e: any) {
-      console.error('[Protection] Apply error:', e.message, 'Stack:', e.stack);
+      console.error('[Protection] Apply error:', e.message, 'Full error:', e);
+      console.error('[Protection] Stack:', e.stack);
       return res.status(500).json({ error: 'Failed to submit application: ' + e.message });
     }
   });
@@ -7551,17 +7566,37 @@ Be specific about component locations and names. If image quality is poor or not
   // ── Upload image for protection plan (base64) ─────────────────────────────
   app.post('/api/protection/upload-image', async (req, res) => {
     try {
+      console.log('[Protection] Image upload endpoint called');
       const { base64, filename } = req.body;
-      if (!base64 || !filename) return res.status(400).json({ error: 'Missing base64 or filename' });
+      
+      if (!base64) {
+        console.error('[Protection] Missing base64 in request');
+        return res.status(400).json({ error: 'Missing base64 data' });
+      }
+      if (!filename) {
+        console.error('[Protection] Missing filename in request');
+        return res.status(400).json({ error: 'Missing filename' });
+      }
 
+      console.log('[Protection] Converting base64 to buffer for:', filename);
       const buffer = Buffer.from(base64, 'base64');
-      const uniqueName = `protection/${Date.now()}_${filename}`;
-      const cdnUrl = await uploadFileToBunny(buffer, uniqueName, 'image/jpeg');
+      console.log('[Protection] Buffer size:', buffer.length, 'bytes');
+      
+      if (buffer.length === 0) {
+        console.error('[Protection] Base64 buffer is empty');
+        return res.status(400).json({ error: 'Invalid base64 data' });
+      }
 
+      const uniqueName = `protection/${Date.now()}_${filename}`;
+      console.log('[Protection] Uploading to Bunny CDN:', uniqueName);
+      
+      const cdnUrl = await uploadFileToBunny(buffer, uniqueName, 'image/jpeg');
+      
+      console.log('[Protection] Image uploaded successfully:', cdnUrl);
       return res.json({ success: true, url: cdnUrl });
     } catch (e: any) {
-      console.error('[Protection] Upload error:', e.message);
-      return res.status(500).json({ error: 'Upload failed' });
+      console.error('[Protection] Image upload error:', e.message, 'Stack:', e.stack);
+      return res.status(500).json({ error: 'Image upload failed: ' + (e.message || 'Unknown error') });
     }
   });
 
