@@ -7321,7 +7321,7 @@ Be specific about component locations and names. If image quality is poor or not
       console.log('[Protection] Apply endpoint called');
       console.log('[Protection] Request body keys:', Object.keys(req.body));
       
-      const { userId, userName, userPhone, imei, brand, model, modelNumber, planType, frontImage, backImage } = req.body;
+      const { userId, userName, userPhone, imei, brand, model, modelNumber, planType, frontImage, backImage, devices } = req.body;
       console.log('[Protection] Extracted fields:', { 
         userId: !!userId, 
         userName: !!userName, 
@@ -7330,7 +7330,8 @@ Be specific about component locations and names. If image quality is poor or not
         brand: !!brand, 
         model: !!model, 
         modelNumber: !!modelNumber, 
-        planType: !!planType 
+        planType: !!planType,
+        devicesCount: devices?.length || 0
       });
       
       if (!userId || !imei || !brand || !model || !modelNumber || !planType) {
@@ -7356,12 +7357,31 @@ Be specific about component locations and names. If image quality is poor or not
         return res.status(409).json({ error: 'A plan already exists for this IMEI number' });
       }
 
+      // Validate all IMEIs in devices array (check for duplicates across additional devices)
+      const allImeis = [imei];
+      if (devices && Array.isArray(devices)) {
+        for (const device of devices) {
+          if (device.imei) {
+            if (!/^\d{15}$/.test(device.imei)) {
+              return res.status(400).json({ error: `Invalid IMEI format in additional device: ${device.imei}` });
+            }
+            if (allImeis.includes(device.imei)) {
+              return res.status(400).json({ error: `Duplicate IMEI in devices: ${device.imei}` });
+            }
+            allImeis.push(device.imei);
+          }
+        }
+      }
+
       console.log('[Protection] Creating new protection plan...');
       const price = planType === 'yearly' ? 1499 : 447;
       const id = randomUUID();
       
+      // Store devices as JSON string
+      const devicesJson = JSON.stringify(devices || []);
+      
       console.log('[Protection] Inserting with fields:', { 
-        id, userId, userName, userPhone, imei, brand, model, modelNumber, planType, price 
+        id, userId, userName, userPhone, imei, brand, model, modelNumber, planType, price, devicesCount: devices?.length || 0
       });
 
       await db.insert(protectionPlans).values({
@@ -7373,6 +7393,7 @@ Be specific about component locations and names. If image quality is poor or not
         brand,
         model,
         modelNumber,
+        devices: devicesJson,
         planType,
         price,
         frontImage: frontImage || '',

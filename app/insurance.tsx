@@ -45,6 +45,16 @@ type PlanType = 'monthly' | 'yearly';
 type PlanStatus = 'pending_verification' | 'approved_pending_payment' | 'active' | 'rejected' | 'expired';
 type ClaimStatus = 'claim_pending' | 'under_review' | 'approved' | 'assigned' | 'completed' | 'rejected';
 
+interface Device {
+  id: string;
+  brand: string;
+  model: string;
+  modelNumber: string;
+  imei: string;
+  frontImage: string;
+  backImage: string;
+}
+
 interface Plan {
   id: string;
   userId: string;
@@ -52,6 +62,7 @@ interface Plan {
   model: string;
   modelNumber: string;
   imei: string;
+  devices?: Device[];
   planType: PlanType;
   price: number;
   status: PlanStatus;
@@ -120,6 +131,9 @@ export default function ProtectionPlanScreen() {
   const [frontImageBase64, setFrontImageBase64] = useState<string | null>(null);
   const [backImageBase64, setBackImageBase64] = useState<string | null>(null);
   const [agreed, setAgreed] = useState(false);
+
+  // Multiple devices support
+  const [devices, setDevices] = useState<Array<{id: string; brand: string; model: string; modelNumber: string; imei: string; frontImage: string | null; backImage: string | null; frontImageBase64: string | null; backImageBase64: string | null}>>([]);
 
   // Claim state
   const [showClaim, setShowClaim] = useState(false);
@@ -348,6 +362,47 @@ export default function ProtectionPlanScreen() {
 
       console.log('[Protection] Submitting protection plan application...');
       
+      // Build devices array - start with the main device, then add any additional devices
+      const devicesArray = [{
+        brand,
+        model: model.trim(),
+        modelNumber: modelNumber.trim(),
+        imei: imei.trim(),
+        frontImage: frontUrl || '',
+        backImage: backUrl || '',
+      }];
+      
+      // Add any additional devices
+      for (const device of devices) {
+        let additionalFrontUrl = device.frontImage || '';
+        let additionalBackUrl = device.backImage || '';
+        
+        if (device.frontImageBase64 && !device.frontImage) {
+          try {
+            additionalFrontUrl = await uploadImage(device.frontImageBase64, `front_${Date.now()}_${device.id}.jpg`);
+          } catch (e) {
+            console.warn('[Protection] Additional device front image upload failed:', e);
+          }
+        }
+        
+        if (device.backImageBase64 && !device.backImage) {
+          try {
+            additionalBackUrl = await uploadImage(device.backImageBase64, `back_${Date.now()}_${device.id}.jpg`);
+          } catch (e) {
+            console.warn('[Protection] Additional device back image upload failed:', e);
+          }
+        }
+        
+        devicesArray.push({
+          brand: device.brand,
+          model: device.model.trim(),
+          modelNumber: device.modelNumber.trim(),
+          imei: device.imei.trim(),
+          frontImage: additionalFrontUrl,
+          backImage: additionalBackUrl,
+        });
+      }
+      
       const payload = {
         userId: profile.id,
         userName: profile.name,
@@ -359,6 +414,7 @@ export default function ProtectionPlanScreen() {
         planType,
         frontImage: frontUrl || '',
         backImage: backUrl || '',
+        devices: devicesArray,
       };
       console.log('[Protection] Payload:', payload);
       
@@ -470,6 +526,30 @@ export default function ProtectionPlanScreen() {
       setClaimSubmitting(false);
     }
   }, [claimIssue, claimDesc, claimImageBase64, existingPlan, profile, uploadImage, fetchPlan]);
+
+  // ── Device management (add/remove/update) ──────────────────────────────────────
+  const addDevice = useCallback(() => {
+    const newDevice = {
+      id: Date.now().toString(),
+      brand: '',
+      model: '',
+      modelNumber: '',
+      imei: '',
+      frontImage: null,
+      backImage: null,
+      frontImageBase64: null,
+      backImageBase64: null,
+    };
+    setDevices([...devices, newDevice]);
+  }, [devices]);
+
+  const removeDevice = useCallback((deviceId: string) => {
+    setDevices(devices.filter(d => d.id !== deviceId));
+  }, [devices]);
+
+  const updateDevice = useCallback((deviceId: string, updates: any) => {
+    setDevices(devices.map(d => d.id === deviceId ? { ...d, ...updates } : d));
+  }, [devices]);
 
   // ── Expiry calculation ────────────────────────────────────────────────────────
   const getExpiryDate = (plan: Plan) => {
@@ -1044,6 +1124,168 @@ export default function ProtectionPlanScreen() {
           <Text style={{ fontSize: 12, color: MUTED, textAlign: 'center' }}>
             Make sure the device screen and back panel are clearly visible. No damage should be present.
           </Text>
+
+          {/* Additional devices */}
+          {devices.length > 0 && (
+            <>
+              <Text style={[styles.sectionTitle, { marginTop: 24, marginBottom: 12 }]}>Additional Devices</Text>
+              {devices.map((device, idx) => (
+                <View key={device.id} style={[styles.card, { marginBottom: 16, borderColor: LIGHT, borderWidth: 1 }]}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                    <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 14, color: DARK }}>Device {idx + 2}</Text>
+                    <TouchableOpacity onPress={() => removeDevice(device.id)}>
+                      <Ionicons name="trash-outline" size={20} color="#FF6B6B" />
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Device fields */}
+                  <View style={{ gap: 10, marginBottom: 12 }}>
+                    <View>
+                      <Text style={styles.label}>Brand</Text>
+                      <TextInput
+                        style={styles.input}
+                        placeholder="e.g., Samsung, iPhone"
+                        value={device.brand}
+                        onChangeText={(val) => updateDevice(device.id, { brand: val })}
+                      />
+                    </View>
+                    <View>
+                      <Text style={styles.label}>Model</Text>
+                      <TextInput
+                        style={styles.input}
+                        placeholder="e.g., Galaxy S24"
+                        value={device.model}
+                        onChangeText={(val) => updateDevice(device.id, { model: val })}
+                      />
+                    </View>
+                    <View>
+                      <Text style={styles.label}>Model Number</Text>
+                      <TextInput
+                        style={styles.input}
+                        placeholder="e.g., SM-S911B"
+                        value={device.modelNumber}
+                        onChangeText={(val) => updateDevice(device.id, { modelNumber: val })}
+                      />
+                    </View>
+                    <View>
+                      <Text style={styles.label}>IMEI (15 digits)</Text>
+                      <TextInput
+                        style={styles.input}
+                        placeholder="15-digit number"
+                        value={device.imei}
+                        onChangeText={(val) => updateDevice(device.id, { imei: val.replace(/\D/g, '').slice(0, 15) })}
+                        keyboardType="numeric"
+                      />
+                    </View>
+                  </View>
+
+                  {/* Device images */}
+                  <View style={{ flexDirection: 'row', gap: 10 }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.label, { textAlign: 'center' }]}>Front</Text>
+                      <TouchableOpacity
+                        style={styles.imgPlaceholder}
+                        onPress={() => {
+                          // Capture and store image for this device
+                          const captureForDevice = async () => {
+                            const isWeb = typeof window !== 'undefined';
+                            try {
+                              if (isWeb) {
+                                const hiddenInput = document.createElement('input');
+                                hiddenInput.type = 'file';
+                                hiddenInput.accept = 'image/*';
+                                hiddenInput.onchange = (e: any) => {
+                                  const file = e.target.files[0];
+                                  if (file) {
+                                    const reader = new FileReader();
+                                    reader.onload = (evt: any) => {
+                                      const b64 = evt.target.result.split(',')[1];
+                                      const mimeType = file.type || 'image/jpeg';
+                                      updateDevice(device.id, {
+                                        frontImage: `data:${mimeType};base64,${b64}`,
+                                        frontImageBase64: b64,
+                                      });
+                                    };
+                                    reader.readAsDataURL(file);
+                                  }
+                                };
+                                hiddenInput.click();
+                              }
+                            } catch (e) {
+                              Alert.alert('Error', 'Failed to capture image');
+                            }
+                          };
+                          captureForDevice();
+                        }}
+                      >
+                        {device.frontImage
+                          ? <Image source={{ uri: device.frontImage }} style={{ width: '100%', height: '100%', borderRadius: 8 }} resizeMode="cover" />
+                          : <View style={{ alignItems: 'center', gap: 4 }}>
+                              <Ionicons name="camera" size={20} color={MUTED} />
+                              <Text style={{ color: MUTED, fontSize: 10, fontFamily: 'Inter_600SemiBold' }}>Tap</Text>
+                            </View>
+                        }
+                      </TouchableOpacity>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.label, { textAlign: 'center' }]}>Back</Text>
+                      <TouchableOpacity
+                        style={styles.imgPlaceholder}
+                        onPress={() => {
+                          const captureForDevice = async () => {
+                            const isWeb = typeof window !== 'undefined';
+                            try {
+                              if (isWeb) {
+                                const hiddenInput = document.createElement('input');
+                                hiddenInput.type = 'file';
+                                hiddenInput.accept = 'image/*';
+                                hiddenInput.onchange = (e: any) => {
+                                  const file = e.target.files[0];
+                                  if (file) {
+                                    const reader = new FileReader();
+                                    reader.onload = (evt: any) => {
+                                      const b64 = evt.target.result.split(',')[1];
+                                      const mimeType = file.type || 'image/jpeg';
+                                      updateDevice(device.id, {
+                                        backImage: `data:${mimeType};base64,${b64}`,
+                                        backImageBase64: b64,
+                                      });
+                                    };
+                                    reader.readAsDataURL(file);
+                                  }
+                                };
+                                hiddenInput.click();
+                              }
+                            } catch (e) {
+                              Alert.alert('Error', 'Failed to capture image');
+                            }
+                          };
+                          captureForDevice();
+                        }}
+                      >
+                        {device.backImage
+                          ? <Image source={{ uri: device.backImage }} style={{ width: '100%', height: '100%', borderRadius: 8 }} resizeMode="cover" />
+                          : <View style={{ alignItems: 'center', gap: 4 }}>
+                              <Ionicons name="camera" size={20} color={MUTED} />
+                              <Text style={{ color: MUTED, fontSize: 10, fontFamily: 'Inter_600SemiBold' }}>Tap</Text>
+                            </View>
+                        }
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </View>
+              ))}
+            </>
+          )}
+
+          {/* Add device button */}
+          <TouchableOpacity
+            style={[styles.card, { borderStyle: 'dashed', borderWidth: 2, borderColor: PRIMARY, backgroundColor: PRIMARY_L, alignItems: 'center', padding: 16, marginBottom: 12 }]}
+            onPress={addDevice}
+          >
+            <Ionicons name="add-circle-outline" size={24} color={PRIMARY} />
+            <Text style={{ fontFamily: 'Inter_600SemiBold', color: PRIMARY, marginTop: 6 }}>+ Add Another Device</Text>
+          </TouchableOpacity>
         </ScrollView>
 
         <View style={[styles.footer, { paddingBottom: botPad + 8 }]}>
@@ -1096,6 +1338,25 @@ export default function ProtectionPlanScreen() {
               <Text style={styles.detailLabel}>IMEI</Text>
               <Text style={styles.detailValue}>{imei}</Text>
             </View>
+
+            {devices.length > 0 && (
+              <>
+                <Text style={[styles.sectionTitle, { marginTop: 12, marginBottom: 8 }]}>Additional Devices</Text>
+                {devices.map((device, idx) => (
+                  <View key={device.id} style={{ marginBottom: 8 }}>
+                    <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 13, color: DARK }}>Device {idx + 2}</Text>
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Brand</Text>
+                      <Text style={styles.detailValue}>{device.brand || '—'}</Text>
+                    </View>
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>IMEI</Text>
+                      <Text style={styles.detailValue}>{device.imei || '—'}</Text>
+                    </View>
+                  </View>
+                ))}
+              </>
+            )}
           </View>
 
           {/* Consent */}

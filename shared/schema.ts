@@ -442,6 +442,7 @@ export const protectionPlans = pgTable("protection_plans", {
   brand: text("brand").notNull(),
   model: text("model").notNull(),
   modelNumber: text("model_number").notNull(),
+  devices: text("devices").default("[]"), // JSON array of devices
   planType: text("plan_type").notNull().default("monthly"),
   price: integer("price").notNull().default(0),
   frontImage: text("front_image").default(""),
