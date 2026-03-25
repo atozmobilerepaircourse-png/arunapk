@@ -146,7 +146,10 @@ export default function ProtectionPlanScreen() {
     }
   }, [profile?.id]);
 
-  useEffect(() => { fetchPlan(); }, [fetchPlan]);
+  useEffect(() => { 
+    const timer = setTimeout(() => fetchPlan(), 500);
+    return () => clearTimeout(timer);
+  }, [profile?.id]);
 
   // ── Camera capture (direct camera on mobile and web) ────────────────────────
   const captureImage = useCallback(async (which: 'front' | 'back' | 'claim') => {
