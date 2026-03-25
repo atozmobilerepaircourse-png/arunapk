@@ -184,18 +184,19 @@ export default function ProtectionPlanScreen() {
                 reader.readAsDataURL(file);
               });
 
-              // Now safely set state with the base64 data
-              const uri = URL.createObjectURL(file);
+              // Use data URI for preview so it survives re-renders (blob URLs can be revoked)
+              const mimeType = file.type || 'image/jpeg';
+              const dataUri = `data:${mimeType};base64,${base64}`;
               if (which === 'front') { 
-                setFrontImage(uri); 
+                setFrontImage(dataUri); 
                 setFrontImageBase64(base64); 
               }
               else if (which === 'back') { 
-                setBackImage(uri); 
+                setBackImage(dataUri); 
                 setBackImageBase64(base64); 
               }
               else { 
-                setClaimImage(uri); 
+                setClaimImage(dataUri); 
                 setClaimImageBase64(base64); 
               }
             } catch (err: any) {
@@ -311,14 +312,17 @@ export default function ProtectionPlanScreen() {
       let frontUrl = '';
       let backUrl = '';
       
-      // Upload images if available (optional for now)
+      // Upload images if available (optional — failures show warning but don't block submission)
+      const imageUploadWarnings: string[] = [];
+
       if (frontImageBase64) {
         try {
           console.log('[Protection] Uploading front image...');
           frontUrl = await uploadImage(frontImageBase64, `front_${Date.now()}.jpg`);
-          console.log('[Protection] Front image uploaded:', frontUrl || 'failed, continuing...');
+          console.log('[Protection] Front image uploaded:', frontUrl);
         } catch (imgErr: any) {
           console.warn('[Protection] Front image upload failed, continuing:', imgErr.message);
+          imageUploadWarnings.push('Front device photo');
         }
       }
       
@@ -326,10 +330,20 @@ export default function ProtectionPlanScreen() {
         try {
           console.log('[Protection] Uploading back image...');
           backUrl = await uploadImage(backImageBase64, `back_${Date.now()}.jpg`);
-          console.log('[Protection] Back image uploaded:', backUrl || 'failed, continuing...');
+          console.log('[Protection] Back image uploaded:', backUrl);
         } catch (imgErr: any) {
           console.warn('[Protection] Back image upload failed, continuing:', imgErr.message);
+          imageUploadWarnings.push('Back device photo');
         }
+      }
+
+      if (imageUploadWarnings.length > 0) {
+        Alert.alert(
+          'Image Upload Warning',
+          `The following photos could not be uploaded and will not be included with your application: ${imageUploadWarnings.join(', ')}. Your application will still be submitted.`,
+          [{ text: 'Continue' }]
+        );
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
 
       console.log('[Protection] Submitting protection plan application...');

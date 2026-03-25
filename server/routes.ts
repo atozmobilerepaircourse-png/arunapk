@@ -7598,11 +7598,15 @@ Be specific about component locations and names. If image quality is poor or not
       }
 
       const uniqueName = `protection/${Date.now()}_${filename}`;
-      console.log('[Protection] Uploading to CDN:', uniqueName);
+      console.log('[Protection] Uploading to Bunny CDN storage via uploadToStorage:', uniqueName);
       
       const cdnUrl = await uploadToStorage(buffer, uniqueName);
       
-      console.log('[Protection] Image uploaded successfully:', cdnUrl);
+      if (!cdnUrl) {
+        console.error('[Protection] uploadToStorage returned empty URL for:', uniqueName);
+        return res.status(500).json({ error: 'Image upload failed: no URL returned from storage' });
+      }
+      console.log('[Protection] Image uploaded successfully to CDN:', cdnUrl);
       return res.json({ success: true, url: cdnUrl });
     } catch (e: any) {
       console.error('[Protection] Image upload error:', e.message, 'Stack:', e.stack);
