@@ -681,14 +681,20 @@ export default function AdminScreen() {
   useEffect(() => {
     if (activeTab === 'protection-plans') fetchProtectionPlans();
     if (activeTab === 'protection-claims') fetchProtectionClaims();
-  }, [activeTab, fetchProtectionPlans, fetchProtectionClaims]);
+  }, [activeTab]);
 
   useEffect(() => {
-    if (activeTab === 'protection-plans') fetchProtectionPlans();
+    if (activeTab === 'protection-plans') {
+      const timer = setTimeout(fetchProtectionPlans, 300);
+      return () => clearTimeout(timer);
+    }
   }, [protectionPlanFilter]);
 
   useEffect(() => {
-    if (activeTab === 'protection-claims') fetchProtectionClaims();
+    if (activeTab === 'protection-claims') {
+      const timer = setTimeout(fetchProtectionClaims, 300);
+      return () => clearTimeout(timer);
+    }
   }, [protectionClaimFilter]);
 
   const handleProtectionPlanAction = useCallback(async (planId: string, action: 'approve' | 'reject', reason?: string) => {
