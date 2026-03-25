@@ -7331,30 +7331,15 @@ Be specific about component locations and names. If image quality is poor or not
         return res.status(409).json({ error: 'A plan already exists for this IMEI number' });
       }
 
-      // Try to fetch user email from profiles table
-      let userEmail = '';
-      try {
-        console.log('[Protection] Fetching user email for userId:', userId);
-        const userProfile = await db.select().from(profiles)
-          .where(eq(profiles.id, userId))
-          .limit(1);
-        userEmail = userProfile.length > 0 ? (userProfile[0].email || '') : '';
-        console.log('[Protection] User email fetched:', userEmail || '(not found)');
-      } catch (emailErr: any) {
-        console.warn('[Protection] Could not fetch user email:', emailErr.message);
-        userEmail = '';
-      }
-
       console.log('[Protection] Creating new protection plan...');
       const price = planType === 'yearly' ? 1499 : 447;
       const id = randomUUID();
       
       console.log('[Protection] Inserting with fields:', { 
-        id, userId, userName, userPhone, userEmail, imei, brand, model, modelNumber, planType, price 
+        id, userId, userName, userPhone, imei, brand, model, modelNumber, planType, price 
       });
 
-      // Build insert values - skip userEmail if column doesn't exist in schema
-      const insertValues: any = {
+      await db.insert(protectionPlans).values({
         id,
         userId,
         userName: userName || '',
@@ -7375,16 +7360,7 @@ Be specific about component locations and names. If image quality is poor or not
         rejectionReason: '',
         createdAt: Date.now(),
         updatedAt: Date.now(),
-      };
-
-      // Try to include userEmail, but if schema doesn't have it, proceed without it
-      try {
-        insertValues.userEmail = userEmail || '';
-      } catch (e) {
-        console.warn('[Protection] userEmail not available in schema, proceeding without it');
-      }
-
-      await db.insert(protectionPlans).values(insertValues);
+      });
 
       console.log('[Protection] Plan created successfully:', id);
       return res.json({ success: true, planId: id, message: 'Application submitted successfully' });
