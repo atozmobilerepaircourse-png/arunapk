@@ -321,12 +321,13 @@ export default function ProtectionPlanScreen() {
     if (!model) { Alert.alert('Missing Information', 'Please enter your phone model.'); return; }
     if (!modelNumber) { Alert.alert('Missing Information', 'Please enter your model number.'); return; }
 
-    // Validate additional devices
+    // Validate additional devices (only validate devices that have at least an IMEI)
     for (const device of devices) {
+      if (!device.imei) continue; // Skip empty devices
+      if (device.imei.length !== 15) { Alert.alert('Invalid IMEI', 'All devices must have a valid 15-digit IMEI number.'); return; }
       if (!device.brand) { Alert.alert('Missing Information', 'Please enter brand for all additional devices.'); return; }
       if (!device.model) { Alert.alert('Missing Information', 'Please enter model for all additional devices.'); return; }
       if (!device.modelNumber) { Alert.alert('Missing Information', 'Please enter model number for all additional devices.'); return; }
-      if (!device.imei || device.imei.length !== 15) { Alert.alert('Invalid IMEI', 'All devices must have a valid 15-digit IMEI number.'); return; }
     }
 
     setSubmitting(true);
@@ -386,8 +387,13 @@ export default function ProtectionPlanScreen() {
         backImage: backUrl || '',
       }];
       
-      // Add any additional devices
+      // Add any additional devices (skip if no IMEI)
       for (const device of devices) {
+        if (!device.imei || device.imei.trim() === '') {
+          console.log('[Protection] Skipping empty device');
+          continue;
+        }
+        
         let additionalFrontUrl = '';
         let additionalBackUrl = '';
         
