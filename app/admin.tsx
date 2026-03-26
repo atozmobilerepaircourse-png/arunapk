@@ -884,17 +884,28 @@ export default function AdminScreen() {
         hasLegacyToken: !!legacyToken,
         hasNewToken: !!newToken,
         hasWebToken: !!webToken,
-        finalToken: sessionToken ? `${sessionToken.substring(0, 20)}...` : 'MISSING'
+        finalToken: sessionToken ? `${sessionToken.substring(0, 20)}...` : 'MISSING',
+        platform: typeof window !== 'undefined' ? 'web' : 'native'
       });
+      
+      // Log all available localStorage keys
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const keys = Object.keys(window.localStorage);
+        console.log('🔑 [DELETE] Available localStorage keys:', keys);
+        keys.forEach(k => {
+          const val = window.localStorage.getItem(k);
+          console.log(`  ${k}: ${val ? `${val.substring(0, 20)}...` : 'empty'}`);
+        });
+      }
       
       if (!sessionToken) {
         console.error('❌ [DELETE] No session token found');
-        Alert.alert('Authentication Error', 'Your session has expired. Please log in again.');
+        Alert.alert('Authentication Error', 'Your session has expired. Please log in again. Try logging out and logging back in.');
         setDeletingUserId(null);
         return;
       }
       
-      console.log('✓ [DELETE] Session token found, making DELETE request to /api/admin/delete-user');
+      console.log('✓ [DELETE] Session token found, making POST request to /api/admin/delete-user');
       
       // Make the delete request
       const res = await apiRequest('POST', '/api/admin/delete-user', { userId });
