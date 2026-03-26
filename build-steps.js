@@ -143,6 +143,12 @@ console.log('server_dist/index.js is now fully bundled (26MB) with all npm packa
           console.log('  Updating container image to:', IMAGE);
           svc.template.containers[0].image = IMAGE;
 
+          // Force a new revision by adding a unique deploy timestamp annotation AND env var
+          svc.template.annotations = svc.template.annotations || {};
+          const deployTs = String(Date.now());
+          svc.template.annotations['run.googleapis.com/deploy-timestamp'] = deployTs;
+          console.log('  Force-new-revision annotation:', deployTs);
+
           // Build env map from existing vars, then apply overrides from Replit secrets
           const existingEnv = svc.template.containers[0].env || [];
           const envMap = {};
@@ -170,6 +176,8 @@ console.log('server_dist/index.js is now fully bundled (26MB) with all npm packa
           envMap['NODE_ENV'] = 'production';
           envMap['BUNNY_STORAGE_ZONE_NAME'] = 'arun-storag';
           envMap['BUNNY_STORAGE_REGION'] = 'uk';
+          // Force new revision by changing this env var every deployment
+          envMap['DEPLOY_TIMESTAMP'] = deployTs;
 
           let syncCount = 0;
           for (const key of secretsToSync) {
@@ -222,9 +230,28 @@ console.log('server_dist/index.js is now fully bundled (26MB) with all npm packa
           
           if (patchResp.ok) {
             console.log(`  ✅ Cloud Run service updated: new image + ${syncCount} env var(s) synced`);
-            console.log('  Waiting for new revision to roll out...');
-            await new Promise(r => setTimeout(r, 15000));
-            console.log('  New revision should be live!');
+            console.log('  latestCreatedRevision from PATCH:', patchData.latestCreatedRevision || 'n/a');
+            // Poll until new revision is ready (max 3 min)
+            const maxWait = 180000;
+            const pollInterval = 10000;
+            const started = Date.now();
+            let ready = false;
+            while (Date.now() - started < maxWait) {
+              await new Promise(r => setTimeout(r, pollInterval));
+              const pollTok = await getToken();
+              const svcPoll = await fetch(serviceUrl, { headers: { Authorization: 'Bearer ' + pollTok } });
+              const svcData = await svcPoll.json();
+              const latest = svcData.latestCreatedRevision || '';
+              const readyRev = svcData.latestReadyRevision || '';
+              const elapsed = Math.round((Date.now() - started) / 1000);
+              console.log(`  [${elapsed}s] latestCreated=${latest.split('/').pop()} latestReady=${readyRev.split('/').pop()}`);
+              if (latest === readyRev && latest !== '' && !svcData.reconciling) {
+                console.log('  ✅ New revision is ready and serving!');
+                ready = true;
+                break;
+              }
+            }
+            if (!ready) console.log('  ⚠ Timed out waiting for revision — check Cloud Run console');
           } else {
             console.error('  ❌ Failed to update Cloud Run service:', JSON.stringify(patchData).slice(0, 500));
             process.exit(1);

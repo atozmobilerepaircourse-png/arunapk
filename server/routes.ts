@@ -5322,18 +5322,15 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
       const { planName, protectionPlanPrice, yearlyPrice, monthlyPrice, repairDiscount, status } = req.body;
       console.log('[Insurance Settings] Saving:', { planName, protectionPlanPrice, yearlyPrice, monthlyPrice, repairDiscount, status });
       
-      // Helper to reliably save/update a setting
+      // Use raw SQL upsert for maximum reliability
       const saveSetting = async (key: string, value: string) => {
-        try {
-          // First try to delete the old record
-          await db.delete(appSettings).where(eq(appSettings.key, key));
-          // Then insert the new value
-          await db.insert(appSettings).values({ key, value, updatedAt: Date.now() });
-          console.log(`[Insurance Settings] Saved ${key} = ${value}`);
-        } catch (e) {
-          console.error(`[Insurance Settings] Error saving ${key}:`, e);
-          throw e;
-        }
+        const now = Date.now();
+        await db.execute(sql`
+          INSERT INTO app_settings (id, key, value, updated_at)
+          VALUES (gen_random_uuid(), ${key}, ${value}, ${now})
+          ON CONFLICT (key) DO UPDATE SET value = ${value}, updated_at = ${now}
+        `);
+        console.log(`[Insurance Settings] Saved ${key} = ${value}`);
       };
       
       if (planName !== undefined) await saveSetting('insurance_plan_name', String(planName));
@@ -5343,7 +5340,12 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
       if (repairDiscount !== undefined) await saveSetting('insurance_repair_discount', String(repairDiscount));
       if (status !== undefined) await saveSetting('insurance_plan_status', String(status));
       
-      console.log('[Insurance Settings] Save completed successfully');
+      // Verify by reading back what we just saved
+      const verify = await db.select().from(appSettings).where(
+        sql`key IN ('insurance_plan_price_yearly','insurance_plan_price_monthly')`
+      );
+      console.log('[Insurance Settings] Verification read-back:', verify.map(r => `${r.key}=${r.value}`));
+      
       return res.json({ success: true });
     } catch (err) {
       console.error('[Insurance Settings] Update error:', err);
@@ -5659,7 +5661,10 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
     try {
       const { userId, blocked } = req.body;
       if (!userId) return res.status(400).json({ success: false, message: "userId required" });
-      await db.update(profiles).set({ blocked: blocked ? 1 : 0 } as any).where(eq(profiles.id, userId));
+      console.log(`[Admin] ${blocked ? 'Blocking' : 'Unblocking'} user: ${userId}`);
+      const blockedVal = blocked ? 1 : 0;
+      await db.execute(sql`UPDATE profiles SET blocked = ${blockedVal} WHERE id = ${userId}`);
+      console.log(`[Admin] User ${userId} block status updated to ${blockedVal}`);
       return res.json({ success: true, message: blocked ? "User blocked" : "User unblocked" });
     } catch (error) {
       console.error("[Admin] Block user error:", error);
@@ -5673,55 +5678,32 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
       console.log("[Admin Delete] Request received:", { userId });
       
       if (!userId) {
-        console.error("[Admin Delete] userId missing from request body");
         return res.status(400).json({ success: false, message: "userId required" });
       }
 
-      // Check if user exists
-      console.log("[Admin Delete] Checking if user exists:", userId);
-      const existingUser = await db.select().from(profiles).where(eq(profiles.id, userId));
+      // Get the phone number first so we can delete sessions
+      const userRows = await db.execute(sql`SELECT phone, name FROM profiles WHERE id = ${userId}`);
+      const userRow = (userRows as any).rows?.[0] || (Array.isArray(userRows) ? userRows[0] : null);
       
-      if (!existingUser || existingUser.length === 0) {
-        console.error("[Admin Delete] User not found:", userId);
+      if (!userRow) {
         return res.status(404).json({ success: false, message: "User not found" });
       }
-
-      const userToDelete = existingUser[0];
-      console.log("[Admin Delete] User found, proceeding with deletion:", {
-        id: userToDelete.id,
-        name: userToDelete.name,
-        phone: userToDelete.phone,
-        role: userToDelete.role
-      });
-
-      // Delete in a transaction to ensure consistency
-      const result = await db.transaction(async (tx) => {
-        // Get phone to delete sessions
-        const [profile] = await tx.select({ phone: profiles.phone }).from(profiles).where(eq(profiles.id, userId));
-        
-        if (profile?.phone) {
-          console.log("[Admin Delete] Deleting sessions for phone:", profile.phone);
-          const sessionDeleteResult = await tx.delete(sessions).where(eq(sessions.phone, profile.phone));
-          console.log("[Admin Delete] Sessions deleted");
-        }
-
-        // Delete the profile
-        console.log("[Admin Delete] Deleting profile:", userId);
-        const profileDeleteResult = await tx.delete(profiles).where(eq(profiles.id, userId));
-        console.log("[Admin Delete] Profile deleted");
-        
-        return { success: true };
-      });
-
-      console.log("[Admin Delete] ✅ User deleted successfully:", userId);
+      
+      console.log("[Admin Delete] Deleting user:", { userId, name: userRow.name });
+      
+      // Delete sessions first (if phone exists)
+      if (userRow.phone) {
+        await db.execute(sql`DELETE FROM sessions WHERE phone = ${userRow.phone}`);
+        console.log("[Admin Delete] Sessions cleared for phone:", userRow.phone);
+      }
+      
+      // Delete the profile
+      await db.execute(sql`DELETE FROM profiles WHERE id = ${userId}`);
+      console.log("[Admin Delete] ✅ User deleted:", userId);
+      
       return res.json({ success: true, message: "User deleted successfully", userId });
     } catch (error) {
-      console.error("[Admin Delete] ❌ Error:", {
-        message: (error as any).message,
-        code: (error as any).code,
-        detail: (error as any).detail,
-        fullError: error
-      });
+      console.error("[Admin Delete] ❌ Error:", error);
       return res.status(500).json({ success: false, message: "Failed to delete user", error: (error as any).message });
     }
   });
