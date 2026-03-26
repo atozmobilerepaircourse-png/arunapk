@@ -126,10 +126,11 @@ export const queryClient = new QueryClient({
       refetchInterval: false,
       refetchOnWindowFocus: false,
       staleTime: 30000,
-      retry: 2,
+      retry: 0,
+      retryDelay: () => 1000,
     },
     mutations: {
-      retry: false,
+      retry: 0,
     },
   },
 });
