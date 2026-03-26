@@ -8,15 +8,7 @@ const REPLIT_BACKEND = "https://replit-prod-backend.example.com"; // Will be rep
 const SESSION_KEY = "mobi_session_token_v2";
 
 export function getApiUrl(): string {
-  // Use environment variable if available, otherwise default to Cloud Run
-  if (typeof process !== "undefined" && process.env.EXPO_PUBLIC_API_URL) {
-    return process.env.EXPO_PUBLIC_API_URL;
-  }
-  // Check if this is Firebase hosting (production web app)
-  if (typeof window !== "undefined" && window.location.hostname === "mobile-repair-app-276b6.web.app") {
-    // For now, use Cloud Run for production
-    return CLOUD_RUN_BACKEND;
-  }
+  // Always use Cloud Run backend - it's configured to accept requests from Firebase hosting
   return CLOUD_RUN_BACKEND;
 }
 
