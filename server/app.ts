@@ -2,6 +2,7 @@ import express from "express";
 import type { Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { startEmailScheduler } from "./lib/emailScheduler";
+import { fixDbUrl } from "./db";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -293,7 +294,7 @@ function getValidDbUrl(): string | null {
   ];
   for (const url of candidates) {
     if (url && (url.startsWith("postgresql://") || url.startsWith("postgres://"))) {
-      return url;
+      return fixDbUrl(url);
     }
   }
   return null;
