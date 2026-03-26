@@ -3,8 +3,14 @@
 ## Overview
 Mobile app (Expo/React Native) for repair professionals with social feed, directory, marketplace, and insurance.
 
-**Backend**: Express/TypeScript on Cloud Run @ `https://repair-backend-3siuld7gbq-el.a.run.app`
+**Backend**: Express/TypeScript on Cloud Run @ `https://repair-backendarun-838751841074.asia-south1.run.app` (service: `repair-backendarun`, project: `mobi-backend-491410`)
 **Frontend**: Firebase Hosting @ `https://mobile-repair-app-276b6.web.app`
+
+## ⚠️ CRITICAL DEPLOYMENT NOTES
+- **NEVER use `npm run server:build`** for Cloud Run deploys — it uses `--packages=external` which creates an incomplete bundle that crashes in Docker (missing drizzle-orm etc.)
+- **ALWAYS use `deploy-backend.sh`** which runs the correct esbuild command: `--bundle --format=cjs --external:*.node` (fully self-contained, ~20MB)
+- **Deploy pattern**: Cloud Build step `BuildAndPushImage` (push-oci.js) SUCCEEDS; step `DeployToCloudRun` (gcloud) always FAILS — use PATCH API after Cloud Build to deploy
+- **Admin ID**: `admin-55f06aed-5414-45da-a507-9fe355dbb5a7`, **Admin phone**: `8179142535`
 
 ## Latest Session - Admin Panel & User Information Display
 
