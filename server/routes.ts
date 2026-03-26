@@ -7311,6 +7311,14 @@ Be specific about component locations and names. If image quality is poor or not
           updated_at BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW()) * 1000
         )
       `);
+      // Add missing columns to existing tables (safe migrations)
+      await db.execute(sql`ALTER TABLE protection_plans ADD COLUMN IF NOT EXISTS devices TEXT DEFAULT '[]'`);
+      await db.execute(sql`ALTER TABLE protection_plans ADD COLUMN IF NOT EXISTS plan_start_date BIGINT DEFAULT 0`);
+      await db.execute(sql`ALTER TABLE protection_plans ADD COLUMN IF NOT EXISTS rejection_reason TEXT DEFAULT ''`);
+      await db.execute(sql`ALTER TABLE protection_plans ADD COLUMN IF NOT EXISTS payment_id TEXT DEFAULT ''`);
+      await db.execute(sql`ALTER TABLE protection_plans ADD COLUMN IF NOT EXISTS razorpay_order_id TEXT DEFAULT ''`);
+      await db.execute(sql`ALTER TABLE protection_claims ADD COLUMN IF NOT EXISTS admin_notes TEXT DEFAULT ''`);
+      await db.execute(sql`ALTER TABLE protection_claims ADD COLUMN IF NOT EXISTS service_fee_paid INTEGER DEFAULT 0`);
       console.log('[Protection] Tables ready');
     } catch (e: any) { console.warn('[Protection] Table migration:', e.message); }
   })();
@@ -7651,8 +7659,14 @@ Be specific about component locations and names. If image quality is poor or not
         ? await query.where(and(...conditions)).orderBy(desc(protectionPlans.createdAt))
         : await query.orderBy(desc(protectionPlans.createdAt));
       
-      console.log('[Protection] Fetched plans:', plans.length);
-      return res.json(plans);
+      // Parse devices JSON string to array before returning
+      const parsedPlans = plans.map(p => ({
+        ...p,
+        devices: (() => { try { return typeof p.devices === 'string' ? JSON.parse(p.devices) : (p.devices || []); } catch { return []; } })()
+      }));
+      
+      console.log('[Protection] Fetched plans:', parsedPlans.length);
+      return res.json(parsedPlans);
     } catch (e: any) {
       console.error('[Protection] Error fetching plans:', e.message, e.stack);
       return res.status(500).json({ error: 'Failed to get plans', details: e.message });
