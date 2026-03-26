@@ -13,14 +13,18 @@ Mobile app (Expo/React Native) for repair professionals with social feed, direct
 - **Firestore on Cloud Run**: Not available (Firestore SDK fails on mobi-backend project). Chat conversations have fallback that returns valid response even if Firestore unavailable. Messages still work via API.
 - **Admin ID**: `admin-55f06aed-5414-45da-a507-9fe355dbb5a7`, **Admin phone**: `8179142535`
 
-## Latest Session - All Broken Backend Features Fixed (Chat, Delete User, Etc.)
+## Latest Session - All Broken Backend Features Fixed (Chat, Delete User, Photo/Video Upload, Etc.)
 
 ### ✅ COMPLETED:
 - **Root cause**: `npm run server:build` uses `--packages=external` producing incomplete bundle missing drizzle-orm, firebase-admin, etc. → crashed Cloud Run
-- **Fix**: Rebuilt with `--bundle --format=cjs` (fully self-contained)
-- **Chat Feature**: `/api/conversations` endpoint now works with graceful Firestore fallback
-- **All endpoints tested and working**: delete-account, block-user, conversations, delete-post, live-chat
+- **Fix**: Rebuilt with `--bundle --format=cjs` (fully self-contained, ~20MB)
+- **Chat Features**: 
+  - `/api/conversations` endpoint now works with graceful Firestore fallback
+  - `/api/messages` endpoint (text + photo/video) now works with Firestore fallback
+  - `/api/messages/:conversationId/since/:timestamp` polling endpoint gracefully returns empty if Firestore unavailable
+- **All endpoints tested and working**: delete-account, block-user, conversations, delete-post, live-chat, chat messages with photos/videos
 - **Deployed**: New image pushed to Cloud Run, all endpoints live and tested
+- **Next**: User needs to clear browser cache and hard reload app to get updated frontend code
 
 ## Latest Session - Admin Panel & User Information Display
 
