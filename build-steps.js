@@ -200,7 +200,7 @@ console.log('server_dist/index.js is now fully bundled (26MB) with all npm packa
 
             // Secrets to sync from Replit → Cloud Run
             const secretsToSync = [
-              'DATABASE_URL',
+              'NEON_DATABASE_URL',
               'GOOGLE_CLIENT_SECRET',
               'FAST2SMS_API_KEY',
               'BUNNY_STREAM_API_KEY',
@@ -221,6 +221,12 @@ console.log('server_dist/index.js is now fully bundled (26MB) with all npm packa
               } else {
                 console.log(`  ⚠ ${key} not set in Replit env — skipping`);
               }
+            }
+
+            // Override DATABASE_URL with Neon URL so Cloud Run uses Neon
+            if (process.env.NEON_DATABASE_URL) {
+              envMap['DATABASE_URL'] = process.env.NEON_DATABASE_URL;
+              console.log(`  ✓ DATABASE_URL overridden with Neon (locked in)`);
             }
 
             // Rebuild env array
