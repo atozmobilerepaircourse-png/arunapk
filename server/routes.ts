@@ -5458,6 +5458,75 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
     }
   });
 
+  // ── USER: Delete own account ────────────────────────────────────────────
+  app.post("/api/user/delete-account", async (req, res) => {
+    try {
+      const userId = req.header("x-user-id") || (req.body as any).userId;
+      if (!userId) return res.status(401).json({ success: false, message: "Unauthorized" });
+
+      // Delete user's posts
+      await db.delete(posts).where(eq(posts.userId, userId));
+      // Delete user profile
+      await db.delete(profiles).where(eq(profiles.id, userId));
+      
+      return res.json({ success: true, message: "Account deleted successfully" });
+    } catch (error) {
+      console.error("[User] Delete account error:", error);
+      return res.status(500).json({ success: false, message: "Failed to delete account" });
+    }
+  });
+
+  // ── USER: Block another user ────────────────────────────────────────────
+  app.post("/api/user/block-user", async (req, res) => {
+    try {
+      const userId = req.header("x-user-id") || (req.body as any).currentUserId;
+      const { targetUserId } = req.body;
+      
+      if (!userId) return res.status(401).json({ success: false, message: "Unauthorized" });
+      if (!targetUserId) return res.status(400).json({ success: false, message: "targetUserId required" });
+      
+      // Check if blocked users list exists
+      const [profile] = await db.select().from(profiles).where(eq(profiles.id, userId));
+      if (!profile) return res.status(404).json({ success: false, message: "User not found" });
+      
+      const blockedList = profile.blockedUsers ? JSON.parse(String(profile.blockedUsers)) : [];
+      if (!blockedList.includes(targetUserId)) {
+        blockedList.push(targetUserId);
+        await db.update(profiles).set({ blockedUsers: JSON.stringify(blockedList) }).where(eq(profiles.id, userId));
+      }
+      
+      return res.json({ success: true, message: "User blocked successfully" });
+    } catch (error) {
+      console.error("[User] Block user error:", error);
+      return res.status(500).json({ success: false, message: "Failed to block user" });
+    }
+  });
+
+  // ── USER: Unblock a user ────────────────────────────────────────────
+  app.post("/api/user/unblock-user", async (req, res) => {
+    try {
+      const userId = req.header("x-user-id") || (req.body as any).currentUserId;
+      const { targetUserId } = req.body;
+      
+      if (!userId) return res.status(401).json({ success: false, message: "Unauthorized" });
+      if (!targetUserId) return res.status(400).json({ success: false, message: "targetUserId required" });
+      
+      const [profile] = await db.select().from(profiles).where(eq(profiles.id, userId));
+      if (!profile) return res.status(404).json({ success: false, message: "User not found" });
+      
+      const blockedList = profile.blockedUsers ? JSON.parse(String(profile.blockedUsers)) : [];
+      const index = blockedList.indexOf(targetUserId);
+      if (index > -1) {
+        blockedList.splice(index, 1);
+        await db.update(profiles).set({ blockedUsers: JSON.stringify(blockedList) }).where(eq(profiles.id, userId));
+      }
+      
+      return res.json({ success: true, message: "User unblocked successfully" });
+    } catch (error) {
+      console.error("[User] Unblock user error:", error);
+      return res.status(500).json({ success: false, message: "Failed to unblock user" });
+    }
+  });
 
   app.post("/api/admin/unblock-user", adminMiddleware, async (req, res) => {
     try {
