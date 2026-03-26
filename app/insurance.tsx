@@ -116,6 +116,8 @@ export default function ProtectionPlanScreen() {
   const [step, setStep] = useState<Step>('plan');
   const [loadingPlan, setLoadingPlan] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [submissionStatus, setSubmissionStatus] = useState<'idle' | 'uploading' | 'verifying' | 'success' | 'error'>('idle');
+  const [submissionMessage, setSubmissionMessage] = useState('');
 
   const [existingPlan, setExistingPlan] = useState<Plan | null>(null);
   const [existingClaim, setExistingClaim] = useState<Claim | null>(null);
@@ -328,6 +330,8 @@ export default function ProtectionPlanScreen() {
     }
 
     setSubmitting(true);
+    setSubmissionStatus('uploading');
+    setSubmissionMessage('Uploading device images...');
     try {
       console.log('[Protection] Starting application submission...', { profile: profile.id, brand, model, imei });
       
@@ -368,6 +372,8 @@ export default function ProtectionPlanScreen() {
         await new Promise(resolve => setTimeout(resolve, 100));
       }
 
+      setSubmissionStatus('verifying');
+      setSubmissionMessage('Verifying application details...');
       console.log('[Protection] Submitting protection plan application...');
       
       // Build devices array - start with the main device, then add any additional devices
@@ -448,30 +454,23 @@ export default function ProtectionPlanScreen() {
       
       if (!data.success) throw new Error(data.error || 'Submission failed');
 
-      const successMessage = data.isUpdate 
-        ? '✓ Plan Updated!\n\nYour Mobile Protection Plan has been successfully updated.'
-        : '✓ Successfully Submitted!\n\nYour Mobile Protection Plan application has been submitted for review. We will verify your details and notify you within 24 hours.';
-
-      const isWeb = typeof window !== 'undefined';
-      if (isWeb) {
-        window.alert(successMessage);
-      } else {
-        Alert.alert(
-          data.isUpdate ? '✓ Plan Updated!' : '✓ Successfully Submitted!',
-          data.isUpdate 
-            ? 'Your Mobile Protection Plan has been successfully updated.'
-            : 'Your Mobile Protection Plan application has been submitted for review. We will verify your details and notify you within 24 hours.',
-          [{ text: 'OK', onPress: () => {} }]
-        );
-      }
+      setSubmissionStatus('success');
+      setSubmissionMessage(data.isUpdate ? 'Plan Updated Successfully!' : 'Application Submitted Successfully!');
       
-      // Wait a moment for user to see the success message, then refresh
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      console.log('[Protection] Submission successful:', data);
+      
+      // Wait 2 seconds before refreshing to show success screen
+      await new Promise(resolve => setTimeout(resolve, 2000));
       fetchPlan();
     } catch (e: any) {
       console.error('[Protection] Submission error:', e);
       const errorMessage = e.message || 'Failed to submit application. Please try again.';
-      Alert.alert('Submission Failed', errorMessage);
+      setSubmissionStatus('error');
+      setSubmissionMessage(errorMessage);
+      
+      // Wait 3 seconds then reset
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      setSubmissionStatus('idle');
     } finally {
       setSubmitting(false);
     }
@@ -1404,6 +1403,49 @@ export default function ProtectionPlanScreen() {
             }
           </TouchableOpacity>
         </View>
+
+        {/* Submission Status Modal */}
+        {submitting && (
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', zIndex: 999 }]}>
+            <View style={[styles.card, { width: '80%', maxWidth: 320, alignItems: 'center' }]}>
+              {submissionStatus === 'success' ? (
+                <>
+                  <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: GREEN_L, alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+                    <Ionicons name="checkmark" size={48} color={GREEN} />
+                  </View>
+                  <Text style={{ fontSize: 18, fontFamily: 'Inter_700Bold', color: DARK, marginBottom: 8, textAlign: 'center' }}>
+                    {submissionMessage}
+                  </Text>
+                  <Text style={{ fontSize: 13, color: MUTED, textAlign: 'center', lineHeight: 18 }}>
+                    Your application has been submitted successfully. You will be redirected shortly.
+                  </Text>
+                </>
+              ) : submissionStatus === 'error' ? (
+                <>
+                  <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: '#FFEEEE', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+                    <Ionicons name="close-circle" size={48} color={RED} />
+                  </View>
+                  <Text style={{ fontSize: 16, fontFamily: 'Inter_700Bold', color: RED, marginBottom: 8, textAlign: 'center' }}>
+                    Submission Failed
+                  </Text>
+                  <Text style={{ fontSize: 13, color: MUTED, textAlign: 'center', lineHeight: 18 }}>
+                    {submissionMessage}
+                  </Text>
+                </>
+              ) : (
+                <>
+                  <ActivityIndicator size="large" color={PRIMARY} style={{ marginBottom: 16 }} />
+                  <Text style={{ fontSize: 16, fontFamily: 'Inter_600SemiBold', color: DARK, marginBottom: 8, textAlign: 'center' }}>
+                    {submissionMessage}
+                  </Text>
+                  <Text style={{ fontSize: 12, color: MUTED, textAlign: 'center' }}>
+                    Please wait while we process your application...
+                  </Text>
+                </>
+              )}
+            </View>
+          </View>
+        )}
       </View>
     );
   }
