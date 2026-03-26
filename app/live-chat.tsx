@@ -565,20 +565,42 @@ export default function LiveChatScreen() {
 
   useEffect(() => {
     setIsLoading(true);
+    let lastMessageTime = 0;
 
     // Firestore real-time listener
     let unsubscribe: (() => void) | null = null;
+    let pollInterval: NodeJS.Timeout | null = null;
+    let usesFirestore = false;
+
+    const loadMessagesViaREST = async () => {
+      try {
+        const res = await apiRequest('GET', '/api/live-chat/messages?limit=60');
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          const normalized = data.map(normalizeMsg);
+          setMessages(normalized);
+          if (normalized.length > 0) {
+            lastMessageTime = normalized[normalized.length - 1]?.createdAt || 0;
+          }
+          console.log('[LiveChat] Loaded', normalized.length, 'messages from REST API');
+        }
+      } catch (err) {
+        console.error('[LiveChat] REST API load error:', err);
+      }
+    };
+
     try {
       const db = getFirestoreDb();
       if (!db) {
-        console.warn('[LiveChat] Firestore not available, using REST API');
-        apiRequest('GET', '/api/live-chat/messages?limit=60')
-          .then(res => res.json())
-          .then(data => { if (Array.isArray(data)) setMessages(data.map(normalizeMsg)); })
-          .catch(() => {})
-          .finally(() => setIsLoading(false));
+        console.warn('[LiveChat] Firestore not available, using REST API with polling');
+        loadMessagesViaREST().then(() => setIsLoading(false));
+        
+        // Poll for new messages every 3 seconds
+        pollInterval = setInterval(loadMessagesViaREST, 3000);
         return;
       }
+
+      usesFirestore = true;
       const q = query(
         collection(db, 'live_chat_messages'),
         orderBy('createdAt', 'desc'),
@@ -589,24 +611,25 @@ export default function LiveChatScreen() {
           const d = doc.data();
           return normalizeMsg({ id: doc.id, ...d });
         });
-        setMessages(msgs.reverse());
+        const sorted = msgs.reverse();
+        setMessages(sorted);
+        if (sorted.length > 0) {
+          lastMessageTime = sorted[sorted.length - 1]?.createdAt || 0;
+        }
+        console.log('[LiveChat] Loaded', msgs.length, 'messages from Firestore');
         setIsLoading(false);
       }, (error) => {
         console.warn('[LiveChat] Firestore onSnapshot error:', error);
-        // Fallback: load via REST API
-        apiRequest('GET', '/api/live-chat/messages?limit=60')
-          .then(res => res.json())
-          .then(data => { if (Array.isArray(data)) setMessages(data.map(normalizeMsg)); })
-          .catch(() => {})
-          .finally(() => setIsLoading(false));
+        // Fallback: load via REST API with polling
+        usesFirestore = false;
+        loadMessagesViaREST().then(() => setIsLoading(false));
+        pollInterval = setInterval(loadMessagesViaREST, 3000);
       });
     } catch (err) {
       console.warn('[LiveChat] Firestore setup error:', err);
-      apiRequest('GET', '/api/live-chat/messages?limit=60')
-        .then(res => res.json())
-        .then(data => { if (Array.isArray(data)) setMessages(data.map(normalizeMsg)); })
-        .catch(() => {})
-        .finally(() => setIsLoading(false));
+      usesFirestore = false;
+      loadMessagesViaREST().then(() => setIsLoading(false));
+      pollInterval = setInterval(loadMessagesViaREST, 3000);
     }
 
     apiRequest('GET', '/api/community/stats')
@@ -641,6 +664,7 @@ export default function LiveChatScreen() {
 
     return () => {
       if (unsubscribe) unsubscribe();
+      if (pollInterval) clearInterval(pollInterval);
       clearInterval(presenceInterval);
       clearInterval(onlineInterval);
       if (profile) {
