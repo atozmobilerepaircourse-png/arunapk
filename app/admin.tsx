@@ -182,16 +182,19 @@ function UserDetailCard({ user, onBlock, onVerify, onDelete, blockingId, verifyi
           </View>
           <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={16} color={C.textTertiary} />
           {/* Quick delete button always visible */}
-          <Pressable
-            onPress={(e) => {
-              console.log('⚡ [QUICK DELETE] Clicked');
-              e.stopPropagation?.();
+          <View 
+            onTouchEnd={() => {
+              console.log('⚡ [QUICK DELETE] Touch ended');
               onDelete(user.id, user.name);
             }}
-            style={({ pressed }) => ({ padding: 8, opacity: pressed ? 0.6 : 1 })}
+            onClick={() => {
+              console.log('⚡ [QUICK DELETE] Web click detected');
+              onDelete(user.id, user.name);
+            }}
+            style={{ padding: 8, cursor: 'pointer' } as any}
           >
             <Ionicons name="trash-outline" size={16} color="#FF3B30" />
-          </Pressable>
+          </View>
         </View>
       </TouchableOpacity>
 
