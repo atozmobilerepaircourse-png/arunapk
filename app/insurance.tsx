@@ -1578,9 +1578,9 @@ export default function ProtectionPlanScreen() {
             </>
           )}
 
-          {/* Add device button */}
+          {/* Add device button - HIDDEN */}
           <TouchableOpacity
-            style={[styles.card, { borderStyle: 'dashed', borderWidth: 2, borderColor: PRIMARY, backgroundColor: PRIMARY_L, alignItems: 'center', padding: 16, marginBottom: 12 }]}
+            style={[styles.card, { borderStyle: 'dashed', borderWidth: 2, borderColor: PRIMARY, backgroundColor: PRIMARY_L, alignItems: 'center', padding: 16, marginBottom: 12, display: 'none' }]}
             onPress={addDevice}
           >
             <Ionicons name="add-circle-outline" size={24} color={PRIMARY} />
@@ -1664,9 +1664,9 @@ export default function ProtectionPlanScreen() {
               </>
             )}
             
-            {/* Add another device button */}
+            {/* Add another device button - HIDDEN */}
             <TouchableOpacity 
-              style={[styles.card, { borderStyle: 'dashed', borderWidth: 2, borderColor: PRIMARY, backgroundColor: PRIMARY_L, alignItems: 'center', padding: 16, marginTop: 12 }]}
+              style={[styles.card, { borderStyle: 'dashed', borderWidth: 2, borderColor: PRIMARY, backgroundColor: PRIMARY_L, alignItems: 'center', padding: 16, marginTop: 12, display: 'none' }]}
               onPress={() => {
                 const newDevice = {
                   id: Date.now().toString(),
