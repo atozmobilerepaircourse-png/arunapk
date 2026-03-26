@@ -5322,22 +5322,38 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
       const { planName, protectionPlanPrice, yearlyPrice, monthlyPrice, repairDiscount, status } = req.body;
       console.log('[Insurance Settings] Saving:', { planName, protectionPlanPrice, yearlyPrice, monthlyPrice, repairDiscount, status });
       
-      const upsert = async (key: string, value: string) => {
-        const [existing] = await db.select().from(appSettings).where(eq(appSettings.key, key));
-        if (existing) {
-          console.log(`[Insurance Settings] Updating ${key} to ${value}`);
-          await db.update(appSettings).set({ value, updatedAt: Date.now() }).where(eq(appSettings.key, key));
-        } else {
-          console.log(`[Insurance Settings] Inserting ${key} = ${value}`);
-          await db.insert(appSettings).values({ key, value, updatedAt: Date.now() });
-        }
-      };
-      if (planName !== undefined) await upsert('insurance_plan_name', String(planName));
-      if (protectionPlanPrice !== undefined) await upsert('insurance_plan_price', String(protectionPlanPrice));
-      if (yearlyPrice !== undefined) await upsert('insurance_plan_price_yearly', String(yearlyPrice));
-      if (monthlyPrice !== undefined) await upsert('insurance_plan_price_monthly', String(monthlyPrice));
-      if (repairDiscount !== undefined) await upsert('insurance_repair_discount', String(repairDiscount));
-      if (status !== undefined) await upsert('insurance_plan_status', String(status));
+      // Use direct upsert with onConflict for reliability
+      if (planName !== undefined) {
+        await db.insert(appSettings).values({ key: 'insurance_plan_name', value: String(planName), updatedAt: Date.now() })
+          .onConflictDoUpdate({ target: appSettings.key, set: { value: String(planName), updatedAt: Date.now() } });
+        console.log(`[Insurance Settings] Saved insurance_plan_name = ${planName}`);
+      }
+      if (protectionPlanPrice !== undefined) {
+        await db.insert(appSettings).values({ key: 'insurance_plan_price', value: String(protectionPlanPrice), updatedAt: Date.now() })
+          .onConflictDoUpdate({ target: appSettings.key, set: { value: String(protectionPlanPrice), updatedAt: Date.now() } });
+        console.log(`[Insurance Settings] Saved insurance_plan_price = ${protectionPlanPrice}`);
+      }
+      if (yearlyPrice !== undefined) {
+        await db.insert(appSettings).values({ key: 'insurance_plan_price_yearly', value: String(yearlyPrice), updatedAt: Date.now() })
+          .onConflictDoUpdate({ target: appSettings.key, set: { value: String(yearlyPrice), updatedAt: Date.now() } });
+        console.log(`[Insurance Settings] Saved insurance_plan_price_yearly = ${yearlyPrice}`);
+      }
+      if (monthlyPrice !== undefined) {
+        await db.insert(appSettings).values({ key: 'insurance_plan_price_monthly', value: String(monthlyPrice), updatedAt: Date.now() })
+          .onConflictDoUpdate({ target: appSettings.key, set: { value: String(monthlyPrice), updatedAt: Date.now() } });
+        console.log(`[Insurance Settings] Saved insurance_plan_price_monthly = ${monthlyPrice}`);
+      }
+      if (repairDiscount !== undefined) {
+        await db.insert(appSettings).values({ key: 'insurance_repair_discount', value: String(repairDiscount), updatedAt: Date.now() })
+          .onConflictDoUpdate({ target: appSettings.key, set: { value: String(repairDiscount), updatedAt: Date.now() } });
+        console.log(`[Insurance Settings] Saved insurance_repair_discount = ${repairDiscount}`);
+      }
+      if (status !== undefined) {
+        await db.insert(appSettings).values({ key: 'insurance_plan_status', value: String(status), updatedAt: Date.now() })
+          .onConflictDoUpdate({ target: appSettings.key, set: { value: String(status), updatedAt: Date.now() } });
+        console.log(`[Insurance Settings] Saved insurance_plan_status = ${status}`);
+      }
+      
       console.log('[Insurance Settings] Save completed successfully');
       return res.json({ success: true });
     } catch (err) {
