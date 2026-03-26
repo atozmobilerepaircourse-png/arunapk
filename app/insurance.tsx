@@ -774,37 +774,67 @@ export default function ProtectionPlanScreen() {
           {/* Additional Devices */}
           {(() => {
             try {
-              const devices = typeof plan.devices === 'string' ? JSON.parse(plan.devices) : (plan.devices || []);
+              let devices = [];
+              if (typeof plan.devices === 'string') {
+                try {
+                  devices = JSON.parse(plan.devices);
+                } catch (parseErr) {
+                  console.log('[Protection] Could not parse devices:', plan.devices);
+                  devices = [];
+                }
+              } else if (Array.isArray(plan.devices)) {
+                devices = plan.devices;
+              }
+              
               if (Array.isArray(devices) && devices.length > 0) {
                 return (
                   <View style={[styles.card, { marginBottom: 16 }]}>
-                    <Text style={styles.sectionTitle}>Additional Devices</Text>
-                    {devices.map((device, idx) => (
-                      <View key={idx} style={{ marginBottom: idx < devices.length - 1 ? 16 : 0 }}>
-                        <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 13, color: DARK, marginBottom: 8 }}>Device {idx + 2}</Text>
-                        <View style={styles.detailRow}>
-                          <Text style={styles.detailLabel}>Brand</Text>
-                          <Text style={styles.detailValue}>{device.brand || '—'}</Text>
-                        </View>
-                        <View style={styles.detailRow}>
-                          <Text style={styles.detailLabel}>Model</Text>
-                          <Text style={styles.detailValue}>{device.model || '—'}</Text>
-                        </View>
-                        <View style={styles.detailRow}>
-                          <Text style={styles.detailLabel}>Model Number</Text>
-                          <Text style={styles.detailValue}>{device.modelNumber || '—'}</Text>
-                        </View>
-                        <View style={styles.detailRow}>
-                          <Text style={styles.detailLabel}>IMEI</Text>
-                          <Text style={styles.detailValue}>{device.imei || '—'}</Text>
-                        </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                      <Text style={styles.sectionTitle}>Additional Devices</Text>
+                      <View style={{ backgroundColor: PRIMARY, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 }}>
+                        <Text style={{ color: '#FFF', fontFamily: 'Inter_700Bold', fontSize: 12 }}>{devices.length}</Text>
                       </View>
-                    ))}
+                    </View>
+                    {devices.map((device, idx) => {
+                      if (!device) return null;
+                      return (
+                        <View key={idx} style={{ marginBottom: idx < devices.length - 1 ? 16 : 0, paddingBottom: idx < devices.length - 1 ? 16 : 0, borderBottomWidth: idx < devices.length - 1 ? 1 : 0, borderBottomColor: '#F0F0F0' }}>
+                          <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 14, color: DARK, marginBottom: 10 }}>
+                            Device {idx + 2}
+                          </Text>
+                          {device.brand && (
+                            <View style={styles.detailRow}>
+                              <Text style={styles.detailLabel}>Brand</Text>
+                              <Text style={styles.detailValue}>{device.brand}</Text>
+                            </View>
+                          )}
+                          {device.model && (
+                            <View style={styles.detailRow}>
+                              <Text style={styles.detailLabel}>Model</Text>
+                              <Text style={styles.detailValue}>{device.model}</Text>
+                            </View>
+                          )}
+                          {device.modelNumber && (
+                            <View style={styles.detailRow}>
+                              <Text style={styles.detailLabel}>Model Number</Text>
+                              <Text style={styles.detailValue}>{device.modelNumber}</Text>
+                            </View>
+                          )}
+                          {device.imei && (
+                            <View style={styles.detailRow}>
+                              <Text style={styles.detailLabel}>IMEI</Text>
+                              <Text style={styles.detailValue}>{device.imei}</Text>
+                            </View>
+                          )}
+                        </View>
+                      );
+                    })}
                   </View>
                 );
               }
               return null;
             } catch (e) {
+              console.error('[Protection] Error rendering devices:', e);
               return null;
             }
           })()}
