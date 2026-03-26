@@ -126,6 +126,8 @@ export default function ProtectionPlanScreen() {
 
   // Form state
   const [planType, setPlanType] = useState<PlanType>('yearly');
+  const [yearlyPrice, setYearlyPrice] = useState(1499);
+  const [monthlyPrice, setMonthlyPrice] = useState(149);
   const [brand, setBrand] = useState('');
   const [model, setModel] = useState('');
   const [modelNumber, setModelNumber] = useState('');
@@ -184,6 +186,16 @@ export default function ProtectionPlanScreen() {
 
   useEffect(() => { 
     const timer = setTimeout(async () => {
+      // Fetch insurance settings for dynamic pricing
+      try {
+        const res = await fetch(`${getApiUrl()}/api/settings/insurance`);
+        const data = await res.json();
+        if (data.settings) {
+          if (data.settings.yearlyPrice) setYearlyPrice(data.settings.yearlyPrice);
+          if (data.settings.monthlyPrice) setMonthlyPrice(data.settings.monthlyPrice);
+        }
+      } catch (e) { console.warn('Failed to fetch insurance settings:', e); }
+      
       await fetchAllPlans();
       fetchPlan();
     }, 500);
@@ -1116,7 +1128,7 @@ export default function ProtectionPlanScreen() {
                     <Text style={{ fontSize: 10, fontFamily: 'Inter_700Bold', color: '#FFF' }}>BEST VALUE ⭐</Text>
                   </View>
                 </View>
-                <Text style={styles.planPrice}>₹1499<Text style={styles.planPriceSub}>/year</Text></Text>
+                <Text style={styles.planPrice}>₹{yearlyPrice.toLocaleString('en-IN')}<Text style={styles.planPriceSub}>/year</Text></Text>
                 <View style={{ gap: 6, marginTop: 8 }}>
                   {['1 screen damage claim', 'Free pickup & drop', 'Service fee: ₹99–₹149', 'Waiting period: 7 days', 'Validity: 12 months'].map(f => (
                     <View key={f} style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
@@ -1143,8 +1155,8 @@ export default function ProtectionPlanScreen() {
             <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.planTitle, planType === 'monthly' && { color: PRIMARY }, { marginBottom: 6 }]}>Monthly Plan</Text>
-                <Text style={styles.planPrice}>₹149<Text style={styles.planPriceSub}>/month</Text></Text>
-                <Text style={{ fontSize: 12, color: PRIMARY, fontFamily: 'Inter_600SemiBold', marginTop: 2 }}>Pay ₹447 upfront (3 months min)</Text>
+                <Text style={styles.planPrice}>₹{monthlyPrice.toLocaleString('en-IN')}<Text style={styles.planPriceSub}>/month</Text></Text>
+                <Text style={{ fontSize: 12, color: PRIMARY, fontFamily: 'Inter_600SemiBold', marginTop: 2 }}>Pay ₹{(monthlyPrice * 3).toLocaleString('en-IN')} upfront (3 months min)</Text>
                 <View style={{ gap: 6, marginTop: 8 }}>
                   {['1 claim per year', 'Free pickup & drop', 'Service fee: ₹199–₹299', 'Waiting period: 30 days'].map(f => (
                     <View key={f} style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
@@ -1180,7 +1192,7 @@ export default function ProtectionPlanScreen() {
             if (!profile?.id) { router.push('/onboarding'); return; }
             setStep('device');
           }}>
-            <Text style={styles.btnText}>Get Protection — {planType === 'yearly' ? '₹1499/year' : '₹447 upfront'}</Text>
+            <Text style={styles.btnText}>Get Protection — {planType === 'yearly' ? `₹${yearlyPrice.toLocaleString('en-IN')}/year` : `₹${(monthlyPrice * 3).toLocaleString('en-IN')} upfront`}</Text>
             <Ionicons name="arrow-forward" size={18} color="#FFF" />
           </TouchableOpacity>
         </View>
@@ -1626,7 +1638,7 @@ export default function ProtectionPlanScreen() {
             <Text style={styles.sectionTitle}>Application Summary</Text>
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Plan</Text>
-              <Text style={styles.detailValue}>{planType === 'yearly' ? 'Yearly — ₹1499' : 'Monthly — ₹447 (3 months)'}</Text>
+              <Text style={styles.detailValue}>{planType === 'yearly' ? `Yearly — ₹${yearlyPrice.toLocaleString('en-IN')}` : `Monthly — ₹${(monthlyPrice * 3).toLocaleString('en-IN')} (3 months)`}</Text>
             </View>
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Brand</Text>

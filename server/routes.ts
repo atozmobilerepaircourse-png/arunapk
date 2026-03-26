@@ -7533,7 +7533,15 @@ Be specific about component locations and names. If image quality is poor or not
         }
       }
 
-      const price = planType === 'yearly' ? 1499 : 447;
+      // Fetch dynamic prices from admin settings
+      const settingsRows = await db.select().from(appSettings).where(
+        sql`key IN ('insurance_plan_price_yearly','insurance_plan_price_monthly')`
+      );
+      const settingsMap: Record<string, string> = {};
+      settingsRows.forEach(r => { settingsMap[r.key] = r.value; });
+      const yearlyPrice = parseInt(settingsMap['insurance_plan_price_yearly'] || '1499', 10);
+      const monthlyPrice = parseInt(settingsMap['insurance_plan_price_monthly'] || '149', 10);
+      const price = planType === 'yearly' ? yearlyPrice : monthlyPrice;
       const devicesJson = JSON.stringify(validatedDevices);
 
       // Always CREATE new plan (don't overwrite old ones)
