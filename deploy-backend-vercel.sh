@@ -21,6 +21,7 @@ DEPLOY_URL=$(npx vercel deploy \
   --token "$VERCEL_TOKEN" \
   --yes \
   --prod \
+  --scope atozmobilerepaircourse-1699s-projects \
   --env SUPABASE_DATABASE_URL="$SUPABASE_DATABASE_URL" \
   --env NODE_ENV=production \
   --env FAST2SMS_API_KEY="${FAST2SMS_API_KEY:-}" \
@@ -33,7 +34,7 @@ DEPLOY_URL=$(npx vercel deploy \
   --env GOOGLE_CLIENT_ID="456751858632-brh0ir7j9v2ks5kk6antp6q757kmhaus.apps.googleusercontent.com" \
   --env NVIDIA_API_KEY="${NVIDIA_API_KEY:-}" \
   --env VERCEL_FRONTEND_URL="${VERCEL_FRONTEND_URL:-}" \
-  2>&1 | tail -1)
+  2>&1 | grep -E "https://" | head -1)
 
 echo "[3/4] Backend deployed!"
 echo "  URL: $DEPLOY_URL"
