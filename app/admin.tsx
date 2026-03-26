@@ -181,20 +181,38 @@ function UserDetailCard({ user, onBlock, onVerify, onDelete, blockingId, verifyi
             </View>
           </View>
           <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={16} color={C.textTertiary} />
-          {/* Quick delete button always visible */}
-          <View 
-            onTouchEnd={() => {
-              console.log('⚡ [QUICK DELETE] Touch ended');
-              onDelete(user.id, user.name);
-            }}
-            onClick={() => {
-              console.log('⚡ [QUICK DELETE] Web click detected');
-              onDelete(user.id, user.name);
-            }}
-            style={{ padding: 8, cursor: 'pointer' } as any}
-          >
-            <Ionicons name="trash-outline" size={16} color="#FF3B30" />
-          </View>
+          {/* Quick delete button - HTML button for web compatibility */}
+          {typeof window !== 'undefined' && (
+            <button
+              onClick={() => {
+                console.log('🗑️ [DELETE BUTTON CLICKED] User:', user.id, user.name);
+                onDelete(user.id, user.name);
+              }}
+              style={{
+                background: 'none',
+                border: 'none',
+                padding: '8px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+              title="Delete user"
+            >
+              <Ionicons name="trash-outline" size={16} color="#FF3B30" />
+            </button>
+          )}
+          {typeof window === 'undefined' && (
+            <Pressable
+              onPress={() => {
+                console.log('📱 [DELETE BUTTON] Native press');
+                onDelete(user.id, user.name);
+              }}
+              style={{ padding: 8 }}
+            >
+              <Ionicons name="trash-outline" size={16} color="#FF3B30" />
+            </Pressable>
+          )}
         </View>
       </TouchableOpacity>
 
