@@ -2583,20 +2583,45 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
   app.get("/api/messages/:conversationId", async (req, res) => {
     try {
       const { conversationId } = req.params;
-      // Primary: Load from PostgreSQL (always available, especially on Cloud Run)
-      const msgs = await db.select().from(messages)
-        .where(eq(messages.conversationId, conversationId))
-        .orderBy(messages.createdAt);
-      return res.json(msgs);
+      
+      // Primary: Try Firestore
+      try {
+        const fdb = getFirestore();
+        const snap = await fdb.collection('messages')
+          .where('conversationId', '==', conversationId)
+          .orderBy('createdAt', 'asc')
+          .get();
+        const msgs = snap.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            conversationId: data.conversationId,
+            senderId: data.senderId,
+            senderName: data.senderName,
+            text: data.text || '',
+            image: data.image || '',
+            video: data.video || '',
+            createdAt: data.createdAt || 0,
+          };
+        });
+        return res.json(msgs);
+      } catch (fbErr: any) {
+        console.warn("[Chat] Firestore unavailable:", fbErr?.message);
+        // Fallback to PostgreSQL
+        const msgs = await db.select().from(messages)
+          .where(eq(messages.conversationId, conversationId))
+          .orderBy(messages.createdAt);
+        return res.json(msgs);
+      }
     } catch (error) {
       console.error("[Chat] Get messages error:", error);
-      return res.status(500).json({ success: false, message: "Failed to get messages" });
+      return res.json([]);
     }
   });
 
   app.post("/api/messages", async (req, res) => {
     try {
-      const { conversationId, senderId, senderName, text: msgText, image } = req.body;
+      const { conversationId, senderId, senderName, text: msgText, image, video } = req.body;
 
       if (!conversationId || !senderId || !senderName) {
         return res.status(400).json({ success: false, message: "Missing required fields" });
@@ -2605,26 +2630,25 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
       const id = randomUUID();
       const now = Date.now();
       const cleanImage = sanitizeImageUrl(image || "");
+      const cleanVideo = sanitizeImageUrl(video || "");
       const cleanText = (msgText || "").trim();
 
-      if (!cleanText && !cleanImage) {
-        return res.json({ success: true, message: { id, conversationId, senderId, senderName, text: "", image: "", createdAt: now } });
+      if (!cleanText && !cleanImage && !cleanVideo) {
+        return res.json({ success: true, message: { id, conversationId, senderId, senderName, text: "", image: "", video: "", createdAt: now } });
       }
 
-      const newMsg = { id, conversationId, senderId, senderName, text: cleanText, image: cleanImage, createdAt: now };
+      const newMsg = { id, conversationId, senderId, senderName, text: cleanText, image: cleanImage, video: cleanVideo, createdAt: now };
 
-      // Primary: Save to PostgreSQL (always available, especially on Cloud Run)
-      try {
-        await db.insert(messages).values(newMsg);
-      } catch (dbError: any) {
-        console.error("[Chat] Failed to save message to PostgreSQL:", dbError?.message);
-        return res.status(500).json({ success: false, message: "Failed to save message" });
-      }
-
-      // Secondary: Try to update Firestore conversation metadata (optional, Cloud Run may not have it)
+      // Primary: Try Firestore
+      let savedSuccessfully = false;
       try {
         const fdb = getFirestore();
-        const lastMsg = cleanImage ? (cleanText || "📷 Photo") : cleanText;
+        
+        // Save message to Firestore
+        await fdb.collection('messages').doc(id).set(newMsg);
+        
+        // Update conversation metadata
+        const lastMsg = cleanImage ? (cleanText || "📷 Photo") : (cleanVideo ? (cleanText || "🎥 Video") : cleanText);
         const convoRef = fdb.collection('conversations').doc(conversationId);
         const convoDoc = await convoRef.get();
 
@@ -2641,7 +2665,7 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
               ? convoData.participant2Id
               : convoData.participant1Id;
             if (recipientId && recipientId !== senderId) {
-              const msgPreview = cleanImage ? (cleanText || '📷 Photo') : cleanText.slice(0, 80);
+              const msgPreview = cleanImage ? (cleanText || '📷 Photo') : (cleanVideo ? (cleanText || '🎥 Video') : cleanText.slice(0, 80));
               notifyUser(recipientId, {
                 title: senderName,
                 body: msgPreview,
@@ -2650,9 +2674,19 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
             }
           }
         }
+        
+        savedSuccessfully = true;
       } catch (fbError: any) {
-        console.warn("[Chat] Firestore unavailable in send message (OK on Cloud Run):", fbError?.message);
-        // Firestore update is optional - message is already saved in PostgreSQL
+        console.warn("[Chat] Firestore unavailable, trying PostgreSQL fallback:", fbError?.message);
+        
+        // Fallback: Save to PostgreSQL
+        try {
+          await db.insert(messages).values(newMsg);
+          savedSuccessfully = true;
+        } catch (dbError: any) {
+          console.error("[Chat] Both Firestore and PostgreSQL failed:", dbError?.message);
+          return res.status(500).json({ success: false, message: "Failed to save message" });
+        }
       }
 
       return res.json({ success: true, message: newMsg });
