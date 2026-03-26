@@ -153,12 +153,12 @@ function UserDetailCard({ user, onBlock, onVerify, onDelete, blockingId, verifyi
   const ROLES_LIST: UserRole[] = ['admin', 'technician', 'teacher', 'supplier', 'shopkeeper', 'customer', 'job_provider'];
 
   return (
-    <View style={[ss.userCard, isBlocked && { borderColor: '#FF3B30', borderWidth: 1.5 }]}>
+    <View style={[ss.userCard, isBlocked && { borderColor: '#FF3B30', borderWidth: 1.5 }, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
       <TouchableOpacity activeOpacity={0.7} onPress={() => { 
         console.log('📋 [USER CARD] Toggling expand for:', user.name, '| was expanded:', expanded);
         setShowRolePicker(false); 
         setExpanded(!expanded); 
-      }}>
+      }} style={{ flex: 1 }}>
         <View style={ss.userCardTop}>
           {profile?.avatar
             ? <Image source={{ uri: profile.avatar }} style={[ss.userAvatarImg, isBlocked && { opacity: 0.5 }]} contentFit="cover" />
@@ -181,40 +181,43 @@ function UserDetailCard({ user, onBlock, onVerify, onDelete, blockingId, verifyi
             </View>
           </View>
           <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={16} color={C.textTertiary} />
-          {/* Quick delete button - HTML button for web compatibility */}
-          {typeof window !== 'undefined' && (
-            <button
-              onClick={() => {
-                console.log('🗑️ [DELETE BUTTON CLICKED] User:', user.id, user.name);
-                onDelete(user.id, user.name);
-              }}
-              style={{
-                background: 'none',
-                border: 'none',
-                padding: '8px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
-              title="Delete user"
-            >
-              <Ionicons name="trash-outline" size={16} color="#FF3B30" />
-            </button>
-          )}
-          {typeof window === 'undefined' && (
-            <Pressable
-              onPress={() => {
-                console.log('📱 [DELETE BUTTON] Native press');
-                onDelete(user.id, user.name);
-              }}
-              style={{ padding: 8 }}
-            >
-              <Ionicons name="trash-outline" size={16} color="#FF3B30" />
-            </Pressable>
-          )}
         </View>
       </TouchableOpacity>
+
+      {/* Delete button OUTSIDE TouchableOpacity - prevents event capture */}
+      {typeof window !== 'undefined' && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            console.log('🗑️ [DELETE BUTTON CLICKED] User:', user.id, user.name);
+            onDelete(user.id, user.name);
+          }}
+          style={{
+            background: 'none',
+            border: 'none',
+            padding: '8px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginRight: '8px'
+          }}
+          title="Delete user"
+        >
+          <Ionicons name="trash-outline" size={16} color="#FF3B30" />
+        </button>
+      )}
+      {typeof window === 'undefined' && (
+        <Pressable
+          onPress={() => {
+            console.log('📱 [DELETE BUTTON] Native press');
+            onDelete(user.id, user.name);
+          }}
+          style={{ padding: 8 }}
+        >
+          <Ionicons name="trash-outline" size={16} color="#FF3B30" />
+        </Pressable>
+      )}
 
       {expanded && (
         <View style={ss.userCardExpanded}>
