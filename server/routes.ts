@@ -7502,18 +7502,26 @@ Be specific about component locations and names. If image quality is poor or not
         return res.status(400).json({ error: 'Invalid plan type. Must be monthly or yearly' });
       }
 
-      // Validate all IMEIs in devices array (check for duplicates across additional devices)
+      // Validate and filter IMEIs in devices array (remove duplicates gracefully)
       const allImeis = [imei];
+      let validatedDevices = [];
       if (devices && Array.isArray(devices)) {
         for (const device of devices) {
           if (device.imei) {
+            // Validate IMEI format
             if (!/^\d{15}$/.test(device.imei)) {
               return res.status(400).json({ error: `Invalid IMEI format in additional device: ${device.imei}` });
             }
+            // Skip if duplicate (same as main IMEI or other additional devices)
             if (allImeis.includes(device.imei)) {
-              return res.status(400).json({ error: `Duplicate IMEI in devices: ${device.imei}` });
+              console.log('[Protection] Skipping duplicate IMEI in devices:', device.imei);
+              continue;
             }
             allImeis.push(device.imei);
+            validatedDevices.push(device);
+          } else {
+            // If device doesn't have IMEI but has other fields, keep it
+            validatedDevices.push(device);
           }
         }
       }
@@ -7525,7 +7533,7 @@ Be specific about component locations and names. If image quality is poor or not
         .limit(1);
 
       const price = planType === 'yearly' ? 1499 : 447;
-      const devicesJson = JSON.stringify(devices || []);
+      const devicesJson = JSON.stringify(validatedDevices);
 
       if (existing.length > 0) {
         // UPDATE existing plan

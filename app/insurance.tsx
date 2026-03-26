@@ -420,6 +420,9 @@ export default function ProtectionPlanScreen() {
         });
       }
       
+      // Filter out any devices with the same IMEI as the main device
+      const filteredDevices = devicesArray.filter(d => d.imei.trim() !== imei.trim());
+      
       const payload = {
         userId: profile.id,
         userName: profile.name,
@@ -431,7 +434,7 @@ export default function ProtectionPlanScreen() {
         planType,
         frontImage: frontUrl || '',
         backImage: backUrl || '',
-        devices: devicesArray,
+        devices: filteredDevices,
       };
       console.log('[Protection] Payload:', payload);
       
