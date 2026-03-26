@@ -502,6 +502,7 @@ export default function ProtectionPlanScreen() {
       setSubmitting(false);
       setSubmissionStatus('idle');
       fetchPlan();
+      fetchAllPlans();
     } catch (e: any) {
       console.error('[Protection] Submission error:', e);
       console.error('[Protection] Error details:', {
