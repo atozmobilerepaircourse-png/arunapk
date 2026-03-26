@@ -7718,7 +7718,19 @@ Be specific about component locations and names. If image quality is poor or not
         return res.status(503).json({ error: 'Payment gateway not available' });
       }
 
-      const amount = plan.price * 100; // paise
+      // Fetch CURRENT prices from admin settings (not stored price)
+      const settingsRows = await db.select().from(appSettings).where(
+        sql`key IN ('insurance_plan_price_yearly','insurance_plan_price_monthly')`
+      );
+      const settingsMap: Record<string, string> = {};
+      settingsRows.forEach(r => { settingsMap[r.key] = r.value; });
+      const yearlyPrice = parseInt(settingsMap['insurance_plan_price_yearly'] || '1499', 10);
+      const monthlyPrice = parseInt(settingsMap['insurance_plan_price_monthly'] || '149', 10);
+      
+      // Use CURRENT price based on plan type, not stored price
+      const currentPrice = plan.planType === 'yearly' ? yearlyPrice : monthlyPrice;
+      const amount = currentPrice * 100; // paise
+      
       const order = await razorpayInstance.orders.create({
         amount,
         currency: 'INR',
@@ -7726,15 +7738,18 @@ Be specific about component locations and names. If image quality is poor or not
         notes: { planId, userId, type: 'protection_plan' },
       });
 
-      await db.update(protectionPlans).set({ razorpayOrderId: order.id, updatedAt: Date.now() })
-        .where(eq(protectionPlans.id, planId));
+      await db.update(protectionPlans).set({ 
+        razorpayOrderId: order.id, 
+        price: currentPrice,
+        updatedAt: Date.now() 
+      }).where(eq(protectionPlans.id, planId));
 
       return res.json({
         success: true,
         orderId: order.id,
         amount,
         keyId: razorpayKeyId,
-        displayAmount: plan.price,
+        displayAmount: currentPrice,
         planType: plan.planType,
       });
     } catch (e: any) {
