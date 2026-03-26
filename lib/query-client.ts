@@ -3,18 +3,14 @@ import { QueryClient, QueryFunction } from "@tanstack/react-query";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Platform } from "react-native";
 
-const RENDER_BACKEND = process.env.EXPO_PUBLIC_RENDER_URL || "https://mobi-backend.onrender.com";
 const CLOUD_RUN_BACKEND = "https://repair-backendarun-838751841074.asia-south1.run.app";
 const SESSION_KEY = "mobi_session_token_v2";
 
 export function getApiUrl(): string {
-  // Priority 1: Custom API URL from env
-  const customBackend = process.env.EXPO_PUBLIC_API_URL;
-  if (customBackend) return customBackend;
-  // Priority 2: Render backend if URL provided
-  if (process.env.EXPO_PUBLIC_RENDER_URL) return process.env.EXPO_PUBLIC_RENDER_URL;
-  // Default to Cloud Run (always, for web and native)
-  return CLOUD_RUN_BACKEND;
+  // ALWAYS use Cloud Run backend - ignore any Replit dev domains
+  const url = CLOUD_RUN_BACKEND;
+  console.log('[getApiUrl] Returning:', url);
+  return url;
 }
 
 async function getSessionToken(): Promise<string | null> {
