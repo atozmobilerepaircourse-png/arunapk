@@ -4,10 +4,19 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Platform } from "react-native";
 
 const CLOUD_RUN_BACKEND = "https://repair-backend-3siuld7gbq-el.a.run.app";
+const REPLIT_BACKEND = "https://replit-prod-backend.example.com"; // Will be replaced with your actual production backend
 const SESSION_KEY = "mobi_session_token_v2";
 
 export function getApiUrl(): string {
-  // Always use Cloud Run backend for consistency
+  // Use environment variable if available, otherwise default to Cloud Run
+  if (typeof process !== "undefined" && process.env.EXPO_PUBLIC_API_URL) {
+    return process.env.EXPO_PUBLIC_API_URL;
+  }
+  // Check if this is Firebase hosting (production web app)
+  if (typeof window !== "undefined" && window.location.hostname === "mobile-repair-app-276b6.web.app") {
+    // For now, use Cloud Run for production
+    return CLOUD_RUN_BACKEND;
+  }
   return CLOUD_RUN_BACKEND;
 }
 
