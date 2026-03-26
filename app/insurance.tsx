@@ -874,7 +874,7 @@ export default function ProtectionPlanScreen() {
                     backImageBase64: null,
                   };
                   setDevices([...devices, newDevice]);
-                  setStep('enrollment');
+                  setStep('device');
                 }}
               >
                 <Ionicons name="add-circle-outline" size={24} color={PRIMARY} />
@@ -1418,7 +1418,7 @@ export default function ProtectionPlanScreen() {
                   backImageBase64: null,
                 };
                 setDevices([...devices, newDevice]);
-                setStep('enrollment');
+                setStep('device');
               }}
             >
               <Ionicons name="add-circle-outline" size={24} color={PRIMARY} />
