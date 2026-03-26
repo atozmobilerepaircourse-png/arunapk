@@ -4,7 +4,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Platform } from "react-native";
 
 const RENDER_BACKEND = process.env.EXPO_PUBLIC_RENDER_URL || "https://mobi-backend.onrender.com";
-const CLOUD_RUN_BACKEND = "https://repair-backend-3siuld7gbq-el.a.run.app";
+const CLOUD_RUN_BACKEND = "https://repair-backendarun-838751841074.asia-south1.run.app";
 const SESSION_KEY = "mobi_session_token_v2";
 
 export function getApiUrl(): string {
