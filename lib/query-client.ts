@@ -8,16 +8,12 @@ const CLOUD_RUN_BACKEND = "https://repair-backendarun-838751841074.asia-south1.r
 const SESSION_KEY = "mobi_session_token_v2";
 
 export function getApiUrl(): string {
-  // Priority 1: Render backend (new deployment)
-  if (process.env.EXPO_PUBLIC_RENDER_URL) return process.env.EXPO_PUBLIC_RENDER_URL;
-  // Priority 2: Any custom API URL
+  // Priority 1: Custom API URL from env
   const customBackend = process.env.EXPO_PUBLIC_API_URL;
   if (customBackend) return customBackend;
-  // Priority 3: Render default (if deployed with default name)
-  if (typeof window !== 'undefined' && window.location.hostname.includes('web.app')) {
-    return RENDER_BACKEND;
-  }
-  // Fallback to Cloud Run for development/testing
+  // Priority 2: Render backend if URL provided
+  if (process.env.EXPO_PUBLIC_RENDER_URL) return process.env.EXPO_PUBLIC_RENDER_URL;
+  // Default to Cloud Run (always, for web and native)
   return CLOUD_RUN_BACKEND;
 }
 
