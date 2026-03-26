@@ -435,9 +435,9 @@ export default function ProtectionPlanScreen() {
       };
       console.log('[Protection] Payload:', payload);
       
-      // Create timeout promise for the apply request (30 seconds)
+      // Create timeout promise for the apply request (60 seconds to allow image uploads)
       const applyTimeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Application submission timeout - server not responding')), 30000)
+        setTimeout(() => reject(new Error('Application submission timeout - server not responding')), 60000)
       );
       
       const applyPromise = apiRequest('POST', '/api/protection/apply', payload);

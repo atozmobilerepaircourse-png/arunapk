@@ -267,12 +267,17 @@ function setupWebAppFallback(app: express.Application) {
 }
 
 function setupRateLimiter(app: express.Application) {
-  // Simple in-memory rate limiter (prevents 429 spam)
+  // Rate limiter for abuse prevention (not strict for polling)
   const requestCounts = new Map<string, { count: number; resetTime: number }>();
   const WINDOW_MS = 60 * 1000; // 1 minute
-  const MAX_REQUESTS = 100;
+  const MAX_REQUESTS = 500; // Increased to allow polling (8 calls/min for live chat + 2 for context + other requests)
 
   app.use((req, res, next) => {
+    // Skip rate limiting for health checks and static files
+    if (req.path === '/health' || req.path.startsWith('/assets') || req.path.startsWith('/uploads')) {
+      return next();
+    }
+
     const ip = req.ip || req.socket.remoteAddress || 'unknown';
     const now = Date.now();
 
