@@ -5293,9 +5293,13 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
       );
       const map: Record<string, string> = {};
       rows.forEach(r => { map[r.key] = r.value; });
+      console.log('[Insurance Settings] DB values:', map);
+      
       // Support both old format (single price) and new format (yearly/monthly)
       const yearlyPrice = parseInt(map['insurance_plan_price_yearly'] || map['insurance_plan_price'] || '1499', 10);
       const monthlyPrice = parseInt(map['insurance_plan_price_monthly'] || map['insurance_plan_price'] || '199', 10);
+      console.log('[Insurance Settings] Returning:', { yearlyPrice, monthlyPrice });
+      
       return res.json({
         success: true,
         settings: {
@@ -5316,11 +5320,15 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
   app.put('/api/admin/settings/insurance', async (req, res) => {
     try {
       const { planName, protectionPlanPrice, yearlyPrice, monthlyPrice, repairDiscount, status } = req.body;
+      console.log('[Insurance Settings] Saving:', { planName, protectionPlanPrice, yearlyPrice, monthlyPrice, repairDiscount, status });
+      
       const upsert = async (key: string, value: string) => {
         const [existing] = await db.select().from(appSettings).where(eq(appSettings.key, key));
         if (existing) {
+          console.log(`[Insurance Settings] Updating ${key} to ${value}`);
           await db.update(appSettings).set({ value, updatedAt: Date.now() }).where(eq(appSettings.key, key));
         } else {
+          console.log(`[Insurance Settings] Inserting ${key} = ${value}`);
           await db.insert(appSettings).values({ key, value, updatedAt: Date.now() });
         }
       };
@@ -5330,6 +5338,7 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
       if (monthlyPrice !== undefined) await upsert('insurance_plan_price_monthly', String(monthlyPrice));
       if (repairDiscount !== undefined) await upsert('insurance_repair_discount', String(repairDiscount));
       if (status !== undefined) await upsert('insurance_plan_status', String(status));
+      console.log('[Insurance Settings] Save completed successfully');
       return res.json({ success: true });
     } catch (err) {
       console.error('[Insurance Settings] Update error:', err);
