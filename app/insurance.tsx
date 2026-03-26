@@ -443,22 +443,24 @@ export default function ProtectionPlanScreen() {
       console.log('[Protection] Application response:', data);
       
       if (!res.ok) {
-        // Handle specific error codes
-        if (res.status === 409 || data.error?.includes('already exists for this IMEI')) {
-          throw new Error('A protection plan already exists for this IMEI number. Please use a different device.');
-        }
         throw new Error(data.error || `Server error: ${res.status}`);
       }
       
       if (!data.success) throw new Error(data.error || 'Submission failed');
 
+      const successMessage = data.isUpdate 
+        ? '✓ Plan Updated!\n\nYour Mobile Protection Plan has been successfully updated.'
+        : '✓ Successfully Submitted!\n\nYour Mobile Protection Plan application has been submitted for review. We will verify your details and notify you within 24 hours.';
+
       const isWeb = typeof window !== 'undefined';
       if (isWeb) {
-        window.alert('✓ Successfully Submitted!\n\nYour Mobile Protection Plan application has been submitted for review. We will verify your details and notify you within 24 hours.');
+        window.alert(successMessage);
       } else {
         Alert.alert(
-          '✓ Successfully Submitted!',
-          'Your Mobile Protection Plan application has been submitted for review. We will verify your details and notify you within 24 hours.',
+          data.isUpdate ? '✓ Plan Updated!' : '✓ Successfully Submitted!',
+          data.isUpdate 
+            ? 'Your Mobile Protection Plan has been successfully updated.'
+            : 'Your Mobile Protection Plan application has been submitted for review. We will verify your details and notify you within 24 hours.',
           [{ text: 'OK', onPress: () => {} }]
         );
       }
@@ -468,12 +470,7 @@ export default function ProtectionPlanScreen() {
       fetchPlan();
     } catch (e: any) {
       console.error('[Protection] Submission error:', e);
-      let errorMessage = 'Failed to submit application. Please try again.';
-      if (e.message?.includes('already exists for this IMEI')) {
-        errorMessage = 'A protection plan already exists for this IMEI number. Please use a different device.';
-      } else if (e.message) {
-        errorMessage = e.message;
-      }
+      const errorMessage = e.message || 'Failed to submit application. Please try again.';
       Alert.alert('Submission Failed', errorMessage);
     } finally {
       setSubmitting(false);

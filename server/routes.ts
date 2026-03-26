@@ -7502,16 +7502,6 @@ Be specific about component locations and names. If image quality is poor or not
         return res.status(400).json({ error: 'Invalid plan type. Must be monthly or yearly' });
       }
 
-      // Block duplicate IMEI
-      console.log('[Protection] Checking for duplicate IMEI:', imei);
-      const existing = await db.select().from(protectionPlans)
-        .where(and(eq(protectionPlans.imei, imei), ne(protectionPlans.status, 'rejected')))
-        .limit(1);
-      if (existing.length > 0) {
-        console.warn('[Protection] Duplicate IMEI found');
-        return res.status(409).json({ error: 'A plan already exists for this IMEI number' });
-      }
-
       // Validate all IMEIs in devices array (check for duplicates across additional devices)
       const allImeis = [imei];
       if (devices && Array.isArray(devices)) {
@@ -7528,43 +7518,73 @@ Be specific about component locations and names. If image quality is poor or not
         }
       }
 
-      console.log('[Protection] Creating new protection plan...');
+      // Check if IMEI already exists - if so, UPDATE instead of INSERT
+      console.log('[Protection] Checking for existing IMEI:', imei);
+      const existing = await db.select().from(protectionPlans)
+        .where(eq(protectionPlans.imei, imei))
+        .limit(1);
+
       const price = planType === 'yearly' ? 1499 : 447;
-      const id = randomUUID();
-      
-      // Store devices as JSON string
       const devicesJson = JSON.stringify(devices || []);
-      
-      console.log('[Protection] Inserting with fields:', { 
-        id, userId, userName, userPhone, imei, brand, model, modelNumber, planType, price, devicesCount: devices?.length || 0
-      });
 
-      await db.insert(protectionPlans).values({
-        id,
-        userId,
-        userName: userName || '',
-        userPhone: userPhone || '',
-        imei,
-        brand,
-        model,
-        modelNumber,
-        devices: devicesJson,
-        planType,
-        price,
-        frontImage: frontImage || '',
-        backImage: backImage || '',
-        status: 'pending_verification',
-        claimUsed: 0,
-        paymentId: '',
-        razorpayOrderId: '',
-        planStartDate: 0,
-        rejectionReason: '',
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      });
+      if (existing.length > 0) {
+        // UPDATE existing plan
+        const existingPlan = existing[0];
+        console.log('[Protection] Updating existing plan for IMEI:', imei, 'Plan ID:', existingPlan.id);
+        
+        await db.update(protectionPlans)
+          .set({
+            userName: userName || '',
+            userPhone: userPhone || '',
+            brand,
+            model,
+            modelNumber,
+            devices: devicesJson,
+            planType,
+            price,
+            frontImage: frontImage || '',
+            backImage: backImage || '',
+            updatedAt: Date.now(),
+          })
+          .where(eq(protectionPlans.id, existingPlan.id));
 
-      console.log('[Protection] Plan created successfully:', id);
-      return res.json({ success: true, planId: id, message: 'Application submitted successfully' });
+        console.log('[Protection] Plan updated successfully:', existingPlan.id);
+        return res.json({ success: true, planId: existingPlan.id, isUpdate: true, message: 'Application submitted successfully' });
+      } else {
+        // CREATE new plan
+        const id = randomUUID();
+        console.log('[Protection] Creating new protection plan...');
+        console.log('[Protection] Inserting with fields:', { 
+          id, userId, userName, userPhone, imei, brand, model, modelNumber, planType, price, devicesCount: devices?.length || 0
+        });
+
+        await db.insert(protectionPlans).values({
+          id,
+          userId,
+          userName: userName || '',
+          userPhone: userPhone || '',
+          imei,
+          brand,
+          model,
+          modelNumber,
+          devices: devicesJson,
+          planType,
+          price,
+          frontImage: frontImage || '',
+          backImage: backImage || '',
+          status: 'pending_verification',
+          claimUsed: 0,
+          paymentId: '',
+          razorpayOrderId: '',
+          planStartDate: 0,
+          rejectionReason: '',
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        });
+
+        console.log('[Protection] Plan created successfully:', id);
+        return res.json({ success: true, planId: id, isUpdate: false, message: 'Application submitted successfully' });
+      }
     } catch (e: any) {
       console.error('[Protection] Apply error:', e.message, 'Full error:', e);
       console.error('[Protection] Stack:', e.stack);
