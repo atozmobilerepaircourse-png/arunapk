@@ -1174,7 +1174,7 @@ export default function ProtectionPlanScreen() {
             <>
               <Text style={[styles.sectionTitle, { marginTop: 24, marginBottom: 12 }]}>Additional Devices</Text>
               {devices.map((device, idx) => (
-                <View key={device.id} style={[styles.card, { marginBottom: 16, borderColor: LIGHT, borderWidth: 1 }]}>
+                <View key={device.id} style={[styles.card, { marginBottom: 16, borderColor: '#E5E7EB', borderWidth: 1 }]}>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                     <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 14, color: DARK }}>Device {idx + 2}</Text>
                     <TouchableOpacity onPress={() => removeDevice(device.id)}>
