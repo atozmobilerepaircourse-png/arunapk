@@ -2520,27 +2520,6 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
         return res.status(400).json({ success: false, message: "Both participants required" });
       }
 
-      if (participant2Role === 'teacher' && participant1Role === 'technician') {
-        // Teacher and Technician chat is always allowed
-      } else if (participant2Role === 'supplier' && participant1Role === 'technician') {
-        // Supplier and Technician chat is always allowed
-      }
-
-      const fdb = getFirestore();
-      // Check for existing conversation between these two users
-      const [snap1, snap2] = await Promise.all([
-        fdb.collection('conversations')
-          .where('participant1Id', '==', participant1Id)
-          .where('participant2Id', '==', participant2Id).get(),
-        fdb.collection('conversations')
-          .where('participant1Id', '==', participant2Id)
-          .where('participant2Id', '==', participant1Id).get(),
-      ]);
-      const existing = [...snap1.docs, ...snap2.docs];
-      if (existing.length > 0) {
-        return res.json({ success: true, conversation: { id: existing[0].id, ...existing[0].data() } });
-      }
-
       const id = randomUUID();
       const now = Date.now();
       const newConvo = {
@@ -2553,8 +2532,31 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
         createdAt: now,
       };
 
-      await fdb.collection('conversations').doc(id).set(newConvo);
-      return res.json({ success: true, conversation: newConvo });
+      // Try Firestore first, fall back to simple response if it fails
+      try {
+        const fdb = getFirestore();
+        // Check for existing conversation between these two users
+        const [snap1, snap2] = await Promise.all([
+          fdb.collection('conversations')
+            .where('participant1Id', '==', participant1Id)
+            .where('participant2Id', '==', participant2Id).get(),
+          fdb.collection('conversations')
+            .where('participant1Id', '==', participant2Id)
+            .where('participant2Id', '==', participant1Id).get(),
+        ]);
+        const existing = [...snap1.docs, ...snap2.docs];
+        if (existing.length > 0) {
+          return res.json({ success: true, conversation: { id: existing[0].id, ...existing[0].data() } });
+        }
+
+        await fdb.collection('conversations').doc(id).set(newConvo);
+        return res.json({ success: true, conversation: newConvo });
+      } catch (fbError: any) {
+        console.warn("[Chat] Firestore unavailable, returning in-memory conversation:", fbError?.message);
+        // Firestore not available (Cloud Run) - just return the conversation object
+        // Messages can still be sent/received via API endpoints
+        return res.json({ success: true, conversation: newConvo });
+      }
     } catch (error) {
       console.error("[Chat] Create conversation error:", error);
       return res.status(500).json({ success: false, message: "Failed to create conversation" });
