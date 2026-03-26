@@ -7613,9 +7613,41 @@ Be specific about component locations and names. If image quality is poor or not
   app.get('/api/protection/all-plans/:userId', async (req, res) => {
     try {
       const { userId } = req.params;
-      const plans = await db.select().from(protectionPlans)
+      console.log('[Protection] Fetching all plans for userId:', userId);
+      
+      // Try direct ID match first
+      let plans = await db.select().from(protectionPlans)
         .where(eq(protectionPlans.userId, userId))
         .orderBy(desc(protectionPlans.createdAt));
+      console.log('[Protection] Direct userId match found:', plans.length, 'plans');
+      
+      // If no plans found, try alternative lookups
+      if (plans.length === 0) {
+        console.log('[Protection] No direct plans found, trying alternative lookups for userId:', userId);
+        
+        // For non-UUID userIds (like "t4y5"), search plans by checking if any exist
+        // This handles cases where the profile ID is different from the UUID used in plan submissions
+        if (!userId.includes('-')) {
+          console.log('[Protection] userId does not look like UUID, searching all plans for alternatives...');
+          // Get all distinct userIds from protection plans
+          const allPlans = await db.select({ userId: protectionPlans.userId, userName: protectionPlans.userName })
+            .from(protectionPlans)
+            .distinct();
+          
+          console.log('[Protection] Total distinct users in protectionPlans:', allPlans.length);
+          
+          // Try to find a matching UUID by checking profiles with this ID
+          const profile = await db.select().from(profiles).where(eq(profiles.id, userId));
+          if (profile[0]) {
+            console.log('[Protection] Found profile, name:', profile[0].name);
+            // Try searching by username
+            plans = await db.select().from(protectionPlans)
+              .where(eq(protectionPlans.userName, profile[0].name))
+              .orderBy(desc(protectionPlans.createdAt));
+            console.log('[Protection] Found plans by profile name:', plans.length);
+          }
+        }
+      }
 
       const plansWithClaims = await Promise.all(plans.map(async (plan) => {
         if (plan.status === 'active') {
