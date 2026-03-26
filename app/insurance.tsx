@@ -751,11 +751,18 @@ export default function ProtectionPlanScreen() {
                     activeOpacity: 0.8
                   }}
                   onPress={() => {
-                    // Pre-fill form with previous data
+                    // Reset form state for fresh submission
                     setBrand(plan.brand);
                     setModel(plan.model);
                     setModelNumber(plan.modelNumber);
                     setImei(plan.imei);
+                    setFrontImage(null);
+                    setFrontImageBase64(null);
+                    setBackImage(null);
+                    setBackImageBase64(null);
+                    setDevices([]); // Clear any additional devices from previous attempts
+                    setAgreed(false);
+                    setCurrentDeviceIndex(-1);
                     // Navigate to device step for editing
                     setStep('device');
                   }}>
