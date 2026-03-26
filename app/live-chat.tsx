@@ -565,72 +565,48 @@ export default function LiveChatScreen() {
 
   useEffect(() => {
     setIsLoading(true);
-    let lastMessageTime = 0;
+    console.log('[LiveChat] useEffect mounted - starting message load');
 
-    // Firestore real-time listener
-    let unsubscribe: (() => void) | null = null;
     let pollInterval: NodeJS.Timeout | null = null;
-    let usesFirestore = false;
 
     const loadMessagesViaREST = async () => {
       try {
+        console.log('[LiveChat] Fetching messages from /api/live-chat/messages');
         const res = await apiRequest('GET', '/api/live-chat/messages?limit=60');
         const data = await res.json();
+        console.log('[LiveChat] API response:', data);
+        
         if (Array.isArray(data)) {
           const normalized = data.map(normalizeMsg);
-          setMessages(normalized);
-          if (normalized.length > 0) {
-            lastMessageTime = normalized[normalized.length - 1]?.createdAt || 0;
-          }
-          console.log('[LiveChat] Loaded', normalized.length, 'messages from REST API');
+          console.log('[LiveChat] Normalized', normalized.length, 'messages');
+          console.log('[LiveChat] First message:', normalized[0]);
+          console.log('[LiveChat] Last message:', normalized[normalized.length - 1]);
+          setMessages(prev => {
+            console.log('[LiveChat] Setting messages state from', prev.length, 'to', normalized.length);
+            return normalized;
+          });
+        } else {
+          console.warn('[LiveChat] API returned non-array data:', typeof data);
         }
       } catch (err) {
         console.error('[LiveChat] REST API load error:', err);
       }
     };
 
-    try {
-      const db = getFirestoreDb();
-      if (!db) {
-        console.warn('[LiveChat] Firestore not available, using REST API with polling');
-        loadMessagesViaREST().then(() => setIsLoading(false));
-        
-        // Poll for new messages every 3 seconds
-        pollInterval = setInterval(loadMessagesViaREST, 3000);
-        return;
-      }
-
-      usesFirestore = true;
-      const q = query(
-        collection(db, 'live_chat_messages'),
-        orderBy('createdAt', 'desc'),
-        limit(60)
-      );
-      unsubscribe = onSnapshot(q, (snapshot) => {
-        const msgs = snapshot.docs.map(doc => {
-          const d = doc.data();
-          return normalizeMsg({ id: doc.id, ...d });
-        });
-        const sorted = msgs.reverse();
-        setMessages(sorted);
-        if (sorted.length > 0) {
-          lastMessageTime = sorted[sorted.length - 1]?.createdAt || 0;
-        }
-        console.log('[LiveChat] Loaded', msgs.length, 'messages from Firestore');
-        setIsLoading(false);
-      }, (error) => {
-        console.warn('[LiveChat] Firestore onSnapshot error:', error);
-        // Fallback: load via REST API with polling
-        usesFirestore = false;
-        loadMessagesViaREST().then(() => setIsLoading(false));
-        pollInterval = setInterval(loadMessagesViaREST, 3000);
-      });
-    } catch (err) {
-      console.warn('[LiveChat] Firestore setup error:', err);
-      usesFirestore = false;
-      loadMessagesViaREST().then(() => setIsLoading(false));
-      pollInterval = setInterval(loadMessagesViaREST, 3000);
-    }
+    // ALWAYS use REST API with polling (most reliable)
+    console.log('[LiveChat] Using REST API with polling strategy');
+    
+    // Load messages immediately
+    loadMessagesViaREST().finally(() => {
+      console.log('[LiveChat] Initial load complete, disabling loading state');
+      setIsLoading(false);
+    });
+    
+    // Poll every 3 seconds
+    pollInterval = setInterval(() => {
+      console.log('[LiveChat] Poll interval tick');
+      loadMessagesViaREST();
+    }, 3000);
 
     apiRequest('GET', '/api/community/stats')
       .then(res => res.json())
@@ -663,7 +639,7 @@ export default function LiveChatScreen() {
       .catch(() => {});
 
     return () => {
-      if (unsubscribe) unsubscribe();
+      console.log('[LiveChat] useEffect cleanup');
       if (pollInterval) clearInterval(pollInterval);
       clearInterval(presenceInterval);
       clearInterval(onlineInterval);
