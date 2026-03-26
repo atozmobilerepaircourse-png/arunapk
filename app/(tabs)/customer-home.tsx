@@ -6,7 +6,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
 import { useApp } from '@/lib/context';
@@ -79,13 +79,20 @@ function techReviews(id: string) {
 export default function CustomerHomeScreen() {
   const insets = useSafeAreaInsets();
   const { profile } = useApp();
-  const { settings: insuranceSettings } = useInsuranceSettings();
+  const { settings: insuranceSettings, refresh: refreshInsuranceSettings } = useInsuranceSettings();
   const [techs, setTechs]     = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [userLat, setUserLat] = useState<number | null>(null);
   const [userLng, setUserLng] = useState<number | null>(null);
   const [search, setSearch]   = useState('');
   const locationFetched = useRef(false);
+
+  // Refresh insurance settings when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      refreshInsuranceSettings();
+    }, [refreshInsuranceSettings])
+  );
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
   const botPad = Platform.OS === 'web' ? 34 : insets.bottom + 16;
@@ -191,7 +198,7 @@ export default function CustomerHomeScreen() {
           </View>
           <Text style={styles.bannerTitle}>Protect Your Phone</Text>
           <Text style={styles.bannerDesc}>
-            ₹149/month (3-month min) or ₹1499/year{'\n'}Save up to ₹4000 on repairs
+            ₹{(insuranceSettings.monthlyPrice ?? 149).toLocaleString('en-IN')}/month (3-month min) or ₹{(insuranceSettings.yearlyPrice ?? 1499).toLocaleString('en-IN')}/year{'\n'}Save up to ₹4000 on repairs
           </Text>
           <View style={styles.bannerTags}>
             <Text style={styles.bannerTag}>Screen damage</Text>

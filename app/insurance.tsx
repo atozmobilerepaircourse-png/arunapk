@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, ScrollView, ActivityIndicator, Alert,
   TextInput, TouchableOpacity, Platform, Image, Dimensions,
 } from 'react-native';
+import { useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -150,6 +151,17 @@ export default function ProtectionPlanScreen() {
   const [claimImageBase64, setClaimImageBase64] = useState<string | null>(null);
   const [claimSubmitting, setClaimSubmitting] = useState(false);
 
+  const fetchPrices = useCallback(async () => {
+    try {
+      const res = await fetch(`${getApiUrl()}/api/settings/insurance`);
+      const data = await res.json();
+      if (data.settings) {
+        if (data.settings.yearlyPrice) setYearlyPrice(data.settings.yearlyPrice);
+        if (data.settings.monthlyPrice) setMonthlyPrice(data.settings.monthlyPrice);
+      }
+    } catch (e) { console.warn('Failed to fetch insurance prices:', e); }
+  }, []);
+
   const fetchPlan = useCallback(async () => {
     if (!profile?.id) { setLoadingPlan(false); return; }
     try {
@@ -183,6 +195,15 @@ export default function ProtectionPlanScreen() {
       console.warn('[Protection] fetch all plans error:', e);
     }
   }, [profile?.id]);
+
+  // Refresh prices and data when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      fetchPrices();
+      fetchAllPlans();
+      fetchPlan();
+    }, [fetchPrices, fetchAllPlans, fetchPlan])
+  );
 
   useEffect(() => { 
     const timer = setTimeout(async () => {

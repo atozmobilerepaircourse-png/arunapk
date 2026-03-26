@@ -4,6 +4,8 @@ import { apiRequest } from '@/lib/query-client';
 export interface InsuranceSettings {
   planName: string;
   protectionPlanPrice: number;
+  yearlyPrice?: number;
+  monthlyPrice?: number;
   repairDiscount: number;
   status: 'active' | 'disabled';
 }
@@ -11,6 +13,8 @@ export interface InsuranceSettings {
 const DEFAULT_SETTINGS: InsuranceSettings = {
   planName: 'Mobile Protection Plan',
   protectionPlanPrice: 50,
+  yearlyPrice: 1499,
+  monthlyPrice: 149,
   repairDiscount: 500,
   status: 'active',
 };
@@ -24,6 +28,10 @@ export function useInsuranceSettings() {
 
   const refresh = useCallback(async () => {
     try {
+      // Always clear cache and fetch fresh data on explicit refresh
+      cachedSettings = null;
+      fetchPromise = null;
+      
       if (!fetchPromise) {
         fetchPromise = apiRequest('GET', '/api/settings/insurance')
           .then(r => r.json())
