@@ -6264,55 +6264,32 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
     try {
       const limit = parseInt(req.query.limit as string) || 50;
       const after = parseInt(req.query.after as string) || 0;
-      const before = req.query.before ? parseInt(req.query.before as string) : undefined;
+      const before = req.query.before ? parseInt(req.query.before as string) : 0;
       
-      let msgs;
-      const firestore = getFirestore();
-      
+      // Primary: Load from PostgreSQL (always available, especially on Cloud Run)
+      let rows;
       if (after > 0) {
-        const snapshot = await firestore.collection("live_chat_messages")
-          .where("createdAt", ">", after)
-          .orderBy("createdAt", "asc")
-          .limit(limit)
-          .get();
-        msgs = snapshot.docs.map(doc => normalizeFirestoreMsg(doc));
-        return res.json(msgs);
-      }
-
-      if (before) {
-        const snapshot = await firestore.collection("live_chat_messages")
-          .where("createdAt", "<", before)
-          .orderBy("createdAt", "desc")
-          .limit(limit)
-          .get();
-        msgs = snapshot.docs.map(doc => normalizeFirestoreMsg(doc)).reverse();
-      } else {
-        const snapshot = await firestore.collection("live_chat_messages")
-          .orderBy("createdAt", "desc")
-          .limit(limit)
-          .get();
-        msgs = snapshot.docs.map(doc => normalizeFirestoreMsg(doc)).reverse();
-      }
-      
-      res.json(msgs);
-    } catch (error) {
-      console.error("[API] Get live messages error:", error);
-      // Fallback to PostgreSQL
-      const after = parseInt(req.query.after as string) || 0;
-      const limit = parseInt(req.query.limit as string) || 50;
-      
-      let query = db.select().from(liveChatMessages);
-      if (after > 0) {
-        const rows = await query.where(gt(liveChatMessages.createdAt, after))
+        rows = await db.select().from(liveChatMessages)
+          .where(gt(liveChatMessages.createdAt, after))
           .orderBy(liveChatMessages.createdAt)
           .limit(limit);
-        return res.json(rows);
+      } else if (before > 0) {
+        rows = await db.select().from(liveChatMessages)
+          .where(lt(liveChatMessages.createdAt, before))
+          .orderBy(desc(liveChatMessages.createdAt))
+          .limit(limit);
+        rows = rows.reverse();
+      } else {
+        rows = await db.select().from(liveChatMessages)
+          .orderBy(desc(liveChatMessages.createdAt))
+          .limit(limit);
+        rows = rows.reverse();
       }
       
-      const rows = await db.select().from(liveChatMessages)
-        .orderBy(desc(liveChatMessages.createdAt))
-        .limit(limit);
-      res.json(rows.reverse());
+      return res.json(rows);
+    } catch (error) {
+      console.error("[API] Get live messages error:", error);
+      return res.status(500).json({ error: "Failed to load messages" });
     }
   });
 
