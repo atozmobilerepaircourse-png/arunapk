@@ -50,65 +50,9 @@ const buildConfig = {
       entrypoint: 'node',
       args: ['push-oci.js'],
       timeout: '600s'
-    },
-    {
-      // Deploy the newly built image to Cloud Run using gcloud inside Cloud Build
-      // Also syncs all required secrets as env vars so Cloud Run has them at runtime
-      name: 'gcr.io/google.com/cloudsdktool/cloud-sdk',
-      id: 'DeployToCloudRun',
-      entrypoint: 'gcloud',
-      args: (() => {
-        // Production Google OAuth credentials for Cloud Run
-        const GOOGLE_PROD_CLIENT_ID = '456751858632-brh0ir7j9v2ks5kk6antp6q757kmhaus.apps.googleusercontent.com';
-        const GOOGLE_PROD_CLIENT_SECRET = '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';
-        
-        // Extract the actual client_secret value from the JSON blob
-        let googleClientSecret = GOOGLE_PROD_CLIENT_SECRET;
-        try {
-          const raw = process.env.GOOGLE_CLIENT_SECRET || '';
-          const parsed = JSON.parse(raw);
-          const secretFromEnv = parsed?.web?.client_secret
-            || parsed?.installed?.client_secret
-            || parsed?.client_secret;
-          if (secretFromEnv) googleClientSecret = secretFromEnv;
-        } catch {}
-
-        const bunnyKey = process.env.BUNNY_STREAM_API_KEY || '';
-        const bunnyLib = process.env.BUNNY_STREAM_LIBRARY_ID || '';
-        
-        // Use production client ID
-        const googleClientId = GOOGLE_PROD_CLIENT_ID;
-        const googleRedirectUri = process.env.GOOGLE_REDIRECT_URI || 'https://repair-backend-3siuld7gbq-el.a.run.app/api/auth/google/callback';
-
-        const args = [
-          'run', 'deploy', 'repair-backend',
-          '--image', IMAGE,
-          '--project', PROJECT_ID,
-          '--region', REGION,
-          '--platform', 'managed',
-          '--quiet',
-        ];
-        // Add env vars individually to avoid separator issues
-        if (googleClientSecret) args.push('--update-env-vars', `GOOGLE_CLIENT_SECRET=${googleClientSecret}`);
-        if (googleClientId)     args.push('--update-env-vars', `GOOGLE_CLIENT_ID=${googleClientId}`);
-        if (googleRedirectUri)  args.push('--update-env-vars', `GOOGLE_REDIRECT_URI=${googleRedirectUri}`);
-        if (bunnyKey)           args.push('--update-env-vars', `BUNNY_STREAM_API_KEY=${bunnyKey}`);
-        if (bunnyLib)           args.push('--update-env-vars', `BUNNY_STREAM_LIBRARY_ID=${bunnyLib}`);
-        const openaiKey = process.env.OPENAI_API_KEY || '';
-        if (openaiKey)          args.push('--update-env-vars', `OPENAI_API_KEY=${openaiKey}`);
-        const nvidiaKey = process.env.NVIDIA_API_KEY || '';
-        if (nvidiaKey)          args.push('--update-env-vars', `NVIDIA_API_KEY=${nvidiaKey}`);
-        const bunnyStorageKey = process.env.BUNNY_STORAGE_API_KEY || '';
-        if (bunnyStorageKey)    args.push('--update-env-vars', `BUNNY_STORAGE_API_KEY=${bunnyStorageKey}`);
-        const fast2smsKey = process.env.FAST2SMS_API_KEY || '';
-        if (fast2smsKey)        args.push('--update-env-vars', `FAST2SMS_API_KEY=${fast2smsKey}`);
-        args.push('--update-env-vars', 'BUNNY_STORAGE_ZONE_NAME=arun-storag');
-        args.push('--update-env-vars', 'BUNNY_STORAGE_REGION=uk');
-
-        return args;
-      })(),
-      timeout: '300s'
     }
+    // NOTE: gcloud DeployToCloudRun step removed — we deploy via Cloud Run REST API directly
+    // after this build completes, which is more reliable and doesn't require gcloud in Cloud Build.
   ],
   options: { logging: 'CLOUD_LOGGING_ONLY' },
   timeout: '1000s'
@@ -174,89 +118,121 @@ console.log('server_dist/index.js is now fully bundled (26MB) with all npm packa
       if (d2.failureInfo) console.log('Failure info:', JSON.stringify(d2.failureInfo));
 
       if (d2.status === 'SUCCESS') {
-        console.log('\n=== Build SUCCESS! Cloud Run updated by Cloud Build gcloud step. ===');
+        console.log('\n=== Image built and pushed! Now deploying to Cloud Run via REST API... ===');
 
-        // ── Inject environment variables into Cloud Run ──────────────────
-        console.log('\n=== Syncing environment variables to Cloud Run ===');
+        // ── Deploy image + sync env vars to Cloud Run via REST API ──────────────────
+        console.log('\n=== Updating Cloud Run service with new image + env vars ===');
         try {
           const envToken = await getToken();
-          const serviceUrl = `https://run.googleapis.com/v2/projects/${PROJECT_ID}/locations/${REGION}/services/repair-backend`;
+          const serviceUrl = `https://run.googleapis.com/v2/projects/${PROJECT_ID}/locations/${REGION}/services/repair-backendarun`;
 
           // Get current service definition
+          console.log('  Fetching current Cloud Run service definition...');
           const svcResp = await fetch(serviceUrl, {
             headers: { Authorization: 'Bearer ' + envToken }
           });
           const svc = await svcResp.json();
+          console.log('  Service fetch status:', svcResp.status);
 
           if (!svc.template?.containers?.[0]) {
-            console.warn('  Could not read service template — skipping env var sync');
-          } else {
-            // Build env map from existing vars, then apply overrides from Replit secrets
-            const existingEnv = svc.template.containers[0].env || [];
-            const envMap = {};
-            for (const e of existingEnv) {
-              if (e.name && e.value !== undefined) envMap[e.name] = e.value;
-            }
+            console.error('  Could not read service template! Response:', JSON.stringify(svc).slice(0, 500));
+            process.exit(1);
+          }
 
-            // Secrets to sync from Replit → Cloud Run
-            const secretsToSync = [
-              'SUPABASE_DATABASE_URL',
-              'NEON_DATABASE_URL',
-              'GOOGLE_CLIENT_SECRET',
-              'FAST2SMS_API_KEY',
-              'BUNNY_STREAM_API_KEY',
-              'BUNNY_STREAM_LIBRARY_ID',
-              'GCP_SA_KEY',
-              'OPENAI_API_KEY',
-            ];
-            
-            // Also ensure NODE_ENV=production
-            envMap['NODE_ENV'] = 'production';
-            let syncCount = 0;
-            for (const key of secretsToSync) {
-              const val = process.env[key];
-              if (val) {
-                envMap[key] = val;
-                syncCount++;
-                console.log(`  ✓ ${key} (${val.length} chars)`);
-              } else {
-                console.log(`  ⚠ ${key} not set in Replit env — skipping`);
-              }
-            }
+          // Update the container image to the newly built one
+          console.log('  Updating container image to:', IMAGE);
+          svc.template.containers[0].image = IMAGE;
 
-            // Override DATABASE_URL with Supabase URL (preferred) or Neon as fallback
-            const dbUrl = process.env.SUPABASE_DATABASE_URL || process.env.NEON_DATABASE_URL;
-            if (dbUrl) {
-              envMap['DATABASE_URL'] = dbUrl;
-              const provider = process.env.SUPABASE_DATABASE_URL ? 'Supabase' : 'Neon';
-              console.log(`  ✓ DATABASE_URL overridden with ${provider} (locked in)`);
-            }
+          // Build env map from existing vars, then apply overrides from Replit secrets
+          const existingEnv = svc.template.containers[0].env || [];
+          const envMap = {};
+          for (const e of existingEnv) {
+            if (e.name && e.value !== undefined) envMap[e.name] = e.value;
+          }
 
-            // Rebuild env array
-            svc.template.containers[0].env = Object.entries(envMap).map(([name, value]) => ({ name, value }));
+          // Secrets to sync from Replit → Cloud Run
+          const secretsToSync = [
+            'SUPABASE_DATABASE_URL',
+            'NEON_DATABASE_URL',
+            'GOOGLE_CLIENT_SECRET',
+            'FAST2SMS_API_KEY',
+            'BUNNY_STREAM_API_KEY',
+            'BUNNY_STREAM_LIBRARY_ID',
+            'BUNNY_STORAGE_API_KEY',
+            'GCP_SA_KEY',
+            'OPENAI_API_KEY',
+            'RESEND_API_KEY',
+          ];
+          
+          // Static env vars
+          envMap['NODE_ENV'] = 'production';
+          envMap['BUNNY_STORAGE_ZONE_NAME'] = 'arun-storag';
+          envMap['BUNNY_STORAGE_REGION'] = 'uk';
 
-            // PATCH the service
-            const patchResp = await fetch(serviceUrl, {
-              method: 'PATCH',
-              headers: { Authorization: 'Bearer ' + envToken, 'Content-Type': 'application/json' },
-              body: JSON.stringify(svc)
-            });
-            const patchData = await patchResp.json();
-            if (patchResp.ok) {
-              console.log(`  ✅ ${syncCount} env var(s) synced to Cloud Run`);
-              // Wait a moment for the new revision to roll out
-              await new Promise(r => setTimeout(r, 5000));
-              console.log('  New revision rolling out...');
+          let syncCount = 0;
+          for (const key of secretsToSync) {
+            const val = process.env[key];
+            if (val) {
+              envMap[key] = val;
+              syncCount++;
+              console.log(`  ✓ ${key} (${val.length} chars)`);
             } else {
-              console.warn('  ⚠ Failed to patch env vars:', JSON.stringify(patchData).slice(0, 300));
+              console.log(`  ⚠ ${key} not set in Replit env — skipping`);
             }
           }
-        } catch (envErr) {
-          console.warn('  Env var sync error (non-fatal):', envErr.message);
-        }
-        // ─────────────────────────────────────────────────────────────────
 
-        console.log('Deploy complete! Live at: https://repair-backend-3siuld7gbq-el.a.run.app');
+          // Override DATABASE_URL with Supabase URL (preferred)
+          const dbUrl = process.env.SUPABASE_DATABASE_URL || process.env.NEON_DATABASE_URL;
+          if (dbUrl) {
+            envMap['DATABASE_URL'] = dbUrl;
+            const provider = process.env.SUPABASE_DATABASE_URL ? 'Supabase' : 'Neon';
+            console.log(`  ✓ DATABASE_URL set to ${provider}`);
+          }
+
+          // Rebuild env array
+          svc.template.containers[0].env = Object.entries(envMap).map(([name, value]) => ({ name, value }));
+
+          // Remove fields that cause PATCH to fail
+          delete svc.reconciling;
+          delete svc.observedGeneration;
+          delete svc.terminalCondition;
+          delete svc.conditions;
+          delete svc.latestReadyRevision;
+          delete svc.latestCreatedRevision;
+          delete svc.traffic;
+          delete svc.trafficStatuses;
+          delete svc.uri;
+          delete svc.satisfiesPzs;
+          delete svc.etag;
+          delete svc.createTime;
+          delete svc.updateTime;
+          delete svc.creator;
+          delete svc.lastModifier;
+
+          // PATCH the service with new image + env vars
+          console.log('  Sending PATCH request to Cloud Run...');
+          const patchResp = await fetch(serviceUrl, {
+            method: 'PATCH',
+            headers: { Authorization: 'Bearer ' + envToken, 'Content-Type': 'application/json' },
+            body: JSON.stringify(svc)
+          });
+          const patchData = await patchResp.json();
+          
+          if (patchResp.ok) {
+            console.log(`  ✅ Cloud Run service updated: new image + ${syncCount} env var(s) synced`);
+            console.log('  Waiting for new revision to roll out...');
+            await new Promise(r => setTimeout(r, 15000));
+            console.log('  New revision should be live!');
+          } else {
+            console.error('  ❌ Failed to update Cloud Run service:', JSON.stringify(patchData).slice(0, 500));
+            process.exit(1);
+          }
+        } catch (envErr) {
+          console.error('  Deploy error:', envErr.message);
+          process.exit(1);
+        }
+
+        console.log('\nDeploy complete! Live at: https://repair-backendarun-iaz6jex5fa-el.a.run.app');
       } else {
         console.error('Build FAILED with status:', d2.status);
         process.exit(1);
