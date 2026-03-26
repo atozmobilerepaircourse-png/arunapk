@@ -232,7 +232,10 @@ function UserDetailCard({ user, onBlock, onVerify, onDelete, blockingId, verifyi
               <Text style={{ fontSize: 12, color: isVerified ? '#5E8BFF' : '#34C759', fontFamily: 'Inter_600SemiBold' }}>{isVerifyingThisUser ? 'Working...' : (isVerified ? 'Unverify' : 'Verify')}</Text>
             </TouchableOpacity>
             <TouchableOpacity activeOpacity={0.7}
-              onPress={() => onDelete(user.id, user.name)}
+              onPress={() => {
+                console.log('🗑️ [DELETE BUTTON] Clicked for user:', { id: user.id, name: user.name });
+                onDelete(user.id, user.name);
+              }}
               disabled={isDeletingThisUser}
               style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#FF3B3010', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: '#FF3B3030', opacity: isDeletingThisUser ? 0.6 : 1 }}
             >
@@ -944,10 +947,14 @@ export default function AdminScreen() {
   };
 
   const handleDeleteUser = (userId: string, userName: string) => {
+    console.log('⚠️ [HANDLE DELETE] Alert about to show for:', { userId, userName });
     Alert.alert('Delete User', `Permanently delete ${userName}? This cannot be undone.`,
       [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: () => executeDeleteUser(userId, userName) },
+        { text: 'Cancel', style: 'cancel', onPress: () => console.log('❌ [DELETE] Cancelled') },
+        { text: 'Delete', style: 'destructive', onPress: () => {
+          console.log('✅ [DELETE] Confirmed, executing delete');
+          executeDeleteUser(userId, userName);
+        }},
       ]
     );
   };
