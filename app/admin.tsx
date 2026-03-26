@@ -798,7 +798,9 @@ export default function AdminScreen() {
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: async () => {
         try {
-          const res = await apiRequest('DELETE', `/api/posts/${postId}`);
+          const url = new URL(`/api/posts/${postId}`, 'https://repair-backendarun-838751841074.asia-south1.run.app');
+          url.searchParams.set('userId', profile?.id || '');
+          const res = await fetch(url.toString(), { method: 'DELETE' });
           if (res.ok) {
             await refreshData();
             Alert.alert('Deleted', 'Post removed successfully.');
