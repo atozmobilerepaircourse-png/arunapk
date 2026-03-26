@@ -28,7 +28,7 @@ const fs = require('fs');
 const https = require('https');
 
 const SA = JSON.parse(fs.readFileSync('/tmp/gcp_sa.json', 'utf8'));
-const PROJECT_ID = 'mobi-backend-491410';
+const PROJECT_ID = 'atoz-mobile-repair-488915';
 const CR_SERVICE_ACCOUNT = `deployment-service@${PROJECT_ID}.iam.gserviceaccount.com`;
 const ROLES_NEEDED = [
   'roles/speech.serviceAgent',
