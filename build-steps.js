@@ -4,7 +4,7 @@ const { execSync } = require('child_process');
 
 const SA_KEY = JSON.parse(readFileSync('/tmp/gcp_sa.json', 'utf8'));
 const auth = new GoogleAuth({ credentials: SA_KEY, scopes: ['https://www.googleapis.com/auth/cloud-platform'] });
-const PROJECT_ID = 'mobi-backend-491410';
+const PROJECT_ID = 'atoz-mobile-repair-488915';
 const REGION = 'asia-south1';
 const BUCKET = PROJECT_ID + '_cloudbuild';
 const IMAGE = `${REGION}-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/repair-backend:latest`;
