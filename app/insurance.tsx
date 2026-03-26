@@ -170,9 +170,11 @@ export default function ProtectionPlanScreen() {
     try {
       const res = await apiRequest('GET', `/api/protection/all-plans/${profile.id}`);
       const data = await res.json();
-      if (data.plans && data.plans.length > 0) {
+      if (data.plans && Array.isArray(data.plans)) {
         setAllPlans(data.plans);
-        setStep('dashboard');
+        if (data.plans.length > 0) {
+          setStep('dashboard');
+        }
         setLoadingPlan(false);
       }
     } catch (e) {
@@ -501,8 +503,8 @@ export default function ProtectionPlanScreen() {
       await new Promise(resolve => setTimeout(resolve, 3000));
       setSubmitting(false);
       setSubmissionStatus('idle');
-      fetchPlan();
-      fetchAllPlans();
+      // Fetch both the priority plan and all plans
+      await Promise.all([fetchPlan(), fetchAllPlans()]);
     } catch (e: any) {
       console.error('[Protection] Submission error:', e);
       console.error('[Protection] Error details:', {
