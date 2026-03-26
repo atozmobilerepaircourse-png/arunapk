@@ -1132,7 +1132,6 @@ export default function ProtectionPlanScreen() {
                     <Text style={{ fontSize: 10, fontFamily: 'Inter_700Bold', color: '#FFF' }}>BEST VALUE ⭐</Text>
                   </View>
                 </View>
-                <Text style={styles.planPrice}>₹{yearlyPrice.toLocaleString('en-IN')}<Text style={styles.planPriceSub}>/year</Text></Text>
                 <View style={{ gap: 6, marginTop: 8 }}>
                   {['1 screen damage claim', 'Free pickup & drop', 'Service fee: ₹99–₹149', 'Waiting period: 7 days', 'Validity: 12 months'].map(f => (
                     <View key={f} style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
@@ -1159,8 +1158,6 @@ export default function ProtectionPlanScreen() {
             <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.planTitle, planType === 'monthly' && { color: PRIMARY }, { marginBottom: 6 }]}>Monthly Plan</Text>
-                <Text style={styles.planPrice}>₹{monthlyPrice.toLocaleString('en-IN')}<Text style={styles.planPriceSub}>/month</Text></Text>
-                <Text style={{ fontSize: 12, color: PRIMARY, fontFamily: 'Inter_600SemiBold', marginTop: 2 }}>Pay ₹{(monthlyPrice * 3).toLocaleString('en-IN')} upfront (3 months min)</Text>
                 <View style={{ gap: 6, marginTop: 8 }}>
                   {['1 claim per year', 'Free pickup & drop', 'Service fee: ₹199–₹299', 'Waiting period: 30 days'].map(f => (
                     <View key={f} style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
@@ -1196,7 +1193,7 @@ export default function ProtectionPlanScreen() {
             if (!profile?.id) { router.push('/onboarding'); return; }
             setStep('device');
           }}>
-            <Text style={styles.btnText}>Get Protection — {planType === 'yearly' ? `₹${yearlyPrice.toLocaleString('en-IN')}/year` : `₹${(monthlyPrice * 3).toLocaleString('en-IN')} upfront`}</Text>
+            <Text style={styles.btnText}>Get Protection</Text>
             <Ionicons name="arrow-forward" size={18} color="#FFF" />
           </TouchableOpacity>
         </View>
