@@ -7573,14 +7573,26 @@ Be specific about component locations and names. If image quality is poor or not
   app.get('/api/protection/my-plan/:userId', async (req, res) => {
     try {
       const { userId } = req.params;
-      const plans = await db.select().from(protectionPlans)
-        .where(eq(protectionPlans.userId, userId))
-        .orderBy(desc(protectionPlans.createdAt))
-        .limit(1);
+      
+      // Priority: Active, then approved_pending_payment, then pending_verification, then rejected
+      // This ensures we show the user their current/latest plan, not an old rejected one
+      const statuses = ['active', 'approved_pending_payment', 'pending_verification', 'rejected'];
+      let plan = null;
+      
+      for (const status of statuses) {
+        const results = await db.select().from(protectionPlans)
+          .where(and(eq(protectionPlans.userId, userId), eq(protectionPlans.status, status)))
+          .orderBy(desc(protectionPlans.createdAt))
+          .limit(1);
+        
+        if (results.length > 0) {
+          plan = results[0];
+          break;
+        }
+      }
 
-      if (plans.length === 0) return res.json({ plan: null });
+      if (!plan) return res.json({ plan: null });
 
-      const plan = plans[0];
       let claim = null;
       if (plan.status === 'active') {
         const claims = await db.select().from(protectionClaims)
@@ -7589,6 +7601,7 @@ Be specific about component locations and names. If image quality is poor or not
           .limit(1);
         if (claims.length > 0) claim = claims[0];
       }
+      console.log('[Protection] Returning plan for user:', userId, 'Plan ID:', plan.id, 'Status:', plan.status);
       return res.json({ plan, claim });
     } catch (e: any) {
       console.error('[Protection] Get plan error:', e.message);
