@@ -315,8 +315,16 @@ export default function AIRepairScreen() {
     try {
       // Stop current playback
       if (soundRef.current) {
-        await soundRef.current.stopAsync();
-        await soundRef.current.unloadAsync();
+        try {
+          await soundRef.current.stopAsync();
+        } catch (e) {
+          // Ignore stop errors
+        }
+        try {
+          await soundRef.current.unloadAsync();
+        } catch (e) {
+          // Ignore unload errors
+        }
         soundRef.current = null;
       }
 
@@ -376,16 +384,20 @@ export default function AIRepairScreen() {
       
       console.log('[TTS] Loading audio...');
       await sound.loadAsync({ uri });
-      console.log('[TTS] Playing audio...');
-      await sound.playAsync();
-
-      // Handle playback completion
+      
+      // Set listener BEFORE playing to ensure proper cleanup
+      let listenerSet = false;
       sound.setOnPlaybackStatusUpdate((status: any) => {
-        if (status.didJustFinish) {
+        if (status.didJustFinish && listenerSet) {
           console.log('[TTS] Playback finished');
           setPlayingMessageId(null);
+          listenerSet = false;
         }
       });
+      listenerSet = true;
+      
+      console.log('[TTS] Playing audio...');
+      await sound.playAsync();
     } catch (error: any) {
       console.error('[TTS] Playback error:', error);
       setPlayingMessageId(null);
