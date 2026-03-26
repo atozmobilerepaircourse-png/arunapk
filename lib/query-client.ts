@@ -4,11 +4,13 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Platform } from "react-native";
 
 const CLOUD_RUN_BACKEND = "https://repair-backend-3siuld7gbq-el.a.run.app";
-const REPLIT_BACKEND = "https://replit-prod-backend.example.com"; // Will be replaced with your actual production backend
 const SESSION_KEY = "mobi_session_token_v2";
 
 export function getApiUrl(): string {
-  // Always use Cloud Run backend - it's configured to accept requests from Firebase hosting
+  // Use Vercel backend URL if configured (set after Vercel deployment)
+  const vercelBackend = process.env.EXPO_PUBLIC_API_URL;
+  if (vercelBackend) return vercelBackend;
+  // Fall back to Cloud Run backend
   return CLOUD_RUN_BACKEND;
 }
 
