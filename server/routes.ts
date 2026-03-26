@@ -7623,28 +7623,43 @@ Be specific about component locations and names. If image quality is poor or not
       
       // If no plans found, try alternative lookups
       if (plans.length === 0) {
-        console.log('[Protection] No direct plans found, trying alternative lookups for userId:', userId);
+        console.log('[Protection] No direct plans found by userId:', userId);
         
-        // For non-UUID userIds (like "t4y5"), search plans by checking if any exist
-        // This handles cases where the profile ID is different from the UUID used in plan submissions
+        // For non-UUID userIds (like "t4y5"), search for profile by name match
         if (!userId.includes('-')) {
-          console.log('[Protection] userId does not look like UUID, searching all plans for alternatives...');
-          // Get all distinct userIds from protection plans
-          const allPlans = await db.select({ userId: protectionPlans.userId, userName: protectionPlans.userName })
-            .from(protectionPlans)
-            .distinct();
-          
-          console.log('[Protection] Total distinct users in protectionPlans:', allPlans.length);
-          
-          // Try to find a matching UUID by checking profiles with this ID
-          const profile = await db.select().from(profiles).where(eq(profiles.id, userId));
-          if (profile[0]) {
-            console.log('[Protection] Found profile, name:', profile[0].name);
-            // Try searching by username
-            plans = await db.select().from(protectionPlans)
-              .where(eq(protectionPlans.userName, profile[0].name))
-              .orderBy(desc(protectionPlans.createdAt));
-            console.log('[Protection] Found plans by profile name:', plans.length);
+          try {
+            console.log('[Protection] userId is not a UUID, searching for matching profile by name...');
+            
+            // Get the profile with this ID (might not exist)
+            let profileName = null;
+            const profileById = await db.select().from(profiles).where(eq(profiles.id, userId));
+            
+            if (profileById && profileById.length > 0 && profileById[0]?.name) {
+              profileName = profileById[0].name;
+              console.log('[Protection] Found profile by ID, name:', profileName);
+            } else {
+              // Profile doesn't exist with this ID, search by name (case-insensitive)
+              console.log('[Protection] No profile found with ID:', userId, '- searching all profiles for name match');
+              const allProfiles = await db.select().from(profiles);
+              const matched = allProfiles.find(p => p.name && p.name.toUpperCase() === userId.toUpperCase());
+              
+              if (matched?.name) {
+                profileName = matched.name;
+                console.log('[Protection] Found profile by name match:', profileName);
+              }
+            }
+            
+            // Now search for plans using the found profile name
+            if (profileName) {
+              plans = await db.select().from(protectionPlans)
+                .where(eq(protectionPlans.userName, profileName))
+                .orderBy(desc(protectionPlans.createdAt));
+              console.log('[Protection] Found plans by userName:', profileName, 'count:', plans.length);
+            } else {
+              console.log('[Protection] No matching profile found for userId:', userId);
+            }
+          } catch (fallbackErr) {
+            console.log('[Protection] Fallback search error:', fallbackErr);
           }
         }
       }
