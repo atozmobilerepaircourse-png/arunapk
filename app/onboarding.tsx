@@ -181,12 +181,17 @@ export default function OnboardingScreen() {
       const deviceId = await getDeviceId();
       console.log('[AutoLogin] Device ID:', deviceId);
 
-      // Call auto-login endpoint (no OTP needed)
+      // Call auto-login endpoint with timeout (15 seconds)
       console.log('[AutoLogin] Making API request to /api/auth/auto-login');
-      const res = await apiRequest('POST', '/api/auth/auto-login', {
-        phone: digits,
-        deviceId
-      });
+      
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Login request timeout. Please check your internet connection.')), 15000)
+      );
+      
+      const res = await Promise.race([
+        apiRequest('POST', '/api/auth/auto-login', { phone: digits, deviceId }),
+        timeoutPromise
+      ]) as any;
 
       console.log('[AutoLogin] Got response:', res.status);
       const data = await res.json();
@@ -231,10 +236,10 @@ export default function OnboardingScreen() {
       setPhone(digits);
       setScreen('details');
     } catch (e: any) {
-      const errorMsg = e?.message || 'Unable to connect to server';
+      const errorMsg = e?.message || 'Unable to connect to server. Please try again.';
       console.error('[AutoLogin] Error:', errorMsg, e);
       setOtpError(errorMsg);
-      Alert.alert('Connection Error', errorMsg || 'Could not connect. Please check your internet and try again.');
+      Alert.alert('Connection Error', errorMsg);
     } finally {
       setOtpSending(false);
       setOtpSendInProgress(false);
