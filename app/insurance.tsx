@@ -771,6 +771,44 @@ export default function ProtectionPlanScreen() {
             </View>
           </View>
 
+          {/* Additional Devices */}
+          {(() => {
+            try {
+              const devices = typeof plan.devices === 'string' ? JSON.parse(plan.devices) : (plan.devices || []);
+              if (Array.isArray(devices) && devices.length > 0) {
+                return (
+                  <View style={[styles.card, { marginBottom: 16 }]}>
+                    <Text style={styles.sectionTitle}>Additional Devices</Text>
+                    {devices.map((device, idx) => (
+                      <View key={idx} style={{ marginBottom: idx < devices.length - 1 ? 16 : 0 }}>
+                        <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 13, color: DARK, marginBottom: 8 }}>Device {idx + 2}</Text>
+                        <View style={styles.detailRow}>
+                          <Text style={styles.detailLabel}>Brand</Text>
+                          <Text style={styles.detailValue}>{device.brand || '—'}</Text>
+                        </View>
+                        <View style={styles.detailRow}>
+                          <Text style={styles.detailLabel}>Model</Text>
+                          <Text style={styles.detailValue}>{device.model || '—'}</Text>
+                        </View>
+                        <View style={styles.detailRow}>
+                          <Text style={styles.detailLabel}>Model Number</Text>
+                          <Text style={styles.detailValue}>{device.modelNumber || '—'}</Text>
+                        </View>
+                        <View style={styles.detailRow}>
+                          <Text style={styles.detailLabel}>IMEI</Text>
+                          <Text style={styles.detailValue}>{device.imei || '—'}</Text>
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                );
+              }
+              return null;
+            } catch (e) {
+              return null;
+            }
+          })()}
+
           {/* Coverage summary */}
           {isActive && (
             <View style={[styles.card, { marginBottom: 16 }]}>
