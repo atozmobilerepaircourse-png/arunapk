@@ -2481,23 +2481,31 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
   app.get("/api/conversations/:userId", async (req, res) => {
     try {
       const { userId } = req.params;
-      const fdb = getFirestore();
-      const [snap1, snap2] = await Promise.all([
-        fdb.collection('conversations').where('participant1Id', '==', userId).get(),
-        fdb.collection('conversations').where('participant2Id', '==', userId).get(),
-      ]);
-      const seen = new Set<string>();
-      const convos: any[] = [];
-      for (const snap of [snap1, snap2]) {
-        for (const doc of snap.docs) {
-          if (!seen.has(doc.id)) {
-            seen.add(doc.id);
-            convos.push({ id: doc.id, ...doc.data() });
+      if (!userId) return res.status(400).json({ success: false, message: "userId required" });
+      
+      try {
+        const fdb = getFirestore();
+        const [snap1, snap2] = await Promise.all([
+          fdb.collection('conversations').where('participant1Id', '==', userId).get(),
+          fdb.collection('conversations').where('participant2Id', '==', userId).get(),
+        ]);
+        const seen = new Set<string>();
+        const convos: any[] = [];
+        for (const snap of [snap1, snap2]) {
+          for (const doc of snap.docs) {
+            if (!seen.has(doc.id)) {
+              seen.add(doc.id);
+              convos.push({ id: doc.id, ...doc.data() });
+            }
           }
         }
+        convos.sort((a, b) => (b.lastMessageAt || 0) - (a.lastMessageAt || 0));
+        return res.json(convos);
+      } catch (fbError: any) {
+        console.error("[Chat] Firebase error:", fbError.message, fbError.code);
+        // Fallback: return empty array if Firestore fails
+        return res.json([]);
       }
-      convos.sort((a, b) => (b.lastMessageAt || 0) - (a.lastMessageAt || 0));
-      return res.json(convos);
     } catch (error) {
       console.error("[Chat] List conversations error:", error);
       return res.status(500).json({ success: false, message: "Failed to get conversations" });
