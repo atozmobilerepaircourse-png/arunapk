@@ -154,7 +154,11 @@ function UserDetailCard({ user, onBlock, onVerify, onDelete, blockingId, verifyi
 
   return (
     <View style={[ss.userCard, isBlocked && { borderColor: '#FF3B30', borderWidth: 1.5 }]}>
-      <TouchableOpacity activeOpacity={0.7} onPress={() => { setShowRolePicker(false); setExpanded(!expanded); }}>
+      <TouchableOpacity activeOpacity={0.7} onPress={() => { 
+        console.log('📋 [USER CARD] Toggling expand for:', user.name, '| was expanded:', expanded);
+        setShowRolePicker(false); 
+        setExpanded(!expanded); 
+      }}>
         <View style={ss.userCardTop}>
           {profile?.avatar
             ? <Image source={{ uri: profile.avatar }} style={[ss.userAvatarImg, isBlocked && { opacity: 0.5 }]} contentFit="cover" />
@@ -177,6 +181,17 @@ function UserDetailCard({ user, onBlock, onVerify, onDelete, blockingId, verifyi
             </View>
           </View>
           <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={16} color={C.textTertiary} />
+          {/* Quick delete button always visible */}
+          <Pressable
+            onPress={(e) => {
+              console.log('⚡ [QUICK DELETE] Clicked');
+              e.stopPropagation?.();
+              onDelete(user.id, user.name);
+            }}
+            style={({ pressed }) => ({ padding: 8, opacity: pressed ? 0.6 : 1 })}
+          >
+            <Ionicons name="trash-outline" size={16} color="#FF3B30" />
+          </Pressable>
         </View>
       </TouchableOpacity>
 
