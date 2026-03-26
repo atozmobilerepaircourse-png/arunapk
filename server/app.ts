@@ -26,6 +26,7 @@ function setupCors(app: express.Application) {
     origins.add("https://mail.atozmobilerepair.in");
     origins.add("https://mobile-repair-app-276b6.firebaseapp.com");
     origins.add("https://repair-backend-3siuld7gbq-el.a.run.app");
+    origins.add("https://mobi-backend.onrender.com"); // Render backend
 
     if (process.env.VERCEL_FRONTEND_URL) {
       origins.add(process.env.VERCEL_FRONTEND_URL);

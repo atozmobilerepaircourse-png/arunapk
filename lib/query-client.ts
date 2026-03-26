@@ -3,14 +3,21 @@ import { QueryClient, QueryFunction } from "@tanstack/react-query";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Platform } from "react-native";
 
+const RENDER_BACKEND = process.env.EXPO_PUBLIC_RENDER_URL || "https://mobi-backend.onrender.com";
 const CLOUD_RUN_BACKEND = "https://repair-backend-3siuld7gbq-el.a.run.app";
 const SESSION_KEY = "mobi_session_token_v2";
 
 export function getApiUrl(): string {
-  // Use Vercel backend URL if configured (set after Vercel deployment)
-  const vercelBackend = process.env.EXPO_PUBLIC_API_URL;
-  if (vercelBackend) return vercelBackend;
-  // Fall back to Cloud Run backend
+  // Priority 1: Render backend (new deployment)
+  if (process.env.EXPO_PUBLIC_RENDER_URL) return process.env.EXPO_PUBLIC_RENDER_URL;
+  // Priority 2: Any custom API URL
+  const customBackend = process.env.EXPO_PUBLIC_API_URL;
+  if (customBackend) return customBackend;
+  // Priority 3: Render default (if deployed with default name)
+  if (typeof window !== 'undefined' && window.location.hostname.includes('web.app')) {
+    return RENDER_BACKEND;
+  }
+  // Fallback to Cloud Run for development/testing
   return CLOUD_RUN_BACKEND;
 }
 
