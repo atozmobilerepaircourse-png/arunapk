@@ -505,6 +505,8 @@ export default function ProtectionPlanScreen() {
       setSubmissionStatus('idle');
       // Fetch both the priority plan and all plans
       await Promise.all([fetchPlan(), fetchAllPlans()]);
+      // Return to dashboard to show all updated plans
+      setStep('dashboard');
     } catch (e: any) {
       console.error('[Protection] Submission error:', e);
       console.error('[Protection] Error details:', {
@@ -520,7 +522,7 @@ export default function ProtectionPlanScreen() {
     } finally {
       // Don't reset submitting here - let individual branches handle it
     }
-  }, [agreed, profile, imei, brand, model, modelNumber, planType, frontImageBase64, backImageBase64, devices, uploadImage, fetchPlan]);
+  }, [agreed, profile, imei, brand, model, modelNumber, planType, frontImageBase64, backImageBase64, devices, uploadImage, fetchPlan, fetchAllPlans]);
 
   // ── Make payment ──────────────────────────────────────────────────────────────
   const handlePayment = useCallback(async (planOverride?: Plan) => {
