@@ -5287,17 +5287,22 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
   // ─── Insurance Settings ───────────────────────────────────────────────────
   app.get('/api/settings/insurance', async (_req, res) => {
     try {
-      const keys = ['insurance_plan_name', 'insurance_plan_price', 'insurance_repair_discount', 'insurance_plan_status'];
+      const keys = ['insurance_plan_name', 'insurance_plan_price', 'insurance_plan_price_yearly', 'insurance_plan_price_monthly', 'insurance_repair_discount', 'insurance_plan_status'];
       const rows = await db.select().from(appSettings).where(
-        sql`key IN ('insurance_plan_name','insurance_plan_price','insurance_repair_discount','insurance_plan_status')`
+        sql`key IN ('insurance_plan_name','insurance_plan_price','insurance_plan_price_yearly','insurance_plan_price_monthly','insurance_repair_discount','insurance_plan_status')`
       );
       const map: Record<string, string> = {};
       rows.forEach(r => { map[r.key] = r.value; });
+      // Support both old format (single price) and new format (yearly/monthly)
+      const yearlyPrice = parseInt(map['insurance_plan_price_yearly'] || map['insurance_plan_price'] || '1499', 10);
+      const monthlyPrice = parseInt(map['insurance_plan_price_monthly'] || map['insurance_plan_price'] || '199', 10);
       return res.json({
         success: true,
         settings: {
           planName: map['insurance_plan_name'] || 'Mobile Protection Plan',
           protectionPlanPrice: parseInt(map['insurance_plan_price'] || '50', 10),
+          yearlyPrice,
+          monthlyPrice,
           repairDiscount: parseInt(map['insurance_repair_discount'] || '500', 10),
           status: (map['insurance_plan_status'] || 'active') as 'active' | 'disabled',
         }
@@ -5310,7 +5315,7 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
 
   app.put('/api/admin/settings/insurance', async (req, res) => {
     try {
-      const { planName, protectionPlanPrice, repairDiscount, status } = req.body;
+      const { planName, protectionPlanPrice, yearlyPrice, monthlyPrice, repairDiscount, status } = req.body;
       const upsert = async (key: string, value: string) => {
         const [existing] = await db.select().from(appSettings).where(eq(appSettings.key, key));
         if (existing) {
@@ -5321,6 +5326,8 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
       };
       if (planName !== undefined) await upsert('insurance_plan_name', String(planName));
       if (protectionPlanPrice !== undefined) await upsert('insurance_plan_price', String(protectionPlanPrice));
+      if (yearlyPrice !== undefined) await upsert('insurance_plan_price_yearly', String(yearlyPrice));
+      if (monthlyPrice !== undefined) await upsert('insurance_plan_price_monthly', String(monthlyPrice));
       if (repairDiscount !== undefined) await upsert('insurance_repair_discount', String(repairDiscount));
       if (status !== undefined) await upsert('insurance_plan_status', String(status));
       return res.json({ success: true });

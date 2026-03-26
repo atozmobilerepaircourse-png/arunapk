@@ -335,6 +335,8 @@ export default function AdminScreen() {
   // Insurance
   const [insurancePlanName, setInsurancePlanName] = useState('Mobile Protection Plan');
   const [insurancePlanPrice, setInsurancePlanPrice] = useState('50');
+  const [insuranceYearlyPrice, setInsuranceYearlyPrice] = useState('1499');
+  const [insuranceMonthlyPrice, setInsuranceMonthlyPrice] = useState('199');
   const [insuranceDiscount, setInsuranceDiscount] = useState('500');
   const [insuranceStatus, setInsuranceStatus] = useState<'active' | 'disabled'>('active');
   const [insuranceLoading, setInsuranceLoading] = useState(false);
@@ -503,12 +505,17 @@ export default function AdminScreen() {
   const fetchInsuranceSettings = useCallback(async () => {
     setInsuranceLoading(true);
     try {
-      const res = await apiRequest('GET', '/api/app-settings');
+      const res = await apiRequest('GET', '/api/settings/insurance');
       const data = await res.json();
-      if (data.insurance_plan_name) setInsurancePlanName(data.insurance_plan_name);
-      if (data.insurance_plan_price) setInsurancePlanPrice(String(data.insurance_plan_price));
-      if (data.insurance_discount) setInsuranceDiscount(String(data.insurance_discount));
-      if (data.insurance_status) setInsuranceStatus(data.insurance_status);
+      if (data.settings) {
+        const s = data.settings;
+        if (s.planName) setInsurancePlanName(s.planName);
+        if (s.protectionPlanPrice) setInsurancePlanPrice(String(s.protectionPlanPrice));
+        if (s.yearlyPrice) setInsuranceYearlyPrice(String(s.yearlyPrice));
+        if (s.monthlyPrice) setInsuranceMonthlyPrice(String(s.monthlyPrice));
+        if (s.repairDiscount) setInsuranceDiscount(String(s.repairDiscount));
+        if (s.status) setInsuranceStatus(s.status);
+      }
     } catch (e) { console.warn('insurance settings:', e); }
     finally { setInsuranceLoading(false); }
   }, []);
@@ -520,12 +527,14 @@ export default function AdminScreen() {
   const saveInsuranceSettings = async () => {
     setInsuranceSaving(true);
     try {
-      await Promise.all([
-        apiRequest('PUT', '/api/app-settings/insurance_plan_name', { value: insurancePlanName }),
-        apiRequest('PUT', '/api/app-settings/insurance_plan_price', { value: insurancePlanPrice }),
-        apiRequest('PUT', '/api/app-settings/insurance_discount', { value: insuranceDiscount }),
-        apiRequest('PUT', '/api/app-settings/insurance_status', { value: insuranceStatus }),
-      ]);
+      await apiRequest('PUT', '/api/admin/settings/insurance', {
+        planName: insurancePlanName,
+        protectionPlanPrice: parseInt(insurancePlanPrice, 10),
+        yearlyPrice: parseInt(insuranceYearlyPrice, 10),
+        monthlyPrice: parseInt(insuranceMonthlyPrice, 10),
+        repairDiscount: parseInt(insuranceDiscount, 10),
+        status: insuranceStatus,
+      });
       setInsuranceSaved(true);
       setTimeout(() => setInsuranceSaved(false), 2500);
     } catch (e: any) { Alert.alert('Error', e.message || 'Failed to save settings'); }
@@ -1711,10 +1720,17 @@ export default function AdminScreen() {
           <SectionCard style={{ marginBottom: 14 }}>
             <Text style={ss.cardTitle}>Plan Details</Text>
             <InputField label="Plan Name" value={insurancePlanName} onChangeText={setInsurancePlanName} placeholder="Mobile Protection Plan" />
-            <InputField label="Monthly Price (₹)" value={insurancePlanPrice} onChangeText={setInsurancePlanPrice} keyboardType="numeric" placeholder="50" />
+            
+            <InputField label="Yearly Plan Price (₹)" value={insuranceYearlyPrice} onChangeText={setInsuranceYearlyPrice} keyboardType="numeric" placeholder="1499" />
             <Text style={{ fontSize: 11, color: C.textTertiary, fontFamily: 'Inter_400Regular', marginTop: -8, marginBottom: 12 }}>
-              Razorpay will charge ₹{insurancePlanPrice || '0'} (this value × 100 paise)
+              Yearly subscription price: ₹{insuranceYearlyPrice || '0'}
             </Text>
+            
+            <InputField label="Monthly Plan Price (₹)" value={insuranceMonthlyPrice} onChangeText={setInsuranceMonthlyPrice} keyboardType="numeric" placeholder="199" />
+            <Text style={{ fontSize: 11, color: C.textTertiary, fontFamily: 'Inter_400Regular', marginTop: -8, marginBottom: 12 }}>
+              Monthly subscription price: ₹{insuranceMonthlyPrice || '0'}
+            </Text>
+            
             <InputField label="Repair Discount (₹)" value={insuranceDiscount} onChangeText={setInsuranceDiscount} keyboardType="numeric" placeholder="500" />
           </SectionCard>
 
@@ -1740,7 +1756,13 @@ export default function AdminScreen() {
           <SectionCard style={{ backgroundColor: PRIMARY + '08', borderColor: PRIMARY + '30', borderWidth: 1, marginBottom: 16 }}>
             <Text style={[ss.cardTitle, { color: PRIMARY }]}>Live Preview</Text>
             <Text style={{ color: C.textSecondary, fontSize: 13, marginTop: 8 }}>
-              "{insurancePlanName} — Just ₹{insurancePlanPrice}/month + ₹{insuranceDiscount} off on repairs"
+              {insurancePlanName}
+            </Text>
+            <Text style={{ color: C.textSecondary, fontSize: 12, marginTop: 8 }}>
+              Yearly: ₹{insuranceYearlyPrice} | Monthly: ₹{insuranceMonthlyPrice}
+            </Text>
+            <Text style={{ color: C.textSecondary, fontSize: 12, marginTop: 4 }}>
+              + ₹{insuranceDiscount} off on repairs
             </Text>
           </SectionCard>
 
