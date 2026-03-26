@@ -856,6 +856,30 @@ export default function ProtectionPlanScreen() {
                   </View>
                 )}
               </View>
+              
+              {/* Add another device button */}
+              <TouchableOpacity 
+                style={[styles.card, { borderStyle: 'dashed', borderWidth: 2, borderColor: PRIMARY, backgroundColor: PRIMARY_L, alignItems: 'center', padding: 16, marginTop: 16 }]}
+                onPress={() => {
+                  // Add a new empty device to the devices array
+                  const newDevice = {
+                    id: Date.now().toString(),
+                    brand: '',
+                    model: '',
+                    modelNumber: '',
+                    imei: '',
+                    frontImage: null,
+                    backImage: null,
+                    frontImageBase64: null,
+                    backImageBase64: null,
+                  };
+                  setDevices([...devices, newDevice]);
+                  setStep('enrollment');
+                }}
+              >
+                <Ionicons name="add-circle-outline" size={24} color={PRIMARY} />
+                <Text style={{ fontFamily: 'Inter_600SemiBold', color: PRIMARY, marginTop: 6 }}>+ Add Another Device</Text>
+              </TouchableOpacity>
             </View>
           )}
         </ScrollView>
@@ -1377,6 +1401,29 @@ export default function ProtectionPlanScreen() {
                 ))}
               </>
             )}
+            
+            {/* Add another device button */}
+            <TouchableOpacity 
+              style={[styles.card, { borderStyle: 'dashed', borderWidth: 2, borderColor: PRIMARY, backgroundColor: PRIMARY_L, alignItems: 'center', padding: 16, marginTop: 12 }]}
+              onPress={() => {
+                const newDevice = {
+                  id: Date.now().toString(),
+                  brand: '',
+                  model: '',
+                  modelNumber: '',
+                  imei: '',
+                  frontImage: null,
+                  backImage: null,
+                  frontImageBase64: null,
+                  backImageBase64: null,
+                };
+                setDevices([...devices, newDevice]);
+                setStep('enrollment');
+              }}
+            >
+              <Ionicons name="add-circle-outline" size={24} color={PRIMARY} />
+              <Text style={{ fontFamily: 'Inter_600SemiBold', color: PRIMARY, marginTop: 6 }}>+ Add Another Device</Text>
+            </TouchableOpacity>
           </View>
 
           {/* Consent */}
