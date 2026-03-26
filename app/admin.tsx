@@ -302,6 +302,7 @@ export default function AdminScreen() {
   const [protectionClaims, setProtectionClaims] = useState<any[]>([]);
   const [protectionClaimsLoading, setProtectionClaimsLoading] = useState(false);
   const [protectionPlanFilter, setProtectionPlanFilter] = useState<string>('all');
+  const [protectionPlanSearchQuery, setProtectionPlanSearchQuery] = useState('');
   const [protectionClaimFilter, setProtectionClaimFilter] = useState<string>('all');
 
   // Notifications
@@ -2376,10 +2377,37 @@ export default function AdminScreen() {
       pending_verification: '#F59E0B', approved_pending_payment: '#4A90D9',
       active: '#27AE60', rejected: '#E53E3E',
     };
+
+    // Filter plans by status and search query
+    const filteredPlans = protectionPlans.filter(plan => {
+      const statusMatch = protectionPlanFilter === 'all' || plan.status === protectionPlanFilter;
+      const searchLower = protectionPlanSearchQuery.toLowerCase();
+      const searchMatch = !searchLower || 
+        (plan.userName && plan.userName.toLowerCase().includes(searchLower)) ||
+        (plan.userPhone && plan.userPhone.includes(searchLower)) ||
+        (plan.userEmail && plan.userEmail.toLowerCase().includes(searchLower)) ||
+        (plan.brand && plan.brand.toLowerCase().includes(searchLower)) ||
+        (plan.model && plan.model.toLowerCase().includes(searchLower)) ||
+        (plan.imei && plan.imei.includes(searchLower));
+      return statusMatch && searchMatch;
+    });
+
     return (
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
         refreshControl={<RefreshControl refreshing={protectionPlansLoading} onRefresh={fetchProtectionPlans} tintColor={PRIMARY} />}>
         <Text style={ss.sectionTitle}>Mobile Protection Plans</Text>
+
+        {/* Search input */}
+        <TextInput
+          placeholder="Search by name, phone, email, brand, model, or IMEI..."
+          placeholderTextColor={C.textSecondary}
+          value={protectionPlanSearchQuery}
+          onChangeText={setProtectionPlanSearchQuery}
+          style={{ 
+            backgroundColor: C.surface, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10,
+            color: C.text, fontSize: 14, marginBottom: 14, borderWidth: 1, borderColor: C.border
+          }}
+        />
 
         {/* Filter chips */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 14 }}>
@@ -2399,10 +2427,10 @@ export default function AdminScreen() {
         </ScrollView>
 
         {protectionPlansLoading ? <ActivityIndicator color={PRIMARY} style={{ marginTop: 40 }} /> :
-          protectionPlans.length === 0 ? (
+          filteredPlans.length === 0 ? (
             <SectionCard><Text style={{ color: C.textSecondary, textAlign: 'center', padding: 20 }}>No plans found</Text></SectionCard>
           ) : (
-            protectionPlans.map(plan => (
+            filteredPlans.map(plan => (
               <SectionCard key={plan.id} style={{ marginBottom: 10 }}>
                 {/* Status badge */}
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
