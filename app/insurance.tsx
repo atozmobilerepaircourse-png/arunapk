@@ -482,7 +482,7 @@ export default function ProtectionPlanScreen() {
     } finally {
       // Don't reset submitting here - let individual branches handle it
     }
-  }, [agreed, profile, imei, brand, model, modelNumber, planType, frontImageBase64, backImageBase64, uploadImage, fetchPlan]);
+  }, [agreed, profile, imei, brand, model, modelNumber, planType, frontImageBase64, backImageBase64, devices, uploadImage, fetchPlan]);
 
   // ── Make payment ──────────────────────────────────────────────────────────────
   const handlePayment = useCallback(async () => {
@@ -1540,9 +1540,18 @@ export default function ProtectionPlanScreen() {
                   <Text style={{ fontSize: 16, fontFamily: 'Inter_600SemiBold', color: DARK, marginBottom: 8, textAlign: 'center' }}>
                     {submissionMessage}
                   </Text>
-                  <Text style={{ fontSize: 12, color: MUTED, textAlign: 'center' }}>
+                  <Text style={{ fontSize: 12, color: MUTED, textAlign: 'center', marginBottom: 16 }}>
                     Please wait while we process your application...
                   </Text>
+                  <TouchableOpacity 
+                    onPress={() => {
+                      setSubmissionStatus('idle');
+                      setSubmitting(false);
+                    }}
+                    style={{ backgroundColor: '#F0F0F0', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 }}
+                  >
+                    <Text style={{ color: DARK, fontFamily: 'Inter_600SemiBold', fontSize: 14 }}>Cancel</Text>
+                  </TouchableOpacity>
                 </>
               )}
             </View>
