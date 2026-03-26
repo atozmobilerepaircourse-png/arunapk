@@ -7609,6 +7609,33 @@ Be specific about component locations and names. If image quality is poor or not
     }
   });
 
+  // ── Get ALL protection plans for a user ─────────────────────────────────────
+  app.get('/api/protection/all-plans/:userId', async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const plans = await db.select().from(protectionPlans)
+        .where(eq(protectionPlans.userId, userId))
+        .orderBy(desc(protectionPlans.createdAt));
+
+      const plansWithClaims = await Promise.all(plans.map(async (plan) => {
+        if (plan.status === 'active') {
+          const claims = await db.select().from(protectionClaims)
+            .where(eq(protectionClaims.planId, plan.id))
+            .orderBy(desc(protectionClaims.createdAt))
+            .limit(1);
+          return { ...plan, claim: claims[0] || null };
+        }
+        return { ...plan, claim: null };
+      }));
+
+      console.log('[Protection] All plans for user:', userId, 'Count:', plans.length);
+      return res.json({ plans: plansWithClaims });
+    } catch (e: any) {
+      console.error('[Protection] Get all plans error:', e.message);
+      return res.status(500).json({ error: 'Failed to get plans' });
+    }
+  });
+
   // ── Create Razorpay payment order for Protection Plan ──────────────────────
   app.post('/api/protection/payment/create-order', async (req, res) => {
     try {

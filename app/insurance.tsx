@@ -121,6 +121,8 @@ export default function ProtectionPlanScreen() {
 
   const [existingPlan, setExistingPlan] = useState<Plan | null>(null);
   const [existingClaim, setExistingClaim] = useState<Claim | null>(null);
+  const [allPlans, setAllPlans] = useState<(Plan & { claim: Claim | null })[]>([]);
+  const [expandedPlanId, setExpandedPlanId] = useState<string | null>(null);
 
   // Form state
   const [planType, setPlanType] = useState<PlanType>('yearly');
@@ -163,8 +165,26 @@ export default function ProtectionPlanScreen() {
     }
   }, [profile?.id]);
 
+  const fetchAllPlans = useCallback(async () => {
+    if (!profile?.id) return;
+    try {
+      const res = await apiRequest('GET', `/api/protection/all-plans/${profile.id}`);
+      const data = await res.json();
+      if (data.plans && data.plans.length > 0) {
+        setAllPlans(data.plans);
+        setStep('dashboard');
+        setLoadingPlan(false);
+      }
+    } catch (e) {
+      console.warn('[Protection] fetch all plans error:', e);
+    }
+  }, [profile?.id]);
+
   useEffect(() => { 
-    const timer = setTimeout(() => fetchPlan(), 500);
+    const timer = setTimeout(async () => {
+      await fetchAllPlans();
+      fetchPlan();
+    }, 500);
     return () => clearTimeout(timer);
   }, [profile?.id]);
 
@@ -500,11 +520,12 @@ export default function ProtectionPlanScreen() {
   }, [agreed, profile, imei, brand, model, modelNumber, planType, frontImageBase64, backImageBase64, devices, uploadImage, fetchPlan]);
 
   // ── Make payment ──────────────────────────────────────────────────────────────
-  const handlePayment = useCallback(async () => {
-    if (!existingPlan) return;
+  const handlePayment = useCallback(async (planOverride?: Plan) => {
+    const plan = planOverride || existingPlan;
+    if (!plan) return;
     try {
       const res = await apiRequest('POST', '/api/protection/payment/create-order', {
-        planId: existingPlan.id,
+        planId: plan.id,
         userId: profile?.id,
       });
       const data = await res.json();
@@ -519,19 +540,19 @@ export default function ProtectionPlanScreen() {
       url.searchParams.set('userId', profile?.id || '');
       url.searchParams.set('userName', profile?.name || '');
       url.searchParams.set('userPhone', profile?.phone || '');
-      url.searchParams.set('planId', existingPlan.id);
+      url.searchParams.set('planId', plan.id);
       url.searchParams.set('type', 'protection_plan');
 
       if (Platform.OS === 'web') {
         window.open(url.toString(), '_blank');
-        setTimeout(() => fetchPlan(), 8000);
+        setTimeout(() => { fetchPlan(); fetchAllPlans(); }, 8000);
       } else {
         router.push({ pathname: '/webview', params: { url: url.toString(), type: 'protection_payment' } } as any);
       }
     } catch (e: any) {
       Alert.alert('Payment Error', e.message || 'Failed to initiate payment');
     }
-  }, [existingPlan, profile, fetchPlan]);
+  }, [existingPlan, profile, fetchPlan, fetchAllPlans]);
 
   // ── Raise Claim ───────────────────────────────────────────────────────────────
   const handleRaiseClaim = useCallback(async () => {
@@ -553,7 +574,7 @@ export default function ProtectionPlanScreen() {
       if (!data.success) throw new Error(data.error || 'Failed to raise claim');
 
       Alert.alert('Claim Submitted!', 'Your claim has been submitted. Our team will review and contact you within 24 hours.', [
-        { text: 'OK', onPress: () => { setShowClaim(false); fetchPlan(); } }
+        { text: 'OK', onPress: () => { setShowClaim(false); setExpandedPlanId(null); fetchPlan(); fetchAllPlans(); } }
       ]);
     } catch (e: any) {
       Alert.alert('Error', e.message || 'Failed to submit claim');
@@ -622,22 +643,37 @@ export default function ProtectionPlanScreen() {
   );
 
   // ════════════════════════════════════════════════════════════════════════════
-  // STEP: DASHBOARD
+  // STEP: DASHBOARD (Multi-plan view)
   // ════════════════════════════════════════════════════════════════════════════
-  if (step === 'dashboard' && existingPlan) {
-    const plan = existingPlan;
-    const isActive = plan.status === 'active';
-    const isPendingPayment = plan.status === 'approved_pending_payment';
-    const canClaim = isActive && !plan.claimUsed;
+  if (step === 'dashboard' && (allPlans.length > 0 || existingPlan)) {
+    // Use allPlans if available, otherwise fall back to existingPlan
+    const plans: (Plan & { claim: Claim | null })[] = allPlans.length > 0
+      ? allPlans
+      : existingPlan ? [{ ...existingPlan, claim: existingClaim }] : [];
 
-    if (showClaim) {
+    // Summary counts
+    const totalCount = plans.length;
+    const pendingCount = plans.filter(p => p.status === 'pending_verification').length;
+    const approvedCount = plans.filter(p => p.status === 'approved_pending_payment').length;
+    const activeCount = plans.filter(p => p.status === 'active').length;
+    const rejectedCount = plans.filter(p => p.status === 'rejected').length;
+
+    // The expanded plan (for detail view / claim)
+    const expandedPlan = plans.find(p => p.id === expandedPlanId) || null;
+    const expIsActive = expandedPlan?.status === 'active';
+    const expCanClaim = expIsActive && !expandedPlan?.claimUsed;
+
+    // ── Claim form for a specific expanded plan ──────────────────────────────
+    if (showClaim && expandedPlan) {
       return (
         <View style={{ flex: 1, backgroundColor: BG }}>
           <Header />
           <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: botPad + 100 }}>
             <Text style={styles.sectionTitle}>Raise a Claim</Text>
+            <Text style={{ fontSize: 13, color: MUTED, marginBottom: 16 }}>
+              {expandedPlan.brand} {expandedPlan.model} · IMEI: {expandedPlan.imei}
+            </Text>
 
-            {/* Issue selection */}
             <View style={[styles.card, { marginBottom: 16 }]}>
               <Text style={styles.label}>Select Issue *</Text>
               {ISSUE_TYPES.map(issue => (
@@ -654,7 +690,6 @@ export default function ProtectionPlanScreen() {
               ))}
             </View>
 
-            {/* Description */}
             <View style={[styles.card, { marginBottom: 16 }]}>
               <Text style={styles.label}>Describe the issue</Text>
               <TextInput
@@ -667,7 +702,6 @@ export default function ProtectionPlanScreen() {
               />
             </View>
 
-            {/* Damage image */}
             <View style={[styles.card, { marginBottom: 16 }]}>
               <Text style={styles.label}>Capture Damage Photo *</Text>
               <Text style={{ fontSize: 12, color: MUTED, marginBottom: 10 }}>Use your device camera to capture the damage</Text>
@@ -695,283 +729,341 @@ export default function ProtectionPlanScreen() {
       );
     }
 
+    // ── Expanded single plan detail ──────────────────────────────────────────
+    if (expandedPlanId && expandedPlan) {
+      const isPendingPayment = expandedPlan.status === 'approved_pending_payment';
+      const isRejected = expandedPlan.status === 'rejected';
+      const planIsActive = expandedPlan.status === 'active';
+      const planClaim = expandedPlan.claim;
+
+      // Parse additional devices
+      let additionalDevices: Device[] = [];
+      try {
+        if (typeof expandedPlan.devices === 'string') {
+          additionalDevices = JSON.parse(expandedPlan.devices) || [];
+        } else if (Array.isArray(expandedPlan.devices)) {
+          additionalDevices = expandedPlan.devices as Device[];
+        }
+      } catch { additionalDevices = []; }
+
+      return (
+        <View style={{ flex: 1, backgroundColor: BG }}>
+          {/* Custom header with back to dashboard */}
+          <View style={[styles.header, { paddingTop: topPad }]}>
+            <TouchableOpacity style={styles.backBtn} onPress={() => setExpandedPlanId(null)}>
+              <Ionicons name="arrow-back" size={20} color={DARK} />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Plan Details</Text>
+            <View style={{ width: 44 }} />
+          </View>
+
+          <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: botPad + 40 }}>
+            {/* Status card */}
+            <View style={[styles.card, { marginBottom: 16 }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+                <View style={[styles.shieldBig, { backgroundColor: planIsActive ? GREEN : isPendingPayment ? BLUE : isRejected ? RED : AMBER }]}>
+                  <Ionicons name="shield-checkmark" size={28} color="#FFF" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.planName}>Mobile Protection Plan</Text>
+                  <Text style={{ fontSize: 12, color: MUTED }}>{expandedPlan.planType === 'yearly' ? 'Yearly Plan' : 'Monthly Plan (3-month)'}</Text>
+                </View>
+              </View>
+              <StatusBadge status={expandedPlan.status} />
+
+              {planIsActive && (
+                <View style={{ marginTop: 14, backgroundColor: GREEN_L, borderRadius: 12, padding: 12, flexDirection: 'row', gap: 10 }}>
+                  <Ionicons name="calendar-outline" size={18} color={GREEN} />
+                  <View>
+                    <Text style={{ fontSize: 12, color: MUTED }}>Valid Until</Text>
+                    <Text style={{ fontSize: 14, fontFamily: 'Inter_600SemiBold', color: DARK }}>{getExpiryDate(expandedPlan)}</Text>
+                  </View>
+                </View>
+              )}
+
+              {isPendingPayment && (
+                <View style={{ marginTop: 14 }}>
+                  <Text style={{ fontSize: 13, color: MUTED, marginBottom: 10 }}>Your application has been approved! Complete payment to activate your plan.</Text>
+                  <TouchableOpacity style={styles.btn} onPress={() => handlePayment(expandedPlan)}>
+                    <Ionicons name="card-outline" size={18} color="#FFF" />
+                    <Text style={styles.btnText}>Pay ₹{expandedPlan.price} Now</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {isRejected && (
+                <View style={{ marginTop: 14, backgroundColor: '#FFEEEE', borderRadius: 12, padding: 14 }}>
+                  <Text style={{ fontSize: 14, color: RED, fontFamily: 'Inter_700Bold', marginBottom: 8 }}>Application Rejected</Text>
+                  <Text style={{ fontSize: 12, color: RED, marginBottom: 12 }}>
+                    Reason: {expandedPlan.rejectionReason || 'Application did not meet eligibility criteria'}
+                  </Text>
+                  <TouchableOpacity
+                    style={{ backgroundColor: PRIMARY, borderRadius: 8, paddingVertical: 11, alignItems: 'center' }}
+                    onPress={() => {
+                      setBrand(''); setModel(''); setModelNumber(''); setImei('');
+                      setFrontImage(null); setFrontImageBase64(null);
+                      setBackImage(null); setBackImageBase64(null);
+                      setDevices([]); setAgreed(false); setCurrentDeviceIndex(-1);
+                      setExpandedPlanId(null);
+                      setStep('plan');
+                    }}>
+                    <Text style={{ fontSize: 14, color: '#FFF', fontFamily: 'Inter_700Bold' }}>Submit New Application</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+
+            {/* Device Details */}
+            <View style={[styles.card, { marginBottom: 16 }]}>
+              <Text style={styles.sectionTitle}>Device Details</Text>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Brand</Text>
+                <Text style={styles.detailValue}>{expandedPlan.brand}</Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Model</Text>
+                <Text style={styles.detailValue}>{expandedPlan.model}</Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Model Number</Text>
+                <Text style={styles.detailValue}>{expandedPlan.modelNumber}</Text>
+              </View>
+              <View style={[styles.detailRow, { borderBottomWidth: 0 }]}>
+                <Text style={styles.detailLabel}>IMEI</Text>
+                <Text style={styles.detailValue}>{expandedPlan.imei}</Text>
+              </View>
+            </View>
+
+            {/* Additional Devices */}
+            {additionalDevices.length > 0 && (
+              <View style={[styles.card, { marginBottom: 16 }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <Text style={styles.sectionTitle}>Additional Devices</Text>
+                  <View style={{ backgroundColor: PRIMARY, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 }}>
+                    <Text style={{ color: '#FFF', fontFamily: 'Inter_700Bold', fontSize: 12 }}>{additionalDevices.length}</Text>
+                  </View>
+                </View>
+                {additionalDevices.map((device, idx) => device && (
+                  <View key={idx} style={{ marginBottom: idx < additionalDevices.length - 1 ? 16 : 0, paddingBottom: idx < additionalDevices.length - 1 ? 16 : 0, borderBottomWidth: idx < additionalDevices.length - 1 ? 1 : 0, borderBottomColor: '#F0F0F0' }}>
+                    <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 14, color: DARK, marginBottom: 10 }}>Device {idx + 2}</Text>
+                    {device.brand ? <View style={styles.detailRow}><Text style={styles.detailLabel}>Brand</Text><Text style={styles.detailValue}>{device.brand}</Text></View> : null}
+                    {device.model ? <View style={styles.detailRow}><Text style={styles.detailLabel}>Model</Text><Text style={styles.detailValue}>{device.model}</Text></View> : null}
+                    {device.imei ? <View style={styles.detailRow}><Text style={styles.detailLabel}>IMEI</Text><Text style={styles.detailValue}>{device.imei}</Text></View> : null}
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {/* Coverage + Claim (active plans only) */}
+            {planIsActive && (
+              <>
+                <View style={[styles.card, { marginBottom: 16 }]}>
+                  <Text style={styles.sectionTitle}>Coverage Summary</Text>
+                  <View style={styles.coverageRow}>
+                    <Ionicons name="phone-portrait-outline" size={18} color={PRIMARY} />
+                    <Text style={styles.coverageText}>1 Screen Damage Claim</Text>
+                    <View style={[styles.pill, expandedPlan.claimUsed ? { backgroundColor: '#FFEEEE' } : { backgroundColor: GREEN_L }]}>
+                      <Text style={{ fontSize: 11, fontFamily: 'Inter_600SemiBold', color: expandedPlan.claimUsed ? RED : GREEN }}>
+                        {expandedPlan.claimUsed ? 'Used' : 'Available'}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.coverageRow}>
+                    <Ionicons name="car-outline" size={18} color={GREEN} />
+                    <Text style={styles.coverageText}>Free Pickup & Drop</Text>
+                    <View style={[styles.pill, { backgroundColor: GREEN_L }]}>
+                      <Text style={{ fontSize: 11, fontFamily: 'Inter_600SemiBold', color: GREEN }}>Included</Text>
+                    </View>
+                  </View>
+                  <View style={styles.coverageRow}>
+                    <Ionicons name="construct-outline" size={18} color={BLUE} />
+                    <Text style={styles.coverageText}>Service Fee: {expandedPlan.planType === 'yearly' ? '₹99–₹149' : '₹199–₹299'}</Text>
+                    <View style={[styles.pill, { backgroundColor: BLUE_L }]}>
+                      <Text style={{ fontSize: 11, fontFamily: 'Inter_600SemiBold', color: BLUE }}>Applicable</Text>
+                    </View>
+                  </View>
+                </View>
+
+                <View style={[styles.card, { marginBottom: 16 }]}>
+                  <Text style={styles.sectionTitle}>Claim Status</Text>
+                  {planClaim ? (
+                    <>
+                      <StatusBadge status={planClaim.status} />
+                      <View style={{ marginTop: 12 }}>
+                        <Text style={{ fontSize: 13, color: MUTED }}>Issue: {planClaim.issue}</Text>
+                        {planClaim.technicianName ? <Text style={{ fontSize: 13, color: DARK, marginTop: 4 }}>Technician: <Text style={{ fontFamily: 'Inter_600SemiBold' }}>{planClaim.technicianName}</Text></Text> : null}
+                        {planClaim.rejectionReason ? <Text style={{ fontSize: 13, color: RED, marginTop: 4 }}>Reason: {planClaim.rejectionReason}</Text> : null}
+                      </View>
+                    </>
+                  ) : expCanClaim ? (
+                    <>
+                      <Text style={{ fontSize: 13, color: MUTED, marginBottom: 14 }}>You can raise one screen damage claim per plan year.</Text>
+                      <TouchableOpacity style={styles.btn} onPress={() => { setExistingPlan(expandedPlan); setShowClaim(true); }}>
+                        <Ionicons name="alert-circle-outline" size={18} color="#FFF" />
+                        <Text style={styles.btnText}>Raise a Claim</Text>
+                      </TouchableOpacity>
+                    </>
+                  ) : (
+                    <Text style={{ fontSize: 13, color: MUTED }}>
+                      {expandedPlan.claimUsed ? 'Your claim for this plan period has been used.' : 'Claim will be available after the waiting period.'}
+                    </Text>
+                  )}
+                </View>
+              </>
+            )}
+
+            {/* Device images */}
+            {(expandedPlan.frontImage || expandedPlan.backImage) && (
+              <View style={[styles.card, { marginBottom: 16 }]}>
+                <Text style={styles.sectionTitle}>Device Images</Text>
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                  {expandedPlan.frontImage && <View style={{ flex: 1 }}><Text style={styles.label}>Front</Text><Image source={{ uri: expandedPlan.frontImage }} style={{ height: 120, borderRadius: 10 }} resizeMode="cover" /></View>}
+                  {expandedPlan.backImage && <View style={{ flex: 1 }}><Text style={styles.label}>Back</Text><Image source={{ uri: expandedPlan.backImage }} style={{ height: 120, borderRadius: 10 }} resizeMode="cover" /></View>}
+                </View>
+              </View>
+            )}
+          </ScrollView>
+        </View>
+      );
+    }
+
+    // ── Main Multi-Plan Dashboard ────────────────────────────────────────────
     return (
       <View style={{ flex: 1, backgroundColor: BG }}>
         <Header />
         <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: botPad + 40 }}>
 
-          {/* Status card */}
-          <View style={[styles.card, { marginBottom: 16 }]}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-              <View style={[styles.shieldBig, { backgroundColor: isActive ? PRIMARY : AMBER }]}>
-                <Ionicons name="shield-checkmark" size={28} color="#FFF" />
+          {/* Summary Banner */}
+          <View style={[styles.heroBanner, { marginBottom: 20 }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+              <View style={{ backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 12, padding: 6 }}>
+                <Ionicons name="shield-checkmark" size={24} color="#FFF" />
               </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.planName}>Mobile Protection Plan</Text>
-                <Text style={{ fontSize: 12, color: MUTED }}>{plan.planType === 'yearly' ? 'Yearly Plan' : 'Monthly Plan (3-month)'}</Text>
-              </View>
+              <Text style={{ fontSize: 18, fontFamily: 'Inter_700Bold', color: '#FFF' }}>My Protection Plans</Text>
             </View>
-            <StatusBadge status={plan.status} />
 
-            {isActive && (
-              <View style={{ marginTop: 14, backgroundColor: GREEN_L, borderRadius: 12, padding: 12, flexDirection: 'row', gap: 10 }}>
-                <Ionicons name="calendar-outline" size={18} color={GREEN} />
-                <View>
-                  <Text style={{ fontSize: 12, color: MUTED }}>Valid Until</Text>
-                  <Text style={{ fontSize: 14, fontFamily: 'Inter_600SemiBold', color: DARK }}>{getExpiryDate(plan)}</Text>
+            {/* Stats row */}
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              {[
+                { label: 'Total', count: totalCount, color: '#FFF', bg: 'rgba(255,255,255,0.2)' },
+                { label: 'Pending', count: pendingCount, color: AMBER, bg: '#FFF' },
+                { label: 'Approved', count: approvedCount, color: BLUE, bg: '#FFF' },
+                { label: 'Active', count: activeCount, color: GREEN, bg: '#FFF' },
+              ].map(s => (
+                <View key={s.label} style={{ flex: 1, backgroundColor: s.bg, borderRadius: 12, padding: 10, alignItems: 'center' }}>
+                  <Text style={{ fontSize: 22, fontFamily: 'Inter_700Bold', color: s.color }}>{s.count}</Text>
+                  <Text style={{ fontSize: 10, fontFamily: 'Inter_600SemiBold', color: s.label === 'Total' ? 'rgba(255,255,255,0.85)' : MUTED, marginTop: 2 }}>{s.label}</Text>
                 </View>
-              </View>
-            )}
-
-            {isPendingPayment && (
-              <View style={{ marginTop: 14 }}>
-                <Text style={{ fontSize: 13, color: MUTED, marginBottom: 10 }}>Your application has been approved! Complete payment to activate your plan.</Text>
-                <TouchableOpacity style={styles.btn} onPress={handlePayment}>
-                  <Ionicons name="card-outline" size={18} color="#FFF" />
-                  <Text style={styles.btnText}>Pay ₹{plan.price} Now</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {plan.status === 'rejected' && (
-              <View style={{ marginTop: 14, backgroundColor: '#FFEEEE', borderRadius: 12, padding: 14 }}>
-                <Text style={{ fontSize: 14, color: RED, fontFamily: 'Inter_700Bold', marginBottom: 8 }}>Application Rejected</Text>
-                <Text style={{ fontSize: 12, color: RED, marginBottom: 12 }}>
-                  Reason: {plan.rejectionReason || 'Application did not meet eligibility criteria'}
-                </Text>
-                <Text style={{ fontSize: 12, color: DARK, marginBottom: 12, lineHeight: 18 }}>
-                  You can update your details and apply again. We'll help you get your Mobile Protection Plan approved.
-                </Text>
-                <TouchableOpacity 
-                  style={{ 
-                    backgroundColor: PRIMARY, 
-                    borderRadius: 8, 
-                    paddingVertical: 11, 
-                    alignItems: 'center',
-                    activeOpacity: 0.8
-                  }}
-                  onPress={() => {
-                    // Reset form state for fresh submission
-                    setBrand(plan.brand);
-                    setModel(plan.model);
-                    setModelNumber(plan.modelNumber);
-                    setImei(plan.imei);
-                    setFrontImage(null);
-                    setFrontImageBase64(null);
-                    setBackImage(null);
-                    setBackImageBase64(null);
-                    setDevices([]); // Clear any additional devices from previous attempts
-                    setAgreed(false);
-                    setCurrentDeviceIndex(-1);
-                    // Navigate to device step for editing
-                    setStep('device');
-                  }}>
-                  <Text style={{ fontSize: 14, color: '#FFF', fontFamily: 'Inter_700Bold' }}>Try Again</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
-
-          {/* Device details */}
-          <View style={[styles.card, { marginBottom: 16 }]}>
-            <Text style={styles.sectionTitle}>Device Details</Text>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Brand</Text>
-              <Text style={styles.detailValue}>{plan.brand}</Text>
-            </View>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Model</Text>
-              <Text style={styles.detailValue}>{plan.model}</Text>
-            </View>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Model Number</Text>
-              <Text style={styles.detailValue}>{plan.modelNumber}</Text>
-            </View>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>IMEI</Text>
-              <Text style={styles.detailValue}>{plan.imei}</Text>
+              ))}
             </View>
           </View>
 
-          {/* Additional Devices */}
-          {(() => {
+          {/* Rejected count note */}
+          {rejectedCount > 0 && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14, backgroundColor: '#FFEEEE', borderRadius: 12, padding: 12 }}>
+              <Ionicons name="close-circle" size={16} color={RED} />
+              <Text style={{ fontSize: 13, color: RED, fontFamily: 'Inter_500Medium' }}>{rejectedCount} application{rejectedCount > 1 ? 's' : ''} rejected — tap to view details</Text>
+            </View>
+          )}
+
+          {/* Plan list */}
+          <Text style={[styles.sectionTitle, { marginBottom: 12 }]}>All Plans</Text>
+          {plans.map((plan, idx) => {
+            const statusColors: Record<string, { color: string; bg: string }> = {
+              active: { color: GREEN, bg: GREEN_L },
+              approved_pending_payment: { color: BLUE, bg: BLUE_L },
+              pending_verification: { color: AMBER, bg: AMBER_L },
+              rejected: { color: RED, bg: '#FFEEEE' },
+              expired: { color: MUTED, bg: '#F0F0F0' },
+            };
+            const sc = statusColors[plan.status] || { color: MUTED, bg: '#F0F0F0' };
+            const statusLabel: Record<string, string> = {
+              active: 'Active',
+              approved_pending_payment: 'Approved — Pay Now',
+              pending_verification: 'Under Verification',
+              rejected: 'Rejected',
+              expired: 'Expired',
+            };
+            const dateStr = new Date(plan.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+
+            // Count all devices in this plan (main + additional)
+            let deviceCount = 1;
             try {
-              let devices = [];
-              if (typeof plan.devices === 'string') {
-                try {
-                  devices = JSON.parse(plan.devices);
-                } catch (parseErr) {
-                  console.log('[Protection] Could not parse devices:', plan.devices);
-                  devices = [];
-                }
-              } else if (Array.isArray(plan.devices)) {
-                devices = plan.devices;
-              }
-              
-              if (Array.isArray(devices) && devices.length > 0) {
-                return (
-                  <View style={[styles.card, { marginBottom: 16 }]}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                      <Text style={styles.sectionTitle}>Additional Devices</Text>
-                      <View style={{ backgroundColor: PRIMARY, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 }}>
-                        <Text style={{ color: '#FFF', fontFamily: 'Inter_700Bold', fontSize: 12 }}>{devices.length}</Text>
-                      </View>
-                    </View>
-                    {devices.map((device, idx) => {
-                      if (!device) return null;
-                      return (
-                        <View key={idx} style={{ marginBottom: idx < devices.length - 1 ? 16 : 0, paddingBottom: idx < devices.length - 1 ? 16 : 0, borderBottomWidth: idx < devices.length - 1 ? 1 : 0, borderBottomColor: '#F0F0F0' }}>
-                          <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 14, color: DARK, marginBottom: 10 }}>
-                            Device {idx + 2}
-                          </Text>
-                          {device.brand && (
-                            <View style={styles.detailRow}>
-                              <Text style={styles.detailLabel}>Brand</Text>
-                              <Text style={styles.detailValue}>{device.brand}</Text>
-                            </View>
-                          )}
-                          {device.model && (
-                            <View style={styles.detailRow}>
-                              <Text style={styles.detailLabel}>Model</Text>
-                              <Text style={styles.detailValue}>{device.model}</Text>
-                            </View>
-                          )}
-                          {device.modelNumber && (
-                            <View style={styles.detailRow}>
-                              <Text style={styles.detailLabel}>Model Number</Text>
-                              <Text style={styles.detailValue}>{device.modelNumber}</Text>
-                            </View>
-                          )}
-                          {device.imei && (
-                            <View style={styles.detailRow}>
-                              <Text style={styles.detailLabel}>IMEI</Text>
-                              <Text style={styles.detailValue}>{device.imei}</Text>
-                            </View>
-                          )}
-                        </View>
-                      );
-                    })}
-                  </View>
-                );
-              }
-              return null;
-            } catch (e) {
-              console.error('[Protection] Error rendering devices:', e);
-              return null;
-            }
-          })()}
+              const addDevs = typeof plan.devices === 'string' ? JSON.parse(plan.devices) : (Array.isArray(plan.devices) ? plan.devices : []);
+              if (Array.isArray(addDevs)) deviceCount = 1 + addDevs.filter((d: any) => d && d.imei).length;
+            } catch { deviceCount = 1; }
 
-          {/* Coverage summary */}
-          {isActive && (
-            <View style={[styles.card, { marginBottom: 16 }]}>
-              <Text style={styles.sectionTitle}>Coverage Summary</Text>
-              <View style={styles.coverageRow}>
-                <Ionicons name="phone-portrait-outline" size={18} color={PRIMARY} />
-                <Text style={styles.coverageText}>1 Screen Damage Claim</Text>
-                <View style={[styles.pill, plan.claimUsed ? { backgroundColor: '#FFEEEE' } : { backgroundColor: GREEN_L }]}>
-                  <Text style={{ fontSize: 11, fontFamily: 'Inter_600SemiBold', color: plan.claimUsed ? RED : GREEN }}>
-                    {plan.claimUsed ? 'Used' : 'Available'}
-                  </Text>
-                </View>
-              </View>
-              <View style={styles.coverageRow}>
-                <Ionicons name="car-outline" size={18} color={GREEN} />
-                <Text style={styles.coverageText}>Free Pickup & Drop</Text>
-                <View style={[styles.pill, { backgroundColor: GREEN_L }]}>
-                  <Text style={{ fontSize: 11, fontFamily: 'Inter_600SemiBold', color: GREEN }}>Included</Text>
-                </View>
-              </View>
-              <View style={styles.coverageRow}>
-                <Ionicons name="construct-outline" size={18} color={BLUE} />
-                <Text style={styles.coverageText}>Service Fee: {plan.planType === 'yearly' ? '₹99–₹149' : '₹199–₹299'}</Text>
-                <View style={[styles.pill, { backgroundColor: BLUE_L }]}>
-                  <Text style={{ fontSize: 11, fontFamily: 'Inter_600SemiBold', color: BLUE }}>Applicable</Text>
-                </View>
-              </View>
-            </View>
-          )}
-
-          {/* Claim section */}
-          {isActive && (
-            <View style={[styles.card, { marginBottom: 16 }]}>
-              <Text style={styles.sectionTitle}>Claim Status</Text>
-              {existingClaim ? (
-                <>
-                  <StatusBadge status={existingClaim.status} />
-                  <View style={{ marginTop: 12 }}>
-                    <Text style={{ fontSize: 13, color: MUTED }}>Issue: {existingClaim.issue}</Text>
-                    {existingClaim.technicianName ? (
-                      <Text style={{ fontSize: 13, color: DARK, marginTop: 4 }}>
-                        Technician: <Text style={{ fontFamily: 'Inter_600SemiBold' }}>{existingClaim.technicianName}</Text>
-                      </Text>
-                    ) : null}
-                    {existingClaim.rejectionReason ? (
-                      <Text style={{ fontSize: 13, color: RED, marginTop: 4 }}>Reason: {existingClaim.rejectionReason}</Text>
-                    ) : null}
-                  </View>
-                </>
-              ) : canClaim ? (
-                <>
-                  <Text style={{ fontSize: 13, color: MUTED, marginBottom: 14 }}>
-                    You can raise one screen damage claim per plan year.
-                  </Text>
-                  <TouchableOpacity style={styles.btn} onPress={() => setShowClaim(true)}>
-                    <Ionicons name="alert-circle-outline" size={18} color="#FFF" />
-                    <Text style={styles.btnText}>Raise a Claim</Text>
-                  </TouchableOpacity>
-                </>
-              ) : (
-                <Text style={{ fontSize: 13, color: MUTED }}>
-                  {plan.claimUsed ? 'Your claim for this plan period has been used.' : 'Claim will be available after the waiting period.'}
-                </Text>
-              )}
-            </View>
-          )}
-
-          {/* Device images */}
-          {(plan.frontImage || plan.backImage) && (
-            <View style={[styles.card, { marginBottom: 16 }]}>
-              <Text style={styles.sectionTitle}>Device Images</Text>
-              <View style={{ flexDirection: 'row', gap: 10 }}>
-                {plan.frontImage && (
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.label}>Front</Text>
-                    <Image source={{ uri: plan.frontImage }} style={{ height: 120, borderRadius: 10 }} resizeMode="cover" />
-                  </View>
-                )}
-                {plan.backImage && (
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.label}>Back</Text>
-                    <Image source={{ uri: plan.backImage }} style={{ height: 120, borderRadius: 10 }} resizeMode="cover" />
-                  </View>
-                )}
-              </View>
-              
-              {/* Add another device button */}
-              <TouchableOpacity 
-                style={[styles.card, { borderStyle: 'dashed', borderWidth: 2, borderColor: PRIMARY, backgroundColor: PRIMARY_L, alignItems: 'center', padding: 16, marginTop: 16 }]}
-                onPress={() => {
-                  // Add a new empty device to the devices array
-                  const newDevice = {
-                    id: Date.now().toString(),
-                    brand: '',
-                    model: '',
-                    modelNumber: '',
-                    imei: '',
-                    frontImage: null,
-                    backImage: null,
-                    frontImageBase64: null,
-                    backImageBase64: null,
-                  };
-                  setDevices([...devices, newDevice]);
-                  setStep('device');
-                }}
+            return (
+              <TouchableOpacity
+                key={plan.id}
+                style={[styles.card, { marginBottom: 12, borderLeftWidth: 4, borderLeftColor: sc.color }]}
+                onPress={() => setExpandedPlanId(plan.id)}
+                activeOpacity={0.85}
               >
-                <Ionicons name="add-circle-outline" size={24} color={PRIMARY} />
-                <Text style={{ fontFamily: 'Inter_600SemiBold', color: PRIMARY, marginTop: 6 }}>+ Add Another Device</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                  {/* Icon */}
+                  <View style={{ width: 46, height: 46, borderRadius: 23, backgroundColor: sc.bg, alignItems: 'center', justifyContent: 'center' }}>
+                    <Ionicons
+                      name={plan.status === 'active' ? 'shield-checkmark' : plan.status === 'rejected' ? 'close-circle' : plan.status === 'approved_pending_payment' ? 'card' : 'time'}
+                      size={22}
+                      color={sc.color}
+                    />
+                  </View>
+
+                  {/* Info */}
+                  <View style={{ flex: 1 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+                      <Text style={{ fontSize: 15, fontFamily: 'Inter_700Bold', color: DARK }} numberOfLines={1}>
+                        {plan.brand} {plan.model}
+                      </Text>
+                      {deviceCount > 1 && (
+                        <View style={{ backgroundColor: PRIMARY_L, borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2 }}>
+                          <Text style={{ fontSize: 10, fontFamily: 'Inter_700Bold', color: PRIMARY }}>{deviceCount} devices</Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text style={{ fontSize: 12, color: MUTED, marginBottom: 6 }}>
+                      {plan.planType === 'yearly' ? 'Yearly · ₹1499' : 'Monthly · ₹499'} · {dateStr}
+                    </Text>
+                    <View style={{ backgroundColor: sc.bg, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4, alignSelf: 'flex-start' }}>
+                      <Text style={{ fontSize: 11, fontFamily: 'Inter_600SemiBold', color: sc.color }}>{statusLabel[plan.status] || plan.status}</Text>
+                    </View>
+                  </View>
+
+                  <Ionicons name="chevron-forward" size={18} color={MUTED} />
+                </View>
+
+                {/* Pay Now inline button */}
+                {plan.status === 'approved_pending_payment' && (
+                  <TouchableOpacity
+                    style={[styles.btn, { marginTop: 14, paddingVertical: 11 }]}
+                    onPress={() => handlePayment(plan)}
+                  >
+                    <Ionicons name="card-outline" size={16} color="#FFF" />
+                    <Text style={[styles.btnText, { fontSize: 14 }]}>Pay ₹{plan.price} Now</Text>
+                  </TouchableOpacity>
+                )}
               </TouchableOpacity>
+            );
+          })}
+
+          {/* Submit new device button */}
+          <TouchableOpacity
+            style={[styles.card, { borderStyle: 'dashed', borderWidth: 2, borderColor: PRIMARY, backgroundColor: PRIMARY_L, alignItems: 'center', padding: 20, marginTop: 4 }]}
+            onPress={() => {
+              setBrand(''); setModel(''); setModelNumber(''); setImei('');
+              setFrontImage(null); setFrontImageBase64(null);
+              setBackImage(null); setBackImageBase64(null);
+              setDevices([]); setAgreed(false); setCurrentDeviceIndex(-1);
+              setStep('plan');
+            }}
+          >
+            <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: PRIMARY, alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
+              <Ionicons name="add" size={26} color="#FFF" />
             </View>
-          )}
+            <Text style={{ fontFamily: 'Inter_700Bold', color: PRIMARY, fontSize: 15 }}>Submit New Device</Text>
+            <Text style={{ fontSize: 12, color: MUTED, marginTop: 4, textAlign: 'center' }}>Apply for a new mobile protection plan</Text>
+          </TouchableOpacity>
         </ScrollView>
       </View>
     );
