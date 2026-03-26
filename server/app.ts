@@ -285,11 +285,22 @@ function setupErrorHandler(app: express.Application) {
   });
 }
 
+function getValidDbUrl(): string | null {
+  const candidates = [
+    process.env.SUPABASE_DATABASE_URL,
+    process.env.NEON_DATABASE_URL,
+    process.env.DATABASE_URL,
+  ];
+  for (const url of candidates) {
+    if (url && (url.startsWith("postgresql://") || url.startsWith("postgres://"))) {
+      return url;
+    }
+  }
+  return null;
+}
+
 async function runStartupMigrations() {
-  const dbUrl =
-    process.env.SUPABASE_DATABASE_URL ||
-    process.env.NEON_DATABASE_URL ||
-    process.env.DATABASE_URL;
+  const dbUrl = getValidDbUrl();
 
   if (!dbUrl) {
     log("Startup migration skipped: no database URL configured");
