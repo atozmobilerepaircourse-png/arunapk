@@ -193,6 +193,7 @@ export default function ProtectionPlanScreen() {
           const res = await apiRequest('GET', '/api/settings/insurance');
           const data = await res.json();
           if (data.settings) {
+            console.log('[Insurance] Fetched prices:', { yearly: data.settings.yearlyPrice, monthly: data.settings.monthlyPrice });
             if (data.settings.yearlyPrice) setYearlyPrice(data.settings.yearlyPrice);
             if (data.settings.monthlyPrice) setMonthlyPrice(data.settings.monthlyPrice);
           }
