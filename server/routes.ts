@@ -2583,13 +2583,10 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
   app.get("/api/messages/:conversationId", async (req, res) => {
     try {
       const { conversationId } = req.params;
-      const fdb = getFirestore();
-      const snap = await fdb.collection('messages')
-        .where('conversationId', '==', conversationId)
-        .get();
-      const msgs = snap.docs
-        .map(doc => ({ id: doc.id, ...doc.data() } as any))
-        .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+      // Primary: Load from PostgreSQL (always available, especially on Cloud Run)
+      const msgs = await db.select().from(messages)
+        .where(eq(messages.conversationId, conversationId))
+        .orderBy(messages.createdAt);
       return res.json(msgs);
     } catch (error) {
       console.error("[Chat] Get messages error:", error);
@@ -2616,71 +2613,46 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
 
       const newMsg = { id, conversationId, senderId, senderName, text: cleanText, image: cleanImage, createdAt: now };
 
-      // Try to update Firestore with message, but gracefully fall back if it fails (Cloud Run)
+      // Primary: Save to PostgreSQL (always available, especially on Cloud Run)
+      try {
+        await db.insert(messages).values(newMsg);
+      } catch (dbError: any) {
+        console.error("[Chat] Failed to save message to PostgreSQL:", dbError?.message);
+        return res.status(500).json({ success: false, message: "Failed to save message" });
+      }
+
+      // Secondary: Try to update Firestore conversation metadata (optional, Cloud Run may not have it)
       try {
         const fdb = getFirestore();
         const lastMsg = cleanImage ? (cleanText || "📷 Photo") : cleanText;
-
         const convoRef = fdb.collection('conversations').doc(conversationId);
         const convoDoc = await convoRef.get();
 
-        if (!convoDoc.exists) {
-          // If the conversation doc doesn't exist in Firestore, we should probably check PostgreSQL
-          // but for now let's just create it if we have enough info, or return error
-          console.warn(`[Chat] Conversation ${conversationId} not found in Firestore. Creating it...`);
-          // We'll try to find it in PG first to sync it
-          const [pgConvo] = await db.select().from(conversations).where(eq(conversations.id, conversationId));
-          if (pgConvo) {
-            await convoRef.set({
-              ...pgConvo,
-              lastMessage: lastMsg,
-              lastMessageSenderId: senderId,
-              lastMessageAt: now,
-            });
-          } else {
-            // Fallback if not even in PG
-            await convoRef.set({
-              id: conversationId,
-              participant1Id: senderId, // This is a guess/fallback
-              participant1Name: senderName,
-              participant1Role: 'technician',
-              participant2Id: '',
-              participant2Name: 'User',
-              participant2Role: 'customer',
-              lastMessage: lastMsg,
-              lastMessageSenderId: senderId,
-              lastMessageAt: now,
-              createdAt: now,
-            });
-          }
-        } else {
+        if (convoDoc.exists) {
           await convoRef.update({
             lastMessage: lastMsg,
             lastMessageSenderId: senderId,
             lastMessageAt: now,
           });
-        }
-
-        await fdb.collection('messages').doc(id).set(newMsg);
-
-        const convoData = convoDoc.exists ? convoDoc.data() : null;
-        if (convoData) {
-          const recipientId = convoData.participant1Id === senderId
-            ? convoData.participant2Id
-            : convoData.participant1Id;
-          if (recipientId && recipientId !== senderId) {
-            const msgPreview = cleanImage ? (cleanText || '📷 Photo') : cleanText.slice(0, 80);
-            notifyUser(recipientId, {
-              title: senderName,
-              body: msgPreview,
-              data: { type: 'chat_message', conversationId },
-            }).catch(() => {});
+          
+          const convoData = convoDoc.data();
+          if (convoData) {
+            const recipientId = convoData.participant1Id === senderId
+              ? convoData.participant2Id
+              : convoData.participant1Id;
+            if (recipientId && recipientId !== senderId) {
+              const msgPreview = cleanImage ? (cleanText || '📷 Photo') : cleanText.slice(0, 80);
+              notifyUser(recipientId, {
+                title: senderName,
+                body: msgPreview,
+                data: { type: 'chat_message', conversationId },
+              }).catch(() => {});
+            }
           }
         }
       } catch (fbError: any) {
-        console.warn("[Chat] Firestore unavailable in send message, continuing with fallback:", fbError?.message);
-        // Firestore not available (Cloud Run) - message is still valid, client will show it
-        // It won't be persisted but that's OK for MVP
+        console.warn("[Chat] Firestore unavailable in send message (OK on Cloud Run):", fbError?.message);
+        // Firestore update is optional - message is already saved in PostgreSQL
       }
 
       return res.json({ success: true, message: newMsg });
@@ -2695,21 +2667,15 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
       const { conversationId, timestamp } = req.params;
       const ts = parseInt(timestamp);
       
-      try {
-        const fdb = getFirestore();
-        const snap = await fdb.collection('messages')
-          .where('conversationId', '==', conversationId)
-          .get();
-        const msgs = snap.docs
-          .map(doc => ({ id: doc.id, ...doc.data() } as any))
-          .filter(m => (m.createdAt || 0) > ts)
-          .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
-        return res.json(msgs);
-      } catch (fbError: any) {
-        console.warn("[Chat] Firestore unavailable in poll messages:", fbError?.message);
-        // Firestore not available, return empty array
-        return res.json([]);
-      }
+      // Load from PostgreSQL (always available)
+      const msgs = await db.select().from(messages)
+        .where(and(
+          eq(messages.conversationId, conversationId),
+          gt(messages.createdAt, ts)
+        ))
+        .orderBy(messages.createdAt);
+      
+      return res.json(msgs);
     } catch (error) {
       console.error("[Chat] Poll messages error:", error);
       return res.json([]);
