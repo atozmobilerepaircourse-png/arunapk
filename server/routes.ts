@@ -5322,37 +5322,26 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
       const { planName, protectionPlanPrice, yearlyPrice, monthlyPrice, repairDiscount, status } = req.body;
       console.log('[Insurance Settings] Saving:', { planName, protectionPlanPrice, yearlyPrice, monthlyPrice, repairDiscount, status });
       
-      // Use direct upsert with onConflict for reliability
-      if (planName !== undefined) {
-        await db.insert(appSettings).values({ key: 'insurance_plan_name', value: String(planName), updatedAt: Date.now() })
-          .onConflictDoUpdate({ target: appSettings.key, set: { value: String(planName), updatedAt: Date.now() } });
-        console.log(`[Insurance Settings] Saved insurance_plan_name = ${planName}`);
-      }
-      if (protectionPlanPrice !== undefined) {
-        await db.insert(appSettings).values({ key: 'insurance_plan_price', value: String(protectionPlanPrice), updatedAt: Date.now() })
-          .onConflictDoUpdate({ target: appSettings.key, set: { value: String(protectionPlanPrice), updatedAt: Date.now() } });
-        console.log(`[Insurance Settings] Saved insurance_plan_price = ${protectionPlanPrice}`);
-      }
-      if (yearlyPrice !== undefined) {
-        await db.insert(appSettings).values({ key: 'insurance_plan_price_yearly', value: String(yearlyPrice), updatedAt: Date.now() })
-          .onConflictDoUpdate({ target: appSettings.key, set: { value: String(yearlyPrice), updatedAt: Date.now() } });
-        console.log(`[Insurance Settings] Saved insurance_plan_price_yearly = ${yearlyPrice}`);
-      }
-      if (monthlyPrice !== undefined) {
-        await db.insert(appSettings).values({ key: 'insurance_plan_price_monthly', value: String(monthlyPrice), updatedAt: Date.now() })
-          .onConflictDoUpdate({ target: appSettings.key, set: { value: String(monthlyPrice), updatedAt: Date.now() } });
-        console.log(`[Insurance Settings] Saved insurance_plan_price_monthly = ${monthlyPrice}`);
-      }
-      if (repairDiscount !== undefined) {
-        await db.insert(appSettings).values({ key: 'insurance_repair_discount', value: String(repairDiscount), updatedAt: Date.now() })
-          .onConflictDoUpdate({ target: appSettings.key, set: { value: String(repairDiscount), updatedAt: Date.now() } });
-        console.log(`[Insurance Settings] Saved insurance_repair_discount = ${repairDiscount}`);
-      }
-      if (status !== undefined) {
-        await db.insert(appSettings).values({ key: 'insurance_plan_status', value: String(status), updatedAt: Date.now() })
-          .onConflictDoUpdate({ target: appSettings.key, set: { value: String(status), updatedAt: Date.now() } });
-        console.log(`[Insurance Settings] Saved insurance_plan_status = ${status}`);
-      }
+      // Helper to reliably save/update a setting
+      const saveSetting = async (key: string, value: string) => {
+        try {
+          // First try to delete the old record
+          await db.delete(appSettings).where(eq(appSettings.key, key));
+          // Then insert the new value
+          await db.insert(appSettings).values({ key, value, updatedAt: Date.now() });
+          console.log(`[Insurance Settings] Saved ${key} = ${value}`);
+        } catch (e) {
+          console.error(`[Insurance Settings] Error saving ${key}:`, e);
+          throw e;
+        }
+      };
+      
+      if (planName !== undefined) await saveSetting('insurance_plan_name', String(planName));
+      if (protectionPlanPrice !== undefined) await saveSetting('insurance_plan_price', String(protectionPlanPrice));
+      if (yearlyPrice !== undefined) await saveSetting('insurance_plan_price_yearly', String(yearlyPrice));
+      if (monthlyPrice !== undefined) await saveSetting('insurance_plan_price_monthly', String(monthlyPrice));
+      if (repairDiscount !== undefined) await saveSetting('insurance_repair_discount', String(repairDiscount));
+      if (status !== undefined) await saveSetting('insurance_plan_status', String(status));
       
       console.log('[Insurance Settings] Save completed successfully');
       return res.json({ success: true });
