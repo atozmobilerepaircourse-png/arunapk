@@ -151,17 +151,6 @@ export default function ProtectionPlanScreen() {
   const [claimImageBase64, setClaimImageBase64] = useState<string | null>(null);
   const [claimSubmitting, setClaimSubmitting] = useState(false);
 
-  const fetchPrices = useCallback(async () => {
-    try {
-      const res = await fetch(`${getApiUrl()}/api/settings/insurance`);
-      const data = await res.json();
-      if (data.settings) {
-        if (data.settings.yearlyPrice) setYearlyPrice(data.settings.yearlyPrice);
-        if (data.settings.monthlyPrice) setMonthlyPrice(data.settings.monthlyPrice);
-      }
-    } catch (e) { console.warn('Failed to fetch insurance prices:', e); }
-  }, []);
-
   const fetchPlan = useCallback(async () => {
     if (!profile?.id) { setLoadingPlan(false); return; }
     try {
@@ -196,32 +185,25 @@ export default function ProtectionPlanScreen() {
     }
   }, [profile?.id]);
 
-  // Refresh prices and data when screen comes into focus
+  // Refresh prices and data when screen comes into focus or on initial load
   useFocusEffect(
     useCallback(() => {
-      fetchPrices();
-      fetchAllPlans();
-      fetchPlan();
-    }, [fetchPrices, fetchAllPlans, fetchPlan])
+      const loadData = async () => {
+        try {
+          const res = await apiRequest('GET', '/api/settings/insurance');
+          const data = await res.json();
+          if (data.settings) {
+            if (data.settings.yearlyPrice) setYearlyPrice(data.settings.yearlyPrice);
+            if (data.settings.monthlyPrice) setMonthlyPrice(data.settings.monthlyPrice);
+          }
+        } catch (e) { console.warn('Failed to fetch insurance settings:', e); }
+        
+        await fetchAllPlans();
+        fetchPlan();
+      };
+      loadData();
+    }, [fetchAllPlans, fetchPlan])
   );
-
-  useEffect(() => { 
-    const timer = setTimeout(async () => {
-      // Fetch insurance settings for dynamic pricing
-      try {
-        const res = await fetch(`${getApiUrl()}/api/settings/insurance`);
-        const data = await res.json();
-        if (data.settings) {
-          if (data.settings.yearlyPrice) setYearlyPrice(data.settings.yearlyPrice);
-          if (data.settings.monthlyPrice) setMonthlyPrice(data.settings.monthlyPrice);
-        }
-      } catch (e) { console.warn('Failed to fetch insurance settings:', e); }
-      
-      await fetchAllPlans();
-      fetchPlan();
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [profile?.id]);
 
   // ── Camera capture (direct camera on mobile and web) ────────────────────────
   // Helper to set image on the correct device (main or from array)
