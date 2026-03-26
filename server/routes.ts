@@ -7526,73 +7526,42 @@ Be specific about component locations and names. If image quality is poor or not
         }
       }
 
-      // Check if IMEI already exists - if so, UPDATE instead of INSERT
-      console.log('[Protection] Checking for existing IMEI:', imei);
-      const existing = await db.select().from(protectionPlans)
-        .where(eq(protectionPlans.imei, imei))
-        .limit(1);
-
       const price = planType === 'yearly' ? 1499 : 447;
       const devicesJson = JSON.stringify(validatedDevices);
 
-      if (existing.length > 0) {
-        // UPDATE existing plan
-        const existingPlan = existing[0];
-        console.log('[Protection] Updating existing plan for IMEI:', imei, 'Plan ID:', existingPlan.id);
-        
-        await db.update(protectionPlans)
-          .set({
-            userName: userName || '',
-            userPhone: userPhone || '',
-            brand,
-            model,
-            modelNumber,
-            devices: devicesJson,
-            planType,
-            price,
-            frontImage: frontImage || '',
-            backImage: backImage || '',
-            updatedAt: Date.now(),
-          })
-          .where(eq(protectionPlans.id, existingPlan.id));
+      // Always CREATE new plan (don't overwrite old ones)
+      const id = randomUUID();
+      console.log('[Protection] Creating new protection plan...');
+      console.log('[Protection] Inserting with fields:', { 
+        id, userId, userName, userPhone, imei, brand, model, modelNumber, planType, price, devicesCount: devices?.length || 0
+      });
 
-        console.log('[Protection] Plan updated successfully:', existingPlan.id);
-        return res.json({ success: true, planId: existingPlan.id, isUpdate: true, message: 'Application submitted successfully' });
-      } else {
-        // CREATE new plan
-        const id = randomUUID();
-        console.log('[Protection] Creating new protection plan...');
-        console.log('[Protection] Inserting with fields:', { 
-          id, userId, userName, userPhone, imei, brand, model, modelNumber, planType, price, devicesCount: devices?.length || 0
-        });
+      await db.insert(protectionPlans).values({
+        id,
+        userId,
+        userName: userName || '',
+        userPhone: userPhone || '',
+        imei,
+        brand,
+        model,
+        modelNumber,
+        devices: devicesJson,
+        planType,
+        price,
+        frontImage: frontImage || '',
+        backImage: backImage || '',
+        status: 'pending_verification',
+        claimUsed: 0,
+        paymentId: '',
+        razorpayOrderId: '',
+        planStartDate: 0,
+        rejectionReason: '',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
 
-        await db.insert(protectionPlans).values({
-          id,
-          userId,
-          userName: userName || '',
-          userPhone: userPhone || '',
-          imei,
-          brand,
-          model,
-          modelNumber,
-          devices: devicesJson,
-          planType,
-          price,
-          frontImage: frontImage || '',
-          backImage: backImage || '',
-          status: 'pending_verification',
-          claimUsed: 0,
-          paymentId: '',
-          razorpayOrderId: '',
-          planStartDate: 0,
-          rejectionReason: '',
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
-        });
-
-        console.log('[Protection] Plan created successfully:', id);
-        return res.json({ success: true, planId: id, isUpdate: false, message: 'Application submitted successfully' });
-      }
+      console.log('[Protection] Plan created successfully:', id);
+      return res.json({ success: true, planId: id, isUpdate: false, message: 'Application submitted successfully' });
     } catch (e: any) {
       console.error('[Protection] Apply error:', e.message, 'Full error:', e);
       console.error('[Protection] Stack:', e.stack);
