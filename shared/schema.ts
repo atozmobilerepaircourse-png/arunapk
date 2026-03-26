@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, bigint } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, bigint, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -53,6 +53,8 @@ export const profiles = pgTable("profiles", {
   bannerImage: text("banner_image").default(""),
   shopThumbnail: text("shop_thumbnail").default(""),
   createdAt: bigint("created_at", { mode: "number" }).notNull().default(sql`EXTRACT(EPOCH FROM NOW()) * 1000`),
+  deleted_at: timestamp("deleted_at"),
+  blocked_at: timestamp("blocked_at"),
 });
 
 export const repairBookings = pgTable("repair_bookings", {

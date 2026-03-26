@@ -5662,9 +5662,16 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
       const { userId, blocked } = req.body;
       if (!userId) return res.status(400).json({ success: false, message: "userId required" });
       console.log(`[Admin] ${blocked ? 'Blocking' : 'Unblocking'} user: ${userId}`);
-      const blockedVal = blocked ? 1 : 0;
-      await db.execute(sql`UPDATE profiles SET blocked = ${blockedVal} WHERE id = ${userId}`);
-      console.log(`[Admin] User ${userId} block status updated to ${blockedVal}`);
+      
+      if (blocked) {
+        // Soft block - set blocked_at timestamp
+        await db.execute(sql`UPDATE profiles SET blocked_at = NOW() WHERE id = ${userId}`);
+      } else {
+        // Unblock - clear blocked_at
+        await db.execute(sql`UPDATE profiles SET blocked_at = NULL WHERE id = ${userId}`);
+      }
+      
+      console.log(`[Admin] User ${userId} ${blocked ? 'blocked' : 'unblocked'}`);
       return res.json({ success: true, message: blocked ? "User blocked" : "User unblocked" });
     } catch (error) {
       console.error("[Admin] Block user error:", error);
@@ -5681,7 +5688,7 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
         return res.status(400).json({ success: false, message: "userId required" });
       }
 
-      // Get the phone number first so we can delete sessions
+      // Get user info
       const userRows = await db.execute(sql`SELECT phone, name FROM profiles WHERE id = ${userId}`);
       const userRow = (userRows as any).rows?.[0] || (Array.isArray(userRows) ? userRows[0] : null);
       
@@ -5689,17 +5696,11 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
         return res.status(404).json({ success: false, message: "User not found" });
       }
       
-      console.log("[Admin Delete] Deleting user:", { userId, name: userRow.name });
+      console.log("[Admin Delete] Soft-deleting user:", { userId, name: userRow.name });
       
-      // Delete sessions first (if phone exists)
-      if (userRow.phone) {
-        await db.execute(sql`DELETE FROM sessions WHERE phone = ${userRow.phone}`);
-        console.log("[Admin Delete] Sessions cleared for phone:", userRow.phone);
-      }
-      
-      // Delete the profile
-      await db.execute(sql`DELETE FROM profiles WHERE id = ${userId}`);
-      console.log("[Admin Delete] ✅ User deleted:", userId);
+      // Soft delete - mark user as deleted with timestamp
+      await db.execute(sql`UPDATE profiles SET deleted_at = NOW() WHERE id = ${userId}`);
+      console.log("[Admin Delete] ✅ User marked as deleted:", userId);
       
       return res.json({ success: true, message: "User deleted successfully", userId });
     } catch (error) {
@@ -5710,7 +5711,9 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
 
   app.get("/api/admin/deleted-users", adminMiddleware, async (_req, res) => {
     try {
-      return res.json([]);
+      const deletedUsers = await db.execute(sql`SELECT * FROM profiles WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC`);
+      const rows = (deletedUsers as any).rows || (Array.isArray(deletedUsers) ? deletedUsers : []);
+      return res.json(rows);
     } catch (error) {
       console.error("[Admin] Get deleted users error:", error);
       return res.status(500).json({ success: false, message: "Failed to fetch deleted users" });
@@ -5719,11 +5722,75 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
 
   app.get("/api/admin/blocked-users", adminMiddleware, async (_req, res) => {
     try {
-      const blockedUsers = await db.select().from(profiles).where(eq(profiles.blocked, 1));
-      return res.json(blockedUsers);
+      const blockedUsers = await db.execute(sql`SELECT * FROM profiles WHERE blocked_at IS NOT NULL ORDER BY blocked_at DESC`);
+      const rows = (blockedUsers as any).rows || (Array.isArray(blockedUsers) ? blockedUsers : []);
+      return res.json(rows);
     } catch (error) {
       console.error("[Admin] Get blocked users error:", error);
       return res.status(500).json({ success: false, message: "Failed to fetch blocked users" });
+    }
+  });
+
+  // Permanently delete a user from deleted users
+  app.post("/api/admin/permanently-delete-user", adminMiddleware, async (req, res) => {
+    try {
+      const { userId } = req.body;
+      if (!userId) {
+        return res.status(400).json({ success: false, message: "userId required" });
+      }
+
+      console.log("[Admin Permanent Delete] Permanently deleting user:", userId);
+      
+      // Hard delete from profiles
+      await db.execute(sql`DELETE FROM profiles WHERE id = ${userId}`);
+      
+      console.log("[Admin Permanent Delete] ✅ User permanently deleted:", userId);
+      return res.json({ success: true, message: "User permanently deleted" });
+    } catch (error) {
+      console.error("[Admin Permanent Delete] ❌ Error:", error);
+      return res.status(500).json({ success: false, message: "Failed to permanently delete user" });
+    }
+  });
+
+  // Restore a deleted user
+  app.post("/api/admin/restore-user", adminMiddleware, async (req, res) => {
+    try {
+      const { userId } = req.body;
+      if (!userId) {
+        return res.status(400).json({ success: false, message: "userId required" });
+      }
+
+      console.log("[Admin Restore] Restoring user:", userId);
+      
+      // Clear deleted_at timestamp
+      await db.execute(sql`UPDATE profiles SET deleted_at = NULL WHERE id = ${userId}`);
+      
+      console.log("[Admin Restore] ✅ User restored:", userId);
+      return res.json({ success: true, message: "User restored successfully" });
+    } catch (error) {
+      console.error("[Admin Restore] ❌ Error:", error);
+      return res.status(500).json({ success: false, message: "Failed to restore user" });
+    }
+  });
+
+  // Unblock a user (clear blocked_at)
+  app.post("/api/admin/unblock-user-restore", adminMiddleware, async (req, res) => {
+    try {
+      const { userId } = req.body;
+      if (!userId) {
+        return res.status(400).json({ success: false, message: "userId required" });
+      }
+
+      console.log("[Admin Unblock] Unblocking user:", userId);
+      
+      // Clear blocked_at timestamp
+      await db.execute(sql`UPDATE profiles SET blocked_at = NULL WHERE id = ${userId}`);
+      
+      console.log("[Admin Unblock] ✅ User unblocked:", userId);
+      return res.json({ success: true, message: "User unblocked successfully" });
+    } catch (error) {
+      console.error("[Admin Unblock] ❌ Error:", error);
+      return res.status(500).json({ success: false, message: "Failed to unblock user" });
     }
   });
 
