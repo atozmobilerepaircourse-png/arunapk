@@ -136,6 +136,7 @@ export default function ProtectionPlanScreen() {
 
   // Multiple devices support
   const [devices, setDevices] = useState<Array<{id: string; brand: string; model: string; modelNumber: string; imei: string; frontImage: string | null; backImage: string | null; frontImageBase64: string | null; backImageBase64: string | null}>>([]);
+  const [currentDeviceIndex, setCurrentDeviceIndex] = useState(-1); // -1 = main device, >= 0 = device from array
 
   // Claim state
   const [showClaim, setShowClaim] = useState(false);
@@ -168,6 +169,29 @@ export default function ProtectionPlanScreen() {
   }, [profile?.id]);
 
   // ── Camera capture (direct camera on mobile and web) ────────────────────────
+  // Helper to set image on the correct device (main or from array)
+  const setDeviceImage = (deviceIdx: number, which: 'front' | 'back' | 'claim', uri: string, b64: string) => {
+    if (deviceIdx === -1) {
+      // Main device
+      if (which === 'front') { setFrontImage(uri); setFrontImageBase64(b64); }
+      else if (which === 'back') { setBackImage(uri); setBackImageBase64(b64); }
+      else { setClaimImage(uri); setClaimImageBase64(b64); }
+    } else {
+      // Device from array
+      if (which === 'claim') {
+        // Claim image is always on main device
+        setClaimImage(uri); setClaimImageBase64(b64);
+      } else {
+        const updated = [...devices];
+        if (updated[deviceIdx]) {
+          if (which === 'front') { updated[deviceIdx].frontImage = uri; updated[deviceIdx].frontImageBase64 = b64; }
+          else { updated[deviceIdx].backImage = uri; updated[deviceIdx].backImageBase64 = b64; }
+        }
+        setDevices(updated);
+      }
+    }
+  };
+
   const captureImage = useCallback(async (which: 'front' | 'back' | 'claim') => {
     try {
       const isWeb = typeof window !== 'undefined';
@@ -203,18 +227,7 @@ export default function ProtectionPlanScreen() {
               // Use data URI for preview so it survives re-renders (blob URLs can be revoked)
               const mimeType = file.type || 'image/jpeg';
               const dataUri = `data:${mimeType};base64,${base64}`;
-              if (which === 'front') { 
-                setFrontImage(dataUri); 
-                setFrontImageBase64(base64); 
-              }
-              else if (which === 'back') { 
-                setBackImage(dataUri); 
-                setBackImageBase64(base64); 
-              }
-              else { 
-                setClaimImage(dataUri); 
-                setClaimImageBase64(base64); 
-              }
+              setDeviceImage(currentDeviceIndex, which, dataUri, base64);
             } catch (err: any) {
               Alert.alert('Error', 'Failed to process image: ' + (err.message || 'Unknown error'));
             }
@@ -244,9 +257,7 @@ export default function ProtectionPlanScreen() {
                     const asset = result.assets[0];
                     const uri = asset.uri;
                     const b64 = asset.base64 || '';
-                    if (which === 'front') { setFrontImage(uri); setFrontImageBase64(b64); }
-                    else if (which === 'back') { setBackImage(uri); setBackImageBase64(b64); }
-                    else { setClaimImage(uri); setClaimImageBase64(b64); }
+                    setDeviceImage(currentDeviceIndex, which, uri, b64);
                   }
                 } catch (err) {
                   Alert.alert('Error', 'Failed to pick image from gallery.');
@@ -270,15 +281,13 @@ export default function ProtectionPlanScreen() {
           const asset = result.assets[0];
           const uri = asset.uri;
           const b64 = asset.base64 || '';
-          if (which === 'front') { setFrontImage(uri); setFrontImageBase64(b64); }
-          else if (which === 'back') { setBackImage(uri); setBackImageBase64(b64); }
-          else { setClaimImage(uri); setClaimImageBase64(b64); }
+          setDeviceImage(currentDeviceIndex, which, uri, b64);
         }
       }
     } catch (e) {
       Alert.alert('Error', 'Failed to capture image. Please try again.');
     }
-  }, []);
+  }, [currentDeviceIndex]);
 
   // ── Upload image to backend ─────────────────────────────────────────────────
   const uploadImage = useCallback(async (base64: string, name: string): Promise<string> => {
@@ -1079,6 +1088,41 @@ export default function ProtectionPlanScreen() {
   // STEP: DEVICE DETAILS
   // ════════════════════════════════════════════════════════════════════════════
   if (step === 'device') {
+    // Get current device (main or from array)
+    const isMainDevice = currentDeviceIndex === -1;
+    const currentDevice = isMainDevice ? null : devices[currentDeviceIndex] || null;
+    const currentBrand = isMainDevice ? brand : currentDevice?.brand || '';
+    const currentModel = isMainDevice ? model : currentDevice?.model || '';
+    const currentModelNumber = isMainDevice ? modelNumber : currentDevice?.modelNumber || '';
+    
+    const setBrand_ = (b: string) => {
+      if (isMainDevice) {
+        setBrand(b);
+      } else {
+        const updated = [...devices];
+        if (updated[currentDeviceIndex]) updated[currentDeviceIndex].brand = b;
+        setDevices(updated);
+      }
+    };
+    const setModel_ = (m: string) => {
+      if (isMainDevice) {
+        setModel(m);
+      } else {
+        const updated = [...devices];
+        if (updated[currentDeviceIndex]) updated[currentDeviceIndex].model = m;
+        setDevices(updated);
+      }
+    };
+    const setModelNumber_ = (mn: string) => {
+      if (isMainDevice) {
+        setModelNumber(mn);
+      } else {
+        const updated = [...devices];
+        if (updated[currentDeviceIndex]) updated[currentDeviceIndex].modelNumber = mn;
+        setDevices(updated);
+      }
+    };
+
     return (
       <View style={{ flex: 1, backgroundColor: BG }}>
         <Header />
@@ -1094,10 +1138,10 @@ export default function ProtectionPlanScreen() {
               {PHONE_BRANDS.map(b => (
                 <TouchableOpacity
                   key={b}
-                  style={[styles.chip, brand === b && styles.chipSelected]}
-                  onPress={() => setBrand(b)}
+                  style={[styles.chip, currentBrand === b && styles.chipSelected]}
+                  onPress={() => setBrand_(b)}
                 >
-                  <Text style={[styles.chipText, brand === b && styles.chipTextSelected]}>{b}</Text>
+                  <Text style={[styles.chipText, currentBrand === b && styles.chipTextSelected]}>{b}</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -1108,8 +1152,8 @@ export default function ProtectionPlanScreen() {
             style={[styles.input, { marginBottom: 16 }]}
             placeholder="e.g. Galaxy A54, iPhone 14"
             placeholderTextColor={MUTED}
-            value={model}
-            onChangeText={setModel}
+            value={currentModel}
+            onChangeText={setModel_}
           />
 
           <Text style={styles.label}>Model Number *</Text>
@@ -1117,8 +1161,8 @@ export default function ProtectionPlanScreen() {
             style={[styles.input, { marginBottom: 4 }]}
             placeholder="e.g. SM-A546B, A2650"
             placeholderTextColor={MUTED}
-            value={modelNumber}
-            onChangeText={setModelNumber}
+            value={currentModelNumber}
+            onChangeText={setModelNumber_}
           />
           <Text style={{ fontSize: 12, color: MUTED, marginBottom: 24 }}>Find in Settings → About Phone → Model Number</Text>
 
@@ -1131,9 +1175,9 @@ export default function ProtectionPlanScreen() {
 
         <View style={[styles.footer, { paddingBottom: botPad + 8 }]}>
           <TouchableOpacity style={styles.btn} onPress={() => {
-            if (!brand) { Alert.alert('Required', 'Please select your phone brand'); return; }
-            if (!model.trim()) { Alert.alert('Required', 'Please enter your phone model'); return; }
-            if (!modelNumber.trim()) { Alert.alert('Required', 'Please enter your model number'); return; }
+            if (!currentBrand) { Alert.alert('Required', 'Please select your phone brand'); return; }
+            if (!currentModel.trim()) { Alert.alert('Required', 'Please enter your phone model'); return; }
+            if (!currentModelNumber.trim()) { Alert.alert('Required', 'Please enter your model number'); return; }
             setStep('imei');
           }}>
             <Text style={styles.btnText}>Continue</Text>
@@ -1148,7 +1192,22 @@ export default function ProtectionPlanScreen() {
   // STEP: IMEI
   // ════════════════════════════════════════════════════════════════════════════
   if (step === 'imei') {
-    const imeiValid = /^\d{15}$/.test(imei);
+    const isMainDevice = currentDeviceIndex === -1;
+    const currentDevice = isMainDevice ? null : devices[currentDeviceIndex] || null;
+    const currentImei = isMainDevice ? imei : currentDevice?.imei || '';
+    
+    const setImei_ = (i: string) => {
+      const cleaned = i.replace(/\D/g, '').slice(0, 15);
+      if (isMainDevice) {
+        setImei(cleaned);
+      } else {
+        const updated = [...devices];
+        if (updated[currentDeviceIndex]) updated[currentDeviceIndex].imei = cleaned;
+        setDevices(updated);
+      }
+    };
+
+    const imeiValid = /^\d{15}$/.test(currentImei);
     return (
       <View style={{ flex: 1, backgroundColor: BG }}>
         <Header />
@@ -1161,8 +1220,8 @@ export default function ProtectionPlanScreen() {
             style={[styles.input, { fontSize: 20, fontFamily: 'Inter_700Bold', letterSpacing: 2, textAlign: 'center', marginVertical: 20 }, imeiValid && { borderColor: GREEN }]}
             placeholder="000000000000000"
             placeholderTextColor={MUTED}
-            value={imei}
-            onChangeText={t => setImei(t.replace(/\D/g, '').slice(0, 15))}
+            value={currentImei}
+            onChangeText={setImei_}
             keyboardType="numeric"
             maxLength={15}
           />
@@ -1170,7 +1229,7 @@ export default function ProtectionPlanScreen() {
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
             <View style={[styles.pill, { backgroundColor: imeiValid ? GREEN_L : '#F0F0F0' }]}>
               <Ionicons name={imeiValid ? 'checkmark-circle' : 'ellipse-outline'} size={14} color={imeiValid ? GREEN : MUTED} />
-              <Text style={{ fontSize: 12, color: imeiValid ? GREEN : MUTED }}>{imei.length}/15 digits</Text>
+              <Text style={{ fontSize: 12, color: imeiValid ? GREEN : MUTED }}>{currentImei.length}/15 digits</Text>
             </View>
           </View>
 
@@ -1198,6 +1257,25 @@ export default function ProtectionPlanScreen() {
   // STEP: IMAGES
   // ════════════════════════════════════════════════════════════════════════════
   if (step === 'images') {
+    const isMainDevice = currentDeviceIndex === -1;
+    const currentDevice = isMainDevice ? null : devices[currentDeviceIndex] || null;
+    const currentFrontImage = isMainDevice ? frontImage : currentDevice?.frontImage || null;
+    const currentBackImage = isMainDevice ? backImage : currentDevice?.backImage || null;
+    
+    const setCapturedImage = (which: 'front' | 'back', uri: string, b64: string) => {
+      if (isMainDevice) {
+        if (which === 'front') { setFrontImage(uri); setFrontImageBase64(b64); }
+        else { setBackImage(uri); setBackImageBase64(b64); }
+      } else {
+        const updated = [...devices];
+        if (updated[currentDeviceIndex]) {
+          if (which === 'front') { updated[currentDeviceIndex].frontImage = uri; updated[currentDeviceIndex].frontImageBase64 = b64; }
+          else { updated[currentDeviceIndex].backImage = uri; updated[currentDeviceIndex].backImageBase64 = b64; }
+        }
+        setDevices(updated);
+      }
+    };
+
     return (
       <View style={{ flex: 1, backgroundColor: BG }}>
         <Header />
@@ -1216,8 +1294,8 @@ export default function ProtectionPlanScreen() {
             <View style={{ flex: 1 }}>
               <Text style={[styles.label, { textAlign: 'center' }]}>Front *</Text>
               <TouchableOpacity style={styles.imgPlaceholder} onPress={() => captureImage('front')}>
-                {frontImage
-                  ? <Image source={{ uri: frontImage }} style={{ width: '100%', height: '100%', borderRadius: 12 }} resizeMode="cover" />
+                {currentFrontImage
+                  ? <Image source={{ uri: currentFrontImage }} style={{ width: '100%', height: '100%', borderRadius: 12 }} resizeMode="cover" />
                   : <View style={{ alignItems: 'center', gap: 8 }}>
                       <Ionicons name="camera" size={32} color={MUTED} />
                       <Text style={{ color: MUTED, fontSize: 12, fontFamily: 'Inter_600SemiBold' }}>Tap to Capture</Text>
@@ -1228,8 +1306,8 @@ export default function ProtectionPlanScreen() {
             <View style={{ flex: 1 }}>
               <Text style={[styles.label, { textAlign: 'center' }]}>Back *</Text>
               <TouchableOpacity style={styles.imgPlaceholder} onPress={() => captureImage('back')}>
-                {backImage
-                  ? <Image source={{ uri: backImage }} style={{ width: '100%', height: '100%', borderRadius: 12 }} resizeMode="cover" />
+                {currentBackImage
+                  ? <Image source={{ uri: currentBackImage }} style={{ width: '100%', height: '100%', borderRadius: 12 }} resizeMode="cover" />
                   : <View style={{ alignItems: 'center', gap: 8 }}>
                       <Ionicons name="camera" size={32} color={MUTED} />
                       <Text style={{ color: MUTED, fontSize: 12, fontFamily: 'Inter_600SemiBold' }}>Tap to Capture</Text>
@@ -1408,10 +1486,16 @@ export default function ProtectionPlanScreen() {
 
         <View style={[styles.footer, { paddingBottom: botPad + 8 }]}>
           <TouchableOpacity style={styles.btn} onPress={() => {
-            if (!frontImage || !backImage) {
+            const isMainDevice = currentDeviceIndex === -1;
+            const currentDevice = isMainDevice ? null : devices[currentDeviceIndex] || null;
+            const hasFrontImage = isMainDevice ? !!frontImage : !!currentDevice?.frontImage;
+            const hasBackImage = isMainDevice ? !!backImage : !!currentDevice?.backImage;
+            
+            if (!hasFrontImage || !hasBackImage) {
               Alert.alert('Photos Required', 'Please capture both front and back photos of your device');
               return;
             }
+            setCurrentDeviceIndex(-1);
             setStep('consent');
           }}>
             <Text style={styles.btnText}>Continue</Text>
@@ -1491,7 +1575,9 @@ export default function ProtectionPlanScreen() {
                   frontImageBase64: null,
                   backImageBase64: null,
                 };
+                const newIndex = devices.length;
                 setDevices([...devices, newDevice]);
+                setCurrentDeviceIndex(newIndex);
                 setStep('device');
               }}
             >
