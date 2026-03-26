@@ -12,6 +12,7 @@ import { useApp } from '@/lib/context';
 import { ROLE_LABELS, UserRole, ADMIN_PHONE, SubscriptionSetting } from '@/lib/types';
 import { apiRequest, getApiUrl } from '@/lib/query-client';
 import { openLink } from '@/lib/open-link';
+import { invalidateInsuranceCache } from '@/lib/use-insurance-settings';
 
 const C = Colors.light;
 const PRIMARY = '#FF6B2C';
@@ -535,6 +536,8 @@ export default function AdminScreen() {
         repairDiscount: parseInt(insuranceDiscount, 10),
         status: insuranceStatus,
       });
+      // Clear frontend cache so it fetches fresh prices
+      invalidateInsuranceCache();
       setInsuranceSaved(true);
       setTimeout(() => setInsuranceSaved(false), 2500);
     } catch (e: any) { Alert.alert('Error', e.message || 'Failed to save settings'); }
