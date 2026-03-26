@@ -459,20 +459,25 @@ export default function ProtectionPlanScreen() {
       
       console.log('[Protection] Submission successful:', data);
       
-      // Wait 2 seconds before refreshing to show success screen
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Wait 3 seconds before refreshing to show success screen
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      setSubmitting(false);
+      setSubmissionStatus('idle');
       fetchPlan();
     } catch (e: any) {
       console.error('[Protection] Submission error:', e);
+      console.error('[Protection] Error details:', {
+        name: e.name,
+        message: e.message,
+        stack: e.stack
+      });
       const errorMessage = e.message || 'Failed to submit application. Please try again.';
       setSubmissionStatus('error');
       setSubmissionMessage(errorMessage);
-      
-      // Wait 3 seconds then reset
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      setSubmissionStatus('idle');
-    } finally {
       setSubmitting(false);
+      // Keep showing error until user dismisses it
+    } finally {
+      // Don't reset submitting here - let individual branches handle it
     }
   }, [agreed, profile, imei, brand, model, modelNumber, planType, frontImageBase64, backImageBase64, uploadImage, fetchPlan]);
 
@@ -1428,9 +1433,18 @@ export default function ProtectionPlanScreen() {
                   <Text style={{ fontSize: 16, fontFamily: 'Inter_700Bold', color: RED, marginBottom: 8, textAlign: 'center' }}>
                     Submission Failed
                   </Text>
-                  <Text style={{ fontSize: 13, color: MUTED, textAlign: 'center', lineHeight: 18 }}>
+                  <Text style={{ fontSize: 13, color: MUTED, textAlign: 'center', lineHeight: 18, marginBottom: 16 }}>
                     {submissionMessage}
                   </Text>
+                  <TouchableOpacity 
+                    onPress={() => {
+                      setSubmissionStatus('idle');
+                      setSubmitting(false);
+                    }}
+                    style={{ backgroundColor: PRIMARY, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 }}
+                  >
+                    <Text style={{ color: '#FFF', fontFamily: 'Inter_600SemiBold', fontSize: 14 }}>Try Again</Text>
+                  </TouchableOpacity>
                 </>
               ) : (
                 <>
