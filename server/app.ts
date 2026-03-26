@@ -266,6 +266,39 @@ function setupWebAppFallback(app: express.Application) {
   });
 }
 
+function setupRateLimiter(app: express.Application) {
+  // Simple in-memory rate limiter (prevents 429 spam)
+  const requestCounts = new Map<string, { count: number; resetTime: number }>();
+  const WINDOW_MS = 60 * 1000; // 1 minute
+  const MAX_REQUESTS = 100;
+
+  app.use((req, res, next) => {
+    const ip = req.ip || req.socket.remoteAddress || 'unknown';
+    const now = Date.now();
+
+    if (!requestCounts.has(ip)) {
+      requestCounts.set(ip, { count: 1, resetTime: now + WINDOW_MS });
+      return next();
+    }
+
+    const record = requestCounts.get(ip)!;
+    
+    if (now > record.resetTime) {
+      record.count = 1;
+      record.resetTime = now + WINDOW_MS;
+      return next();
+    }
+
+    record.count++;
+    if (record.count > MAX_REQUESTS) {
+      console.warn(`[RateLimit] IP ${ip} exceeded limit: ${record.count} requests`);
+      return res.status(429).json({ error: "Too many requests. Please try again later." });
+    }
+
+    next();
+  });
+}
+
 function setupErrorHandler(app: express.Application) {
   app.use((err: unknown, _req: Request, res: Response, next: NextFunction) => {
     const error = err as {
@@ -356,8 +389,15 @@ export async function createApp(): Promise<express.Application> {
     const app = express();
 
     setupCors(app);
+    setupRateLimiter(app);
     setupBodyParsing(app);
     setupRequestLogging(app);
+
+    // Health check endpoint (before other routes)
+    app.get('/health', (req, res) => {
+      res.status(200).json({ status: 'ok', timestamp: Date.now() });
+    });
+
     configureExpoAndLanding(app);
 
     await runStartupMigrations();
