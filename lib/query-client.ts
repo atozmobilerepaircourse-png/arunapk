@@ -9,8 +9,14 @@ const SESSION_KEY = "mobi_session_token_v2";
 export function getApiUrl(): string {
   // Check if running in browser (web) - more reliable than Platform.OS on exports
   if (typeof window !== "undefined") {
-    // Browser environment - always use production Cloud Run backend
-    return "https://repair-backend-3siuld7gbq-el.a.run.app";
+    // Browser environment - use localhost for development, Cloud Run for production
+    const hostname = window.location.hostname;
+    if (hostname === "localhost" || hostname === "127.0.0.1") {
+      // Local development: use localhost backend
+      return "http://localhost:5000";
+    }
+    // Production: use Cloud Run backend
+    return CLOUD_RUN_BACKEND;
   }
   // Native environment
   return CLOUD_RUN_BACKEND;
