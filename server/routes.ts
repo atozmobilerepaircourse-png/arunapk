@@ -6335,8 +6335,15 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
         createdAt: Date.now(),
       };
 
-      const firestore = getFirestore();
-      await firestore.collection("live_chat_messages").doc(messageId).set(msgData);
+      // Try Firestore, but fall back to database if it fails (Cloud Run)
+      try {
+        const firestore = getFirestore();
+        await firestore.collection("live_chat_messages").doc(messageId).set(msgData);
+      } catch (fbError: any) {
+        console.warn("[LiveChat] Firestore unavailable, continuing with database only:", fbError?.message);
+        // Firestore not available - continue with database storage
+      }
+
       await db.insert(liveChatMessages).values(msgData);
 
       res.json({ success: true, message: msgData });
