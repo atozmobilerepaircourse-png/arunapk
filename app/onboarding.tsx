@@ -60,6 +60,14 @@ export default function OnboardingScreen() {
   const { completeOnboarding, loginWithProfile, isOnboarded, profile } = useApp();
 
   useEffect(() => {
+    // On web, clear any stale session tokens on mount to ensure clean login state
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
+      const sessionKey = 'mobi_session_token_v2';
+      window.localStorage.removeItem(sessionKey);
+    }
+  }, []);
+
+  useEffect(() => {
     if (isOnboarded && profile?.id) {
       router.replace(getRoleRoute(profile) as any);
     }
