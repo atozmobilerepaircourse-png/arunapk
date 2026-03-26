@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, ActivityIndicator, StyleSheet, Platform } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
+import { getApiUrl } from '@/lib/query-client';
 
 export default function GoogleCallbackPage() {
   const params = useLocalSearchParams<{ code?: string; state?: string; error?: string }>();
@@ -24,7 +25,8 @@ export default function GoogleCallbackPage() {
       }
 
       try {
-        const res = await fetch('/api/auth/google/process-code', {
+        const url = new URL('/api/auth/google/process-code', getApiUrl()).toString();
+        const res = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ code: params.code, state: params.state || '' }),
