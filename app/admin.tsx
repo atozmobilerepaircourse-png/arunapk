@@ -184,40 +184,22 @@ function UserDetailCard({ user, onBlock, onVerify, onDelete, blockingId, verifyi
         </View>
       </TouchableOpacity>
 
-      {/* Delete button OUTSIDE TouchableOpacity - prevents event capture */}
-      {typeof window !== 'undefined' && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            console.log('🗑️ [DELETE BUTTON CLICKED] User:', user.id, user.name);
-            onDelete(user.id, user.name);
-          }}
-          style={{
-            background: 'none',
-            border: 'none',
-            padding: '8px',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginRight: '8px'
-          }}
-          title="Delete user"
-        >
-          <Ionicons name="trash-outline" size={16} color="#FF3B30" />
-        </button>
-      )}
-      {typeof window === 'undefined' && (
-        <Pressable
-          onPress={() => {
-            console.log('📱 [DELETE BUTTON] Native press');
-            onDelete(user.id, user.name);
-          }}
-          style={{ padding: 8 }}
-        >
-          <Ionicons name="trash-outline" size={16} color="#FF3B30" />
-        </Pressable>
-      )}
+      {/* Delete button - Pressable works on web and native */}
+      <Pressable
+        onPress={() => {
+          console.log('🗑️ [DELETE BUTTON] Pressed for:', user.id, user.name);
+          onDelete(user.id, user.name);
+        }}
+        style={({ pressed }) => ({
+          padding: 8,
+          opacity: pressed ? 0.6 : 1,
+          justifyContent: 'center',
+          alignItems: 'center'
+        })}
+        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+      >
+        <Ionicons name="trash-outline" size={16} color="#FF3B30" />
+      </Pressable>
 
       {expanded && (
         <View style={ss.userCardExpanded}>
