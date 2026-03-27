@@ -985,6 +985,75 @@ export default function AdminScreen() {
     }
   };
 
+  // Permanently delete a user from deleted users tab
+  const executePermanentlyDeleteUser = async (userId: string, userName: string) => {
+    setDeletingUserId(userId);
+    try {
+      console.log('🗑️ [PERM DELETE] Permanently deleting:', { userId, userName });
+      const res = await apiRequest('POST', '/api/admin/permanently-delete-user', { userId });
+      const data = await res.json();
+      
+      if (data.success) {
+        console.log('✅ [PERM DELETE] Success');
+        Alert.alert('Success', `${userName} has been permanently deleted from database.`);
+        fetchDeletedUsers();
+      } else {
+        Alert.alert('Error', data.message || 'Failed to permanently delete user');
+      }
+    } catch (e: any) {
+      console.error('❌ [PERM DELETE] Error:', e.message);
+      Alert.alert('Error', e.message || 'Network error');
+    } finally {
+      setDeletingUserId(null);
+    }
+  };
+
+  // Restore a deleted user
+  const executeRestoreUser = async (userId: string, userName: string) => {
+    setDeletingUserId(userId);
+    try {
+      console.log('↩️ [RESTORE] Restoring user:', { userId, userName });
+      const res = await apiRequest('POST', '/api/admin/restore-user', { userId });
+      const data = await res.json();
+      
+      if (data.success) {
+        console.log('✅ [RESTORE] Success');
+        Alert.alert('Success', `${userName} has been restored.`);
+        fetchDeletedUsers();
+      } else {
+        Alert.alert('Error', data.message || 'Failed to restore user');
+      }
+    } catch (e: any) {
+      console.error('❌ [RESTORE] Error:', e.message);
+      Alert.alert('Error', e.message || 'Network error');
+    } finally {
+      setDeletingUserId(null);
+    }
+  };
+
+  // Unblock a user from blocked users tab
+  const executeUnblockUserFromTab = async (userId: string, userName: string) => {
+    setBlockingUserId(userId);
+    try {
+      console.log('🔓 [UNBLOCK] Unblocking from tab:', { userId, userName });
+      const res = await apiRequest('POST', '/api/admin/unblock-user-restore', { userId });
+      const data = await res.json();
+      
+      if (data.success) {
+        console.log('✅ [UNBLOCK] Success');
+        Alert.alert('Success', `${userName} has been unblocked.`);
+        fetchBlockedUsersData();
+      } else {
+        Alert.alert('Error', data.message || 'Failed to unblock user');
+      }
+    } catch (e: any) {
+      console.error('❌ [UNBLOCK] Error:', e.message);
+      Alert.alert('Error', e.message || 'Network error');
+    } finally {
+      setBlockingUserId(null);
+    }
+  };
+
   const handleDeleteUser = (userId: string, userName: string) => {
     console.log('⚠️ [HANDLE DELETE] Alert about to show for:', { userId, userName });
     Alert.alert('Delete User', `Permanently delete ${userName}? This cannot be undone.`,
@@ -1442,8 +1511,31 @@ export default function AdminScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: 40, paddingHorizontal: 16 }}
           renderItem={({ item }) => (
-            <UserDetailCard user={{ id: item.id, name: item.name || 'Unknown', role: item.role, city: item.city, isRegistered: true, fullProfile: item }}
-              onBlock={handleBlockUser} onVerify={executeVerifyUser} onDelete={handleDeleteUser} blockingId={blockingUserId} verifyingId={verifyingUserId} deletingId={deletingUserId} />
+            <View style={{ marginBottom: 12 }}>
+              <UserDetailCard user={{ id: item.id, name: item.name || 'Unknown', role: item.role, city: item.city, isRegistered: true, fullProfile: item }}
+                onBlock={handleBlockUser} onVerify={executeVerifyUser} onDelete={handleDeleteUser} blockingId={blockingUserId} verifyingId={verifyingUserId} deletingId={deletingUserId} />
+              {/* Custom action buttons for blocked users */}
+              <View style={{ flexDirection: 'row', gap: 10, marginTop: 8, paddingHorizontal: 12 }}>
+                <Pressable 
+                  onPress={() => Alert.alert('Unblock User', `Unblock ${item.name}?`, [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Unblock', onPress: () => executeUnblockUserFromTab(item.id, item.name) }
+                  ])}
+                  style={{ flex: 1, backgroundColor: '#34C759', paddingVertical: 10, borderRadius: 8, alignItems: 'center' }}
+                >
+                  <Text style={{ color: 'white', fontFamily: 'Inter_600SemiBold', fontSize: 14 }}>Unblock</Text>
+                </Pressable>
+                <Pressable 
+                  onPress={() => Alert.alert('Delete User', `Delete ${item.name} from database?`, [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Delete', style: 'destructive', onPress: () => executePermanentlyDeleteUser(item.id, item.name) }
+                  ])}
+                  style={{ flex: 1, backgroundColor: '#FF3B30', paddingVertical: 10, borderRadius: 8, alignItems: 'center' }}
+                >
+                  <Text style={{ color: 'white', fontFamily: 'Inter_600SemiBold', fontSize: 14 }}>Delete</Text>
+                </Pressable>
+              </View>
+            </View>
           )}
           ListEmptyComponent={
             <View style={{ alignItems: 'center', padding: 40 }}>
@@ -1499,8 +1591,31 @@ export default function AdminScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: 40, paddingHorizontal: 16 }}
           renderItem={({ item }) => (
-            <UserDetailCard user={{ id: item.id, name: item.name || 'Unknown', role: item.role, city: item.city, isRegistered: true, fullProfile: item }}
-              onBlock={handleBlockUser} onVerify={executeVerifyUser} onDelete={handleDeleteUser} blockingId={blockingUserId} verifyingId={verifyingUserId} deletingId={deletingUserId} />
+            <View style={{ marginBottom: 12 }}>
+              <UserDetailCard user={{ id: item.id, name: item.name || 'Unknown', role: item.role, city: item.city, isRegistered: true, fullProfile: item }}
+                onBlock={handleBlockUser} onVerify={executeVerifyUser} onDelete={handleDeleteUser} blockingId={blockingUserId} verifyingId={verifyingUserId} deletingId={deletingUserId} />
+              {/* Custom action buttons for deleted users */}
+              <View style={{ flexDirection: 'row', gap: 10, marginTop: 8, paddingHorizontal: 12 }}>
+                <Pressable 
+                  onPress={() => Alert.alert('Restore User', `Restore ${item.name}?`, [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Restore', onPress: () => executeRestoreUser(item.id, item.name) }
+                  ])}
+                  style={{ flex: 1, backgroundColor: '#34C759', paddingVertical: 10, borderRadius: 8, alignItems: 'center' }}
+                >
+                  <Text style={{ color: 'white', fontFamily: 'Inter_600SemiBold', fontSize: 14 }}>Restore</Text>
+                </Pressable>
+                <Pressable 
+                  onPress={() => Alert.alert('Permanently Delete', `Permanently delete ${item.name} from database?`, [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Delete', style: 'destructive', onPress: () => executePermanentlyDeleteUser(item.id, item.name) }
+                  ])}
+                  style={{ flex: 1, backgroundColor: '#FF3B30', paddingVertical: 10, borderRadius: 8, alignItems: 'center' }}
+                >
+                  <Text style={{ color: 'white', fontFamily: 'Inter_600SemiBold', fontSize: 14 }}>Delete Forever</Text>
+                </Pressable>
+              </View>
+            </View>
           )}
           ListEmptyComponent={
             <View style={{ alignItems: 'center', padding: 40 }}>
