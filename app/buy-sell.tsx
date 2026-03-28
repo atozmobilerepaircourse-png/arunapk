@@ -802,6 +802,25 @@ export default function BuySellScreen({ isEmbedded }: { isEmbedded?: boolean } =
 
   const renderListHeader = () => (
     <View>
+      {/* Search Box */}
+      <View style={styles.searchContainer}>
+        <View style={styles.searchBox}>
+          <Ionicons name="search" size={18} color={DK.textTertiary} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search items, sellers, location..."
+            placeholderTextColor={DK.textTertiary}
+            value={search}
+            onChangeText={setSearch}
+          />
+          {search.length > 0 && (
+            <Pressable onPress={() => setSearch('')}>
+              <Ionicons name="close-circle" size={18} color={DK.textTertiary} />
+            </Pressable>
+          )}
+        </View>
+      </View>
+
       {/* Location bar — OLX style */}
       <View style={styles.locationBar}>
         <View style={styles.locationBarLeft}>
@@ -862,23 +881,9 @@ export default function BuySellScreen({ isEmbedded }: { isEmbedded?: boolean } =
         </View>
       )}
 
-      <View style={[styles.searchContainer, isEmbedded ? { paddingTop: topPad } : undefined]}>
-        <View style={styles.searchBox}>
-          <Ionicons name="search" size={18} color={DK.textTertiary} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search items, sellers, location..."
-            placeholderTextColor={DK.textTertiary}
-            value={search}
-            onChangeText={setSearch}
-          />
-          {search.length > 0 && (
-            <Pressable onPress={() => setSearch('')}>
-              <Ionicons name="close-circle" size={18} color={DK.textTertiary} />
-            </Pressable>
-          )}
-        </View>
-      </View>
+      {isEmbedded && (
+        <View style={{ paddingTop: topPad }} />
+      )}
 
       <FlatList
         data={filtered}

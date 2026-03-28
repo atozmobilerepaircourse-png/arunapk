@@ -225,11 +225,11 @@ function ClassicTabLayout() {
           ),
         }}
       />
-      {/* --- Tab 3 (customer only): Buy & Sale --- */}
+      {/* --- Tab 3 (customer only): Buy & Sell --- */}
       <Tabs.Screen
         name="buy-sell"
         options={{
-          title: "Buy & Sale",
+          title: "Buy & Sell",
           href: isCustomer ? '/buy-sell' : null,
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? "pricetag" : "pricetag-outline"} size={22} color={color} />
@@ -304,11 +304,11 @@ function ClassicTabLayout() {
           ),
         }}
       />
-      {/* --- Tab 5: Buy & Sale (technician) or Profile (other non-customer roles) --- */}
+      {/* --- Tab 5: Buy & Sell (technician) or Profile (other non-customer roles) --- */}
       <Tabs.Screen
         name="tech-market"
         options={{
-          title: "Buy & Sale",
+          title: "Buy & Sell",
           href: isTechnician ? '/tech-market' : null,
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? "pricetag" : "pricetag-outline"} size={22} color={color} />
