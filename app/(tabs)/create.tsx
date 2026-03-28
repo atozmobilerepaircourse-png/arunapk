@@ -79,6 +79,24 @@ export default function CreatePostScreen() {
     }
   };
 
+  // Strip EXIF data from image on web by re-drawing on canvas
+  const stripEXIFWeb = async (base64Data: string): Promise<Blob> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) ctx.drawImage(img, 0, 0);
+        canvas.toBlob((blob) => {
+          resolve(blob || new Blob([''], { type: 'image/jpeg' }));
+        }, 'image/jpeg', 0.9);
+      };
+      img.src = `data:image/jpeg;base64,${base64Data}`;
+    });
+  };
+
   const takePhoto = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
@@ -112,34 +130,48 @@ export default function CreatePostScreen() {
         try {
           console.log(`[Upload] Web: asset type=${typeof asset}, keys=${Object.keys(asset).join(',')}`);
           
-          // Method 0: If asset is a File object, use it directly
+          // Method 0: If asset is a File object, strip EXIF
           if (asset instanceof File) {
-            console.log(`[Upload] Web: Using File object directly, size: ${asset.size} bytes`);
-            formData.append('image', asset);
+            console.log(`[Upload] Web: File object detected, size: ${asset.size} bytes, stripping EXIF...`);
+            const base64 = await new Promise<string>((resolve) => {
+              const reader = new FileReader();
+              reader.onload = () => {
+                const result = reader.result as string;
+                resolve(result.split(',')[1] || result);
+              };
+              reader.readAsDataURL(asset);
+            });
+            const cleanBlob = await stripEXIFWeb(base64);
+            console.log(`[Upload] Web: Stripped EXIF from File, blob size: ${cleanBlob.size} bytes`);
+            formData.append('image', cleanBlob, `photo_${Date.now()}.jpg`);
           } 
-          // Method 1: If asset has base64, convert to blob
+          // Method 1: If asset has base64, convert to blob and strip EXIF
           else if (asset.base64) {
             console.log(`[Upload] Web: Converting base64 to blob (size: ${asset.base64.length} chars)`);
-            const byteCharacters = atob(asset.base64);
-            const byteNumbers = new Array(byteCharacters.length);
-            for (let i = 0; i < byteCharacters.length; i++) {
-              byteNumbers[i] = byteCharacters.charCodeAt(i);
-            }
-            const byteArray = new Uint8Array(byteNumbers);
-            const blob = new Blob([byteArray], { type: 'image/jpeg' });
-            console.log(`[Upload] Web: Created blob from base64, size: ${blob.size} bytes`);
+            // Strip EXIF by redrawing on canvas
+            const cleanBlob = await stripEXIFWeb(asset.base64);
+            console.log(`[Upload] Web: Stripped EXIF, blob size: ${cleanBlob.size} bytes`);
             const filename = `photo_${Date.now()}.jpg`;
-            formData.append('image', blob, filename);
+            formData.append('image', cleanBlob, filename);
           } 
-          // Method 2: Fallback - fetch from URI (file:// or blob: URLs)
+          // Method 2: Fallback - fetch from URI (file:// or blob: URLs) and strip EXIF
           else if (asset.uri) {
             console.log(`[Upload] Web: Fetching blob from URI: ${asset.uri.slice(0, 50)}...`);
             const response = await fetch(asset.uri);
             if (!response.ok) throw new Error(`Failed to fetch URI: ${response.status}`);
             const blob = await response.blob();
-            console.log(`[Upload] Web: Got blob from URI, size: ${blob.size} bytes`);
+            const base64 = await new Promise<string>((resolve) => {
+              const reader = new FileReader();
+              reader.onload = () => {
+                const result = reader.result as string;
+                resolve(result.split(',')[1] || result);
+              };
+              reader.readAsDataURL(blob);
+            });
+            const cleanBlob = await stripEXIFWeb(base64);
+            console.log(`[Upload] Web: Stripped EXIF from URI, blob size: ${cleanBlob.size} bytes`);
             const filename = `photo_${Date.now()}.jpg`;
-            formData.append('image', blob, filename);
+            formData.append('image', cleanBlob, filename);
           } 
           else {
             throw new Error(`ImagePicker asset missing required fields. Keys: ${Object.keys(asset).join(',')}`);
