@@ -79,19 +79,75 @@ export default function CreatePostScreen() {
     }
   };
 
-  // Strip EXIF data from image on web by re-drawing on canvas
-  const stripEXIFWeb = async (base64Data: string): Promise<Blob> => {
+  // Parse EXIF orientation from JPEG
+  const getEXIFOrientation = (data: Uint8Array): number => {
+    if (data[0] !== 0xFF || data[1] !== 0xD8) return 1;
+    let i = 2;
+    while (i < data.length) {
+      if (data[i] !== 0xFF) return 1;
+      const marker = data[i + 1];
+      if (marker === 0xE1) {
+        const len = (data[i + 2] << 8) | data[i + 3];
+        const exifData = data.slice(i + 4, i + 2 + len);
+        if (exifData[0] === 69 && exifData[1] === 120 && exifData[2] === 105 && exifData[3] === 102) {
+          const isBigEndian = (exifData[6] === 0x4D && exifData[7] === 0x4D);
+          let offset = 8;
+          const numDirEntries = isBigEndian ? (exifData[offset] << 8) | exifData[offset + 1] : (exifData[offset + 1] << 8) | exifData[offset];
+          offset += 2;
+          for (let j = 0; j < numDirEntries; j++) {
+            const tag = isBigEndian ? (exifData[offset] << 8) | exifData[offset + 1] : (exifData[offset + 1] << 8) | exifData[offset];
+            const type = isBigEndian ? (exifData[offset + 2] << 8) | exifData[offset + 3] : (exifData[offset + 3] << 8) | exifData[offset + 2];
+            if (tag === 274) {
+              const value = isBigEndian ? (exifData[offset + 8] << 8) | exifData[offset + 9] : (exifData[offset + 9] << 8) | exifData[offset + 8];
+              return value || 1;
+            }
+            offset += 12;
+          }
+        }
+        return 1;
+      }
+      const len = (data[i + 2] << 8) | data[i + 3];
+      i += 2 + len;
+    }
+    return 1;
+  };
+
+  // Fix EXIF rotation by redrawing image on canvas with correct orientation
+  const fixEXIFRotation = async (base64Data: string): Promise<Blob> => {
     return new Promise((resolve) => {
+      const byteChars = atob(base64Data);
+      const bytes = new Uint8Array(byteChars.length);
+      for (let i = 0; i < byteChars.length; i++) {
+        bytes[i] = byteChars.charCodeAt(i);
+      }
+      const orientation = getEXIFOrientation(bytes);
       const img = new Image();
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
         const ctx = canvas.getContext('2d');
-        if (ctx) ctx.drawImage(img, 0, 0);
+        if (!ctx) return resolve(new Blob([''], { type: 'image/jpeg' }));
+        
+        let width = img.width, height = img.height;
+        if (orientation > 4) [width, height] = [height, width];
+        canvas.width = width;
+        canvas.height = height;
+        
+        ctx.save();
+        switch (orientation) {
+          case 2: ctx.translate(width, 0); ctx.scale(-1, 1); break;
+          case 3: ctx.translate(width, height); ctx.rotate(Math.PI); break;
+          case 4: ctx.translate(0, height); ctx.scale(1, -1); break;
+          case 5: ctx.translate(width, 0); ctx.rotate(Math.PI / 2); ctx.scale(-1, 1); break;
+          case 6: ctx.translate(width, 0); ctx.rotate(Math.PI / 2); break;
+          case 7: ctx.translate(0, height); ctx.rotate(Math.PI / 2); ctx.scale(-1, 1); break;
+          case 8: ctx.translate(0, height); ctx.rotate(-Math.PI / 2); break;
+        }
+        ctx.drawImage(img, 0, 0);
+        ctx.restore();
+        
         canvas.toBlob((blob) => {
           resolve(blob || new Blob([''], { type: 'image/jpeg' }));
-        }, 'image/jpeg', 0.9);
+        }, 'image/jpeg', 0.92);
       };
       img.src = `data:image/jpeg;base64,${base64Data}`;
     });
@@ -141,18 +197,18 @@ export default function CreatePostScreen() {
               };
               reader.readAsDataURL(asset);
             });
-            const cleanBlob = await stripEXIFWeb(base64);
-            console.log(`[Upload] Web: Stripped EXIF from File, blob size: ${cleanBlob.size} bytes`);
-            formData.append('image', cleanBlob, `photo_${Date.now()}.jpg`);
+            const rotatedBlob = await fixEXIFRotation(base64);
+            console.log(`[Upload] Web: Fixed EXIF rotation from File, blob size: ${rotatedBlob.size} bytes`);
+            formData.append('image', rotatedBlob, `photo_${Date.now()}.jpg`);
           } 
-          // Method 1: If asset has base64, convert to blob and strip EXIF
+          // Method 1: If asset has base64, convert to blob and fix EXIF rotation
           else if (asset.base64) {
             console.log(`[Upload] Web: Converting base64 to blob (size: ${asset.base64.length} chars)`);
-            // Strip EXIF by redrawing on canvas
-            const cleanBlob = await stripEXIFWeb(asset.base64);
-            console.log(`[Upload] Web: Stripped EXIF, blob size: ${cleanBlob.size} bytes`);
+            // Fix EXIF rotation by parsing orientation and rotating on canvas
+            const rotatedBlob = await fixEXIFRotation(asset.base64);
+            console.log(`[Upload] Web: Fixed EXIF rotation, blob size: ${rotatedBlob.size} bytes`);
             const filename = `photo_${Date.now()}.jpg`;
-            formData.append('image', cleanBlob, filename);
+            formData.append('image', rotatedBlob, filename);
           } 
           // Method 2: Fallback - fetch from URI (file:// or blob: URLs) and strip EXIF
           else if (asset.uri) {
@@ -168,10 +224,10 @@ export default function CreatePostScreen() {
               };
               reader.readAsDataURL(blob);
             });
-            const cleanBlob = await stripEXIFWeb(base64);
-            console.log(`[Upload] Web: Stripped EXIF from URI, blob size: ${cleanBlob.size} bytes`);
+            const rotatedBlob = await fixEXIFRotation(base64);
+            console.log(`[Upload] Web: Fixed EXIF rotation from URI, blob size: ${rotatedBlob.size} bytes`);
             const filename = `photo_${Date.now()}.jpg`;
-            formData.append('image', cleanBlob, filename);
+            formData.append('image', rotatedBlob, filename);
           } 
           else {
             throw new Error(`ImagePicker asset missing required fields. Keys: ${Object.keys(asset).join(',')}`);
