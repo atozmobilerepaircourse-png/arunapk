@@ -213,7 +213,7 @@ export default function OrdersScreen() {
 
           <HeaderButton delay={160} onPress={() => router.push('/chats')}>
             <View style={styles.bellBtn}>
-              <Ionicons name="notifications-outline" size={18} color={TEXT} />
+              <Ionicons name="chatbubble-outline" size={18} color={TEXT} />
               {totalUnread > 0 && <View style={styles.redDot} />}
             </View>
           </HeaderButton>
@@ -223,13 +223,6 @@ export default function OrdersScreen() {
               <Ionicons name="create-outline" size={18} color={TEXT} />
             </View>
           </HeaderButton>
-        </View>
-      </View>
-
-      <View style={styles.searchRow}>
-        <View style={styles.searchBar}>
-          <Ionicons name="search" size={15} color={MUTED} />
-          <Text style={styles.searchPlaceholder}>Search repairs, techs, or issues...</Text>
         </View>
       </View>
 
