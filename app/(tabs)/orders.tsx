@@ -30,10 +30,11 @@ const BLUE      = '#3B82F6';
 const GREEN     = '#10B981';
 const AMBER     = '#F59E0B';
 
-type FilterKey = PostCategory | 'all' | 'technician' | 'customer' | 'teacher' | 'supplier';
+type FilterKey = PostCategory | 'all' | 'technician' | 'customer' | 'teacher' | 'supplier' | 'sell';
 
 const FILTERS: { key: FilterKey; label: string; icon: keyof typeof Ionicons.glyphMap; color?: string }[] = [
   { key: 'all',        label: 'All Posts',        icon: 'layers-outline' },
+  { key: 'sell',       label: 'Buy & Sell',       icon: 'pricetag-outline', color: '#FF6B2C' },
   { key: 'technician', label: 'Technician Posts',  icon: 'construct-outline', color: GREEN },
   { key: 'customer',   label: 'Customer Posts',    icon: 'person-outline',    color: AMBER },
   { key: 'job',        label: 'Jobs',             icon: 'briefcase-outline' },
@@ -150,6 +151,7 @@ export default function OrdersScreen() {
 
   const filtered = (() => {
     if (filter === 'all')        return posts.filter(p => p.category === 'repair' || p.category === 'sell');
+    if (filter === 'sell')       return posts.filter(p => p.category === 'sell');
     if (filter === 'technician') return posts.filter(p => p.userRole === 'technician' && (p.category === 'repair' || p.category === 'sell'));
     if (filter === 'customer')   return posts.filter(p => p.userRole === 'customer' && (p.category === 'repair' || p.category === 'sell'));
     if (filter === 'teacher')    return posts.filter(p => p.userRole === 'teacher' && (p.category === 'repair' || p.category === 'sell'));
