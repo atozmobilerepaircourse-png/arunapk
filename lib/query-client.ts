@@ -3,7 +3,7 @@ import { QueryClient, QueryFunction } from "@tanstack/react-query";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Platform } from "react-native";
 
-const CLOUD_RUN_BACKEND = "https://repair-backendarun-838751841074.asia-south1.run.app";
+const CLOUD_RUN_BACKEND = "https://repair-backendarun-iaz6jex5fa-el.a.run.app";
 const SESSION_KEY = "mobi_session_token_v2";
 
 export function getApiUrl(): string {
