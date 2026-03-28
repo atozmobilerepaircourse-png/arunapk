@@ -60,6 +60,7 @@ function NativeTabLayout() {
         <NativeTabs.Trigger name="create" hidden />
         <NativeTabs.Trigger name="profile" hidden />
         <NativeTabs.Trigger name="tech-market" hidden />
+        <NativeTabs.Trigger name="nearby-shops" hidden />
       </NativeTabs>
     );
   }
@@ -83,12 +84,12 @@ function NativeTabLayout() {
           <Icon sf={{ default: "plus.circle", selected: "plus.circle.fill" }} />
           <Label>Training</Label>
         </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="marketplace">
-          <Icon sf={{ default: "bag", selected: "bag.fill" }} />
-          <Label>Shop</Label>
+        <NativeTabs.Trigger name="nearby-shops">
+          <Icon sf={{ default: "storefront", selected: "storefront.fill" }} />
+          <Label>Suppliers</Label>
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="customer-home" hidden />
-        <NativeTabs.Trigger name="nearby-shops" hidden />
+        <NativeTabs.Trigger name="marketplace" hidden />
         <NativeTabs.Trigger name="orders" hidden />
         <NativeTabs.Trigger name="jobs" hidden />
         <NativeTabs.Trigger name="technician-jobs" hidden />
@@ -233,8 +234,8 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="nearby-shops"
         options={{
-          title: "Nearby Shops",
-          href: isCustomer ? '/nearby-shops' : null,
+          title: isCustomer ? "Nearby Shops" : "Suppliers",
+          href: (isCustomer || isTechnician) ? '/nearby-shops' : null,
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? "storefront" : "storefront-outline"} size={22} color={color} />
           ),
