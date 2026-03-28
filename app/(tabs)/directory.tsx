@@ -187,7 +187,7 @@ function ProfCard({ item, currentUserId, isAdmin, onChat, onPress }: ProfCardPro
       : [...likes, currentUserId];
     setLikes(newLikes);
     try {
-      await apiRequest('POST', `/api/profiles/${item.id}/like`, { userId: currentUserId });
+      await apiRequest('POST', `/api/profiles/${item.id}/like`, {});
     } catch {
       setLikes(likes);
     } finally {

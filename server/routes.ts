@@ -1837,24 +1837,31 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
 
   app.post("/api/profiles/:id/like", async (req, res) => {
     try {
-      const { userId } = req.body;
-      if (!userId) return res.status(400).json({ success: false, message: "userId required" });
+      const sessionToken = req.headers['x-session-token'] as string | undefined;
+      if (!sessionToken) return res.status(401).json({ success: false, message: "Unauthorized: session required" });
+
+      const sessionRows = await db.select().from(sessions).where(eq(sessions.sessionToken, sessionToken));
+      if (!sessionRows[0]) return res.status(401).json({ success: false, message: "Invalid session" });
+
+      const actorRows = await db.select({ id: profiles.id }).from(profiles).where(eq(profiles.phone, sessionRows[0].phone));
+      if (!actorRows[0]) return res.status(401).json({ success: false, message: "Profile not found for session" });
+      const actorId = actorRows[0].id;
 
       const result = await db.select().from(profiles).where(eq(profiles.id, req.params.id));
       if (result.length === 0) return res.status(404).json({ success: false, message: "Profile not found" });
 
       const prof = result[0];
       let currentLikes: string[] = [];
-      try { currentLikes = JSON.parse((prof as any).profileLikes || "[]"); } catch { currentLikes = []; }
+      try { currentLikes = JSON.parse(prof.profileLikes || "[]"); } catch { currentLikes = []; }
 
-      const idx = currentLikes.indexOf(userId);
+      const idx = currentLikes.indexOf(actorId);
       if (idx >= 0) {
         currentLikes.splice(idx, 1);
       } else {
-        currentLikes.push(userId);
+        currentLikes.push(actorId);
       }
 
-      await db.update(profiles).set({ profileLikes: JSON.stringify(currentLikes) } as any).where(eq(profiles.id, req.params.id));
+      await db.update(profiles).set({ profileLikes: JSON.stringify(currentLikes) }).where(eq(profiles.id, req.params.id));
       return res.json({ success: true, profileLikes: currentLikes });
     } catch (error) {
       console.error("[Profiles] Like error:", error);
@@ -1871,7 +1878,7 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
       const result = await db.select().from(profiles).where(eq(profiles.id, req.params.id));
       if (result.length === 0) return res.status(404).json({ success: false, message: "Profile not found" });
 
-      await db.update(profiles).set({ rating: String(rating), ratingCount: String(ratingCount) } as any).where(eq(profiles.id, req.params.id));
+      await db.update(profiles).set({ rating: String(rating), ratingCount: String(ratingCount) }).where(eq(profiles.id, req.params.id));
       return res.json({ success: true });
     } catch (error) {
       console.error("[Profiles] Rating error:", error);
