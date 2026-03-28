@@ -2242,8 +2242,11 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
   app.get("/api/posts", async (_req, res) => {
     try {
       console.log("[Posts] Fetching all posts...");
-      const allPosts = await db.select().from(posts).orderBy(desc(posts.createdAt));
-      console.log("[Posts] Found", allPosts.length, "posts");
+      const thirtyDaysAgoMs = Date.now() - (30 * 24 * 60 * 60 * 1000);
+      const allPosts = await db.select().from(posts)
+        .where(gte(posts.createdAt, thirtyDaysAgoMs))
+        .orderBy(desc(posts.createdAt));
+      console.log("[Posts] Found", allPosts.length, "posts (within 30 days)");
       const parsed = allPosts.map(p => {
         try {
           return {
