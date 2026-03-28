@@ -87,18 +87,22 @@ export default function GoLiveScreen() {
     setSubmitting(true);
     let thumbnailUrl = '';
     try {
+      // Upload thumbnail in background (don't block if it fails)
       if (thumbnailUri) {
         setUploadingThumbnail(true);
-        thumbnailUrl = await uploadThumbnail(thumbnailUri) || '';
-        setUploadingThumbnail(false);
+        uploadThumbnail(thumbnailUri)
+          .then(url => { if (url) thumbnailUrl = url; })
+          .finally(() => setUploadingThumbnail(false));
       }
+      
+      // Send go-live request immediately (don't wait for thumbnail)
       const res  = await apiRequest('POST', '/api/teacher/bunny-live/start', {
         teacherId:    profile?.id,
         teacherName:  profile?.name,
         teacherAvatar: profile?.avatar,
         title:        title.trim(),
         description:  description.trim(),
-        thumbnailUrl,
+        thumbnailUrl: thumbnailUrl || '',
       });
       if (!res.ok) {
         const errText = await res.text();
@@ -137,11 +141,15 @@ export default function GoLiveScreen() {
     setSubmitting(true);
     let thumbnailUrl = '';
     try {
+      // Upload thumbnail in background (don't block if it fails)
       if (thumbnailUri) {
         setUploadingThumbnail(true);
-        thumbnailUrl = await uploadThumbnail(thumbnailUri) || '';
-        setUploadingThumbnail(false);
+        uploadThumbnail(thumbnailUri)
+          .then(url => { if (url) thumbnailUrl = url; })
+          .finally(() => setUploadingThumbnail(false));
       }
+      
+      // Send go-live request immediately (don't wait for thumbnail)
       const res  = await apiRequest('POST', '/api/teacher/go-live', {
         teacherId:    profile?.id,
         teacherName:  profile?.name,
@@ -150,7 +158,7 @@ export default function GoLiveScreen() {
         description:  description.trim(),
         platform:     linkPlatform,
         link:         link.trim(),
-        thumbnailUrl,
+        thumbnailUrl: thumbnailUrl || '',
       });
       if (!res.ok) {
         const errText = await res.text();
