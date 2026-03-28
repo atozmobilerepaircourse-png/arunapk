@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, TextInput, Pressable, Platform, RefreshControl, ScrollView, ActivityIndicator, Dimensions, Modal } from 'react-native';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -7,7 +7,7 @@ import * as Haptics from 'expo-haptics';
 import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withSequence, withTiming, withDelay, withSpring, Easing } from 'react-native-reanimated';
 import { router } from 'expo-router';
 import { useApp } from '@/lib/context';
-import { UserRole, ROLE_LABELS, Post } from '@/lib/types';
+import { UserRole, ROLE_LABELS, Post, UserProfile } from '@/lib/types';
 import { getApiUrl } from '@/lib/query-client';
 import MediaViewer from '@/components/MediaViewer';
 
@@ -26,6 +26,24 @@ const DK = {
   primary: '#FF6B2C',
 };
 
+// Haversine formula — returns distance in km between two lat/lng points
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function formatDistance(km: number): string {
+  if (km < 1) return `${Math.round(km * 1000)} m`;
+  if (km < 10) return `${km.toFixed(1)} km`;
+  return `${Math.round(km)} km`;
+}
+
 type MarketItem = {
   id: string;
   type: 'sell';
@@ -43,6 +61,9 @@ type MarketItem = {
   sellerAvatar?: string;
   sellerCity?: string;
   sellerState?: string;
+  sellerLat?: number;
+  sellerLng?: number;
+  distanceKm?: number;
   likes: string[];
   comments: any[];
   createdAt: number;
@@ -96,6 +117,9 @@ function getImageUri(img: string): string {
   return img;
 }
 
+// ------------------------------------------------------------------
+// MarketCard — OLX-style card with distance + location
+// ------------------------------------------------------------------
 const MarketCard = React.memo(function MarketCard({
   item, liked, onPress, onLike,
 }: {
@@ -104,6 +128,8 @@ const MarketCard = React.memo(function MarketCard({
   onPress: () => void;
   onLike: () => void;
 }) {
+  const locationLabel = item.sellerCity || item.sellerState || 'India';
+
   return (
     <Pressable style={styles.card} onPress={onPress}>
       <View style={styles.cardImageWrap}>
@@ -120,6 +146,12 @@ const MarketCard = React.memo(function MarketCard({
             <Text style={styles.imageCountText}>{item.imageCount}</Text>
           </View>
         )}
+        {item.distanceKm !== undefined && (
+          <View style={styles.distanceBadge}>
+            <Ionicons name="navigate" size={9} color="#FFF" />
+            <Text style={styles.distanceBadgeText}>{formatDistance(item.distanceKm)}</Text>
+          </View>
+        )}
         <Pressable style={styles.heartBtn} onPress={onLike} hitSlop={8}>
           <Ionicons name={liked ? 'heart' : 'heart-outline'} size={20} color={liked ? '#FF3B30' : '#AAA'} />
         </Pressable>
@@ -130,16 +162,176 @@ const MarketCard = React.memo(function MarketCard({
         <View style={styles.cardFooter}>
           <View style={styles.cardLocation}>
             <Ionicons name="location-sharp" size={11} color="#999" />
-            <Text style={styles.cardLocationText} numberOfLines={1}>
-              {[item.sellerCity, item.sellerState].filter(Boolean).join(', ') || 'India'}
-            </Text>
+            <Text style={styles.cardLocationText} numberOfLines={1}>{locationLabel}</Text>
           </View>
+          {item.distanceKm !== undefined && (
+            <Text style={styles.cardDistanceText}>{formatDistance(item.distanceKm)} away</Text>
+          )}
         </View>
       </View>
     </Pressable>
   );
 });
 
+// ------------------------------------------------------------------
+// SellerProfileModal — Full OLX-style seller profile view
+// ------------------------------------------------------------------
+function SellerProfileModal({
+  visible,
+  seller,
+  sellerItems,
+  currentUserId,
+  onClose,
+  onChat,
+  onItemPress,
+}: {
+  visible: boolean;
+  seller: UserProfile | null;
+  sellerItems: MarketItem[];
+  currentUserId?: string;
+  onClose: () => void;
+  onChat: () => void;
+  onItemPress: (item: MarketItem) => void;
+}) {
+  const insets = useSafeAreaInsets();
+  const topPad = (typeof window !== 'undefined' && Platform.OS === 'web' ? 67 : insets.top) + 12;
+  const bottomPad = typeof window !== 'undefined' && Platform.OS === 'web' ? 34 : Math.max(insets.bottom, 16);
+
+  if (!seller) return null;
+  const isOwnProfile = seller.id === currentUserId;
+
+  const renderSellerItem = ({ item }: { item: MarketItem }) => {
+    const MINI_W = (SCREEN_WIDTH - 48 - 8) / 2;
+    return (
+      <Pressable
+        style={[styles.miniCard, { width: MINI_W }]}
+        onPress={() => onItemPress(item)}
+      >
+        {item.image ? (
+          <Image source={{ uri: item.image }} style={[styles.miniCardImage, { width: MINI_W }]} contentFit="cover" cachePolicy="memory-disk" />
+        ) : (
+          <View style={[styles.miniCardImage, styles.cardImagePlaceholder, { width: MINI_W }]}>
+            <Ionicons name="pricetag" size={22} color="#CCC" />
+          </View>
+        )}
+        <View style={styles.miniCardContent}>
+          <Text style={styles.miniCardPrice}>{'\u20B9'} {Number(item.price).toLocaleString('en-IN')}</Text>
+          <Text style={styles.miniCardTitle} numberOfLines={1}>{item.title}</Text>
+        </View>
+      </Pressable>
+    );
+  };
+
+  return (
+    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+      <View style={[styles.detailContainer, { paddingTop: topPad }]}>
+        <View style={styles.detailHeader}>
+          <Pressable onPress={onClose} hitSlop={8}>
+            <Ionicons name="arrow-back" size={24} color={DK.text} />
+          </Pressable>
+          <Text style={styles.detailHeaderTitle}>Seller Profile</Text>
+          <View style={{ width: 24 }} />
+        </View>
+
+        <FlatList
+          data={sellerItems}
+          keyExtractor={i => i.id}
+          numColumns={2}
+          columnWrapperStyle={{ gap: 8, paddingHorizontal: 16, marginBottom: 8 }}
+          contentContainerStyle={{ paddingBottom: bottomPad + 80 }}
+          showsVerticalScrollIndicator={false}
+          ListHeaderComponent={() => (
+            <View>
+              {/* Seller Hero Card */}
+              <View style={styles.spHeroCard}>
+                {seller.avatar ? (
+                  <Image source={{ uri: getImageUri(seller.avatar) }} style={styles.spAvatar} contentFit="cover" />
+                ) : (
+                  <View style={styles.spAvatarPlaceholder}>
+                    <Text style={styles.spAvatarInitials}>{getInitials(seller.name)}</Text>
+                  </View>
+                )}
+
+                <View style={styles.spInfo}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Text style={styles.spName}>{seller.name}</Text>
+                    {seller.verified === 1 && (
+                      <Ionicons name="checkmark-circle" size={16} color="#1DA1F2" />
+                    )}
+                  </View>
+                  <Text style={styles.spRole}>{ROLE_LABELS[seller.role as UserRole] || seller.role}</Text>
+                  {(seller.city || seller.state) && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 3 }}>
+                      <Ionicons name="location-outline" size={12} color={DK.textTertiary} />
+                      <Text style={styles.spLocation}>{[seller.city, seller.state].filter(Boolean).join(', ')}</Text>
+                    </View>
+                  )}
+                  {seller.shopName && (
+                    <Text style={styles.spShop}>{seller.shopName}</Text>
+                  )}
+                </View>
+              </View>
+
+              {seller.bio ? (
+                <View style={styles.spBioBox}>
+                  <Text style={styles.spBioText}>{seller.bio}</Text>
+                </View>
+              ) : null}
+
+              {/* Stats row */}
+              <View style={styles.spStatsRow}>
+                <View style={styles.spStatItem}>
+                  <Text style={styles.spStatValue}>{sellerItems.length}</Text>
+                  <Text style={styles.spStatLabel}>Listings</Text>
+                </View>
+                <View style={styles.spStatDivider} />
+                <View style={styles.spStatItem}>
+                  <Text style={styles.spStatValue}>
+                    {sellerItems.reduce((sum, i) => sum + i.likes.length, 0)}
+                  </Text>
+                  <Text style={styles.spStatLabel}>Total Likes</Text>
+                </View>
+                <View style={styles.spStatDivider} />
+                <View style={styles.spStatItem}>
+                  <Text style={styles.spStatValue}>
+                    {Math.round((Date.now() - (seller as any).createdAt || 0) / (1000 * 60 * 60 * 24 * 30)) || '—'}
+                  </Text>
+                  <Text style={styles.spStatLabel}>Months</Text>
+                </View>
+              </View>
+
+              {sellerItems.length > 0 ? (
+                <Text style={styles.spListingsTitle}>
+                  Active Listings ({sellerItems.length})
+                </Text>
+              ) : (
+                <View style={styles.spEmpty}>
+                  <Ionicons name="storefront-outline" size={40} color={DK.textTertiary} />
+                  <Text style={styles.spEmptyText}>No active listings</Text>
+                </View>
+              )}
+            </View>
+          )}
+          renderItem={renderSellerItem}
+        />
+
+        {!isOwnProfile && (
+          <Pressable
+            style={[styles.spChatBtn, { bottom: bottomPad + 16 }]}
+            onPress={onChat}
+          >
+            <Ionicons name="chatbubble-ellipses" size={20} color="#FFF" />
+            <Text style={styles.spChatBtnText}>Chat with Seller</Text>
+          </Pressable>
+        )}
+      </View>
+    </Modal>
+  );
+}
+
+// ------------------------------------------------------------------
+// Animated SELL button
+// ------------------------------------------------------------------
 function AnimatedSellButton({ isEmbedded }: { isEmbedded: boolean }) {
   const scale = useSharedValue(1);
   const glow = useSharedValue(0);
@@ -170,7 +362,9 @@ function AnimatedSellButton({ isEmbedded }: { isEmbedded: boolean }) {
     transform: [{ scale: 1 + glow.value * 0.35 }],
   }));
 
-  const bottomVal = isEmbedded ? (Platform.OS === 'web' ? 84 + 16 : 90) : (Platform.OS === 'web' ? 34 + 16 : 32);
+  const bottomVal = isEmbedded
+    ? (typeof window !== 'undefined' && Platform.OS === 'web' ? 84 + 16 : 90)
+    : (typeof window !== 'undefined' && Platform.OS === 'web' ? 34 + 16 : 32);
 
   return (
     <View style={{ position: 'absolute', right: 20, bottom: bottomVal }}>
@@ -191,6 +385,9 @@ function AnimatedSellButton({ isEmbedded }: { isEmbedded: boolean }) {
   );
 }
 
+// ------------------------------------------------------------------
+// Main Screen
+// ------------------------------------------------------------------
 export default function BuySellScreen({ isEmbedded }: { isEmbedded?: boolean } = {}) {
   const insets = useSafeAreaInsets();
   const { allProfiles, profile, posts, isLoading, refreshData, toggleLike, addComment, startConversation } = useApp();
@@ -198,6 +395,7 @@ export default function BuySellScreen({ isEmbedded }: { isEmbedded?: boolean } =
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [refreshing, setRefreshing] = useState(false);
+  const [sortByDistance, setSortByDistance] = useState(false);
 
   const [detailItem, setDetailItem] = useState<MarketItem | null>(null);
   const [detailVisible, setDetailVisible] = useState(false);
@@ -205,8 +403,21 @@ export default function BuySellScreen({ isEmbedded }: { isEmbedded?: boolean } =
   const [mediaViewerVisible, setMediaViewerVisible] = useState(false);
   const [mediaViewerUrl, setMediaViewerUrl] = useState('');
 
-  const webTopInset = Platform.OS === 'web' ? 67 : 0;
-  const topPad = (Platform.OS === 'web' ? webTopInset : insets.top) + 12;
+  // Seller profile modal
+  const [sellerProfileId, setSellerProfileId] = useState<string | null>(null);
+  const [sellerProfileVisible, setSellerProfileVisible] = useState(false);
+
+  const webInset = typeof window !== 'undefined' && Platform.OS === 'web';
+  const topPad = (webInset ? 67 : insets.top) + 12;
+
+  // User's own lat/lng for distance calculation
+  const userLat = profile?.latitude ? parseFloat(profile.latitude) : null;
+  const userLng = profile?.longitude ? parseFloat(profile.longitude) : null;
+  const hasLocation = userLat !== null && userLng !== null && !isNaN(userLat) && !isNaN(userLng);
+
+  const userLocationLabel = profile?.city
+    ? [profile.city, profile.state].filter(Boolean).join(', ')
+    : null;
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -222,6 +433,13 @@ export default function BuySellScreen({ isEmbedded }: { isEmbedded?: boolean } =
     return sellPosts.map(p => {
       const parsed = parseSellPost(p.text);
       const prof = allProfiles.find(pr => pr.id === p.userId);
+      const sellerLat = prof?.latitude ? parseFloat(prof.latitude) : undefined;
+      const sellerLng = prof?.longitude ? parseFloat(prof.longitude) : undefined;
+      const hasSellerLoc = sellerLat !== undefined && sellerLng !== undefined && !isNaN(sellerLat) && !isNaN(sellerLng);
+      const distanceKm = (hasLocation && hasSellerLoc)
+        ? haversineKm(userLat!, userLng!, sellerLat!, sellerLng!)
+        : undefined;
+
       return {
         id: `sell_${p.id}`,
         type: 'sell' as const,
@@ -239,13 +457,16 @@ export default function BuySellScreen({ isEmbedded }: { isEmbedded?: boolean } =
         sellerAvatar: p.userAvatar,
         sellerCity: prof?.city,
         sellerState: prof?.state,
+        sellerLat: hasSellerLoc ? sellerLat : undefined,
+        sellerLng: hasSellerLoc ? sellerLng : undefined,
+        distanceKm,
         likes: p.likes || [],
         comments: p.comments || [],
         createdAt: p.createdAt,
         originalPost: p,
       };
-    }).sort((a, b) => b.createdAt - a.createdAt);
-  }, [sellPosts, allProfiles]);
+    });
+  }, [sellPosts, allProfiles, userLat, userLng, hasLocation]);
 
   const filtered = useMemo(() => {
     let list = marketItems;
@@ -261,14 +482,30 @@ export default function BuySellScreen({ isEmbedded }: { isEmbedded?: boolean } =
         (i.sellerCity || '').toLowerCase().includes(q)
       );
     }
+    // Sort: by distance if user has location, else by newest
+    if (sortByDistance && hasLocation) {
+      list = [...list].sort((a, b) => {
+        if (a.distanceKm === undefined && b.distanceKm === undefined) return b.createdAt - a.createdAt;
+        if (a.distanceKm === undefined) return 1;
+        if (b.distanceKm === undefined) return -1;
+        return a.distanceKm - b.distanceKm;
+      });
+    } else {
+      list = [...list].sort((a, b) => b.createdAt - a.createdAt);
+    }
     return list;
-  }, [marketItems, search, selectedCategory]);
+  }, [marketItems, search, selectedCategory, sortByDistance, hasLocation]);
 
   const openDetail = (item: MarketItem) => {
     setDetailItem(item);
     setDetailVisible(true);
     setCommentText('');
   };
+
+  const openSellerProfile = useCallback((sellerId: string) => {
+    setSellerProfileId(sellerId);
+    setSellerProfileVisible(true);
+  }, []);
 
   const handleLike = async (item: MarketItem) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -293,11 +530,12 @@ export default function BuySellScreen({ isEmbedded }: { isEmbedded?: boolean } =
     }
   };
 
-  const handleChatWithSeller = async (item: MarketItem) => {
+  const handleChatWithSeller = async (sellerId: string, sellerName: string, sellerRole: string) => {
     if (!profile) return;
-    const convoId = await startConversation(item.sellerId, item.sellerName, item.sellerRole as UserRole);
+    const convoId = await startConversation(sellerId, sellerName, sellerRole as UserRole);
     if (convoId) {
       setDetailVisible(false);
+      setSellerProfileVisible(false);
       router.push(`/chat/${convoId}` as any);
     }
   };
@@ -309,7 +547,16 @@ export default function BuySellScreen({ isEmbedded }: { isEmbedded?: boolean } =
     return [];
   };
 
-  const isLiked = (item: MarketItem) => profile && item.likes.includes(profile.id);
+  // Data for seller profile modal
+  const sellerProfile = useMemo(() =>
+    sellerProfileId ? allProfiles.find(p => p.id === sellerProfileId) || null : null,
+    [sellerProfileId, allProfiles]
+  );
+
+  const sellerItems = useMemo(() =>
+    sellerProfileId ? marketItems.filter(i => i.sellerId === sellerProfileId) : [],
+    [sellerProfileId, marketItems]
+  );
 
   const renderCard = ({ item }: { item: MarketItem }) => {
     const liked = profile ? item.likes.includes(profile.id) : false;
@@ -377,9 +624,27 @@ export default function BuySellScreen({ isEmbedded }: { isEmbedded?: boolean } =
                 </View>
               )}
 
+              {/* Location + Distance row */}
+              <View style={styles.detailLocationRow}>
+                <Ionicons name="location" size={14} color={DK.primary} />
+                <Text style={styles.detailLocationText}>
+                  {[detailItem.sellerCity, detailItem.sellerState].filter(Boolean).join(', ') || 'India'}
+                </Text>
+                {detailItem.distanceKm !== undefined && (
+                  <View style={styles.detailDistancePill}>
+                    <Ionicons name="navigate" size={10} color={DK.primary} />
+                    <Text style={styles.detailDistanceText}>{formatDistance(detailItem.distanceKm)} away</Text>
+                  </View>
+                )}
+              </View>
+
               <Text style={styles.detailDesc}>{detailItem.description}</Text>
 
-              <View style={styles.sellerCard}>
+              {/* Seller Card — clickable → opens seller profile */}
+              <Pressable
+                style={styles.sellerCard}
+                onPress={() => openSellerProfile(detailItem.sellerId)}
+              >
                 {sellerProf?.avatar || detailItem.sellerAvatar ? (
                   <Image source={{ uri: getImageUri(sellerProf?.avatar || detailItem.sellerAvatar || '') }} style={styles.sellerAvatar} contentFit="cover" />
                 ) : (
@@ -388,7 +653,12 @@ export default function BuySellScreen({ isEmbedded }: { isEmbedded?: boolean } =
                   </View>
                 )}
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.sellerName}>{detailItem.sellerName}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <Text style={styles.sellerName}>{detailItem.sellerName}</Text>
+                    {sellerProf?.verified === 1 && (
+                      <Ionicons name="checkmark-circle" size={14} color="#1DA1F2" />
+                    )}
+                  </View>
                   <Text style={styles.sellerMeta}>{ROLE_LABELS[detailItem.sellerRole as UserRole] || detailItem.sellerRole}</Text>
                   {(detailItem.sellerCity || detailItem.sellerState) && (
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 }}>
@@ -397,7 +667,11 @@ export default function BuySellScreen({ isEmbedded }: { isEmbedded?: boolean } =
                     </View>
                   )}
                 </View>
-              </View>
+                <View style={styles.viewProfileBadge}>
+                  <Text style={styles.viewProfileText}>View</Text>
+                  <Ionicons name="chevron-forward" size={12} color={DK.primary} />
+                </View>
+              </Pressable>
 
               <View style={styles.statsRow}>
                 <Pressable
@@ -415,7 +689,10 @@ export default function BuySellScreen({ isEmbedded }: { isEmbedded?: boolean } =
               </View>
 
               {!isOwn && (
-                <Pressable style={styles.chatBtn} onPress={() => handleChatWithSeller(detailItem)}>
+                <Pressable
+                  style={styles.chatBtn}
+                  onPress={() => handleChatWithSeller(detailItem.sellerId, detailItem.sellerName, detailItem.sellerRole)}
+                >
                   <Ionicons name="chatbubble-ellipses" size={20} color="#FFF" />
                   <Text style={styles.chatBtnText}>Chat with Seller</Text>
                 </Pressable>
@@ -436,7 +713,7 @@ export default function BuySellScreen({ isEmbedded }: { isEmbedded?: boolean } =
             </View>
           </ScrollView>
 
-          <View style={[styles.commentInputRow, { paddingBottom: Platform.OS === 'web' ? 34 : Math.max(insets.bottom, 12) }]}>
+          <View style={[styles.commentInputRow, { paddingBottom: webInset ? 34 : Math.max(insets.bottom, 12) }]}>
             <TextInput
               style={styles.commentInput}
               placeholder="Add a comment..."
@@ -455,6 +732,27 @@ export default function BuySellScreen({ isEmbedded }: { isEmbedded?: boolean } =
 
   const renderListHeader = () => (
     <View>
+      {/* Location bar — OLX style */}
+      <View style={styles.locationBar}>
+        <View style={styles.locationBarLeft}>
+          <Ionicons name="location" size={16} color={DK.primary} />
+          <Text style={styles.locationBarText} numberOfLines={1}>
+            {userLocationLabel || 'Set your location'}
+          </Text>
+        </View>
+        {hasLocation && (
+          <Pressable
+            style={[styles.sortPill, sortByDistance && styles.sortPillActive]}
+            onPress={() => setSortByDistance(v => !v)}
+          >
+            <Ionicons name="navigate" size={12} color={sortByDistance ? '#FFF' : DK.textSecondary} />
+            <Text style={[styles.sortPillText, sortByDistance && styles.sortPillTextActive]}>
+              Near Me
+            </Text>
+          </Pressable>
+        )}
+      </View>
+
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -507,7 +805,7 @@ export default function BuySellScreen({ isEmbedded }: { isEmbedded?: boolean } =
           <Ionicons name="search" size={18} color={DK.textTertiary} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search items, sellers..."
+            placeholder="Search items, sellers, location..."
             placeholderTextColor={DK.textTertiary}
             value={search}
             onChangeText={setSearch}
@@ -526,7 +824,7 @@ export default function BuySellScreen({ isEmbedded }: { isEmbedded?: boolean } =
         renderItem={renderCard}
         numColumns={2}
         columnWrapperStyle={styles.columnWrapper}
-        contentContainerStyle={[styles.listContent, { paddingBottom: Platform.OS === 'web' ? 84 + 34 : 100 }]}
+        contentContainerStyle={[styles.listContent, { paddingBottom: webInset ? 84 + 34 : 100 }]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={DK.primary} colors={[DK.primary]} />}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={renderListHeader}
@@ -544,6 +842,24 @@ export default function BuySellScreen({ isEmbedded }: { isEmbedded?: boolean } =
       )}
 
       {renderDetailModal()}
+
+      {/* Seller Profile Modal */}
+      <SellerProfileModal
+        visible={sellerProfileVisible}
+        seller={sellerProfile}
+        sellerItems={sellerItems}
+        currentUserId={profile?.id}
+        onClose={() => setSellerProfileVisible(false)}
+        onChat={() => {
+          if (sellerProfile) {
+            handleChatWithSeller(sellerProfile.id, sellerProfile.name, sellerProfile.role);
+          }
+        }}
+        onItemPress={(item) => {
+          setSellerProfileVisible(false);
+          openDetail(item);
+        }}
+      />
 
       <MediaViewer
         visible={mediaViewerVisible}
@@ -569,37 +885,57 @@ const styles = StyleSheet.create({
   },
   searchInput: { flex: 1, color: DK.text, fontSize: 15, fontWeight: '400' as const, padding: 0 },
 
+  // Location bar
+  locationBar: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    marginBottom: 10, gap: 8,
+  },
+  locationBarLeft: { flexDirection: 'row', alignItems: 'center', gap: 4, flex: 1 },
+  locationBarText: { color: DK.text, fontSize: 13, fontWeight: '600', flex: 1 },
+  sortPill: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 12, paddingVertical: 6,
+    borderRadius: 20, backgroundColor: '#F0F0F0', borderWidth: 1, borderColor: '#E0E0E0',
+  },
+  sortPillActive: { backgroundColor: DK.primary, borderColor: DK.primary },
+  sortPillText: { color: DK.textSecondary, fontSize: 12, fontWeight: '600' },
+  sortPillTextActive: { color: '#FFF' },
+
   countBadge: { marginBottom: 8 },
   countText: { color: DK.textTertiary, fontSize: 12 },
   listContent: { paddingHorizontal: 16, paddingTop: 4 },
   columnWrapper: { gap: CARD_GAP, marginBottom: CARD_GAP },
+
   card: {
     width: CARD_WIDTH, backgroundColor: '#FFFFFF', borderRadius: 12,
     overflow: 'hidden', borderWidth: 1, borderColor: '#EBEBEB',
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
   },
-  cardImageWrap: {
-    position: 'relative' as const,
-  },
+  cardImageWrap: { position: 'relative' as const },
   cardImage: { width: '100%' as const, aspectRatio: 1, backgroundColor: '#F7F7F7' },
   cardImagePlaceholder: { alignItems: 'center', justifyContent: 'center' },
   cardContent: { padding: 12, paddingTop: 10 },
   cardPrice: { color: '#002F34', fontSize: 19, fontWeight: '800' as const, letterSpacing: -0.3 },
   cardTitle: { color: '#002F34', fontSize: 13, fontWeight: '500' as const, lineHeight: 17, marginTop: 4 },
-  cardFooter: { marginTop: 8 },
-  cardLocation: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  cardLocationText: { color: '#999', fontSize: 11, fontWeight: '400' as const },
-  cardTime: { color: DK.textTertiary, fontSize: 10 },
+  cardFooter: { marginTop: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  cardLocation: { flexDirection: 'row', alignItems: 'center', gap: 2, flex: 1 },
+  cardLocationText: { color: '#999', fontSize: 11, fontWeight: '400' as const, flex: 1 },
+  cardDistanceText: { color: DK.primary, fontSize: 10, fontWeight: '600' as const },
+
+  // Distance badge on card image
+  distanceBadge: {
+    position: 'absolute' as const, bottom: 6, left: 6, flexDirection: 'row',
+    alignItems: 'center', gap: 3,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8,
+  },
+  distanceBadgeText: { color: '#FFF', fontSize: 10, fontWeight: '700' as const },
+
   heartBtn: {
     position: 'absolute' as const, top: 6, right: 6,
     width: 32, height: 32, borderRadius: 16,
     backgroundColor: 'rgba(255,255,255,0.9)', alignItems: 'center', justifyContent: 'center',
-  },
-  videoBadge: {
-    position: 'absolute' as const, bottom: 8, left: 8,
-    backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 10,
-    width: 22, height: 22, alignItems: 'center', justifyContent: 'center',
   },
   imageCountBadge: {
     position: 'absolute' as const, top: 6, left: 6, flexDirection: 'row',
@@ -607,16 +943,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8,
   },
   imageCountText: { color: '#FFF', fontSize: 10, fontWeight: '600' as const },
-  conditionBadge: {
-    position: 'absolute' as const, bottom: 6, left: 6,
-    backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4,
-  },
-  conditionBadgeText: { color: '#FFF', fontSize: 9, fontWeight: '600' as const },
-  soldOutBadge: {
-    position: 'absolute' as const, top: 8, right: 8,
-    backgroundColor: 'rgba(255,59,48,0.9)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8,
-  },
-  soldOutText: { color: '#FFF', fontSize: 10, fontWeight: '600' },
   emptyState: { alignItems: 'center', justifyContent: 'center', paddingTop: 80, gap: 12 },
   emptyTitle: { color: DK.text, fontSize: 18, fontWeight: '600' },
   emptyText: { color: DK.textTertiary, fontSize: 14, textAlign: 'center' as const, paddingHorizontal: 40 },
@@ -630,8 +956,7 @@ const styles = StyleSheet.create({
   fabGlow: {
     position: 'absolute' as const,
     top: -4, left: -4, right: -4, bottom: -4,
-    borderRadius: 32,
-    backgroundColor: DK.primary,
+    borderRadius: 32, backgroundColor: DK.primary,
   },
   fabText: { color: '#FFF', fontSize: 15, fontWeight: '800' as const, letterSpacing: 0.5 },
 
@@ -660,6 +985,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, marginTop: 8,
   },
   detailConditionText: { color: DK.textSecondary, fontSize: 12, fontWeight: '600' },
+  detailLocationRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 10, flexWrap: 'wrap' as const,
+  },
+  detailLocationText: { color: DK.textSecondary, fontSize: 13 },
+  detailDistancePill: {
+    flexDirection: 'row', alignItems: 'center', gap: 3,
+    backgroundColor: '#FFF3EE', paddingHorizontal: 8, paddingVertical: 3,
+    borderRadius: 10, borderWidth: 1, borderColor: '#FFD9C4',
+  },
+  detailDistanceText: { color: DK.primary, fontSize: 12, fontWeight: '700' },
   detailDesc: { color: DK.textSecondary, fontSize: 14, lineHeight: 20, marginTop: 12 },
 
   sellerCard: {
@@ -674,6 +1009,8 @@ const styles = StyleSheet.create({
   sellerInitials: { color: DK.textSecondary, fontSize: 16, fontWeight: '700' },
   sellerName: { color: DK.text, fontSize: 15, fontWeight: '600' },
   sellerMeta: { color: DK.textTertiary, fontSize: 12 },
+  viewProfileBadge: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  viewProfileText: { color: DK.primary, fontSize: 12, fontWeight: '600' },
 
   statsRow: {
     flexDirection: 'row', alignItems: 'center', gap: 16, marginTop: 16,
@@ -691,9 +1028,7 @@ const styles = StyleSheet.create({
 
   commentsSection: { marginTop: 20 },
   commentsSectionTitle: { color: DK.text, fontSize: 15, fontWeight: '700', marginBottom: 10 },
-  commentItem: {
-    paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: DK.border,
-  },
+  commentItem: { paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: DK.border },
   commentAuthor: { color: DK.text, fontSize: 13, fontWeight: '600' },
   commentBody: { color: DK.textSecondary, fontSize: 13, marginTop: 2 },
   commentTime: { color: DK.textTertiary, fontSize: 11, marginTop: 4 },
@@ -707,22 +1042,65 @@ const styles = StyleSheet.create({
     flex: 1, backgroundColor: DK.surfaceElevated, borderRadius: 20,
     paddingHorizontal: 14, paddingVertical: 10, color: DK.text, fontSize: 14,
   },
-  categoryBar: {
-    paddingHorizontal: 0, gap: 8, paddingBottom: 10,
-  },
+  categoryBar: { paddingHorizontal: 0, gap: 8, paddingBottom: 10 },
   categoryChip: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
     paddingHorizontal: 16, paddingVertical: 9,
-    borderRadius: 22, backgroundColor: '#F7F7F7',
-    borderWidth: 1.5, borderColor: '#EFEFEF',
+    borderRadius: 22, backgroundColor: '#F7F7F7', borderWidth: 1.5, borderColor: '#EFEFEF',
   },
-  categoryChipActive: {
-    backgroundColor: DK.primary, borderColor: DK.primary,
+  categoryChipActive: { backgroundColor: DK.primary, borderColor: DK.primary },
+  categoryChipText: { color: DK.textSecondary, fontSize: 13, fontWeight: '600' as const },
+  categoryChipTextActive: { color: '#FFF', fontWeight: '700' as const },
+
+  // ---- Seller Profile Modal ----
+  spHeroCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    padding: 16, margin: 16, marginBottom: 0,
+    backgroundColor: DK.surface, borderRadius: 16,
+    borderWidth: 1, borderColor: DK.border,
   },
-  categoryChipText: {
-    color: DK.textSecondary, fontSize: 13, fontWeight: '600' as const,
+  spAvatar: { width: 70, height: 70, borderRadius: 35 },
+  spAvatarPlaceholder: {
+    width: 70, height: 70, borderRadius: 35,
+    backgroundColor: DK.surfaceElevated, alignItems: 'center', justifyContent: 'center',
   },
-  categoryChipTextActive: {
-    color: '#FFF', fontWeight: '700' as const,
+  spAvatarInitials: { color: DK.textSecondary, fontSize: 22, fontWeight: '700' },
+  spInfo: { flex: 1 },
+  spName: { color: DK.text, fontSize: 18, fontWeight: '700' },
+  spRole: { color: DK.textSecondary, fontSize: 13, marginTop: 2 },
+  spLocation: { color: DK.textTertiary, fontSize: 12 },
+  spShop: { color: DK.primary, fontSize: 12, fontWeight: '600', marginTop: 2 },
+  spBioBox: { marginHorizontal: 16, marginTop: 10, padding: 12, backgroundColor: '#FFF9F6', borderRadius: 10, borderWidth: 1, borderColor: '#FFE5D5' },
+  spBioText: { color: DK.textSecondary, fontSize: 13, lineHeight: 19 },
+  spStatsRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around',
+    margin: 16, padding: 14,
+    backgroundColor: DK.surface, borderRadius: 12, borderWidth: 1, borderColor: DK.border,
   },
+  spStatItem: { alignItems: 'center', gap: 2 },
+  spStatValue: { color: DK.text, fontSize: 20, fontWeight: '800' },
+  spStatLabel: { color: DK.textTertiary, fontSize: 11 },
+  spStatDivider: { width: 1, height: 30, backgroundColor: DK.border },
+  spListingsTitle: {
+    color: DK.text, fontSize: 15, fontWeight: '700',
+    marginHorizontal: 16, marginBottom: 10,
+  },
+  spEmpty: { alignItems: 'center', gap: 8, paddingTop: 40, paddingBottom: 20 },
+  spEmptyText: { color: DK.textTertiary, fontSize: 14 },
+  spChatBtn: {
+    position: 'absolute' as const, left: 16, right: 16,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    backgroundColor: DK.primary, borderRadius: 14, paddingVertical: 14,
+    shadowColor: DK.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 6,
+  },
+  spChatBtnText: { color: '#FFF', fontSize: 16, fontWeight: '700' },
+  miniCard: {
+    backgroundColor: '#FFF', borderRadius: 10, overflow: 'hidden',
+    borderWidth: 1, borderColor: '#EBEBEB',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2,
+  },
+  miniCardImage: { aspectRatio: 1, backgroundColor: '#F7F7F7' },
+  miniCardContent: { padding: 8 },
+  miniCardPrice: { color: '#002F34', fontSize: 14, fontWeight: '800' },
+  miniCardTitle: { color: DK.textSecondary, fontSize: 11, marginTop: 2 },
 });
