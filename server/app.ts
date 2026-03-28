@@ -78,6 +78,8 @@ function setupCors(app: express.Application) {
       origins.has(origin) ||
       isLocalhost ||
       origin.endsWith(".run.app") ||
+      origin.endsWith(".web.app") ||
+      origin.endsWith(".firebaseapp.com") ||
       origin.endsWith(".vercel.app") ||
       origin.endsWith(".replit.dev") ||
       origin.endsWith(".exp.host")
