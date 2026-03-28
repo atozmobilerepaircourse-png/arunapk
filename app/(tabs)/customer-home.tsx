@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
-  View, Text, StyleSheet, Pressable, TextInput,
+  View, Text, StyleSheet, Pressable,
   ScrollView, Dimensions, Platform, ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -84,7 +84,6 @@ export default function CustomerHomeScreen() {
   const [loading, setLoading] = useState(true);
   const [userLat, setUserLat] = useState<number | null>(null);
   const [userLng, setUserLng] = useState<number | null>(null);
-  const [search, setSearch]   = useState('');
   const locationFetched = useRef(false);
 
   // Refresh insurance settings when screen comes into focus
@@ -177,18 +176,6 @@ export default function CustomerHomeScreen() {
         <Ionicons name="chevron-forward" size={14} color={MUTED} />
       </Pressable>
 
-      {/* ── Search ────────────────────────────────────────────────────────── */}
-      <View style={styles.searchBox}>
-        <Ionicons name="search-outline" size={18} color={MUTED} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search for phone repair services..."
-          placeholderTextColor={MUTED}
-          value={search}
-          onChangeText={setSearch}
-          returnKeyType="search"
-        />
-      </View>
 
       {/* ── Mobile Protection Plan Banner ───────────────────────────────── */}
       <Pressable style={styles.banner} onPress={() => go('/insurance')}>

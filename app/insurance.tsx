@@ -1132,6 +1132,7 @@ export default function ProtectionPlanScreen() {
                     <Text style={{ fontSize: 10, fontFamily: 'Inter_700Bold', color: '#FFF' }}>BEST VALUE ⭐</Text>
                   </View>
                 </View>
+                <Text style={{ fontSize: 18, fontFamily: 'Inter_700Bold', color: PRIMARY, marginBottom: 8 }}>₹{yearlyPrice.toLocaleString('en-IN')}/year</Text>
                 <View style={{ gap: 6, marginTop: 8 }}>
                   {['1 screen damage claim', 'Free pickup & drop', 'Service fee: ₹99–₹149', 'Waiting period: 7 days', 'Validity: 12 months'].map(f => (
                     <View key={f} style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
@@ -1158,6 +1159,7 @@ export default function ProtectionPlanScreen() {
             <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.planTitle, planType === 'monthly' && { color: PRIMARY }, { marginBottom: 6 }]}>Monthly Plan</Text>
+                <Text style={{ fontSize: 18, fontFamily: 'Inter_700Bold', color: PRIMARY, marginBottom: 8 }}>₹{(monthlyPrice * 3).toLocaleString('en-IN')}/3 months</Text>
                 <View style={{ gap: 6, marginTop: 8 }}>
                   {['1 claim per year', 'Free pickup & drop', 'Service fee: ₹199–₹299', 'Waiting period: 30 days'].map(f => (
                     <View key={f} style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
