@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity, ScrollView,
-  Platform, Pressable, TextInput, Alert, Slider,
+  Platform, Pressable, TextInput, Alert,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -255,6 +255,8 @@ function ProductCard({ product }: { product: Product }) {
 }
 
 function DistanceSlider({ sliderValue, onDistanceChange }: { sliderValue: number; onDistanceChange: (val: number) => void }) {
+  const isWeb = typeof window !== 'undefined';
+
   return (
     <View style={styles.sliderContainer}>
       <View style={styles.sliderHeader}>
@@ -276,20 +278,30 @@ function DistanceSlider({ sliderValue, onDistanceChange }: { sliderValue: number
         ))}
       </View>
 
-      {/* Slider */}
-      <View style={styles.sliderTrackContainer}>
-        <Slider
-          style={styles.slider}
-          minimumValue={1}
-          maximumValue={20}
-          step={1}
-          value={sliderValue}
-          onValueChange={onDistanceChange}
-          minimumTrackTintColor={PRIMARY}
-          maximumTrackTintColor={BORDER}
-          thumbTintColor={PRIMARY}
+      {/* Slider - Web Native Input */}
+      {isWeb ? (
+        <input
+          type="range"
+          min="1"
+          max="20"
+          step="1"
+          value={Math.round(sliderValue)}
+          onChange={(e) => onDistanceChange(Number(e.target.value))}
+          style={{
+            width: '100%',
+            height: 6,
+            borderRadius: 3,
+            outline: 'none',
+            marginVertical: 12,
+            cursor: 'pointer',
+            accentColor: PRIMARY,
+          } as any}
         />
-      </View>
+      ) : (
+        <View style={styles.sliderTrackContainer}>
+          <Text style={styles.nativeSliderText}>Distance: {Math.round(sliderValue)} km</Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -565,11 +577,14 @@ const styles = StyleSheet.create({
 
   sliderTrackContainer: {
     paddingHorizontal: 4,
+    marginVertical: 12,
   },
 
-  slider: {
-    width: '100%',
-    height: 40,
+  nativeSliderText: {
+    fontSize: 13,
+    fontFamily: 'Inter_500Medium',
+    color: GRAY,
+    textAlign: 'center',
   },
 
   listContent: {

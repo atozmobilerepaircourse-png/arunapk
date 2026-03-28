@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, FlatList, TextInput, Pressable, Platform, RefreshControl, ScrollView, ActivityIndicator, Dimensions, Modal, Slider, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TextInput, Pressable, Platform, RefreshControl, ScrollView, ActivityIndicator, Dimensions, Modal, TouchableOpacity } from 'react-native';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -127,6 +127,8 @@ function getImageUri(img: string): string {
 // DistanceSlider Component
 // ------------------------------------------------------------------
 function DistanceSlider({ sliderValue, onDistanceChange }: { sliderValue: number; onDistanceChange: (val: number) => void }) {
+  const isWeb = typeof window !== 'undefined';
+
   return (
     <View style={styles.sliderContainer}>
       <View style={styles.sliderHeader}>
@@ -148,20 +150,30 @@ function DistanceSlider({ sliderValue, onDistanceChange }: { sliderValue: number
         ))}
       </View>
 
-      {/* Slider */}
-      <View style={styles.sliderTrackContainer}>
-        <Slider
-          style={styles.slider}
-          minimumValue={1}
-          maximumValue={50}
-          step={1}
-          value={sliderValue}
-          onValueChange={onDistanceChange}
-          minimumTrackTintColor={DK.primary}
-          maximumTrackTintColor={DK.border}
-          thumbTintColor={DK.primary}
+      {/* Slider - Web Native Input */}
+      {isWeb ? (
+        <input
+          type="range"
+          min="1"
+          max="50"
+          step="1"
+          value={Math.round(sliderValue)}
+          onChange={(e) => onDistanceChange(Number(e.target.value))}
+          style={{
+            width: '100%',
+            height: 6,
+            borderRadius: 3,
+            outline: 'none',
+            marginVertical: 12,
+            cursor: 'pointer',
+            accentColor: DK.primary,
+          } as any}
         />
-      </View>
+      ) : (
+        <View style={styles.sliderTrackContainer}>
+          <Text style={styles.nativeSliderText}>Distance: {Math.round(sliderValue)} km</Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -1205,10 +1217,13 @@ const styles = StyleSheet.create({
 
   sliderTrackContainer: {
     paddingHorizontal: 4,
+    marginVertical: 12,
   },
 
-  slider: {
-    width: '100%',
-    height: 40,
+  nativeSliderText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: DK.textSecondary,
+    textAlign: 'center',
   },
 });
