@@ -142,6 +142,7 @@ export default function NearbyShopsScreen() {
   const [userLoc, setUserLoc]       = useState<{ latitude: number; longitude: number } | null>(null);
   const [locErr, setLocErr]         = useState('');
   const [filter, setFilter]         = useState<'all' | 'nearby'>('all');
+  const lastLoadRef = useRef<number>(0);
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
 
@@ -163,6 +164,11 @@ export default function NearbyShopsScreen() {
   }, []);
 
   const loadShops = useCallback(async (isRefresh = false) => {
+    // Debounce: only reload if more than 30 seconds have passed or explicit refresh
+    const now = Date.now();
+    if (!isRefresh && now - lastLoadRef.current < 30000) return;
+    lastLoadRef.current = now;
+
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
     try {

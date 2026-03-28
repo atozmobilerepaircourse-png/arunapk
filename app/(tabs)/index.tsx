@@ -294,6 +294,7 @@ export default function FeedScreen() {
   const [liveSessions, setLiveSessions]       = useState<LiveSession[]>([]);
   const [liveLoading, setLiveLoading]         = useState(false);
   const liveIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const settingsLoadRef = useRef<number>(0);
 
   const fetchLiveSessions = useCallback(async () => {
     try {
@@ -323,6 +324,11 @@ export default function FeedScreen() {
   }, []);
 
   const loadSettings = useCallback(() => {
+    // Debounce: only reload if more than 60 seconds have passed
+    const now = Date.now();
+    if (now - settingsLoadRef.current < 60000) return;
+    settingsLoadRef.current = now;
+
     apiRequest('GET', '/api/app-settings')
       .then(r => r.json())
       .then(data => {
