@@ -94,7 +94,53 @@ if (bunnyStreamAvailable) {
   console.log('[BunnyStream] Missing BUNNY_STREAM_API_KEY or BUNNY_STREAM_LIBRARY_ID');
 }
 
+// Strip EXIF data from JPEG using Buffer manipulation (no external deps)
+function stripEXIFFromJPEG(jpegBuffer: Buffer): Buffer {
+  try {
+    // Check if valid JPEG (starts with FFD8)
+    if (jpegBuffer[0] !== 0xFF || jpegBuffer[1] !== 0xD8) return jpegBuffer;
+    
+    let i = 2;
+    const segments: Buffer[] = [jpegBuffer.slice(0, 2)]; // Start with JPEG header
+    
+    while (i < jpegBuffer.length) {
+      if (jpegBuffer[i] !== 0xFF) break;
+      const marker = jpegBuffer[i + 1];
+      
+      // EXIF is in APP1 (FFE1) marker - skip it
+      if (marker === 0xE1) {
+        const segmentLen = (jpegBuffer[i + 2] << 8) | jpegBuffer[i + 3];
+        i += 2 + segmentLen; // Skip this marker
+        continue;
+      }
+      
+      // Copy all other markers
+      if (marker === 0xD9) {
+        // EOI marker - end of image
+        segments.push(jpegBuffer.slice(i, i + 2));
+        break;
+      }
+      
+      const segmentLen = (jpegBuffer[i + 2] << 8) | jpegBuffer[i + 3];
+      segments.push(jpegBuffer.slice(i, i + 2 + segmentLen));
+      i += 2 + segmentLen;
+    }
+    
+    return Buffer.concat(segments);
+  } catch (e) {
+    console.warn('[EXIF] Failed to strip EXIF, returning original:', e);
+    return jpegBuffer;
+  }
+}
+
 async function uploadToStorage(buffer: Buffer, filename: string): Promise<string> {
+  // Strip EXIF from JPEG images before uploading
+  let uploadBuffer = buffer;
+  if (filename.toLowerCase().includes('image') && (filename.endsWith('.jpg') || filename.endsWith('.jpeg'))) {
+    uploadBuffer = stripEXIFFromJPEG(buffer);
+    console.log(`[EXIF] Stripped EXIF from ${filename}: ${buffer.length} → ${uploadBuffer.length} bytes`);
+  }
+  
   // Try Bunny.net Storage (primary)
   if (bunnyAvailable) {
     try {
@@ -106,9 +152,9 @@ async function uploadToStorage(buffer: Buffer, filename: string): Promise<string
           headers: {
             'AccessKey': BUNNY_STORAGE_API_KEY,
             'Content-Type': 'image/jpeg',
-            'Content-Length': String(buffer.length),
+            'Content-Length': String(uploadBuffer.length),
           },
-          body: buffer,
+          body: uploadBuffer,
           duplex: 'half',
         } as any),
         new Promise((_, reject) => setTimeout(() => reject(new Error('[Bunny] Upload timeout after 15s')), 15000))
@@ -133,7 +179,7 @@ async function uploadToStorage(buffer: Buffer, filename: string): Promise<string
   // Fallback: Local storage (dev only, won't work on Cloud Run)
   const localFilename = filename.replace(/^(images|videos|reels)\//, "");
   const filePath = path.join(uploadsDir, localFilename);
-  fs.writeFileSync(filePath, buffer);
+  fs.writeFileSync(filePath, uploadBuffer);
   console.log(`[Local] Fallback: ${filePath}`);
   
   if (process.env.NODE_ENV === 'production') {

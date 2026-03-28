@@ -79,104 +79,6 @@ export default function CreatePostScreen() {
     }
   };
 
-  // Parse EXIF orientation from JPEG
-  const getEXIFOrientation = (data: Uint8Array): number => {
-    if (data[0] !== 0xFF || data[1] !== 0xD8) return 1;
-    let i = 2;
-    while (i < data.length) {
-      if (data[i] !== 0xFF) return 1;
-      const marker = data[i + 1];
-      if (marker === 0xE1) {
-        const len = (data[i + 2] << 8) | data[i + 3];
-        const exifData = data.slice(i + 4, i + 2 + len);
-        if (exifData[0] === 69 && exifData[1] === 120 && exifData[2] === 105 && exifData[3] === 102) {
-          const isBigEndian = (exifData[6] === 0x4D && exifData[7] === 0x4D);
-          let offset = 8;
-          const numDirEntries = isBigEndian ? (exifData[offset] << 8) | exifData[offset + 1] : (exifData[offset + 1] << 8) | exifData[offset];
-          offset += 2;
-          for (let j = 0; j < numDirEntries; j++) {
-            const tag = isBigEndian ? (exifData[offset] << 8) | exifData[offset + 1] : (exifData[offset + 1] << 8) | exifData[offset];
-            const type = isBigEndian ? (exifData[offset + 2] << 8) | exifData[offset + 3] : (exifData[offset + 3] << 8) | exifData[offset + 2];
-            if (tag === 274) {
-              const value = isBigEndian ? (exifData[offset + 8] << 8) | exifData[offset + 9] : (exifData[offset + 9] << 8) | exifData[offset + 8];
-              return value || 1;
-            }
-            offset += 12;
-          }
-        }
-        return 1;
-      }
-      const len = (data[i + 2] << 8) | data[i + 3];
-      i += 2 + len;
-    }
-    return 1;
-  };
-
-  // Fix EXIF rotation by redrawing image on canvas with correct orientation
-  const fixEXIFRotation = async (base64Data: string): Promise<Blob> => {
-    return new Promise((resolve) => {
-      try {
-        const byteChars = atob(base64Data);
-        const bytes = new Uint8Array(byteChars.length);
-        for (let i = 0; i < byteChars.length; i++) {
-          bytes[i] = byteChars.charCodeAt(i);
-        }
-        const orientation = getEXIFOrientation(bytes);
-        const img = new Image();
-        let timeout: NodeJS.Timeout | null = null;
-        
-        img.onload = () => {
-          if (timeout) clearTimeout(timeout);
-          try {
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            if (!ctx) return resolve(new Blob([''], { type: 'image/jpeg' }));
-            
-            let width = img.width, height = img.height;
-            if (orientation > 4) [width, height] = [height, width];
-            canvas.width = width;
-            canvas.height = height;
-            
-            ctx.save();
-            switch (orientation) {
-              case 2: ctx.translate(width, 0); ctx.scale(-1, 1); break;
-              case 3: ctx.translate(width, height); ctx.rotate(Math.PI); break;
-              case 4: ctx.translate(0, height); ctx.scale(1, -1); break;
-              case 5: ctx.translate(width, 0); ctx.rotate(Math.PI / 2); ctx.scale(-1, 1); break;
-              case 6: ctx.translate(width, 0); ctx.rotate(Math.PI / 2); break;
-              case 7: ctx.translate(0, height); ctx.rotate(Math.PI / 2); ctx.scale(-1, 1); break;
-              case 8: ctx.translate(0, height); ctx.rotate(-Math.PI / 2); break;
-            }
-            ctx.drawImage(img, 0, 0);
-            ctx.restore();
-            
-            canvas.toBlob((blob) => {
-              resolve(blob || new Blob([''], { type: 'image/jpeg' }));
-            }, 'image/jpeg', 0.92);
-          } catch (e) {
-            console.error('[EXIF] Canvas processing failed:', e);
-            resolve(new Blob([''], { type: 'image/jpeg' }));
-          }
-        };
-        
-        img.onerror = () => {
-          if (timeout) clearTimeout(timeout);
-          console.warn('[EXIF] Image load failed, returning empty blob');
-          resolve(new Blob([''], { type: 'image/jpeg' }));
-        };
-        
-        timeout = setTimeout(() => {
-          console.warn('[EXIF] Image load timeout, returning empty blob');
-          resolve(new Blob([''], { type: 'image/jpeg' }));
-        }, 5000);
-        
-        img.src = `data:image/jpeg;base64,${base64Data}`;
-      } catch (e) {
-        console.error('[EXIF] Parsing failed:', e);
-        resolve(new Blob([''], { type: 'image/jpeg' }));
-      }
-    });
-  };
 
   const takePhoto = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
@@ -211,48 +113,34 @@ export default function CreatePostScreen() {
         try {
           console.log(`[Upload] Web: asset type=${typeof asset}, keys=${Object.keys(asset).join(',')}`);
           
-          // Method 0: If asset is a File object, strip EXIF
+          // Method 0: If asset is a File object, use directly
           if (asset instanceof File) {
-            console.log(`[Upload] Web: File object detected, size: ${asset.size} bytes, stripping EXIF...`);
-            const base64 = await new Promise<string>((resolve) => {
-              const reader = new FileReader();
-              reader.onload = () => {
-                const result = reader.result as string;
-                resolve(result.split(',')[1] || result);
-              };
-              reader.readAsDataURL(asset);
-            });
-            const rotatedBlob = await fixEXIFRotation(base64);
-            console.log(`[Upload] Web: Fixed EXIF rotation from File, blob size: ${rotatedBlob.size} bytes`);
-            formData.append('image', rotatedBlob, `photo_${Date.now()}.jpg`);
+            console.log(`[Upload] Web: Using File object directly, size: ${asset.size} bytes`);
+            formData.append('image', asset);
           } 
-          // Method 1: If asset has base64, convert to blob and fix EXIF rotation
+          // Method 1: If asset has base64, convert to blob
           else if (asset.base64) {
             console.log(`[Upload] Web: Converting base64 to blob (size: ${asset.base64.length} chars)`);
-            // Fix EXIF rotation by parsing orientation and rotating on canvas
-            const rotatedBlob = await fixEXIFRotation(asset.base64);
-            console.log(`[Upload] Web: Fixed EXIF rotation, blob size: ${rotatedBlob.size} bytes`);
+            const byteCharacters = atob(asset.base64);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+              byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            const byteArray = new Uint8Array(byteNumbers);
+            const blob = new Blob([byteArray], { type: 'image/jpeg' });
+            console.log(`[Upload] Web: Created blob from base64, size: ${blob.size} bytes`);
             const filename = `photo_${Date.now()}.jpg`;
-            formData.append('image', rotatedBlob, filename);
+            formData.append('image', blob, filename);
           } 
-          // Method 2: Fallback - fetch from URI (file:// or blob: URLs) and strip EXIF
+          // Method 2: Fallback - fetch from URI (file:// or blob: URLs)
           else if (asset.uri) {
             console.log(`[Upload] Web: Fetching blob from URI: ${asset.uri.slice(0, 50)}...`);
             const response = await fetch(asset.uri);
             if (!response.ok) throw new Error(`Failed to fetch URI: ${response.status}`);
             const blob = await response.blob();
-            const base64 = await new Promise<string>((resolve) => {
-              const reader = new FileReader();
-              reader.onload = () => {
-                const result = reader.result as string;
-                resolve(result.split(',')[1] || result);
-              };
-              reader.readAsDataURL(blob);
-            });
-            const rotatedBlob = await fixEXIFRotation(base64);
-            console.log(`[Upload] Web: Fixed EXIF rotation from URI, blob size: ${rotatedBlob.size} bytes`);
+            console.log(`[Upload] Web: Got blob from URI, size: ${blob.size} bytes`);
             const filename = `photo_${Date.now()}.jpg`;
-            formData.append('image', rotatedBlob, filename);
+            formData.append('image', blob, filename);
           } 
           else {
             throw new Error(`ImagePicker asset missing required fields. Keys: ${Object.keys(asset).join(',')}`);
