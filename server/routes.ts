@@ -134,13 +134,6 @@ function stripEXIFFromJPEG(jpegBuffer: Buffer): Buffer {
 }
 
 async function uploadToStorage(buffer: Buffer, filename: string): Promise<string> {
-  // Strip EXIF from JPEG images before uploading
-  let uploadBuffer = buffer;
-  if (filename.toLowerCase().includes('image') && (filename.endsWith('.jpg') || filename.endsWith('.jpeg'))) {
-    uploadBuffer = stripEXIFFromJPEG(buffer);
-    console.log(`[EXIF] Stripped EXIF from ${filename}: ${buffer.length} → ${uploadBuffer.length} bytes`);
-  }
-  
   // Try Bunny.net Storage (primary)
   if (bunnyAvailable) {
     try {
@@ -152,9 +145,9 @@ async function uploadToStorage(buffer: Buffer, filename: string): Promise<string
           headers: {
             'AccessKey': BUNNY_STORAGE_API_KEY,
             'Content-Type': 'image/jpeg',
-            'Content-Length': String(uploadBuffer.length),
+            'Content-Length': String(buffer.length),
           },
-          body: uploadBuffer,
+          body: buffer,
           duplex: 'half',
         } as any),
         new Promise((_, reject) => setTimeout(() => reject(new Error('[Bunny] Upload timeout after 15s')), 15000))
@@ -179,7 +172,7 @@ async function uploadToStorage(buffer: Buffer, filename: string): Promise<string
   // Fallback: Local storage (dev only, won't work on Cloud Run)
   const localFilename = filename.replace(/^(images|videos|reels)\//, "");
   const filePath = path.join(uploadsDir, localFilename);
-  fs.writeFileSync(filePath, uploadBuffer);
+  fs.writeFileSync(filePath, buffer);
   console.log(`[Local] Fallback: ${filePath}`);
   
   if (process.env.NODE_ENV === 'production') {
