@@ -408,7 +408,7 @@ export default function NearbyScreen() {
             shopName: p.userName || 'Shop',
             shopId: p.userId,
             image: p.images?.[0] || '',
-            distance: distance || 999,
+            distance: distance || undefined,
           };
         });
         setSupplierProducts(allProducts);
@@ -450,7 +450,7 @@ export default function NearbyScreen() {
             reviewCount: parseInt(s.ratingCount) || 0,
             image: s.shopThumbnail || s.bannerImage || 'https://via.placeholder.com/80?text=Shop',
             address: [s.city, s.state].filter(Boolean).join(', ') || 'Location not available',
-            distance: distance || 999,
+            distance: distance || undefined,
             isOpen: true,
           };
         });
@@ -465,22 +465,26 @@ export default function NearbyScreen() {
   // Filter shops by distance and search
   const filteredShops = useMemo(() => {
     let shops = supplierShops;
-    shops = selectedDistance === 'ALL' ? shops : shops.filter(s => s.distance <= selectedDistance);
+    if (selectedDistance !== 'ALL') {
+      shops = shops.filter(s => s.distance === undefined || s.distance <= selectedDistance);
+    }
     if (search.trim()) {
       const q = search.toLowerCase();
       shops = shops.filter(s => s.name.toLowerCase().includes(q) || s.address.toLowerCase().includes(q));
     }
-    return shops.sort((a, b) => a.distance - b.distance);
+    return shops.sort((a, b) => (a.distance ?? Infinity) - (b.distance ?? Infinity));
   }, [selectedDistance, search, supplierShops]);
 
   const filteredProducts = useMemo(() => {
     let products = supplierProducts;
-    products = selectedDistance === 'ALL' ? products : products.filter(p => p.distance <= selectedDistance);
+    if (selectedDistance !== 'ALL') {
+      products = products.filter(p => p.distance === undefined || p.distance <= selectedDistance);
+    }
     if (search.trim()) {
       const q = search.toLowerCase();
       products = products.filter(p => p.name.toLowerCase().includes(q) || p.shopName.toLowerCase().includes(q));
     }
-    return products.sort((a, b) => a.distance - b.distance);
+    return products.sort((a, b) => (a.distance ?? Infinity) - (b.distance ?? Infinity));
   }, [selectedDistance, search, supplierProducts]);
 
   const renderHeader = () => (
