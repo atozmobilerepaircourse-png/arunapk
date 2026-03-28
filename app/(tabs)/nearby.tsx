@@ -430,7 +430,7 @@ export default function NearbyScreen() {
         const profiles = Array.isArray(data) ? data : (data.profiles || []);
         
         let shops = profiles.filter((u: any) => 
-          (u.role === 'supplier' || u.role === 'shopkeeper') && !u.blocked_at && u.productCount > 0
+          (u.role === 'supplier' || u.role === 'shopkeeper') && !u.blocked_at
         );
         
         // Map shops and calculate distances
