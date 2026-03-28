@@ -1,7 +1,7 @@
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity, ScrollView,
-  Platform, Pressable, TextInput, Alert,
+  Platform, Pressable, TextInput, Alert, Slider,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -254,44 +254,64 @@ function ProductCard({ product }: { product: Product }) {
   );
 }
 
-function FilterBar({ selectedDistance, onDistanceChange, onOpenNow, onTopRated }: any) {
+function DistanceSlider({ selectedDistance, onDistanceChange }: { selectedDistance: number; onDistanceChange: (val: number) => void }) {
   return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={styles.filterContainer}
-    >
-      {/* Distance Dropdown */}
-      <View style={styles.filterChip}>
-        <Ionicons name="location" size={14} color={PRIMARY} />
-        <Text style={styles.filterChipText}>{selectedDistance} km</Text>
-        <Ionicons name="chevron-down" size={14} color={GRAY} />
+    <View style={styles.sliderContainer}>
+      <View style={styles.sliderHeader}>
+        <Text style={styles.sliderLabel}>Showing results within {selectedDistance} km</Text>
       </View>
 
-      {/* Open Now Toggle */}
-      <Pressable style={styles.filterChip}>
-        <Ionicons name="time" size={14} color={PRIMARY} />
-        <Text style={styles.filterChipText}>Open Now</Text>
-      </Pressable>
+      {/* Quick Select Buttons */}
+      <View style={styles.quickSelectRow}>
+        {[2, 5, 10].map(km => (
+          <TouchableOpacity
+            key={km}
+            style={[styles.quickSelectBtn, selectedDistance === km && styles.quickSelectBtnActive]}
+            onPress={() => onDistanceChange(km)}
+          >
+            <Text style={[styles.quickSelectText, selectedDistance === km && styles.quickSelectTextActive]}>
+              {km} km
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
 
-      {/* Top Rated Toggle */}
-      <Pressable style={styles.filterChip}>
-        <Ionicons name="star" size={14} color={PRIMARY} />
-        <Text style={styles.filterChipText}>Top Rated</Text>
-      </Pressable>
-    </ScrollView>
+      {/* Slider */}
+      <View style={styles.sliderTrackContainer}>
+        <Slider
+          style={styles.slider}
+          minimumValue={1}
+          maximumValue={20}
+          step={1}
+          value={selectedDistance}
+          onValueChange={onDistanceChange}
+          minimumTrackTintColor={PRIMARY}
+          maximumTrackTintColor={BORDER}
+          thumbTintColor={PRIMARY}
+        />
+      </View>
+    </View>
   );
 }
 
 // Main Screen
 export default function NearbyScreen() {
   const insets = useSafeAreaInsets();
-  const [tab, setTab] = useState<'shops' | 'products' | 'map'>('shops');
+  const [tab, setTab] = useState<'shops' | 'products'>('shops');
   const [search, setSearch] = useState('');
   const [selectedDistance, setSelectedDistance] = useState(2);
   const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const topPad = (Platform.OS === 'web' ? 67 : insets.top) + 12;
+
+  // Debounced distance change
+  const handleDistanceChange = useCallback((distance: number) => {
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    debounceTimerRef.current = setTimeout(() => {
+      setSelectedDistance(distance);
+    }, 300);
+  }, []);
 
   // Request location
   useEffect(() => {
@@ -365,17 +385,10 @@ export default function NearbyScreen() {
         >
           <Text style={[styles.tabText, tab === 'products' && styles.tabTextActive]}>Products</Text>
         </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.tab, tab === 'map' && styles.tabActive]}
-          onPress={() => setTab('map')}
-        >
-          <Text style={[styles.tabText, tab === 'map' && styles.tabTextActive]}>Map</Text>
-        </TouchableOpacity>
       </View>
 
-      {/* Filter Bar */}
-      {tab !== 'map' && <FilterBar selectedDistance={selectedDistance} onDistanceChange={setSelectedDistance} />}
+      {/* Distance Slider */}
+      <DistanceSlider selectedDistance={selectedDistance} onDistanceChange={handleDistanceChange} />
 
       {/* Content */}
       {tab === 'shops' && (
@@ -412,14 +425,6 @@ export default function NearbyScreen() {
           }
           showsVerticalScrollIndicator={false}
         />
-      )}
-
-      {tab === 'map' && (
-        <View style={styles.mapPlaceholder}>
-          <Ionicons name="map" size={64} color={PRIMARY} />
-          <Text style={styles.mapText}>Map view coming soon</Text>
-          <Text style={styles.mapSubText}>List view available in Shops & Products tabs</Text>
-        </View>
       )}
     </View>
   );
@@ -507,26 +512,62 @@ const styles = StyleSheet.create({
     color: PRIMARY,
   },
 
-  filterContainer: {
+  sliderContainer: {
     paddingHorizontal: 14,
-    paddingVertical: 10,
-    gap: 8,
+    paddingVertical: 12,
+    backgroundColor: WHITE,
+    borderBottomColor: BORDER,
+    borderBottomWidth: 1,
   },
 
-  filterChip: {
+  sliderHeader: {
+    marginBottom: 10,
+  },
+
+  sliderLabel: {
+    fontSize: 13,
+    fontFamily: 'Inter_600SemiBold',
+    color: DARK,
+  },
+
+  quickSelectRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: BG,
-    paddingHorizontal: 12,
+    gap: 8,
+    marginBottom: 12,
+    justifyContent: 'center',
+  },
+
+  quickSelectBtn: {
+    paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
+    backgroundColor: BG,
+    borderWidth: 1,
+    borderColor: BORDER,
   },
 
-  filterChipText: {
+  quickSelectBtnActive: {
+    backgroundColor: PRIMARY,
+    borderColor: PRIMARY,
+  },
+
+  quickSelectText: {
     fontSize: 12,
-    color: DARK,
     fontFamily: 'Inter_600SemiBold',
+    color: GRAY,
+  },
+
+  quickSelectTextActive: {
+    color: WHITE,
+  },
+
+  sliderTrackContainer: {
+    paddingHorizontal: 4,
+  },
+
+  slider: {
+    width: '100%',
+    height: 40,
   },
 
   listContent: {
@@ -759,25 +800,6 @@ const styles = StyleSheet.create({
   },
 
   emptySubText: {
-    fontSize: 13,
-    color: GRAY,
-    fontFamily: 'Inter_400Regular',
-  },
-
-  mapPlaceholder: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-  },
-
-  mapText: {
-    fontSize: 16,
-    fontFamily: 'Inter_600SemiBold',
-    color: DARK,
-  },
-
-  mapSubText: {
     fontSize: 13,
     color: GRAY,
     fontFamily: 'Inter_400Regular',
