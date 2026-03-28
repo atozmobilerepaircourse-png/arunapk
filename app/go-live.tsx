@@ -127,7 +127,9 @@ export default function GoLiveScreen() {
     try {
       let thumbnailUrl = '';
       if (thumbnailUri) {
-        uploadThumbnail(thumbnailUri).then(url => { if (url) thumbnailUrl = url; });
+        setUploadingThumbnail(true);
+        thumbnailUrl = await uploadThumbnail(thumbnailUri) || '';
+        setUploadingThumbnail(false);
       }
 
       const res = await apiRequest('POST', '/api/teacher/bunny-live/start', {
@@ -188,7 +190,9 @@ export default function GoLiveScreen() {
     try {
       let thumbnailUrl = '';
       if (thumbnailUri) {
-        uploadThumbnail(thumbnailUri).then(url => { if (url) thumbnailUrl = url; });
+        setUploadingThumbnail(true);
+        thumbnailUrl = await uploadThumbnail(thumbnailUri) || '';
+        setUploadingThumbnail(false);
       }
 
       const res = await apiRequest('POST', '/api/teacher/go-live', {
