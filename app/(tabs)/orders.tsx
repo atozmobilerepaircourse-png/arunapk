@@ -145,16 +145,16 @@ export default function OrdersScreen() {
     }
   }, [isLoading, isOnboarded]);
 
-  const [filter, setFilter]       = useState<FilterKey>('all');
+  const [filter, setFilter]       = useState<FilterKey>('repair');
   const [refreshing, setRefreshing] = useState(false);
 
   const filtered = (() => {
-    if (filter === 'all')        return posts;
-    if (filter === 'technician') return posts.filter(p => p.userRole === 'technician');
-    if (filter === 'customer')   return posts.filter(p => p.userRole === 'customer');
-    if (filter === 'teacher')    return posts.filter(p => p.userRole === 'teacher');
-    if (filter === 'supplier')   return posts.filter(p => p.userRole === 'supplier');
-    return posts.filter(p => p.category === filter);
+    if (filter === 'all')        return posts.filter(p => p.category === 'repair');
+    if (filter === 'technician') return posts.filter(p => p.userRole === 'technician' && p.category === 'repair');
+    if (filter === 'customer')   return posts.filter(p => p.userRole === 'customer' && p.category === 'repair');
+    if (filter === 'teacher')    return posts.filter(p => p.userRole === 'teacher' && p.category === 'repair');
+    if (filter === 'supplier')   return posts.filter(p => p.userRole === 'supplier' && p.category === 'repair');
+    return posts.filter(p => p.category === 'repair');
   })();
 
   const onRefresh = useCallback(async () => {
