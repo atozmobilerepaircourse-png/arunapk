@@ -502,7 +502,7 @@ export default function BuySellScreen({ isEmbedded }: { isEmbedded?: boolean } =
         </View>
       )}
 
-      <View style={styles.searchContainer}>
+      <View style={[styles.searchContainer, isEmbedded ? { paddingTop: topPad } : undefined]}>
         <View style={styles.searchBox}>
           <Ionicons name="search" size={18} color={DK.textTertiary} />
           <TextInput

@@ -15,6 +15,7 @@ const C = Colors.light;
 function NativeTabLayout() {
   const { profile, navigationMode } = useApp();
   const isCustomer = profile?.role === 'customer';
+  const isTechnician = profile?.role === 'technician';
   const isTeacher = profile?.role === 'teacher';
   const isSupplier = profile?.role === 'supplier';
   const isShopkeeper = profile?.role === 'shopkeeper';
@@ -38,6 +39,10 @@ function NativeTabLayout() {
           <Icon sf={{ default: "wrench.and.screwdriver", selected: "wrench.and.screwdriver.fill" }} />
           <Label>Find Nearby</Label>
         </NativeTabs.Trigger>
+        <NativeTabs.Trigger name="buy-sell">
+          <Icon sf={{ default: "tag", selected: "tag.fill" }} />
+          <Label>Buy & Sale</Label>
+        </NativeTabs.Trigger>
         <NativeTabs.Trigger name="nearby-shops">
           <Icon sf={{ default: "storefront", selected: "storefront.fill" }} />
           <Label>Nearby Shops</Label>
@@ -54,6 +59,43 @@ function NativeTabLayout() {
         <NativeTabs.Trigger name="marketplace" hidden />
         <NativeTabs.Trigger name="create" hidden />
         <NativeTabs.Trigger name="profile" hidden />
+        <NativeTabs.Trigger name="tech-market" hidden />
+      </NativeTabs>
+    );
+  }
+
+  if (isTechnician) {
+    return (
+      <NativeTabs>
+        <NativeTabs.Trigger name="index">
+          <Icon sf={{ default: "house", selected: "house.fill" }} />
+          <Label>Home</Label>
+        </NativeTabs.Trigger>
+        <NativeTabs.Trigger name="directory">
+          <Icon sf={{ default: "person.2", selected: "person.2.fill" }} />
+          <Label>Directory</Label>
+        </NativeTabs.Trigger>
+        <NativeTabs.Trigger name="create">
+          <Icon sf={{ default: "plus.circle", selected: "plus.circle.fill" }} />
+          <Label>Post</Label>
+        </NativeTabs.Trigger>
+        <NativeTabs.Trigger name="marketplace">
+          <Icon sf={{ default: "bag", selected: "bag.fill" }} />
+          <Label>Shop</Label>
+        </NativeTabs.Trigger>
+        <NativeTabs.Trigger name="tech-market">
+          <Icon sf={{ default: "tag", selected: "tag.fill" }} />
+          <Label>Buy & Sale</Label>
+        </NativeTabs.Trigger>
+        <NativeTabs.Trigger name="customer-home" hidden />
+        <NativeTabs.Trigger name="nearby-shops" hidden />
+        <NativeTabs.Trigger name="orders" hidden />
+        <NativeTabs.Trigger name="jobs" hidden />
+        <NativeTabs.Trigger name="technician-jobs" hidden />
+        <NativeTabs.Trigger name="profile" hidden />
+        <NativeTabs.Trigger name="buy-sell" hidden />
+        <NativeTabs.Trigger name="content" hidden={true} />
+        <NativeTabs.Trigger name="products" hidden={true} />
       </NativeTabs>
     );
   }
@@ -85,6 +127,8 @@ function NativeTabLayout() {
       <NativeTabs.Trigger name="orders" hidden />
       <NativeTabs.Trigger name="jobs" hidden />
       <NativeTabs.Trigger name="technician-jobs" hidden />
+      <NativeTabs.Trigger name="buy-sell" hidden />
+      <NativeTabs.Trigger name="tech-market" hidden />
       {/* content/products/marketplace are already shown as roleTab above — keep hidden here */}
       <NativeTabs.Trigger name="content" hidden={true} />
       <NativeTabs.Trigger name="products" hidden={true} />
@@ -98,6 +142,7 @@ function ClassicTabLayout() {
   const isIOS = Platform.OS === "ios";
   const { profile, navigationMode } = useApp();
   const isCustomer = profile?.role === 'customer';
+  const isTechnician = profile?.role === 'technician';
   const isTeacher = profile?.role === 'teacher';
   const isSupplier = profile?.role === 'supplier';
   const isShopkeeper = profile?.role === 'shopkeeper';
@@ -173,7 +218,18 @@ function ClassicTabLayout() {
           ),
         }}
       />
-      {/* --- Tab 3: Nearby Shops (customer) or Post (others) --- */}
+      {/* --- Tab 3 (customer only): Buy & Sale --- */}
+      <Tabs.Screen
+        name="buy-sell"
+        options={{
+          title: "Buy & Sale",
+          href: isCustomer ? '/buy-sell' : null,
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? "pricetag" : "pricetag-outline"} size={22} color={color} />
+          ),
+        }}
+      />
+      {/* --- Tab 3 (customer): Nearby Shops | Tab 3 (others): Post --- */}
       <Tabs.Screen
         name="nearby-shops"
         options={{
@@ -194,7 +250,7 @@ function ClassicTabLayout() {
           ),
         }}
       />
-      {/* --- Tab 4: Ask for Repair (customer) or Role tab (others) --- */}
+      {/* --- Tab 4/5: Ask for Repair (customer) or Role tab (others) --- */}
       <Tabs.Screen
         name="orders"
         options={{
@@ -235,12 +291,22 @@ function ClassicTabLayout() {
           ),
         }}
       />
-      {/* --- Tab 5: Profile (non-customer only) --- */}
+      {/* --- Tab 5: Buy & Sale (technician) or Profile (other non-customer roles) --- */}
+      <Tabs.Screen
+        name="tech-market"
+        options={{
+          title: "Buy & Sale",
+          href: isTechnician ? '/tech-market' : null,
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? "pricetag" : "pricetag-outline"} size={22} color={color} />
+          ),
+        }}
+      />
       <Tabs.Screen
         name="profile"
         options={{
           title: "Profile",
-          href: isCustomer ? null : undefined,
+          href: (isCustomer || isTechnician) ? null : undefined,
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? "person" : "person-outline"} size={22} color={color} />
           ),
