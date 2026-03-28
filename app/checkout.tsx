@@ -68,7 +68,7 @@ export default function CheckoutScreen() {
     try {
       // Place an order for each item
       for (const item of items) {
-        await apiRequest('POST', '/api/orders', {
+        const res = await apiRequest('POST', '/api/orders', {
           productId: item.productId,
           productTitle: item.title,
           productPrice: item.price.toString(),
@@ -87,13 +87,22 @@ export default function CheckoutScreen() {
           shippingAddress: `${address}, ${city}, ${pincode}`,
           buyerNotes: notes,
         });
+        if (!res.ok) {
+          let errMsg = 'Failed to place order';
+          try {
+            const data = await res.json();
+            errMsg = data.message || errMsg;
+          } catch {}
+          throw new Error(errMsg);
+        }
       }
       if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       clearCart();
       setSuccess(true);
     } catch (error) {
       console.error('Order error:', error);
-      setErrors({ submit: 'Failed to place order. Please try again.' });
+      const msg = (error as Error)?.message || 'Failed to place order. Please try again.';
+      setErrors({ submit: msg });
     } finally {
       setPlacing(false);
     }
@@ -174,7 +183,7 @@ export default function CheckoutScreen() {
         <View style={ss.section}>
           <Text style={ss.sectionTitle}>Delivery Details</Text>
           <Field label="Full Name" value={name} onChangeText={setName} placeholder="Arun Kumar" error={errors.name} icon="person-outline" />
-          <Field label="Phone Number" value={phone} onChangeText={setPhone} placeholder="9876543210" error={errors.phone} icon="call-outline" keyboardType="phone-pad" />
+          <Field label="Phone Number" value={phone} onChangeText={(text) => setPhone(text.replace(/\D/g, '').slice(0, 10))} placeholder="9876543210" error={errors.phone} icon="call-outline" keyboardType="phone-pad" maxLength={10} />
           <Field label="Delivery Address" value={address} onChangeText={setAddress} placeholder="Street, Building, Landmark…" error={errors.address} icon="home-outline" multiline />
           <View style={ss.rowFields}>
             <View style={{ flex: 1 }}>
