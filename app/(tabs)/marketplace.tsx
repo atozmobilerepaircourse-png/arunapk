@@ -129,7 +129,7 @@ export default function MarketplaceScreen() {
       const res  = await apiRequest('GET', '/api/profiles');
       const data = await res.json();
       const arr  = Array.isArray(data) ? data : (data.profiles || []);
-      setSuppliers(arr.filter((u: any) => u.role === 'supplier' && !u.blocked));
+      setSuppliers(arr.filter((u: any) => u.role === 'supplier' && !u.blocked_at && u.productCount > 0));
     } catch {
       setSuppliers([]);
     } finally {
