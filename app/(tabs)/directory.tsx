@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TextInput, Pressable, Platform,
-  RefreshControl, ScrollView, Animated, Linking,
+  RefreshControl, ScrollView, Animated, Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -58,19 +58,27 @@ const ROLE_MAP_COLORS: Record<string, string> = {
   job_provider: '#5E8BFF',
 };
 
-const ROLE_BADGE: Record<string, { bg: string; text: string }> = {
-  technician:   { bg: '#DBEAFE', text: '#1D4ED8' },
-  teacher:      { bg: '#EDE9FE', text: '#7C3AED' },
-  supplier:     { bg: '#CCFBF1', text: '#0D9488' },
-  shopkeeper:   { bg: '#F5F3FF', text: '#8B5CF6' },
-  job_provider: { bg: '#DBEAFE', text: '#1D4ED8' },
-  customer:     { bg: '#FEE2E2', text: '#DC2626' },
-};
 
 function getInitials(name: string) {
   if (!name) return '??';
   return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
 }
+
+function etaFromDist(km: number): string {
+  const mins = Math.round(km * 3.5);
+  if (mins < 60) return `${mins} min`;
+  return `${Math.floor(mins / 60)}h ${mins % 60}m`;
+}
+
+const ROLE_SUBTITLE: Record<string, string> = {
+  technician:   'Mobile Repair Expert',
+  teacher:      'Mobile Repair Teacher',
+  supplier:     'Parts Supplier',
+  shopkeeper:   'Mobile Shop',
+  job_provider: 'Job Provider',
+  customer:     'Customer',
+  admin:        'Administrator',
+};
 
 function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371;
@@ -135,26 +143,83 @@ interface ProfCardProps {
   item: {
     id: string; name: string; role: UserRole; city: string;
     skills: string[]; avatar: string; isOnline: boolean; distance?: number;
+    rating?: string; ratingCount?: string; profileLikes?: string; verified?: number;
   };
+  currentUserId?: string;
+  isAdmin?: boolean;
   onChat?: () => void;
-  onCall?: () => void;
   onPress?: () => void;
 }
 
-function ProfCard({ item, onChat, onCall, onPress }: ProfCardProps) {
-  const badge = ROLE_BADGE[item.role] ?? { bg: '#F3F4F6', text: '#374151' };
-  const skillLabel = item.skills[0] || ROLE_LABELS[item.role] || item.role;
+function ProfCard({ item, currentUserId, isAdmin, onChat, onPress }: ProfCardProps) {
   const avatarUri = item.avatar
     ? (item.avatar.startsWith('http') ? item.avatar : `${getApiUrl()}${item.avatar}`)
     : null;
-  
-  // Show Chat/Call buttons for Supplier, Teacher, and Shopkeeper; others click to profile
-  const showButtons = item.role === 'supplier' || item.role === 'teacher' || item.role === 'shopkeeper';
+
+  const ratingNum   = parseFloat(item.rating || '0') || 0;
+  const reviewCount = parseInt(item.ratingCount || '0', 10) || 0;
+
+  const initialLikes: string[] = (() => {
+    try { return JSON.parse(item.profileLikes || '[]'); } catch { return []; }
+  })();
+
+  const [likes, setLikes] = useState<string[]>(initialLikes);
+  const isLiked = !!(currentUserId && likes.includes(currentUserId));
+
+  // Update local likes when allProfiles refreshes
+  const prevLikesRef = useRef(item.profileLikes);
+  if (item.profileLikes !== prevLikesRef.current) {
+    prevLikesRef.current = item.profileLikes;
+    try { setLikes(JSON.parse(item.profileLikes || '[]')); } catch {}
+  }
+
+  const [likeLoading, setLikeLoading] = useState(false);
+  const [showRatingEditor, setShowRatingEditor] = useState(false);
+  const [ratingInput, setRatingInput] = useState(String(ratingNum || ''));
+  const [countInput, setCountInput] = useState(String(reviewCount || ''));
+  const [savingRating, setSavingRating] = useState(false);
+
+  const handleLike = async () => {
+    if (!currentUserId || likeLoading) return;
+    setLikeLoading(true);
+    const newLikes = isLiked
+      ? likes.filter(id => id !== currentUserId)
+      : [...likes, currentUserId];
+    setLikes(newLikes);
+    try {
+      await apiRequest('POST', `/api/profiles/${item.id}/like`, { userId: currentUserId });
+    } catch {
+      setLikes(likes);
+    } finally {
+      setLikeLoading(false);
+    }
+  };
+
+  const handleSaveRating = async () => {
+    if (savingRating) return;
+    setSavingRating(true);
+    try {
+      await apiRequest('PUT', `/api/profiles/${item.id}/rating`, {
+        rating: ratingInput,
+        ratingCount: countInput,
+      });
+      setShowRatingEditor(false);
+    } catch (e: any) {
+      Alert.alert('Error', 'Failed to save rating');
+    } finally {
+      setSavingRating(false);
+    }
+  };
+
+  const subtitle = item.skills[0] || ROLE_SUBTITLE[item.role] || ROLE_LABELS[item.role] || item.role;
+  const distStr  = item.distance != null ? `${item.distance.toFixed(1)} km` : null;
+  const eta      = item.distance != null ? etaFromDist(item.distance) : null;
+  const displayRating = ratingNum > 0 ? ratingNum.toFixed(1) : '0.0';
+  const displayCount  = reviewCount > 0 ? `(${reviewCount})` : '(0)';
 
   return (
     <Pressable style={styles.card} onPress={onPress}>
-      {/* Top row */}
-      <View style={styles.cardTop}>
+      <View style={styles.cardRow}>
         {/* Avatar */}
         <View style={styles.avatarWrap}>
           {avatarUri ? (
@@ -169,67 +234,109 @@ function ProfCard({ item, onChat, onCall, onPress }: ProfCardProps) {
 
         {/* Info */}
         <View style={styles.cardInfo}>
+          {/* Name + Verified */}
           <View style={styles.nameRow}>
             <Text style={styles.cardName} numberOfLines={1}>{item.name}</Text>
-            <Ionicons name="checkmark-circle" size={14} color={PRIMARY} />
+            {(item.verified === 1) && (
+              <View style={styles.verifiedBadge}>
+                <Ionicons name="checkmark-circle" size={11} color="#27AE60" />
+                <Text style={styles.verifiedTxt}>Verified</Text>
+              </View>
+            )}
           </View>
 
-          <View style={styles.badgeRow}>
-            <View style={[styles.roleBadge, { backgroundColor: badge.bg }]}>
-              <Text style={[styles.roleBadgeText, { color: badge.text }]}>{skillLabel}</Text>
-            </View>
-            <View style={{ flexDirection: 'row', gap: 4, alignItems: 'center' }}>
-              {item.distance !== undefined && item.distance !== null && (
-                <View style={[styles.ratingRow, { backgroundColor: '#FEE2E2', paddingHorizontal: 8, borderRadius: 4 }]}>
-                  <Ionicons name="location" size={10} color="#DC2626" />
-                  <Text style={[styles.ratingText, { color: '#DC2626' }]}>{item.distance.toFixed(1)} km</Text>
-                </View>
-              )}
-              {item.city ? (
-                <View style={[styles.ratingRow, { backgroundColor: '#DBEAFE', paddingHorizontal: 8, borderRadius: 4 }]}>
-                  <Ionicons name="location-outline" size={10} color="#2563EB" />
-                  <Text style={[styles.ratingText, { color: '#2563EB' }]}>{item.city}</Text>
-                </View>
-              ) : (
-                (item.distance === undefined || item.distance === null) && (
-                  <View style={styles.ratingRow}>
-                    <Ionicons name="star" size={10} color="#FBBF24" />
-                    <Text style={styles.ratingText}>4.8 (120)</Text>
-                  </View>
-                )
-              )}
-            </View>
-          </View>
+          {/* Subtitle */}
+          <Text style={styles.cardSubtitle} numberOfLines={1}>{subtitle}</Text>
 
-          {item.skills.length > 0 ? (
-            <Text style={styles.locationText} numberOfLines={1}>{item.skills.slice(0, 2).join(' · ')}</Text>
+          {/* Rating row — tappable for admin */}
+          <Pressable
+            style={styles.metaRow}
+            onPress={() => {
+              if (isAdmin) {
+                setRatingInput(String(ratingNum));
+                setCountInput(String(reviewCount));
+                setShowRatingEditor(prev => !prev);
+              }
+            }}
+            disabled={!isAdmin}
+          >
+            <Ionicons name="star" size={12} color="#FBBF24" />
+            <Text style={styles.ratingTxt}>{displayRating}</Text>
+            <Text style={styles.reviewsTxt}>{displayCount}</Text>
+            {distStr && (
+              <>
+                <View style={styles.metaDivider} />
+                <Ionicons name="location-outline" size={12} color={GRAY} />
+                <Text style={styles.distTxt}>{distStr}</Text>
+              </>
+            )}
+            {isAdmin && (
+              <Ionicons name="pencil-outline" size={10} color={GRAY} style={{ marginLeft: 4 }} />
+            )}
+          </Pressable>
+
+          {/* City chip */}
+          {item.city ? (
+            <Text style={styles.cityTxt} numberOfLines={1}>{item.city}</Text>
           ) : null}
+        </View>
+
+        {/* Right side */}
+        <View style={styles.cardRight}>
+          {/* ETA pill */}
+          {eta && (
+            <View style={styles.etaRow}>
+              <Ionicons name="time-outline" size={11} color={SUCCESS} />
+              <Text style={styles.etaTxt}>{eta}</Text>
+            </View>
+          )}
+          {/* Like button */}
+          {currentUserId && currentUserId !== item.id && (
+            <Pressable style={styles.likeBtn} onPress={handleLike} disabled={likeLoading}>
+              <Ionicons
+                name={isLiked ? 'heart' : 'heart-outline'}
+                size={16}
+                color={isLiked ? '#EF4444' : GRAY}
+              />
+              {likes.length > 0 && (
+                <Text style={[styles.likeCount, isLiked && { color: '#EF4444' }]}>{likes.length}</Text>
+              )}
+            </Pressable>
+          )}
+          {/* Chat button */}
+          {onChat && (
+            <Pressable style={styles.chatCircleBtn} onPress={onChat}>
+              <Ionicons name="chatbubble-outline" size={15} color="#FFF" />
+            </Pressable>
+          )}
         </View>
       </View>
 
-      {/* Footer buttons - Only show for Supplier and Teacher */}
-      {showButtons ? (
-        <View style={styles.cardFooter}>
-          <Pressable style={styles.chatBtn} onPress={onChat}>
-            <Ionicons name="chatbubble-outline" size={13} color={DARK} />
-            <Text style={styles.chatBtnText}>Chat</Text>
-          </Pressable>
-          <Pressable style={styles.callBtn} onPress={onCall}>
-            <Ionicons name="call" size={13} color="#FFF" />
-            <Text style={styles.callBtnText}>Call</Text>
-          </Pressable>
-          <Pressable style={styles.chevronBtn} onPress={onPress}>
-            <Ionicons name="chevron-forward" size={13} color={GRAY} />
-          </Pressable>
-        </View>
-      ) : (
-        <View style={styles.cardFooter}>
-          <Pressable style={[styles.chatBtn, { flex: 1 }]} onPress={onPress}>
-            <Ionicons name="chatbubble-outline" size={13} color={DARK} />
-            <Text style={styles.chatBtnText}>View Profile</Text>
-          </Pressable>
-          <Pressable style={styles.chevronBtn} onPress={onPress}>
-            <Ionicons name="chevron-forward" size={13} color={GRAY} />
+      {/* Admin inline rating editor */}
+      {showRatingEditor && isAdmin && (
+        <View style={styles.ratingEditor}>
+          <TextInput
+            style={styles.ratingEditorInput}
+            value={ratingInput}
+            onChangeText={setRatingInput}
+            keyboardType="decimal-pad"
+            placeholder="Rating (0-5)"
+            placeholderTextColor={GRAY}
+          />
+          <TextInput
+            style={styles.ratingEditorInput}
+            value={countInput}
+            onChangeText={setCountInput}
+            keyboardType="number-pad"
+            placeholder="Review count"
+            placeholderTextColor={GRAY}
+          />
+          <Pressable
+            style={[styles.ratingEditorSave, savingRating && { opacity: 0.6 }]}
+            onPress={handleSaveRating}
+            disabled={savingRating}
+          >
+            <Text style={styles.ratingEditorSaveTxt}>{savingRating ? 'Saving…' : 'Save'}</Text>
           </Pressable>
         </View>
       )}
@@ -299,6 +406,10 @@ export default function DirectoryScreen() {
       latitude:  (p as any).latitude  ? parseFloat((p as any).latitude)  : null,
       longitude: (p as any).longitude ? parseFloat((p as any).longitude) : null,
       locationSharing: (p as any).locationSharing,
+      rating:       p.rating ?? '0',
+      ratingCount:  p.ratingCount ?? '0',
+      profileLikes: p.profileLikes ?? '[]',
+      verified:     p.verified ?? 0,
     }));
   }, [allProfiles]);
 
@@ -414,14 +525,12 @@ export default function DirectoryScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={PRIMARY} colors={[PRIMARY]} />}
         contentContainerStyle={{ paddingBottom: Platform.OS === 'web' ? 118 : 100 }}
         renderItem={({ item }) => {
-          const prof = allProfiles.find(p => p.id === item.id);
-          const phone = prof?.phone;
-          const showCall = (item.role === 'supplier' || item.role === 'teacher' || item.role === 'shopkeeper') && phone;
           return (
           <ProfCard
             item={item}
+            currentUserId={profile?.id}
+            isAdmin={profile?.role === 'admin'}
             onPress={() => {
-              // Route suppliers/teachers/shopkeepers to shop, others to profile
               if (item.role === 'supplier' || item.role === 'teacher' || item.role === 'shopkeeper') {
                 router.push({ pathname: '/shop/[supplierId]', params: { supplierId: item.id, supplierName: item.name } } as any);
               } else {
@@ -432,7 +541,6 @@ export default function DirectoryScreen() {
               const c = await startConversation(item.id, item.name, item.role);
               if (c) router.push({ pathname: '/chat/[id]', params: { id: c } });
             } : undefined}
-            onCall={showCall ? () => Linking.openURL(`tel:+91${phone}`) : undefined}
           />);
         }}
         ItemSeparatorComponent={() => <View style={{ height: 6 }} />}
@@ -542,50 +650,57 @@ const styles = StyleSheet.create({
   tabText: { fontSize: 13, color: GRAY, fontFamily: 'Inter_500Medium' },
   tabTextActive: { color: '#FFF', fontFamily: 'Inter_600SemiBold' },
 
-  // Card
+  // Card — TechCard-style
   card: {
     marginHorizontal: 12,
-    backgroundColor: CARD,
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    padding: 3,
-    marginBottom: 3,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.03, shadowRadius: 6, elevation: 1,
-    borderWidth: 1, borderColor: '#F3F4F6',
+    padding: 14,
+    borderWidth: 1,
+    borderColor: BORDER,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 8, elevation: 3,
   },
-  cardTop: { flexDirection: 'row', gap: 6 },
+  cardRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   avatarWrap: { position: 'relative', flexShrink: 0 },
-  avatar: { width: 40, height: 40, borderRadius: 20, borderWidth: 1.5, borderColor: '#FFF' },
-  avatarFallback: { backgroundColor: '#DBEAFE', alignItems: 'center', justifyContent: 'center' },
-  avatarInitials: { fontSize: 13, fontFamily: 'Inter_700Bold', color: PRIMARY },
-  onlineDot: { position: 'absolute', bottom: 0, right: 0, width: 10, height: 10, borderRadius: 5, borderWidth: 1.5, borderColor: CARD },
-  cardInfo: { flex: 1 },
-  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginBottom: 1 },
-  cardName: { fontSize: 12, fontFamily: 'Inter_700Bold', color: DARK, flex: 1 },
-  badgeRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 1 },
-  roleBadge: { paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 },
-  roleBadgeText: { fontSize: 9, fontFamily: 'Inter_600SemiBold' },
-  ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  ratingText: { fontSize: 9, color: GRAY, fontFamily: 'Inter_400Regular' },
-  locationRow: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  locationText: { fontSize: 9, color: GRAY, fontFamily: 'Inter_400Regular', flex: 1 },
-  distancePill: { flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: PRIMARY_L, borderRadius: 4, paddingHorizontal: 4, paddingVertical: 1 },
-  distanceText: { fontSize: 9, color: PRIMARY, fontFamily: 'Inter_600SemiBold' },
+  avatar: { width: 58, height: 58, borderRadius: 29, borderWidth: 2, borderColor: '#EEE' },
+  avatarFallback: { backgroundColor: PRIMARY_L, alignItems: 'center', justifyContent: 'center', borderColor: '#FFD5C2' },
+  avatarInitials: { fontSize: 18, fontFamily: 'Inter_700Bold', color: PRIMARY },
+  onlineDot: { position: 'absolute', bottom: 2, right: 2, width: 12, height: 12, borderRadius: 6, borderWidth: 2, borderColor: '#FFF' },
+  cardInfo: { flex: 1, minWidth: 0 },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 2, flexWrap: 'wrap' },
+  cardName: { fontSize: 15, fontFamily: 'Inter_700Bold', color: DARK, flexShrink: 1 },
+  verifiedBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: '#E8F5ED', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8 },
+  verifiedTxt: { fontSize: 10, fontFamily: 'Inter_700Bold', color: '#27AE60' },
+  cardSubtitle: { fontSize: 12, fontFamily: 'Inter_400Regular', color: GRAY, marginBottom: 5 },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  ratingTxt: { fontSize: 12, fontFamily: 'Inter_700Bold', color: DARK },
+  reviewsTxt: { fontSize: 11, fontFamily: 'Inter_400Regular', color: GRAY },
+  metaDivider: { width: 3, height: 3, borderRadius: 2, backgroundColor: BORDER, marginHorizontal: 3 },
+  distTxt: { fontSize: 11, fontFamily: 'Inter_400Regular', color: GRAY },
+  cityTxt: { fontSize: 11, fontFamily: 'Inter_400Regular', color: GRAY, marginTop: 3 },
 
-  // Card footer
-  cardFooter: { flexDirection: 'row', gap: 3, marginTop: 2, paddingTop: 2, borderTopWidth: 1, borderTopColor: '#F9FAFB' },
-  chatBtn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 2,
-    borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8,
-    paddingVertical: 4, backgroundColor: CARD,
+  cardRight: { alignItems: 'flex-end', gap: 8 },
+  etaRow: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: '#ECFDF5', paddingHorizontal: 7, paddingVertical: 3, borderRadius: 10 },
+  etaTxt: { fontSize: 11, fontFamily: 'Inter_600SemiBold', color: SUCCESS },
+  likeBtn: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingVertical: 4 },
+  likeCount: { fontSize: 11, fontFamily: 'Inter_600SemiBold', color: GRAY },
+  chatCircleBtn: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: PRIMARY, alignItems: 'center', justifyContent: 'center',
   },
-  chatBtnText: { fontSize: 10, fontFamily: 'Inter_600SemiBold', color: '#374151' },
-  callBtn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 2,
-    backgroundColor: PRIMARY, borderRadius: 8, paddingVertical: 4,
-    shadowColor: PRIMARY, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4, elevation: 2,
+
+  // Rating editor
+  ratingEditor: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: BORDER },
+  ratingEditorInput: {
+    flex: 1, height: 36, borderWidth: 1, borderColor: BORDER, borderRadius: 8,
+    paddingHorizontal: 10, fontSize: 13, fontFamily: 'Inter_400Regular', color: DARK,
+    backgroundColor: CARD,
   },
-  callBtnText: { fontSize: 10, fontFamily: 'Inter_600SemiBold', color: '#FFF' },
-  chevronBtn: { width: 30, backgroundColor: '#F3F4F6', borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  ratingEditorSave: {
+    paddingHorizontal: 14, height: 36, backgroundColor: PRIMARY, borderRadius: 8,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  ratingEditorSaveTxt: { fontSize: 13, fontFamily: 'Inter_700Bold', color: '#FFF' },
 
   // Live Count Pills
   liveCountsContainer: { paddingHorizontal: 16, gap: 6 },

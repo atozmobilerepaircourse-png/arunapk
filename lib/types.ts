@@ -29,6 +29,9 @@ export interface UserProfile {
   deviceChangeCount?: number;
   availableForJobs?: string;
   verified?: number;
+  rating?: string;
+  ratingCount?: string;
+  profileLikes?: string;
   createdAt: number;
 }
 

@@ -1835,6 +1835,50 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
     }
   });
 
+  app.post("/api/profiles/:id/like", async (req, res) => {
+    try {
+      const { userId } = req.body;
+      if (!userId) return res.status(400).json({ success: false, message: "userId required" });
+
+      const result = await db.select().from(profiles).where(eq(profiles.id, req.params.id));
+      if (result.length === 0) return res.status(404).json({ success: false, message: "Profile not found" });
+
+      const prof = result[0];
+      let currentLikes: string[] = [];
+      try { currentLikes = JSON.parse((prof as any).profileLikes || "[]"); } catch { currentLikes = []; }
+
+      const idx = currentLikes.indexOf(userId);
+      if (idx >= 0) {
+        currentLikes.splice(idx, 1);
+      } else {
+        currentLikes.push(userId);
+      }
+
+      await db.update(profiles).set({ profileLikes: JSON.stringify(currentLikes) } as any).where(eq(profiles.id, req.params.id));
+      return res.json({ success: true, profileLikes: currentLikes });
+    } catch (error) {
+      console.error("[Profiles] Like error:", error);
+      return res.status(500).json({ success: false, message: "Failed to toggle like" });
+    }
+  });
+
+  app.put("/api/profiles/:id/rating", adminMiddleware, async (req, res) => {
+    try {
+      const { rating, ratingCount } = req.body;
+      if (rating === undefined || ratingCount === undefined) {
+        return res.status(400).json({ success: false, message: "rating and ratingCount required" });
+      }
+      const result = await db.select().from(profiles).where(eq(profiles.id, req.params.id));
+      if (result.length === 0) return res.status(404).json({ success: false, message: "Profile not found" });
+
+      await db.update(profiles).set({ rating: String(rating), ratingCount: String(ratingCount) } as any).where(eq(profiles.id, req.params.id));
+      return res.json({ success: true });
+    } catch (error) {
+      console.error("[Profiles] Rating error:", error);
+      return res.status(500).json({ success: false, message: "Failed to update rating" });
+    }
+  });
+
   app.post("/api/notifications/token", async (req, res) => {
     try {
       const { userId, token } = req.body;
