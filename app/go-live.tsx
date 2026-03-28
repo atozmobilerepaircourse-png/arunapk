@@ -218,18 +218,31 @@ export default function GoLiveScreen() {
 
   const uploadThumbnail = async (uri: string): Promise<string | null> => {
     try {
+      console.log('[GoLive] uploadThumbnail - Starting upload from:', uri);
       const formData = new FormData();
       if (Platform.OS === 'web') {
         const blob = await (await globalThis.fetch(uri)).blob();
         formData.append('image', blob, 'thumbnail.jpg');
+        console.log('[GoLive] uploadThumbnail - Web blob ready, size:', blob.size);
       } else {
         const name = uri.split('/').pop() || 'thumbnail.jpg';
         formData.append('image', { uri, name, type: 'image/jpeg' } as any);
+        console.log('[GoLive] uploadThumbnail - Mobile FormData ready:', name);
       }
-      const res = await globalThis.fetch(new URL('/api/upload', getApiUrl()).toString(), { method: 'POST', body: formData });
+      const uploadUrl = new URL('/api/upload', getApiUrl()).toString();
+      console.log('[GoLive] uploadThumbnail - Uploading to:', uploadUrl);
+      const res = await globalThis.fetch(uploadUrl, { method: 'POST', body: formData });
+      console.log('[GoLive] uploadThumbnail - Response status:', res.status);
+      if (!res.ok) {
+        const errText = await res.text();
+        console.error('[GoLive] uploadThumbnail - Error:', res.status, errText);
+        return null;
+      }
       const data = await res.json();
+      console.log('[GoLive] uploadThumbnail - Success:', data);
       return data.success && data.url ? data.url : null;
-    } catch {
+    } catch (e: any) {
+      console.error('[GoLive] uploadThumbnail - Exception:', e?.message);
       return null;
     }
   };
