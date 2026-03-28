@@ -341,6 +341,7 @@ export default function NearbyScreen() {
   const [sliderValue, setSliderValue] = useState(2);
   const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [supplierProducts, setSupplierProducts] = useState<any[]>([]);
+  const [supplierShops, setSupplierShops] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -374,38 +375,45 @@ export default function NearbyScreen() {
     })();
   }, []);
 
-  // Fetch supplier products
+  // Fetch supplier and shopkeeper products
   useEffect(() => {
     const fetchSupplierProducts = async () => {
       setIsLoading(true);
       try {
-        const response = await apiRequest('GET', '/api/products?role=supplier');
-        let products = await response.json();
+        // Fetch both supplier and shopkeeper products
+        const [supplierRes, shopkeeperRes] = await Promise.all([
+          apiRequest('GET', '/api/products?role=supplier'),
+          apiRequest('GET', '/api/products?role=shopkeeper')
+        ]);
+        
+        const supplierProducts = await supplierRes.json();
+        const shopkeeperProducts = await shopkeeperRes.json();
+        let allProducts = [...supplierProducts, ...shopkeeperProducts];
         
         // Map products and calculate distances
-        products = products.map((p: any) => {
-          const supplier = allProfiles.find(prof => prof.id === p.userId);
+        allProducts = allProducts.map((p: any) => {
+          const seller = allProfiles.find(prof => prof.id === p.userId);
           let distance = undefined;
-          if (location && supplier?.latitude && supplier?.longitude) {
-            const supplierLat = parseFloat(supplier.latitude);
-            const supplierLng = parseFloat(supplier.longitude);
-            if (!isNaN(supplierLat) && !isNaN(supplierLng)) {
-              distance = calculateDistance(location.latitude, location.longitude, supplierLat, supplierLng);
+          if (location && seller?.latitude && seller?.longitude) {
+            const sellerLat = parseFloat(seller.latitude);
+            const sellerLng = parseFloat(seller.longitude);
+            if (!isNaN(sellerLat) && !isNaN(sellerLng)) {
+              distance = calculateDistance(location.latitude, location.longitude, sellerLat, sellerLng);
             }
           }
           return {
             id: p.id,
             name: p.title,
             price: p.price ? `₹${p.price}` : '₹0',
-            shopName: p.userName || 'Supplier',
+            shopName: p.userName || 'Shop',
             shopId: p.userId,
             image: p.images?.[0] || '',
             distance: distance || 999,
           };
         });
-        setSupplierProducts(products);
+        setSupplierProducts(allProducts);
       } catch (e) {
-        console.log('Error fetching supplier products:', e);
+        console.log('Error fetching products:', e);
       } finally {
         setIsLoading(false);
       }
@@ -413,15 +421,57 @@ export default function NearbyScreen() {
     fetchSupplierProducts();
   }, [location, allProfiles]);
 
+  // Fetch supplier and shopkeeper shops
+  useEffect(() => {
+    const fetchShops = async () => {
+      try {
+        const res = await apiRequest('GET', '/api/profiles');
+        const data = await res.json();
+        const profiles = Array.isArray(data) ? data : (data.profiles || []);
+        
+        let shops = profiles.filter((u: any) => 
+          (u.role === 'supplier' || u.role === 'shopkeeper') && !u.blocked_at && u.productCount > 0
+        );
+        
+        // Map shops and calculate distances
+        shops = shops.map((s: any) => {
+          let distance = undefined;
+          if (location && s.latitude && s.longitude) {
+            const shopLat = parseFloat(s.latitude);
+            const shopLng = parseFloat(s.longitude);
+            if (!isNaN(shopLat) && !isNaN(shopLng)) {
+              distance = calculateDistance(location.latitude, location.longitude, shopLat, shopLng);
+            }
+          }
+          return {
+            id: s.id,
+            name: s.businessName || s.name,
+            rating: parseFloat(s.rating) || 4.5,
+            reviewCount: parseInt(s.ratingCount) || 0,
+            image: s.shopThumbnail || s.bannerImage || 'https://via.placeholder.com/80?text=Shop',
+            address: [s.city, s.state].filter(Boolean).join(', ') || 'Location not available',
+            distance: distance || 999,
+            isOpen: true,
+          };
+        });
+        setSupplierShops(shops);
+      } catch (e) {
+        console.log('Error fetching shops:', e);
+      }
+    };
+    fetchShops();
+  }, [location]);
+
   // Filter shops by distance and search
   const filteredShops = useMemo(() => {
-    let shops = selectedDistance === 'ALL' ? MOCK_SHOPS : MOCK_SHOPS.filter(s => s.distance <= selectedDistance);
+    let shops = supplierShops.length > 0 ? supplierShops : MOCK_SHOPS;
+    shops = selectedDistance === 'ALL' ? shops : shops.filter(s => s.distance <= selectedDistance);
     if (search.trim()) {
       const q = search.toLowerCase();
       shops = shops.filter(s => s.name.toLowerCase().includes(q) || s.address.toLowerCase().includes(q));
     }
     return shops.sort((a, b) => a.distance - b.distance);
-  }, [selectedDistance, search]);
+  }, [selectedDistance, search, supplierShops]);
 
   const filteredProducts = useMemo(() => {
     let products = supplierProducts.length > 0 ? supplierProducts : MOCK_PRODUCTS;
