@@ -115,41 +115,66 @@ export default function CreatePostScreen() {
   // Fix EXIF rotation by redrawing image on canvas with correct orientation
   const fixEXIFRotation = async (base64Data: string): Promise<Blob> => {
     return new Promise((resolve) => {
-      const byteChars = atob(base64Data);
-      const bytes = new Uint8Array(byteChars.length);
-      for (let i = 0; i < byteChars.length; i++) {
-        bytes[i] = byteChars.charCodeAt(i);
-      }
-      const orientation = getEXIFOrientation(bytes);
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return resolve(new Blob([''], { type: 'image/jpeg' }));
-        
-        let width = img.width, height = img.height;
-        if (orientation > 4) [width, height] = [height, width];
-        canvas.width = width;
-        canvas.height = height;
-        
-        ctx.save();
-        switch (orientation) {
-          case 2: ctx.translate(width, 0); ctx.scale(-1, 1); break;
-          case 3: ctx.translate(width, height); ctx.rotate(Math.PI); break;
-          case 4: ctx.translate(0, height); ctx.scale(1, -1); break;
-          case 5: ctx.translate(width, 0); ctx.rotate(Math.PI / 2); ctx.scale(-1, 1); break;
-          case 6: ctx.translate(width, 0); ctx.rotate(Math.PI / 2); break;
-          case 7: ctx.translate(0, height); ctx.rotate(Math.PI / 2); ctx.scale(-1, 1); break;
-          case 8: ctx.translate(0, height); ctx.rotate(-Math.PI / 2); break;
+      try {
+        const byteChars = atob(base64Data);
+        const bytes = new Uint8Array(byteChars.length);
+        for (let i = 0; i < byteChars.length; i++) {
+          bytes[i] = byteChars.charCodeAt(i);
         }
-        ctx.drawImage(img, 0, 0);
-        ctx.restore();
+        const orientation = getEXIFOrientation(bytes);
+        const img = new Image();
+        let timeout: NodeJS.Timeout | null = null;
         
-        canvas.toBlob((blob) => {
-          resolve(blob || new Blob([''], { type: 'image/jpeg' }));
-        }, 'image/jpeg', 0.92);
-      };
-      img.src = `data:image/jpeg;base64,${base64Data}`;
+        img.onload = () => {
+          if (timeout) clearTimeout(timeout);
+          try {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return resolve(new Blob([''], { type: 'image/jpeg' }));
+            
+            let width = img.width, height = img.height;
+            if (orientation > 4) [width, height] = [height, width];
+            canvas.width = width;
+            canvas.height = height;
+            
+            ctx.save();
+            switch (orientation) {
+              case 2: ctx.translate(width, 0); ctx.scale(-1, 1); break;
+              case 3: ctx.translate(width, height); ctx.rotate(Math.PI); break;
+              case 4: ctx.translate(0, height); ctx.scale(1, -1); break;
+              case 5: ctx.translate(width, 0); ctx.rotate(Math.PI / 2); ctx.scale(-1, 1); break;
+              case 6: ctx.translate(width, 0); ctx.rotate(Math.PI / 2); break;
+              case 7: ctx.translate(0, height); ctx.rotate(Math.PI / 2); ctx.scale(-1, 1); break;
+              case 8: ctx.translate(0, height); ctx.rotate(-Math.PI / 2); break;
+            }
+            ctx.drawImage(img, 0, 0);
+            ctx.restore();
+            
+            canvas.toBlob((blob) => {
+              resolve(blob || new Blob([''], { type: 'image/jpeg' }));
+            }, 'image/jpeg', 0.92);
+          } catch (e) {
+            console.error('[EXIF] Canvas processing failed:', e);
+            resolve(new Blob([''], { type: 'image/jpeg' }));
+          }
+        };
+        
+        img.onerror = () => {
+          if (timeout) clearTimeout(timeout);
+          console.warn('[EXIF] Image load failed, returning empty blob');
+          resolve(new Blob([''], { type: 'image/jpeg' }));
+        };
+        
+        timeout = setTimeout(() => {
+          console.warn('[EXIF] Image load timeout, returning empty blob');
+          resolve(new Blob([''], { type: 'image/jpeg' }));
+        }, 5000);
+        
+        img.src = `data:image/jpeg;base64,${base64Data}`;
+      } catch (e) {
+        console.error('[EXIF] Parsing failed:', e);
+        resolve(new Blob([''], { type: 'image/jpeg' }));
+      }
     });
   };
 
