@@ -51,6 +51,10 @@ function NativeTabLayout() {
           <Icon sf={{ default: "wrench.adjustable", selected: "wrench.adjustable.fill" }} />
           <Label>Ask for Repair</Label>
         </NativeTabs.Trigger>
+        <NativeTabs.Trigger name="nearby">
+          <Icon sf={{ default: "location", selected: "location.fill" }} />
+          <Label>Nearby</Label>
+        </NativeTabs.Trigger>
         <NativeTabs.Trigger name="support" hidden />
         <NativeTabs.Trigger name="index" hidden />
         <NativeTabs.Trigger name="jobs" hidden />
@@ -97,6 +101,7 @@ function NativeTabLayout() {
         <NativeTabs.Trigger name="buy-sell" hidden />
         <NativeTabs.Trigger name="content" hidden={true} />
         <NativeTabs.Trigger name="products" hidden={true} />
+        <NativeTabs.Trigger name="nearby" hidden />
       </NativeTabs>
     );
   }
@@ -125,6 +130,7 @@ function NativeTabLayout() {
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="customer-home" hidden />
       <NativeTabs.Trigger name="nearby-shops" hidden />
+      <NativeTabs.Trigger name="nearby" hidden />
       <NativeTabs.Trigger name="orders" hidden />
       <NativeTabs.Trigger name="jobs" hidden />
       <NativeTabs.Trigger name="technician-jobs" hidden />
