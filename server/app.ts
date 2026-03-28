@@ -8,7 +8,7 @@ import * as path from "path";
 
 const log = console.log;
 
-const PRODUCTION_DOMAIN = "https://repair-backend-us-456751858632.us-central1.run.app";
+const PRODUCTION_DOMAIN = "https://repair-backendarun-838751841074.asia-south1.run.app";
 
 declare module "http" {
   interface IncomingMessage {
@@ -26,6 +26,7 @@ function setupCors(app: express.Application) {
     origins.add("https://mail.atozmobilerepair.in");
     origins.add("https://mobile-repair-app-276b6.firebaseapp.com");
     origins.add("https://repair-backend-3siuld7gbq-el.a.run.app");
+    origins.add("https://repair-backendarun-838751841074.asia-south1.run.app");
     origins.add("https://mobi-backend.onrender.com"); // Render backend
 
     if (process.env.VERCEL_FRONTEND_URL) {
