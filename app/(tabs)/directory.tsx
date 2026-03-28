@@ -24,18 +24,13 @@ const GRAY      = '#6B7280';
 const SUCCESS   = '#10B981';
 
 
-const ROLE_FILTERS_ALL: { key: UserRole | 'all'; label: string }[] = [
+const ROLE_FILTERS_ALL: { key: UserRole | 'all' | 'nearby'; label: string }[] = [
   { key: 'all',          label: 'All' },
   { key: 'technician',   label: 'Technicians' },
   { key: 'teacher',      label: 'Teachers' },
   { key: 'supplier',     label: 'Suppliers' },
   { key: 'shopkeeper',   label: 'Shopkeepers' },
   { key: 'job_provider', label: 'Jobs' },
-];
-
-const ROLE_FILTERS_CUSTOMER: { key: UserRole | 'all' | 'nearby'; label: string }[] = [
-  { key: 'technician',   label: 'Technicians' },
-  { key: 'shopkeeper',   label: 'Shopkeepers' },
   { key: 'nearby',       label: 'Nearby' },
 ];
 
@@ -428,11 +423,6 @@ export default function DirectoryScreen() {
   const filtered = useMemo(() => {
     let list = directory;
 
-    // For customers, exclude teachers, suppliers, and other customers (only show technicians and shopkeepers)
-    if (isCustomer) {
-      list = list.filter(e => e.role !== 'teacher' && e.role !== 'supplier' && e.role !== 'customer');
-    }
-
     // Calculate distances FIRST so the "Nearby" filter can use them
     if (userLocation) {
       list = list.map(item => {
@@ -444,7 +434,7 @@ export default function DirectoryScreen() {
       });
     }
 
-    // Apply role / nearby filter AFTER distances are attached
+    // Apply role / nearby filter
     if (roleFilter === 'nearby') {
       list = list.filter(e => e.distance !== undefined && e.distance !== null && e.distance <= 5);
     } else if (roleFilter !== 'all') {
@@ -463,7 +453,7 @@ export default function DirectoryScreen() {
     }
 
     return list;
-  }, [directory, roleFilter, search, userLocation, isCustomer]);
+  }, [directory, roleFilter, search, userLocation]);
 
   const mapProfiles = useMemo(() => filtered.filter(p => p.latitude && p.longitude && !isNaN(p.latitude!) && !isNaN(p.longitude!) && (p.role !== 'customer' || p.locationSharing === 'true')).map(p => ({ id: p.id, latitude: p.latitude!, longitude: p.longitude!, name: p.name, role: ROLE_LABELS[p.role] || p.role, roleKey: p.role, city: p.city, skills: p.skills, color: ROLE_MAP_COLORS[p.role] || '#1D4ED8', avatar: p.avatar, isOnline: p.isOnline, lastSeen: 0 })), [filtered]);
 
@@ -517,7 +507,7 @@ export default function DirectoryScreen() {
 
         {/* Role Filter Tabs - Fixed */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs} style={{ backgroundColor: BG, paddingVertical: 6 }}>
-          {(profile?.role === 'customer' ? ROLE_FILTERS_CUSTOMER : ROLE_FILTERS_ALL).map(f => (
+          {ROLE_FILTERS_ALL.map(f => (
             <Pressable
               key={f.key}
               style={[styles.tab, roleFilter === f.key && styles.tabActive]}
