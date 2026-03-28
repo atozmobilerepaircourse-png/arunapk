@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, TextInput, Pressable, StyleSheet, ScrollView,
-  Alert, ActivityIndicator, Platform, Linking, Share, TouchableOpacity,
+  ActivityIndicator, Platform, TouchableOpacity,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -35,12 +35,19 @@ const LINK_PLATFORMS: { key: LinkPlatform; label: string; icon: keyof typeof Ion
   { key: 'other',   label: 'Other',   icon: 'radio',        color: '#EF4444' },
 ];
 
+function showMsg(msg: string) {
+  if (typeof window !== 'undefined') {
+    window.alert(msg);
+  }
+}
+
 export default function GoLiveScreen() {
   const insets = useSafeAreaInsets();
   const { profile } = useApp();
   const isTeacher = profile?.role === 'teacher' || profile?.role === 'admin';
+  const scrollRef = useRef<ScrollView>(null);
 
-  const [mode, setMode] = useState<StreamMode>('bunny');
+  const [mode, setMode] = useState<StreamMode>('link');
   const [linkPlatform, setLinkPlatform] = useState<LinkPlatform>('youtube');
   const [title, setTitle]               = useState('');
   const [description, setDescription]   = useState('');
@@ -51,7 +58,8 @@ export default function GoLiveScreen() {
   const [isUploading, setIsUploading]   = useState(false);
   const [streamKeyInfo, setStreamKeyInfo] = useState<{ rtmpUrl: string; streamKey: string } | null>(null);
   const [thumbnailUri, setThumbnailUri]   = useState<string | null>(null);
-  const [uploadingThumbnail, setUploadingThumbnail] = useState(false);
+  const [errorMsg, setErrorMsg]         = useState('');
+  const [successMsg, setSuccessMsg]     = useState('');
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
 
@@ -78,142 +86,160 @@ export default function GoLiveScreen() {
     }
   };
 
+  const showError = (msg: string) => {
+    setErrorMsg(msg);
+    setSuccessMsg('');
+    scrollRef.current?.scrollTo({ y: 0, animated: true });
+  };
+
+  const showSuccess = (msg: string) => {
+    setSuccessMsg(msg);
+    setErrorMsg('');
+  };
+
+  const uploadThumbnail = async (uri: string): Promise<string | null> => {
+    try {
+      const formData = new FormData();
+      if (Platform.OS === 'web') {
+        const blob = await (await globalThis.fetch(uri)).blob();
+        formData.append('image', blob, 'thumbnail.jpg');
+      } else {
+        const name = uri.split('/').pop() || 'thumbnail.jpg';
+        formData.append('image', { uri, name, type: 'image/jpeg' } as any);
+      }
+      const uploadUrl = new URL('/api/upload', getApiUrl()).toString();
+      const res = await globalThis.fetch(uploadUrl, { method: 'POST', body: formData });
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data.success && data.url ? data.url : null;
+    } catch (e: any) {
+      console.error('[GoLive] thumbnail upload failed:', e?.message);
+      return null;
+    }
+  };
+
   // Start a Bunny Live stream (RTMP)
   const handleStartBunnyStream = async () => {
-    if (!title.trim()) {
-      Alert.alert('Title required', 'Please enter a session title.');
-      return;
-    }
+    setErrorMsg('');
+    setSuccessMsg('');
+    const finalTitle = title.trim() || 'Live Session';
     setSubmitting(true);
-    let thumbnailUrl = '';
     try {
-      // Upload thumbnail in background (don't block if it fails)
+      let thumbnailUrl = '';
       if (thumbnailUri) {
-        setUploadingThumbnail(true);
-        uploadThumbnail(thumbnailUri)
-          .then(url => { if (url) thumbnailUrl = url; })
-          .finally(() => setUploadingThumbnail(false));
+        uploadThumbnail(thumbnailUri).then(url => { if (url) thumbnailUrl = url; });
       }
-      
-      // Send go-live request immediately (don't wait for thumbnail)
-      const res  = await apiRequest('POST', '/api/teacher/bunny-live/start', {
-        teacherId:    profile?.id,
-        teacherName:  profile?.name,
+
+      const res = await apiRequest('POST', '/api/teacher/bunny-live/start', {
+        teacherId:     profile?.id,
+        teacherName:   profile?.name,
         teacherAvatar: profile?.avatar,
-        title:        title.trim(),
-        description:  description.trim(),
-        thumbnailUrl: thumbnailUrl || '',
+        title:         finalTitle,
+        description:   description.trim(),
+        thumbnailUrl:  thumbnailUrl || '',
       });
-      if (!res.ok) {
-        const errText = await res.text();
-        Alert.alert('Error', `Failed: ${res.status} ${errText || 'Unknown error'}`);
+
+      let data: any = {};
+      try { data = await res.json(); } catch { /* ignore parse error */ }
+
+      if (!res.ok || !data.success) {
+        const msg = data.message || `Server error (${res.status})`;
+        showError(msg);
+        showMsg('Error: ' + msg);
         return;
       }
-      const data = await res.json();
-      if (data.success) {
-        setActiveSession(data.session);
-        setStreamKeyInfo({ rtmpUrl: data.rtmpUrl, streamKey: data.streamKey });
-        setTitle('');
-        setDescription('');
-        setThumbnailUri(null);
-        Alert.alert('Live Stream Started', 'You are now LIVE! Share your RTMP details with OBS or streaming software.');
-      } else {
-        Alert.alert('Error', data.message || 'Failed to start stream');
-      }
+
+      setActiveSession(data.session);
+      setStreamKeyInfo({ rtmpUrl: data.rtmpUrl, streamKey: data.streamKey });
+      setTitle('');
+      setDescription('');
+      setThumbnailUri(null);
+      showSuccess('Live stream started! Share your RTMP details below.');
+      showMsg('Live stream started! You are now LIVE.');
     } catch (e: any) {
-      Alert.alert('Error', e?.message || 'Connection failed. Please try again.');
+      const msg = e?.message || 'Connection failed. Please try again.';
+      showError(msg);
+      showMsg('Error: ' + msg);
     } finally {
       setSubmitting(false);
-      setUploadingThumbnail(false);
     }
   };
 
   // Share an external link (YouTube / Zoom / Meet)
   const handleShareLink = async () => {
-    if (!title.trim()) {
-      Alert.alert('Title required', 'Please enter a session title.');
+    setErrorMsg('');
+    setSuccessMsg('');
+
+    const finalLink = link.trim();
+    const finalTitle = title.trim() || 'Live Session';
+
+    if (!finalLink) {
+      showError('Please enter your live stream link.');
+      showMsg('Please enter your live stream link.');
       return;
     }
-    if (!link.trim() || !/^https?:\/\/.+/i.test(link.trim())) {
-      Alert.alert('Invalid link', 'Please enter a valid URL starting with https://');
+    if (!/^https?:\/\/.+/i.test(finalLink)) {
+      showError('Please enter a valid URL starting with https://');
+      showMsg('Please enter a valid URL starting with https://');
       return;
     }
+
     setSubmitting(true);
-    let thumbnailUrl = '';
     try {
-      // Upload thumbnail in background (don't block if it fails)
+      let thumbnailUrl = '';
       if (thumbnailUri) {
-        setUploadingThumbnail(true);
-        uploadThumbnail(thumbnailUri)
-          .then(url => { if (url) thumbnailUrl = url; })
-          .finally(() => setUploadingThumbnail(false));
+        uploadThumbnail(thumbnailUri).then(url => { if (url) thumbnailUrl = url; });
       }
-      
-      // Send go-live request immediately (don't wait for thumbnail)
-      const res  = await apiRequest('POST', '/api/teacher/go-live', {
-        teacherId:    profile?.id,
-        teacherName:  profile?.name,
+
+      const res = await apiRequest('POST', '/api/teacher/go-live', {
+        teacherId:     profile?.id,
+        teacherName:   profile?.name,
         teacherAvatar: profile?.avatar,
-        title:        title.trim(),
-        description:  description.trim(),
-        platform:     linkPlatform,
-        link:         link.trim(),
-        thumbnailUrl: thumbnailUrl || '',
+        title:         finalTitle,
+        description:   description.trim(),
+        platform:      linkPlatform,
+        link:          finalLink,
+        thumbnailUrl:  thumbnailUrl || '',
       });
-      if (!res.ok) {
-        const errText = await res.text();
-        Alert.alert('Error', `Failed: ${res.status} ${errText || 'Unknown error'}`);
+
+      let data: any = {};
+      try { data = await res.json(); } catch { /* ignore parse error */ }
+
+      if (!res.ok || !data.success) {
+        const msg = data.message || `Server error (${res.status}). Please try again.`;
+        showError(msg);
+        showMsg('Error: ' + msg);
         return;
       }
-      const data = await res.json();
-      if (data.success) {
-        setActiveSession(data.session);
-        setTitle('');
-        setDescription('');
-        setLink('');
-        setThumbnailUri(null);
-        Alert.alert('You are LIVE!', 'All users have been notified.');
-      } else {
-        Alert.alert('Error', data.message || 'Failed to go live');
-      }
+
+      setActiveSession(data.session);
+      setTitle('');
+      setDescription('');
+      setLink('');
+      setThumbnailUri(null);
+      showSuccess('You are LIVE! All users have been notified.');
+      showMsg('You are LIVE! All users have been notified.');
     } catch (e: any) {
-      Alert.alert('Error', e?.message || 'Connection failed. Please try again.');
+      const msg = e?.message || 'Connection failed. Please try again.';
+      showError(msg);
+      showMsg('Error: ' + msg);
     } finally {
       setSubmitting(false);
-      setUploadingThumbnail(false);
     }
   };
 
   const handleEndLive = async () => {
-    console.log('[EndLive] Button pressed. activeSession:', activeSession?.id, 'profile:', profile?.id);
-    
-    if (!activeSession?.id || !profile?.id) {
-      console.log('[EndLive] Missing data - returning early');
-      return;
-    }
-    
-    // Capture values BEFORE clearing state
+    if (!activeSession?.id || !profile?.id) return;
     const sessionId = activeSession.id;
     const teacherId = profile.id;
-    
-    console.log('[EndLive] Captured sessionId:', sessionId, 'teacherId:', teacherId);
-    
-    // Clear state IMMEDIATELY on frontend (for instant UI update)
     setActiveSession(null);
     setStreamKeyInfo(null);
-    console.log('[EndLive] State cleared, activeSession is now null');
-    
-    // Make API call in background with captured values
+    setSuccessMsg('');
+    setErrorMsg('');
     try {
-      console.log('[EndLive] Sending API request to /api/teacher/end-live');
-      const res = await apiRequest('POST', '/api/teacher/end-live', {
-        teacherId,
-        sessionId,
-      });
-      const data = await res.json();
-      console.log('[EndLive] API Response:', data);
+      await apiRequest('POST', '/api/teacher/end-live', { teacherId, sessionId });
     } catch (err: any) {
-      console.error('[EndLive] API Error:', err.message || err);
+      console.error('[EndLive] error:', err.message || err);
     }
   };
 
@@ -224,49 +250,14 @@ export default function GoLiveScreen() {
     }
   };
 
-  const uploadThumbnail = async (uri: string): Promise<string | null> => {
-    try {
-      console.log('[GoLive] uploadThumbnail - Starting upload from:', uri);
-      const formData = new FormData();
-      if (Platform.OS === 'web') {
-        const blob = await (await globalThis.fetch(uri)).blob();
-        formData.append('image', blob, 'thumbnail.jpg');
-        console.log('[GoLive] uploadThumbnail - Web blob ready, size:', blob.size);
-      } else {
-        const name = uri.split('/').pop() || 'thumbnail.jpg';
-        formData.append('image', { uri, name, type: 'image/jpeg' } as any);
-        console.log('[GoLive] uploadThumbnail - Mobile FormData ready:', name);
-      }
-      const uploadUrl = new URL('/api/upload', getApiUrl()).toString();
-      console.log('[GoLive] uploadThumbnail - Uploading to:', uploadUrl);
-      const res = await globalThis.fetch(uploadUrl, { method: 'POST', body: formData });
-      console.log('[GoLive] uploadThumbnail - Response status:', res.status);
-      if (!res.ok) {
-        const errText = await res.text();
-        console.error('[GoLive] uploadThumbnail - Error:', res.status, errText);
-        return null;
-      }
-      const data = await res.json();
-      console.log('[GoLive] uploadThumbnail - Success:', data);
-      return data.success && data.url ? data.url : null;
-    } catch (e: any) {
-      console.error('[GoLive] uploadThumbnail - Exception:', e?.message);
-      return null;
-    }
-  };
-
   const handleShareImage = async () => {
-    if (!activeSession) {
-      Alert.alert('Error', 'No active session');
-      return;
-    }
+    if (!activeSession) return;
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7 });
     if (result.canceled || !result.assets?.[0]?.uri) return;
     setIsUploading(true);
     try {
       const uri      = result.assets[0].uri;
       const formData = new FormData();
-      console.log('[ShareImage] Starting upload... sessionId:', activeSession.id);
       if (Platform.OS === 'web') {
         const blob = await (await globalThis.fetch(uri)).blob();
         formData.append('image', blob, 'live-session.jpg');
@@ -278,41 +269,27 @@ export default function GoLiveScreen() {
       formData.append('sessionLink', activeSession.link);
       formData.append('teacherName', profile?.name || 'Teacher');
       const uploadUrl = new URL('/api/teacher/live-session/upload-image', getApiUrl()).toString();
-      console.log('[ShareImage] Uploading to:', uploadUrl);
-      const res  = await globalThis.fetch(uploadUrl, { method: 'POST', body: formData });
-      console.log('[ShareImage] Response status:', res.status, 'ok:', res.ok);
-      
-      try {
-        const cloned = res.clone();
-        const data = await cloned.json();
-        console.log('[ShareImage] Response data:', data);
-        
-        if (data.success) {
-          Alert.alert('Shared!', 'Photo shared with all technicians.');
-        } else {
-          Alert.alert('Error', data.message || 'Upload failed');
-        }
-      } catch (parseErr: any) {
-        console.log('[ShareImage] Could not parse response, but request succeeded (status:', res.status + ')');
-        if (res.ok) {
-          Alert.alert('Shared!', 'Photo shared with all technicians.');
-        } else {
-          Alert.alert('Error', 'Upload failed (no response data)');
-        }
+      const res = await globalThis.fetch(uploadUrl, { method: 'POST', body: formData });
+      if (res.ok) {
+        showSuccess('Photo shared with all technicians!');
+        showMsg('Photo shared with all technicians!');
+      } else {
+        showError('Photo upload failed. Please try again.');
+        showMsg('Photo upload failed. Please try again.');
       }
     } catch (e: any) {
-      console.error('[ShareImage] Exception:', e.message || e);
-      Alert.alert('Error', e.message || 'Failed to upload photo. Please try again.');
+      showError(e.message || 'Failed to upload photo.');
+      showMsg(e.message || 'Failed to upload photo.');
     } finally {
       setIsUploading(false);
     }
   };
 
   const copyToClipboard = async (text: string) => {
-    if (Platform.OS === 'web' && navigator?.clipboard) {
+    if (typeof navigator !== 'undefined' && navigator?.clipboard) {
       await navigator.clipboard.writeText(text);
+      showSuccess('Copied to clipboard!');
     }
-    Alert.alert('Copied!', 'RTMP URL copied to clipboard');
   };
 
   // ── Not a teacher ────────────────────────────────────────────────────────
@@ -334,7 +311,6 @@ export default function GoLiveScreen() {
     );
   }
 
-  // ── Loading ───────────────────────────────────────────────────────────────
   if (loadingSession) {
     return (
       <View style={[styles.container, { paddingTop: topPad }]}>
@@ -350,7 +326,6 @@ export default function GoLiveScreen() {
     );
   }
 
-  // ── Main Screen ──────────────────────────────────────────────────────────
   return (
     <View style={[styles.container, { paddingTop: topPad }]}>
       <View style={styles.header}>
@@ -362,10 +337,32 @@ export default function GoLiveScreen() {
       </View>
 
       <ScrollView
+        ref={scrollRef}
         style={{ flex: 1 }}
         contentContainerStyle={{ padding: 20, paddingBottom: insets.bottom + 40 }}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
+        {/* Inline error/success banners */}
+        {!!errorMsg && (
+          <View style={styles.errorBanner}>
+            <Ionicons name="alert-circle" size={18} color="#FFF" />
+            <Text style={styles.bannerText}>{errorMsg}</Text>
+            <Pressable onPress={() => setErrorMsg('')}>
+              <Ionicons name="close" size={18} color="#FFF" />
+            </Pressable>
+          </View>
+        )}
+        {!!successMsg && (
+          <View style={styles.successBanner}>
+            <Ionicons name="checkmark-circle" size={18} color="#FFF" />
+            <Text style={styles.bannerText}>{successMsg}</Text>
+            <Pressable onPress={() => setSuccessMsg('')}>
+              <Ionicons name="close" size={18} color="#FFF" />
+            </Pressable>
+          </View>
+        )}
+
         {activeSession ? (
           // ── Active session card ─────────────────────────────────────────
           <View>
@@ -380,7 +377,6 @@ export default function GoLiveScreen() {
               </Text>
             </View>
 
-            {/* RTMP info for Bunny streams */}
             {streamKeyInfo && (
               <View style={styles.rtmpCard}>
                 <Text style={styles.rtmpLabel}>Stream with OBS / Streamlabs</Text>
@@ -442,15 +438,6 @@ export default function GoLiveScreen() {
             {/* Mode selector */}
             <View style={styles.modeRow}>
               <Pressable
-                style={[styles.modeTab, mode === 'bunny' && styles.modeTabActive]}
-                onPress={() => setMode('bunny')}
-              >
-                <Ionicons name="videocam" size={16} color={mode === 'bunny' ? '#FFF' : GRAY} />
-                <Text style={[styles.modeTabText, mode === 'bunny' && styles.modeTabTextActive]}>
-                  Bunny Live
-                </Text>
-              </Pressable>
-              <Pressable
                 style={[styles.modeTab, mode === 'link' && styles.modeTabActive]}
                 onPress={() => setMode('link')}
               >
@@ -459,66 +446,18 @@ export default function GoLiveScreen() {
                   Share Link
                 </Text>
               </Pressable>
+              <Pressable
+                style={[styles.modeTab, mode === 'bunny' && styles.modeTabActive]}
+                onPress={() => setMode('bunny')}
+              >
+                <Ionicons name="videocam" size={16} color={mode === 'bunny' ? '#FFF' : GRAY} />
+                <Text style={[styles.modeTabText, mode === 'bunny' && styles.modeTabTextActive]}>
+                  Bunny Live
+                </Text>
+              </Pressable>
             </View>
 
-            {mode === 'bunny' ? (
-              // ── Bunny Live Stream ────────────────────────────────────────
-              <>
-                <View style={[styles.introCard, { backgroundColor: BUNNY_COLOR + '10', borderColor: BUNNY_COLOR + '30' }]}>
-                  <View style={styles.introBadge}>
-                    <View style={[styles.liveDotRed, { backgroundColor: BUNNY_COLOR }]} />
-                    <Text style={[styles.introBadgeText, { color: BUNNY_COLOR }]}>BUNNY STREAM</Text>
-                  </View>
-                  <Text style={styles.introHeading}>Stream directly in-app</Text>
-                  <Text style={styles.introSub}>
-                    A live stream channel is created for you instantly. Get your RTMP key and stream from OBS, Streamlabs, or any mobile streaming app. Viewers watch inside Mobi.
-                  </Text>
-                </View>
-
-                <Text style={styles.fieldLabel}>Session Title</Text>
-                <TextInput
-                  style={styles.input}
-                  value={title}
-                  onChangeText={setTitle}
-                  placeholder="e.g. Live AC Repair Workshop"
-                  placeholderTextColor="#BBB"
-                  maxLength={80}
-                />
-
-                <Text style={styles.fieldLabel}>Description (optional)</Text>
-                <TextInput
-                  style={[styles.input, styles.textArea]}
-                  value={description}
-                  onChangeText={setDescription}
-                  placeholder="What will you cover today?"
-                  placeholderTextColor="#BBB"
-                  multiline
-                  numberOfLines={3}
-                  maxLength={200}
-                />
-
-                <Text style={styles.fieldLabel}>Thumbnail (optional)</Text>
-                <Pressable style={styles.pickerBtn} onPress={pickThumbnail} disabled={uploadingThumbnail}>
-                  <Ionicons name="image-outline" size={18} color={BUNNY_COLOR} />
-                  <Text style={styles.pickerBtnText}>{thumbnailUri ? 'Change thumbnail' : 'Pick thumbnail'}</Text>
-                </Pressable>
-
-                <Pressable
-                  style={[styles.goLiveBtn, { backgroundColor: BUNNY_COLOR }, submitting && { opacity: 0.6 }]}
-                  onPress={handleStartBunnyStream}
-                  disabled={submitting}
-                >
-                  {submitting ? (
-                    <ActivityIndicator size="small" color="#FFF" />
-                  ) : (
-                    <>
-                      <View style={styles.goLiveDot} />
-                      <Text style={styles.goLiveBtnText}>Start Bunny Stream</Text>
-                    </>
-                  )}
-                </Pressable>
-              </>
-            ) : (
+            {mode === 'link' ? (
               // ── External link ─────────────────────────────────────────────
               <>
                 <View style={[styles.introCard, { backgroundColor: '#FFF5F5', borderColor: '#FFCECE' }]}>
@@ -528,7 +467,7 @@ export default function GoLiveScreen() {
                   </View>
                   <Text style={styles.introHeading}>Share your live class link</Text>
                   <Text style={styles.introSub}>
-                    Post your YouTube, Zoom, or Google Meet link. Students get a push notification instantly.
+                    Post your YouTube, Zoom, or Google Meet link. Users get notified instantly.
                   </Text>
                 </View>
 
@@ -551,22 +490,7 @@ export default function GoLiveScreen() {
                   ))}
                 </View>
 
-                <Text style={styles.fieldLabel}>Session Title</Text>
-                <TextInput
-                  style={styles.input}
-                  value={title}
-                  onChangeText={setTitle}
-                  placeholder="e.g. Live AC Repair Workshop"
-                  placeholderTextColor="#BBB"
-                  maxLength={80}
-                />
-
-                <Text style={styles.fieldLabel}>Stream Link</Text>
-                <Text style={styles.fieldLabel}>Thumbnail (optional)</Text>
-                <Pressable style={styles.pickerBtn} onPress={pickThumbnail} disabled={uploadingThumbnail}>
-                  <Ionicons name="image-outline" size={18} color={RED} />
-                  <Text style={styles.pickerBtnText}>{thumbnailUri ? "Change thumbnail" : "Pick thumbnail"}</Text>
-                </Pressable>
+                <Text style={styles.fieldLabel}>Stream Link <Text style={{ color: RED }}>*</Text></Text>
                 <TextInput
                   style={styles.input}
                   value={link}
@@ -577,6 +501,22 @@ export default function GoLiveScreen() {
                   keyboardType="url"
                   maxLength={300}
                 />
+
+                <Text style={styles.fieldLabel}>Session Title (optional)</Text>
+                <TextInput
+                  style={styles.input}
+                  value={title}
+                  onChangeText={setTitle}
+                  placeholder="e.g. Live AC Repair Workshop"
+                  placeholderTextColor="#BBB"
+                  maxLength={80}
+                />
+
+                <Text style={styles.fieldLabel}>Thumbnail (optional)</Text>
+                <Pressable style={styles.pickerBtn} onPress={pickThumbnail}>
+                  <Ionicons name="image-outline" size={18} color={RED} />
+                  <Text style={styles.pickerBtnText}>{thumbnailUri ? 'Change thumbnail' : 'Pick thumbnail'}</Text>
+                </Pressable>
 
                 <Text style={styles.fieldLabel}>Description (optional)</Text>
                 <TextInput
@@ -606,6 +546,63 @@ export default function GoLiveScreen() {
                   )}
                 </Pressable>
               </>
+            ) : (
+              // ── Bunny Live Stream ────────────────────────────────────────
+              <>
+                <View style={[styles.introCard, { backgroundColor: BUNNY_COLOR + '10', borderColor: BUNNY_COLOR + '30' }]}>
+                  <View style={styles.introBadge}>
+                    <View style={[styles.liveDotRed, { backgroundColor: BUNNY_COLOR }]} />
+                    <Text style={[styles.introBadgeText, { color: BUNNY_COLOR }]}>BUNNY STREAM</Text>
+                  </View>
+                  <Text style={styles.introHeading}>Stream directly in-app</Text>
+                  <Text style={styles.introSub}>
+                    Get your RTMP key and stream from OBS or any mobile streaming app. Viewers watch inside Mobi.
+                  </Text>
+                </View>
+
+                <Text style={styles.fieldLabel}>Session Title (optional)</Text>
+                <TextInput
+                  style={styles.input}
+                  value={title}
+                  onChangeText={setTitle}
+                  placeholder="e.g. Live AC Repair Workshop"
+                  placeholderTextColor="#BBB"
+                  maxLength={80}
+                />
+
+                <Text style={styles.fieldLabel}>Description (optional)</Text>
+                <TextInput
+                  style={[styles.input, styles.textArea]}
+                  value={description}
+                  onChangeText={setDescription}
+                  placeholder="What will you cover today?"
+                  placeholderTextColor="#BBB"
+                  multiline
+                  numberOfLines={3}
+                  maxLength={200}
+                />
+
+                <Text style={styles.fieldLabel}>Thumbnail (optional)</Text>
+                <Pressable style={styles.pickerBtn} onPress={pickThumbnail}>
+                  <Ionicons name="image-outline" size={18} color={BUNNY_COLOR} />
+                  <Text style={styles.pickerBtnText}>{thumbnailUri ? 'Change thumbnail' : 'Pick thumbnail'}</Text>
+                </Pressable>
+
+                <Pressable
+                  style={[styles.goLiveBtn, { backgroundColor: BUNNY_COLOR }, submitting && { opacity: 0.6 }]}
+                  onPress={handleStartBunnyStream}
+                  disabled={submitting}
+                >
+                  {submitting ? (
+                    <ActivityIndicator size="small" color="#FFF" />
+                  ) : (
+                    <>
+                      <View style={styles.goLiveDot} />
+                      <Text style={styles.goLiveBtnText}>Start Bunny Stream</Text>
+                    </>
+                  )}
+                </Pressable>
+              </>
             )}
           </>
         )}
@@ -628,6 +625,17 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 18, fontFamily: 'Inter_700Bold', color: '#000' },
   centerContent: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
   restrictedText: { fontSize: 15, color: GRAY, fontFamily: 'Inter_500Medium' },
+
+  // Banners
+  errorBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: '#EF4444', borderRadius: 14, padding: 14, marginBottom: 16,
+  },
+  successBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: '#10B981', borderRadius: 14, padding: 14, marginBottom: 16,
+  },
+  bannerText: { flex: 1, color: '#FFF', fontSize: 14, fontFamily: 'Inter_500Medium' },
 
   // Mode tabs
   modeRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
@@ -667,6 +675,14 @@ const styles = StyleSheet.create({
   },
   platformBtnText: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: '#666' },
 
+  // Picker btn
+  pickerBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    backgroundColor: '#F3F4F6', borderRadius: 12, paddingVertical: 14, marginBottom: 16,
+    borderWidth: 1, borderColor: '#E5E7EB',
+  },
+  pickerBtnText: { fontSize: 15, fontFamily: 'Inter_600SemiBold', color: DARK },
+
   // Go Live button
   goLiveBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
@@ -676,8 +692,6 @@ const styles = StyleSheet.create({
   goLiveDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#FFF' },
   goLiveBtnText: { fontSize: 16, fontFamily: 'Inter_700Bold', color: '#FFF' },
   goLiveSubNote: { fontSize: 11, color: 'rgba(255,255,255,0.7)', fontFamily: 'Inter_400Regular' },
-  pickerBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: "#F3F4F6", borderRadius: 12, paddingVertical: 14, marginBottom: 16, borderWidth: 1, borderColor: "#E5E7EB" },
-  pickerBtnText: { fontSize: 15, fontFamily: "Inter_600SemiBold", color: DARK },
 
   // Active session
   activeBanner: {
@@ -724,5 +738,3 @@ const styles = StyleSheet.create({
   },
   endBtnText: { color: RED, fontSize: 15, fontFamily: 'Inter_600SemiBold' },
 });
-
-// Adding styles (appending to end)

@@ -6596,28 +6596,19 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
   app.post("/api/teacher/go-live", async (req, res) => {
     try {
       const { teacherId, teacherName, teacherAvatar, title, description, platform, link, thumbnailUrl } = req.body;
-      if (!teacherId || !title || !link) {
-        return res.status(400).json({ success: false, message: "teacherId, title, and link are required" });
+      if (!teacherId || !link) {
+        return res.status(400).json({ success: false, message: "teacherId and link are required" });
       }
 
+      const finalTitle = (title || "Live Session").trim();
       const sessionId = randomUUID();
-      const firestore = getFirestore();
-
-      // End any existing live session for this teacher first
-      const existing = await firestore.collection("teacher_live_sessions")
-        .where("teacherId", "==", teacherId)
-        .where("isLive", "==", true)
-        .get();
-      for (const doc of existing.docs) {
-        await doc.ref.update({ isLive: false, endedAt: Date.now() });
-      }
 
       const sessionData = {
         id: sessionId,
         teacherId,
         teacherName: teacherName || "",
         teacherAvatar: teacherAvatar || "",
-        title,
+        title: finalTitle,
         description: description || "",
         platform: platform || "other",
         link,
@@ -6627,24 +6618,43 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
         viewerCount: 0,
       };
 
-      await firestore.collection("teacher_live_sessions").doc(sessionId).set(sessionData);
+      // Write to Firestore (non-blocking if it fails — push notification still fires)
+      try {
+        const firestore = getFirestore();
+        // End any existing live session for this teacher first
+        const existing = await firestore.collection("teacher_live_sessions")
+          .where("teacherId", "==", teacherId)
+          .where("isLive", "==", true)
+          .get();
+        for (const doc of existing.docs) {
+          await doc.ref.update({ isLive: false, endedAt: Date.now() });
+        }
+        await firestore.collection("teacher_live_sessions").doc(sessionId).set(sessionData);
+        console.log(`[Live] Firestore session saved: ${sessionId}`);
+      } catch (firestoreErr: any) {
+        console.error("[Live] Firestore error (continuing):", firestoreErr?.message || firestoreErr);
+      }
 
-      // Send push notification to all users
-      const platformEmoji: Record<string, string> = {
-        youtube: "▶️", zoom: "📹", meet: "🎥", other: "🔴"
-      };
-      const emoji = platformEmoji[platform] || "🔴";
-      await notifyAllUsers({
-        title: `${emoji} ${teacherName} is LIVE now!`,
-        body: title,
-        data: { type: 'teacher_live', sessionId, link, platform },
-      }, teacherId);
+      // Send push notification (non-blocking)
+      try {
+        const platformEmoji: Record<string, string> = {
+          youtube: "▶️", zoom: "📹", meet: "🎥", other: "🔴"
+        };
+        const emoji = platformEmoji[platform] || "🔴";
+        await notifyAllUsers({
+          title: `${emoji} ${teacherName} is LIVE now!`,
+          body: finalTitle,
+          data: { type: 'teacher_live', sessionId, link, platform },
+        }, teacherId);
+      } catch (notifyErr: any) {
+        console.error("[Live] Notify error (continuing):", notifyErr?.message || notifyErr);
+      }
 
-      console.log(`[Live] ${teacherName} went live: ${title}`);
+      console.log(`[Live] ${teacherName} went live: ${finalTitle}`);
       return res.json({ success: true, session: sessionData });
-    } catch (error) {
-      console.error("[Live] Go live error:", error);
-      return res.status(500).json({ success: false, message: "Failed to go live" });
+    } catch (error: any) {
+      console.error("[Live] Go live error:", error?.message || error);
+      return res.status(500).json({ success: false, message: error?.message || "Failed to go live" });
     }
   });
 
