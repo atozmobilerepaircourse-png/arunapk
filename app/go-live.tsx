@@ -58,6 +58,7 @@ export default function GoLiveScreen() {
   const [isUploading, setIsUploading]   = useState(false);
   const [streamKeyInfo, setStreamKeyInfo] = useState<{ rtmpUrl: string; streamKey: string } | null>(null);
   const [thumbnailUri, setThumbnailUri]   = useState<string | null>(null);
+  const [uploadingThumbnail, setUploadingThumbnail] = useState(false);
   const [errorMsg, setErrorMsg]         = useState('');
   const [successMsg, setSuccessMsg]     = useState('');
 
