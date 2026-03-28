@@ -126,13 +126,16 @@ function getImageUri(img: string): string {
 // ------------------------------------------------------------------
 // DistanceSlider Component
 // ------------------------------------------------------------------
-function DistanceSlider({ sliderValue, onDistanceChange }: { sliderValue: number; onDistanceChange: (val: number) => void }) {
+function DistanceSlider({ sliderValue, selectedDistance, onDistanceChange }: { sliderValue: number; selectedDistance: number | 'ALL'; onDistanceChange: (val: number | 'ALL') => void }) {
   const isWeb = typeof window !== 'undefined';
+  const isAllIndia = selectedDistance === 'ALL';
 
   return (
     <View style={styles.sliderContainer}>
       <View style={styles.sliderHeader}>
-        <Text style={styles.sliderLabel}>Showing results within {Math.round(sliderValue)} km</Text>
+        <Text style={styles.sliderLabel}>
+          {isAllIndia ? 'Showing products across India' : `Showing results within ${Math.round(sliderValue)} km`}
+        </Text>
       </View>
 
       {/* Quick Select Buttons */}
@@ -140,39 +143,49 @@ function DistanceSlider({ sliderValue, onDistanceChange }: { sliderValue: number
         {[5, 10, 25].map(km => (
           <TouchableOpacity
             key={km}
-            style={[styles.quickSelectBtn, Math.round(sliderValue) === km && styles.quickSelectBtnActive]}
+            style={[styles.quickSelectBtn, !isAllIndia && Math.round(sliderValue) === km && styles.quickSelectBtnActive]}
             onPress={() => onDistanceChange(km)}
           >
-            <Text style={[styles.quickSelectText, Math.round(sliderValue) === km && styles.quickSelectTextActive]}>
+            <Text style={[styles.quickSelectText, !isAllIndia && Math.round(sliderValue) === km && styles.quickSelectTextActive]}>
               {km} km
             </Text>
           </TouchableOpacity>
         ))}
+        <TouchableOpacity
+          style={[styles.quickSelectBtn, isAllIndia && styles.quickSelectBtnActive]}
+          onPress={() => onDistanceChange('ALL')}
+        >
+          <Text style={[styles.quickSelectText, isAllIndia && styles.quickSelectTextActive]}>
+            All India
+          </Text>
+        </TouchableOpacity>
       </View>
 
-      {/* Slider - Web Native Input */}
-      {isWeb ? (
-        <input
-          type="range"
-          min="1"
-          max="50"
-          step="1"
-          value={Math.round(sliderValue)}
-          onChange={(e) => onDistanceChange(Number(e.target.value))}
-          style={{
-            width: '100%',
-            height: 6,
-            borderRadius: 3,
-            outline: 'none',
-            marginVertical: 12,
-            cursor: 'pointer',
-            accentColor: DK.primary,
-          } as any}
-        />
-      ) : (
-        <View style={styles.sliderTrackContainer}>
-          <Text style={styles.nativeSliderText}>Distance: {Math.round(sliderValue)} km</Text>
-        </View>
+      {/* Slider - Web Native Input (hidden when All India selected) */}
+      {!isAllIndia && (
+        isWeb ? (
+          <input
+            type="range"
+            min="1"
+            max="50"
+            step="1"
+            value={Math.round(sliderValue)}
+            onChange={(e) => onDistanceChange(Number(e.target.value))}
+            style={{
+              width: '100%',
+              height: 6,
+              borderRadius: 3,
+              outline: 'none',
+              marginVertical: 12,
+              cursor: 'pointer',
+              accentColor: DK.primary,
+            } as any}
+          />
+        ) : (
+          <View style={styles.sliderTrackContainer}>
+            <Text style={styles.nativeSliderText}>Distance: {Math.round(sliderValue)} km</Text>
+          </View>
+        )
       )}
     </View>
   );
@@ -456,7 +469,7 @@ export default function BuySellScreen({ isEmbedded }: { isEmbedded?: boolean } =
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [refreshing, setRefreshing] = useState(false);
-  const [selectedDistance, setSelectedDistance] = useState(25);
+  const [selectedDistance, setSelectedDistance] = useState<number | 'ALL'>(25);
   const [sliderValue, setSliderValue] = useState(25);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -483,8 +496,10 @@ export default function BuySellScreen({ isEmbedded }: { isEmbedded?: boolean } =
     : null;
 
   // Immediate visual feedback + debounced filtering
-  const handleDistanceChange = useCallback((distance: number) => {
-    setSliderValue(distance);
+  const handleDistanceChange = useCallback((distance: number | 'ALL') => {
+    if (distance !== 'ALL') {
+      setSliderValue(distance);
+    }
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
     debounceTimerRef.current = setTimeout(() => {
       setSelectedDistance(distance);
@@ -555,7 +570,7 @@ export default function BuySellScreen({ isEmbedded }: { isEmbedded?: boolean } =
       );
     }
     // Filter & Sort: by distance if location available
-    if (hasLocation && selectedDistance > 0) {
+    if (hasLocation && selectedDistance !== 'ALL' && selectedDistance > 0) {
       // Filter to selected distance
       list = list.filter(i => i.distanceKm !== undefined && i.distanceKm <= selectedDistance);
       // Then sort by distance (nearest first)
@@ -832,7 +847,7 @@ export default function BuySellScreen({ isEmbedded }: { isEmbedded?: boolean } =
       </View>
 
       {/* Distance Slider */}
-      {hasLocation && <DistanceSlider sliderValue={sliderValue} onDistanceChange={handleDistanceChange} />}
+      {hasLocation && <DistanceSlider sliderValue={sliderValue} selectedDistance={selectedDistance} onDistanceChange={handleDistanceChange} />}
 
       <ScrollView
         horizontal
