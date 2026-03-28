@@ -266,10 +266,10 @@ function DistanceSlider({ sliderValue, onDistanceChange }: { sliderValue: number
         {[2, 5, 10].map(km => (
           <TouchableOpacity
             key={km}
-            style={[styles.quickSelectBtn, sliderValue === km && styles.quickSelectBtnActive]}
+            style={[styles.quickSelectBtn, Math.round(sliderValue) === km && styles.quickSelectBtnActive]}
             onPress={() => onDistanceChange(km)}
           >
-            <Text style={[styles.quickSelectText, sliderValue === km && styles.quickSelectTextActive]}>
+            <Text style={[styles.quickSelectText, Math.round(sliderValue) === km && styles.quickSelectTextActive]}>
               {km} km
             </Text>
           </TouchableOpacity>
