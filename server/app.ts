@@ -18,78 +18,36 @@ declare module "http" {
 
 function setupCors(app: express.Application) {
   app.use((req, res, next) => {
-    const origins = new Set<string>();
-
-    origins.add(PRODUCTION_DOMAIN);
-    origins.add("https://mobile-repair-app-276b6.web.app");
-    origins.add("https://www.atozmobilerepair.in");
-    origins.add("https://mail.atozmobilerepair.in");
-    origins.add("https://mobile-repair-app-276b6.firebaseapp.com");
-    origins.add("https://repair-backend-3siuld7gbq-el.a.run.app");
-    origins.add("https://repair-backendarun-838751841074.asia-south1.run.app");
-    origins.add("https://mobi-backend.onrender.com"); // Render backend
-
-    if (process.env.VERCEL_FRONTEND_URL) {
-      origins.add(process.env.VERCEL_FRONTEND_URL);
-    }
-    if (process.env.VERCEL_BACKEND_URL) {
-      origins.add(process.env.VERCEL_BACKEND_URL);
-    }
-    if (process.env.ALLOWED_ORIGINS) {
-      process.env.ALLOWED_ORIGINS.split(",").forEach((d) => origins.add(d.trim()));
-    }
-
-    const origin = req.header("origin");
-    if (
-      origin &&
-      (origin.endsWith(".run.app") ||
-        origin.endsWith(".web.app") ||
-        origin.endsWith(".firebaseapp.com") ||
-        origin.endsWith(".vercel.app"))
-    ) {
-      origins.add(origin);
-    }
-
-    if (process.env.NODE_ENV !== "production") {
-      if (process.env.REPLIT_DEV_DOMAIN) {
-        origins.add(`https://${process.env.REPLIT_DEV_DOMAIN}`);
-        origins.add(`wss://${process.env.REPLIT_DEV_DOMAIN}`);
-      }
-      if (process.env.REPLIT_DOMAINS) {
-        process.env.REPLIT_DOMAINS.split(",").forEach((d) => {
-          origins.add(`https://${d.trim()}`);
-          origins.add(`wss://${d.trim()}`);
-        });
-      }
-    }
-
-    const isLocalhost =
-      origin?.startsWith("http://localhost:") || origin?.startsWith("http://127.0.0.1:");
-
+    const origin = req.get("origin");
     const allowedMethods = "GET, POST, PUT, DELETE, PATCH, OPTIONS";
     const allowedHeaders =
       "Content-Type, x-session-token, expo-platform, x-requested-with, Authorization";
 
-    if (!origin) {
-      res.header("Access-Control-Allow-Origin", "*");
-      res.header("Access-Control-Allow-Methods", allowedMethods);
-      res.header("Access-Control-Allow-Headers", allowedHeaders);
-    } else if (
-      origins.has(origin) ||
-      isLocalhost ||
-      origin.endsWith(".run.app") ||
-      origin.endsWith(".web.app") ||
-      origin.endsWith(".firebaseapp.com") ||
-      origin.endsWith(".vercel.app") ||
-      origin.endsWith(".replit.dev") ||
-      origin.endsWith(".exp.host")
-    ) {
-      res.header("Access-Control-Allow-Origin", origin);
-      res.header("Access-Control-Allow-Methods", allowedMethods);
-      res.header("Access-Control-Allow-Headers", allowedHeaders);
-      res.header("Access-Control-Allow-Credentials", "true");
+    // Always allow CORS requests from known good origins and patterns
+    const isAllowed =
+      !origin ||
+      origin === "https://mobile-repair-app-276b6.web.app" ||
+      origin === "https://mobile-repair-app-276b6.firebaseapp.com" ||
+      origin === "https://repair-backendarun-838751841074.asia-south1.run.app" ||
+      origin === PRODUCTION_DOMAIN ||
+      origin?.startsWith("http://localhost:") ||
+      origin?.startsWith("http://127.0.0.1:") ||
+      origin?.endsWith(".web.app") ||
+      origin?.endsWith(".firebaseapp.com") ||
+      origin?.endsWith(".run.app") ||
+      origin?.endsWith(".vercel.app") ||
+      origin?.endsWith(".replit.dev") ||
+      origin?.endsWith(".exp.host");
+
+    if (isAllowed) {
+      res.set("Access-Control-Allow-Origin", origin || "*");
+      res.set("Access-Control-Allow-Methods", allowedMethods);
+      res.set("Access-Control-Allow-Headers", allowedHeaders);
+      res.set("Access-Control-Allow-Credentials", "true");
+      res.set("Access-Control-Max-Age", "86400");
     }
 
+    // Always respond 200 to preflight requests
     if (req.method === "OPTIONS") {
       return res.sendStatus(200);
     }
