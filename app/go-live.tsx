@@ -100,6 +100,11 @@ export default function GoLiveScreen() {
         description:  description.trim(),
         thumbnailUrl,
       });
+      if (!res.ok) {
+        const errText = await res.text();
+        Alert.alert('Error', `Failed: ${res.status} ${errText || 'Unknown error'}`);
+        return;
+      }
       const data = await res.json();
       if (data.success) {
         setActiveSession(data.session);
@@ -107,11 +112,12 @@ export default function GoLiveScreen() {
         setTitle('');
         setDescription('');
         setThumbnailUri(null);
+        Alert.alert('Live Stream Started', 'You are now LIVE! Share your RTMP details with OBS or streaming software.');
       } else {
         Alert.alert('Error', data.message || 'Failed to start stream');
       }
-    } catch (e) {
-      Alert.alert('Error', 'Connection failed. Please try again.');
+    } catch (e: any) {
+      Alert.alert('Error', e?.message || 'Connection failed. Please try again.');
     } finally {
       setSubmitting(false);
       setUploadingThumbnail(false);
@@ -146,6 +152,11 @@ export default function GoLiveScreen() {
         link:         link.trim(),
         thumbnailUrl,
       });
+      if (!res.ok) {
+        const errText = await res.text();
+        Alert.alert('Error', `Failed: ${res.status} ${errText || 'Unknown error'}`);
+        return;
+      }
       const data = await res.json();
       if (data.success) {
         setActiveSession(data.session);
@@ -157,8 +168,8 @@ export default function GoLiveScreen() {
       } else {
         Alert.alert('Error', data.message || 'Failed to go live');
       }
-    } catch (e) {
-      Alert.alert('Error', 'Connection failed. Please try again.');
+    } catch (e: any) {
+      Alert.alert('Error', e?.message || 'Connection failed. Please try again.');
     } finally {
       setSubmitting(false);
       setUploadingThumbnail(false);
