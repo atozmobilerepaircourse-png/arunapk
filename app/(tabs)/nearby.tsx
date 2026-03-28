@@ -254,13 +254,16 @@ function ProductCard({ product }: { product: Product }) {
   );
 }
 
-function DistanceSlider({ sliderValue, onDistanceChange }: { sliderValue: number; onDistanceChange: (val: number) => void }) {
+function DistanceSlider({ sliderValue, selectedDistance, onDistanceChange }: { sliderValue: number; selectedDistance: number | 'ALL'; onDistanceChange: (val: number | 'ALL') => void }) {
   const isWeb = typeof window !== 'undefined';
+  const isAllIndia = selectedDistance === 'ALL';
 
   return (
     <View style={styles.sliderContainer}>
       <View style={styles.sliderHeader}>
-        <Text style={styles.sliderLabel}>Showing results within {Math.round(sliderValue)} km</Text>
+        <Text style={styles.sliderLabel}>
+          {isAllIndia ? 'Showing results across India' : `Showing results within ${Math.round(sliderValue)} km`}
+        </Text>
       </View>
 
       {/* Quick Select Buttons */}
@@ -268,39 +271,49 @@ function DistanceSlider({ sliderValue, onDistanceChange }: { sliderValue: number
         {[2, 5, 10].map(km => (
           <TouchableOpacity
             key={km}
-            style={[styles.quickSelectBtn, Math.round(sliderValue) === km && styles.quickSelectBtnActive]}
+            style={[styles.quickSelectBtn, !isAllIndia && Math.round(sliderValue) === km && styles.quickSelectBtnActive]}
             onPress={() => onDistanceChange(km)}
           >
-            <Text style={[styles.quickSelectText, Math.round(sliderValue) === km && styles.quickSelectTextActive]}>
+            <Text style={[styles.quickSelectText, !isAllIndia && Math.round(sliderValue) === km && styles.quickSelectTextActive]}>
               {km} km
             </Text>
           </TouchableOpacity>
         ))}
+        <TouchableOpacity
+          style={[styles.quickSelectBtn, isAllIndia && styles.quickSelectBtnActive]}
+          onPress={() => onDistanceChange('ALL')}
+        >
+          <Text style={[styles.quickSelectText, isAllIndia && styles.quickSelectTextActive]}>
+            All India
+          </Text>
+        </TouchableOpacity>
       </View>
 
-      {/* Slider - Web Native Input */}
-      {isWeb ? (
-        <input
-          type="range"
-          min="1"
-          max="20"
-          step="1"
-          value={Math.round(sliderValue)}
-          onChange={(e) => onDistanceChange(Number(e.target.value))}
-          style={{
-            width: '100%',
-            height: 6,
-            borderRadius: 3,
-            outline: 'none',
-            marginVertical: 12,
-            cursor: 'pointer',
-            accentColor: PRIMARY,
-          } as any}
-        />
-      ) : (
-        <View style={styles.sliderTrackContainer}>
-          <Text style={styles.nativeSliderText}>Distance: {Math.round(sliderValue)} km</Text>
-        </View>
+      {/* Slider - Web Native Input (hidden when All India selected) */}
+      {!isAllIndia && (
+        isWeb ? (
+          <input
+            type="range"
+            min="1"
+            max="20"
+            step="1"
+            value={Math.round(sliderValue)}
+            onChange={(e) => onDistanceChange(Number(e.target.value))}
+            style={{
+              width: '100%',
+              height: 6,
+              borderRadius: 3,
+              outline: 'none',
+              marginVertical: 12,
+              cursor: 'pointer',
+              accentColor: PRIMARY,
+            } as any}
+          />
+        ) : (
+          <View style={styles.sliderTrackContainer}>
+            <Text style={styles.nativeSliderText}>Distance: {Math.round(sliderValue)} km</Text>
+          </View>
+        )
       )}
     </View>
   );
@@ -311,7 +324,7 @@ export default function NearbyScreen() {
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<'shops' | 'products'>('shops');
   const [search, setSearch] = useState('');
-  const [selectedDistance, setSelectedDistance] = useState(2);
+  const [selectedDistance, setSelectedDistance] = useState<number | 'ALL'>(2);
   const [sliderValue, setSliderValue] = useState(2);
   const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -319,12 +332,17 @@ export default function NearbyScreen() {
   const topPad = (Platform.OS === 'web' ? 67 : insets.top) + 12;
 
   // Immediate visual feedback + debounced filtering
-  const handleDistanceChange = useCallback((distance: number) => {
-    setSliderValue(distance);
-    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
-    debounceTimerRef.current = setTimeout(() => {
-      setSelectedDistance(distance);
-    }, 300);
+  const handleDistanceChange = useCallback((distance: number | 'ALL') => {
+    if (distance === 'ALL') {
+      setSelectedDistance('ALL');
+      setSliderValue(2);
+    } else {
+      setSliderValue(distance);
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = setTimeout(() => {
+        setSelectedDistance(distance);
+      }, 300);
+    }
   }, []);
 
   // Request location
@@ -343,7 +361,7 @@ export default function NearbyScreen() {
 
   // Filter shops by distance and search
   const filteredShops = useMemo(() => {
-    let shops = MOCK_SHOPS.filter(s => s.distance <= selectedDistance);
+    let shops = selectedDistance === 'ALL' ? MOCK_SHOPS : MOCK_SHOPS.filter(s => s.distance <= selectedDistance);
     if (search.trim()) {
       const q = search.toLowerCase();
       shops = shops.filter(s => s.name.toLowerCase().includes(q) || s.address.toLowerCase().includes(q));
@@ -352,7 +370,7 @@ export default function NearbyScreen() {
   }, [selectedDistance, search]);
 
   const filteredProducts = useMemo(() => {
-    let products = MOCK_PRODUCTS.filter(p => p.distance <= selectedDistance);
+    let products = selectedDistance === 'ALL' ? MOCK_PRODUCTS : MOCK_PRODUCTS.filter(p => p.distance <= selectedDistance);
     if (search.trim()) {
       const q = search.toLowerCase();
       products = products.filter(p => p.name.toLowerCase().includes(q) || p.shopName.toLowerCase().includes(q));
@@ -381,7 +399,10 @@ export default function NearbyScreen() {
           <Ionicons name="location" size={14} color={PRIMARY} />
           <Text style={styles.locationText}>Hyderabad 📍</Text>
           <Text style={styles.countText}>
-            {tab === 'shops' ? filteredShops.length : filteredProducts.length} results within {selectedDistance} km
+            {selectedDistance === 'ALL' 
+              ? `Showing ${tab === 'shops' ? 'shops' : 'products'} across India`
+              : `${tab === 'shops' ? filteredShops.length : filteredProducts.length} ${tab === 'shops' ? 'shops' : 'products'} within ${selectedDistance} km`
+            }
           </Text>
         </View>
       </View>
@@ -404,7 +425,7 @@ export default function NearbyScreen() {
       </View>
 
       {/* Distance Slider */}
-      <DistanceSlider sliderValue={sliderValue} onDistanceChange={handleDistanceChange} />
+      <DistanceSlider sliderValue={sliderValue} selectedDistance={selectedDistance} onDistanceChange={handleDistanceChange} />
     </View>
   );
 
