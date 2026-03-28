@@ -464,7 +464,7 @@ export default function NearbyScreen() {
 
   // Filter shops by distance and search
   const filteredShops = useMemo(() => {
-    let shops = supplierShops.length > 0 ? supplierShops : MOCK_SHOPS;
+    let shops = supplierShops;
     shops = selectedDistance === 'ALL' ? shops : shops.filter(s => s.distance <= selectedDistance);
     if (search.trim()) {
       const q = search.toLowerCase();
@@ -474,7 +474,7 @@ export default function NearbyScreen() {
   }, [selectedDistance, search, supplierShops]);
 
   const filteredProducts = useMemo(() => {
-    let products = supplierProducts.length > 0 ? supplierProducts : MOCK_PRODUCTS;
+    let products = supplierProducts;
     products = selectedDistance === 'ALL' ? products : products.filter(p => p.distance <= selectedDistance);
     if (search.trim()) {
       const q = search.toLowerCase();
