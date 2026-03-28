@@ -482,14 +482,12 @@ export default function BuySellScreen({ isEmbedded }: { isEmbedded?: boolean } =
         (i.sellerCity || '').toLowerCase().includes(q)
       );
     }
-    // Sort: by distance if user has location, else by newest
+    // Filter & Sort: by distance if "Near Me" is active
     if (sortByDistance && hasLocation) {
-      list = [...list].sort((a, b) => {
-        if (a.distanceKm === undefined && b.distanceKm === undefined) return b.createdAt - a.createdAt;
-        if (a.distanceKm === undefined) return 1;
-        if (b.distanceKm === undefined) return -1;
-        return a.distanceKm - b.distanceKm;
-      });
+      // Filter to only show items within 25km
+      list = list.filter(i => i.distanceKm !== undefined && i.distanceKm <= 25);
+      // Then sort by distance (nearest first)
+      list = [...list].sort((a, b) => (a.distanceKm || 0) - (b.distanceKm || 0));
     } else {
       list = [...list].sort((a, b) => b.createdAt - a.createdAt);
     }
