@@ -149,9 +149,10 @@ interface ProfCardProps {
   isAdmin?: boolean;
   onChat?: () => void;
   onPress?: () => void;
+  onRefresh?: () => void;
 }
 
-function ProfCard({ item, currentUserId, isAdmin, onChat, onPress }: ProfCardProps) {
+function ProfCard({ item, currentUserId, isAdmin, onChat, onPress, onRefresh }: ProfCardProps) {
   const avatarUri = item.avatar
     ? (item.avatar.startsWith('http') ? item.avatar : `${getApiUrl()}${item.avatar}`)
     : null;
@@ -197,13 +198,24 @@ function ProfCard({ item, currentUserId, isAdmin, onChat, onPress }: ProfCardPro
 
   const handleSaveRating = async () => {
     if (savingRating) return;
+    const ratingVal = parseFloat(ratingInput);
+    const countVal  = parseInt(countInput, 10);
+    if (isNaN(ratingVal) || ratingVal < 0 || ratingVal > 5) {
+      Alert.alert('Invalid rating', 'Rating must be a number between 0 and 5');
+      return;
+    }
+    if (isNaN(countVal) || countVal < 0) {
+      Alert.alert('Invalid count', 'Review count must be a non-negative number');
+      return;
+    }
     setSavingRating(true);
     try {
       await apiRequest('PUT', `/api/profiles/${item.id}/rating`, {
-        rating: ratingInput,
-        ratingCount: countInput,
+        rating: String(ratingVal),
+        ratingCount: String(countVal),
       });
       setShowRatingEditor(false);
+      onRefresh?.();
     } catch (e: any) {
       Alert.alert('Error', 'Failed to save rating');
     } finally {
@@ -530,6 +542,7 @@ export default function DirectoryScreen() {
             item={item}
             currentUserId={profile?.id}
             isAdmin={profile?.role === 'admin'}
+            onRefresh={refreshData}
             onPress={() => {
               if (item.role === 'supplier' || item.role === 'teacher' || item.role === 'shopkeeper') {
                 router.push({ pathname: '/shop/[supplierId]', params: { supplierId: item.id, supplierName: item.name } } as any);

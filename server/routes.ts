@@ -1875,10 +1875,19 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
       if (rating === undefined || ratingCount === undefined) {
         return res.status(400).json({ success: false, message: "rating and ratingCount required" });
       }
+      const ratingVal = parseFloat(String(rating));
+      const countVal  = parseInt(String(ratingCount), 10);
+      if (isNaN(ratingVal) || ratingVal < 0 || ratingVal > 5) {
+        return res.status(400).json({ success: false, message: "rating must be a number between 0 and 5" });
+      }
+      if (isNaN(countVal) || countVal < 0) {
+        return res.status(400).json({ success: false, message: "ratingCount must be a non-negative integer" });
+      }
+
       const result = await db.select().from(profiles).where(eq(profiles.id, req.params.id));
       if (result.length === 0) return res.status(404).json({ success: false, message: "Profile not found" });
 
-      await db.update(profiles).set({ rating: String(rating), ratingCount: String(ratingCount) }).where(eq(profiles.id, req.params.id));
+      await db.update(profiles).set({ rating: String(ratingVal), ratingCount: String(countVal) }).where(eq(profiles.id, req.params.id));
       return res.json({ success: true });
     } catch (error) {
       console.error("[Profiles] Rating error:", error);
