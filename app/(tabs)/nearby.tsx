@@ -254,11 +254,11 @@ function ProductCard({ product }: { product: Product }) {
   );
 }
 
-function DistanceSlider({ selectedDistance, onDistanceChange }: { selectedDistance: number; onDistanceChange: (val: number) => void }) {
+function DistanceSlider({ sliderValue, onDistanceChange }: { sliderValue: number; onDistanceChange: (val: number) => void }) {
   return (
     <View style={styles.sliderContainer}>
       <View style={styles.sliderHeader}>
-        <Text style={styles.sliderLabel}>Showing results within {selectedDistance} km</Text>
+        <Text style={styles.sliderLabel}>Showing results within {Math.round(sliderValue)} km</Text>
       </View>
 
       {/* Quick Select Buttons */}
@@ -266,10 +266,10 @@ function DistanceSlider({ selectedDistance, onDistanceChange }: { selectedDistan
         {[2, 5, 10].map(km => (
           <TouchableOpacity
             key={km}
-            style={[styles.quickSelectBtn, selectedDistance === km && styles.quickSelectBtnActive]}
+            style={[styles.quickSelectBtn, sliderValue === km && styles.quickSelectBtnActive]}
             onPress={() => onDistanceChange(km)}
           >
-            <Text style={[styles.quickSelectText, selectedDistance === km && styles.quickSelectTextActive]}>
+            <Text style={[styles.quickSelectText, sliderValue === km && styles.quickSelectTextActive]}>
               {km} km
             </Text>
           </TouchableOpacity>
@@ -283,7 +283,7 @@ function DistanceSlider({ selectedDistance, onDistanceChange }: { selectedDistan
           minimumValue={1}
           maximumValue={20}
           step={1}
-          value={selectedDistance}
+          value={sliderValue}
           onValueChange={onDistanceChange}
           minimumTrackTintColor={PRIMARY}
           maximumTrackTintColor={BORDER}
@@ -300,13 +300,15 @@ export default function NearbyScreen() {
   const [tab, setTab] = useState<'shops' | 'products'>('shops');
   const [search, setSearch] = useState('');
   const [selectedDistance, setSelectedDistance] = useState(2);
+  const [sliderValue, setSliderValue] = useState(2);
   const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const topPad = (Platform.OS === 'web' ? 67 : insets.top) + 12;
 
-  // Debounced distance change
+  // Immediate visual feedback + debounced filtering
   const handleDistanceChange = useCallback((distance: number) => {
+    setSliderValue(distance);
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
     debounceTimerRef.current = setTimeout(() => {
       setSelectedDistance(distance);
@@ -388,7 +390,7 @@ export default function NearbyScreen() {
       </View>
 
       {/* Distance Slider */}
-      <DistanceSlider selectedDistance={selectedDistance} onDistanceChange={handleDistanceChange} />
+      <DistanceSlider sliderValue={sliderValue} onDistanceChange={handleDistanceChange} />
 
       {/* Content */}
       {tab === 'shops' && (

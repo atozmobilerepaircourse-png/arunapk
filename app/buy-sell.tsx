@@ -126,11 +126,11 @@ function getImageUri(img: string): string {
 // ------------------------------------------------------------------
 // DistanceSlider Component
 // ------------------------------------------------------------------
-function DistanceSlider({ selectedDistance, onDistanceChange }: { selectedDistance: number; onDistanceChange: (val: number) => void }) {
+function DistanceSlider({ sliderValue, onDistanceChange }: { sliderValue: number; onDistanceChange: (val: number) => void }) {
   return (
     <View style={styles.sliderContainer}>
       <View style={styles.sliderHeader}>
-        <Text style={styles.sliderLabel}>Showing results within {selectedDistance} km</Text>
+        <Text style={styles.sliderLabel}>Showing results within {Math.round(sliderValue)} km</Text>
       </View>
 
       {/* Quick Select Buttons */}
@@ -138,10 +138,10 @@ function DistanceSlider({ selectedDistance, onDistanceChange }: { selectedDistan
         {[5, 10, 25].map(km => (
           <TouchableOpacity
             key={km}
-            style={[styles.quickSelectBtn, selectedDistance === km && styles.quickSelectBtnActive]}
+            style={[styles.quickSelectBtn, sliderValue === km && styles.quickSelectBtnActive]}
             onPress={() => onDistanceChange(km)}
           >
-            <Text style={[styles.quickSelectText, selectedDistance === km && styles.quickSelectTextActive]}>
+            <Text style={[styles.quickSelectText, sliderValue === km && styles.quickSelectTextActive]}>
               {km} km
             </Text>
           </TouchableOpacity>
@@ -155,7 +155,7 @@ function DistanceSlider({ selectedDistance, onDistanceChange }: { selectedDistan
           minimumValue={1}
           maximumValue={50}
           step={1}
-          value={selectedDistance}
+          value={sliderValue}
           onValueChange={onDistanceChange}
           minimumTrackTintColor={DK.primary}
           maximumTrackTintColor={DK.border}
@@ -445,6 +445,7 @@ export default function BuySellScreen({ isEmbedded }: { isEmbedded?: boolean } =
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [refreshing, setRefreshing] = useState(false);
   const [selectedDistance, setSelectedDistance] = useState(25);
+  const [sliderValue, setSliderValue] = useState(25);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const [detailItem, setDetailItem] = useState<MarketItem | null>(null);
@@ -469,8 +470,9 @@ export default function BuySellScreen({ isEmbedded }: { isEmbedded?: boolean } =
     ? [profile.city, profile.state].filter(Boolean).join(', ')
     : null;
 
-  // Debounced distance change
+  // Immediate visual feedback + debounced filtering
   const handleDistanceChange = useCallback((distance: number) => {
+    setSliderValue(distance);
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
     debounceTimerRef.current = setTimeout(() => {
       setSelectedDistance(distance);
@@ -799,7 +801,7 @@ export default function BuySellScreen({ isEmbedded }: { isEmbedded?: boolean } =
       </View>
 
       {/* Distance Slider */}
-      {hasLocation && <DistanceSlider selectedDistance={selectedDistance} onDistanceChange={handleDistanceChange} />}
+      {hasLocation && <DistanceSlider sliderValue={sliderValue} onDistanceChange={handleDistanceChange} />}
 
       <ScrollView
         horizontal
