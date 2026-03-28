@@ -37,15 +37,15 @@ function NativeTabLayout() {
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="directory">
           <Icon sf={{ default: "wrench.and.screwdriver", selected: "wrench.and.screwdriver.fill" }} />
-          <Label>Find Nearby</Label>
+          <Label>Directory</Label>
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="buy-sell">
           <Icon sf={{ default: "tag", selected: "tag.fill" }} />
-          <Label>Buy & Sale</Label>
+          <Label>Buy & Sell</Label>
         </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="nearby-shops">
-          <Icon sf={{ default: "storefront", selected: "storefront.fill" }} />
-          <Label>Nearby Shops</Label>
+        <NativeTabs.Trigger name="create">
+          <Icon sf={{ default: "plus.circle", selected: "plus.circle.fill" }} />
+          <Label>Training</Label>
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="orders">
           <Icon sf={{ default: "wrench.adjustable", selected: "wrench.adjustable.fill" }} />
@@ -75,17 +75,17 @@ function NativeTabLayout() {
           <Icon sf={{ default: "person.2", selected: "person.2.fill" }} />
           <Label>Directory</Label>
         </NativeTabs.Trigger>
+        <NativeTabs.Trigger name="tech-market">
+          <Icon sf={{ default: "tag", selected: "tag.fill" }} />
+          <Label>Buy & Sell</Label>
+        </NativeTabs.Trigger>
         <NativeTabs.Trigger name="create">
           <Icon sf={{ default: "plus.circle", selected: "plus.circle.fill" }} />
-          <Label>Post</Label>
+          <Label>Training</Label>
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="marketplace">
           <Icon sf={{ default: "bag", selected: "bag.fill" }} />
           <Label>Shop</Label>
-        </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="tech-market">
-          <Icon sf={{ default: "tag", selected: "tag.fill" }} />
-          <Label>Buy & Sale</Label>
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="customer-home" hidden />
         <NativeTabs.Trigger name="nearby-shops" hidden />
