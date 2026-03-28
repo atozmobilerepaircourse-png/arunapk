@@ -50,6 +50,72 @@ export default function CreatePostScreen() {
   const isWeb = typeof window !== 'undefined';
   const webTopInset = isWeb ? 67 : 0;
 
+  // Parse EXIF orientation from base64 JPEG
+  const parseEXIFOrientation = (base64: string): number => {
+    try {
+      const binary = atob(base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      
+      let i = 2;
+      while (i < Math.min(bytes.length, 32768)) {
+        if (bytes[i] === 0xFF && bytes[i+1] === 0xE1) {
+          const len = (bytes[i+2] << 8) | bytes[i+3];
+          const exif = bytes.slice(i+4, i+2+len);
+          for (let j = 10; j < exif.length - 8; j++) {
+            if (exif[j] === 0x01 && exif[j+1] === 0x12) {
+              return exif[j+8] || 1;
+            }
+          }
+          return 1;
+        }
+        i += 2;
+      }
+      return 1;
+    } catch { return 1; }
+  };
+
+  // Rotate image canvas based on EXIF orientation and return new base64
+  const rotateImageByOrientation = async (base64: string): Promise<string> => {
+    const orientation = parseEXIFOrientation(base64);
+    if (orientation === 1) return base64; // No rotation
+    
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onerror = () => resolve(base64);
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return resolve(base64);
+        
+        const isRotated90 = orientation === 5 || orientation === 6 || orientation === 7 || orientation === 8;
+        canvas.width = isRotated90 ? img.height : img.width;
+        canvas.height = isRotated90 ? img.width : img.height;
+        
+        ctx.save();
+        switch (orientation) {
+          case 2: ctx.scale(-1, 1); ctx.translate(-img.width, 0); break;
+          case 3: ctx.translate(img.width, img.height); ctx.rotate(Math.PI); break;
+          case 4: ctx.scale(1, -1); ctx.translate(0, -img.height); break;
+          case 5: ctx.translate(img.width, 0); ctx.rotate(Math.PI / 2); ctx.scale(-1, 1); break;
+          case 6: ctx.translate(img.width, 0); ctx.rotate(Math.PI / 2); break;
+          case 7: ctx.translate(0, img.height); ctx.rotate(Math.PI / 2); ctx.scale(-1, 1); break;
+          case 8: ctx.translate(0, img.height); ctx.rotate(-Math.PI / 2); break;
+        }
+        ctx.drawImage(img, 0, 0);
+        ctx.restore();
+        
+        try {
+          const rotatedBase64 = canvas.toDataURL('image/jpeg', 0.92).split(',')[1] || base64;
+          resolve(rotatedBase64);
+        } catch {
+          resolve(base64);
+        }
+      };
+      img.src = `data:image/jpeg;base64,${base64}`;
+    });
+  };
+
   const pickImages = async () => {
     try {
       // Request permissions on Android/iOS
@@ -118,10 +184,12 @@ export default function CreatePostScreen() {
             console.log(`[Upload] Web: Using File object directly, size: ${asset.size} bytes`);
             formData.append('image', asset);
           } 
-          // Method 1: If asset has base64, convert to blob
+          // Method 1: If asset has base64, rotate if needed, then convert to blob
           else if (asset.base64) {
-            console.log(`[Upload] Web: Converting base64 to blob (size: ${asset.base64.length} chars)`);
-            const byteCharacters = atob(asset.base64);
+            console.log(`[Upload] Web: Processing base64, rotating if needed...`);
+            const rotatedBase64 = await rotateImageByOrientation(asset.base64);
+            console.log(`[Upload] Web: Rotation complete, converting to blob`);
+            const byteCharacters = atob(rotatedBase64);
             const byteNumbers = new Array(byteCharacters.length);
             for (let i = 0; i < byteCharacters.length; i++) {
               byteNumbers[i] = byteCharacters.charCodeAt(i);
