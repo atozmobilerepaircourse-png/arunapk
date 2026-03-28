@@ -319,14 +319,29 @@ function DistanceSlider({ sliderValue, selectedDistance, onDistanceChange }: { s
   );
 }
 
+// Distance calculation helper
+function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+}
+
 // Main Screen
 export default function NearbyScreen() {
   const insets = useSafeAreaInsets();
+  const { allProfiles } = useApp();
   const [tab, setTab] = useState<'shops' | 'products'>('shops');
   const [search, setSearch] = useState('');
   const [selectedDistance, setSelectedDistance] = useState<number | 'ALL'>(2);
   const [sliderValue, setSliderValue] = useState(2);
   const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [supplierProducts, setSupplierProducts] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const topPad = (Platform.OS === 'web' ? 67 : insets.top) + 12;
@@ -359,6 +374,45 @@ export default function NearbyScreen() {
     })();
   }, []);
 
+  // Fetch supplier products
+  useEffect(() => {
+    const fetchSupplierProducts = async () => {
+      setIsLoading(true);
+      try {
+        const response = await apiRequest('GET', '/api/products?role=supplier');
+        let products = await response.json();
+        
+        // Map products and calculate distances
+        products = products.map((p: any) => {
+          const supplier = allProfiles.find(prof => prof.id === p.userId);
+          let distance = undefined;
+          if (location && supplier?.latitude && supplier?.longitude) {
+            const supplierLat = parseFloat(supplier.latitude);
+            const supplierLng = parseFloat(supplier.longitude);
+            if (!isNaN(supplierLat) && !isNaN(supplierLng)) {
+              distance = calculateDistance(location.latitude, location.longitude, supplierLat, supplierLng);
+            }
+          }
+          return {
+            id: p.id,
+            name: p.title,
+            price: p.price ? `₹${p.price}` : '₹0',
+            shopName: p.userName || 'Supplier',
+            shopId: p.userId,
+            image: p.images?.[0] || '',
+            distance: distance || 999,
+          };
+        });
+        setSupplierProducts(products);
+      } catch (e) {
+        console.log('Error fetching supplier products:', e);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchSupplierProducts();
+  }, [location, allProfiles]);
+
   // Filter shops by distance and search
   const filteredShops = useMemo(() => {
     let shops = selectedDistance === 'ALL' ? MOCK_SHOPS : MOCK_SHOPS.filter(s => s.distance <= selectedDistance);
@@ -370,13 +424,14 @@ export default function NearbyScreen() {
   }, [selectedDistance, search]);
 
   const filteredProducts = useMemo(() => {
-    let products = selectedDistance === 'ALL' ? MOCK_PRODUCTS : MOCK_PRODUCTS.filter(p => p.distance <= selectedDistance);
+    let products = supplierProducts.length > 0 ? supplierProducts : MOCK_PRODUCTS;
+    products = selectedDistance === 'ALL' ? products : products.filter(p => p.distance <= selectedDistance);
     if (search.trim()) {
       const q = search.toLowerCase();
       products = products.filter(p => p.name.toLowerCase().includes(q) || p.shopName.toLowerCase().includes(q));
     }
     return products.sort((a, b) => a.distance - b.distance);
-  }, [selectedDistance, search]);
+  }, [selectedDistance, search, supplierProducts]);
 
   const renderHeader = () => (
     <View>
