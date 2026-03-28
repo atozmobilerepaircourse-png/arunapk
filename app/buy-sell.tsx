@@ -1,5 +1,5 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TextInput, Pressable, Platform, RefreshControl, ScrollView, ActivityIndicator, Dimensions, Modal } from 'react-native';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import { View, Text, StyleSheet, FlatList, TextInput, Pressable, Platform, RefreshControl, ScrollView, ActivityIndicator, Dimensions, Modal, Slider, TouchableOpacity } from 'react-native';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -121,6 +121,49 @@ function getInitials(name: string): string {
 function getImageUri(img: string): string {
   if (img.startsWith('/')) return `${getApiUrl()}${img}`;
   return img;
+}
+
+// ------------------------------------------------------------------
+// DistanceSlider Component
+// ------------------------------------------------------------------
+function DistanceSlider({ selectedDistance, onDistanceChange }: { selectedDistance: number; onDistanceChange: (val: number) => void }) {
+  return (
+    <View style={styles.sliderContainer}>
+      <View style={styles.sliderHeader}>
+        <Text style={styles.sliderLabel}>Showing results within {selectedDistance} km</Text>
+      </View>
+
+      {/* Quick Select Buttons */}
+      <View style={styles.quickSelectRow}>
+        {[5, 10, 25].map(km => (
+          <TouchableOpacity
+            key={km}
+            style={[styles.quickSelectBtn, selectedDistance === km && styles.quickSelectBtnActive]}
+            onPress={() => onDistanceChange(km)}
+          >
+            <Text style={[styles.quickSelectText, selectedDistance === km && styles.quickSelectTextActive]}>
+              {km} km
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* Slider */}
+      <View style={styles.sliderTrackContainer}>
+        <Slider
+          style={styles.slider}
+          minimumValue={1}
+          maximumValue={50}
+          step={1}
+          value={selectedDistance}
+          onValueChange={onDistanceChange}
+          minimumTrackTintColor={DK.primary}
+          maximumTrackTintColor={DK.border}
+          thumbTintColor={DK.primary}
+        />
+      </View>
+    </View>
+  );
 }
 
 // ------------------------------------------------------------------
@@ -401,7 +444,8 @@ export default function BuySellScreen({ isEmbedded }: { isEmbedded?: boolean } =
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [refreshing, setRefreshing] = useState(false);
-  const [sortByDistance, setSortByDistance] = useState(false);
+  const [selectedDistance, setSelectedDistance] = useState(25);
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const [detailItem, setDetailItem] = useState<MarketItem | null>(null);
   const [detailVisible, setDetailVisible] = useState(false);
@@ -424,6 +468,14 @@ export default function BuySellScreen({ isEmbedded }: { isEmbedded?: boolean } =
   const userLocationLabel = profile?.city
     ? [profile.city, profile.state].filter(Boolean).join(', ')
     : null;
+
+  // Debounced distance change
+  const handleDistanceChange = useCallback((distance: number) => {
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    debounceTimerRef.current = setTimeout(() => {
+      setSelectedDistance(distance);
+    }, 300);
+  }, []);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -488,17 +540,17 @@ export default function BuySellScreen({ isEmbedded }: { isEmbedded?: boolean } =
         (i.sellerCity || '').toLowerCase().includes(q)
       );
     }
-    // Filter & Sort: by distance if "Near Me" is active
-    if (sortByDistance && hasLocation) {
-      // Filter to only show items within 25km
-      list = list.filter(i => i.distanceKm !== undefined && i.distanceKm <= 25);
+    // Filter & Sort: by distance if location available
+    if (hasLocation && selectedDistance > 0) {
+      // Filter to selected distance
+      list = list.filter(i => i.distanceKm !== undefined && i.distanceKm <= selectedDistance);
       // Then sort by distance (nearest first)
       list = [...list].sort((a, b) => (a.distanceKm || 0) - (b.distanceKm || 0));
     } else {
       list = [...list].sort((a, b) => b.createdAt - a.createdAt);
     }
     return list;
-  }, [marketItems, search, selectedCategory, sortByDistance, hasLocation]);
+  }, [marketItems, search, selectedCategory, selectedDistance, hasLocation]);
 
   const openDetail = (item: MarketItem) => {
     setDetailItem(item);
@@ -744,18 +796,10 @@ export default function BuySellScreen({ isEmbedded }: { isEmbedded?: boolean } =
             {userLocationLabel || 'Set your location'}
           </Text>
         </View>
-        {hasLocation && (
-          <Pressable
-            style={[styles.sortPill, sortByDistance && styles.sortPillActive]}
-            onPress={() => setSortByDistance(v => !v)}
-          >
-            <Ionicons name="navigate" size={12} color={sortByDistance ? '#FFF' : DK.textSecondary} />
-            <Text style={[styles.sortPillText, sortByDistance && styles.sortPillTextActive]}>
-              Near Me
-            </Text>
-          </Pressable>
-        )}
       </View>
+
+      {/* Distance Slider */}
+      {hasLocation && <DistanceSlider selectedDistance={selectedDistance} onDistanceChange={handleDistanceChange} />}
 
       <ScrollView
         horizontal
@@ -1107,4 +1151,62 @@ const styles = StyleSheet.create({
   miniCardContent: { padding: 8 },
   miniCardPrice: { color: '#002F34', fontSize: 14, fontWeight: '800' },
   miniCardTitle: { color: DK.textSecondary, fontSize: 11, marginTop: 2 },
+
+  sliderContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: DK.background,
+    borderBottomColor: DK.border,
+    borderBottomWidth: 1,
+  },
+
+  sliderHeader: {
+    marginBottom: 10,
+  },
+
+  sliderLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: DK.text,
+  },
+
+  quickSelectRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
+    justifyContent: 'center',
+  },
+
+  quickSelectBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: DK.surface,
+    borderWidth: 1,
+    borderColor: DK.border,
+  },
+
+  quickSelectBtnActive: {
+    backgroundColor: DK.primary,
+    borderColor: DK.primary,
+  },
+
+  quickSelectText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: DK.textSecondary,
+  },
+
+  quickSelectTextActive: {
+    color: '#FFF',
+  },
+
+  sliderTrackContainer: {
+    paddingHorizontal: 4,
+  },
+
+  slider: {
+    width: '100%',
+    height: 40,
+  },
 });
