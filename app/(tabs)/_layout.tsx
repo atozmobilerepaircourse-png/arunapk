@@ -245,7 +245,7 @@ function ClassicTabLayout() {
         name="create"
         options={{
           title: "Post",
-          href: isCustomer ? null : '/create',
+          href: null,
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? "add-circle" : "add-circle-outline"} size={24} color={color} />
           ),

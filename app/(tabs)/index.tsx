@@ -376,19 +376,24 @@ export default function FeedScreen() {
     <View style={styles.container}>
       {/* ── Header ── */}
       <View style={[styles.header, { paddingTop: topPad }]}>
-        {/* Profile avatar only */}
-        <Pressable onPress={() => router.push('/profile' as any)}>
-          {profile?.avatar ? (
-            <Image
-              source={{ uri: profile.avatar }}
-              style={{ width: 38, height: 38, borderRadius: 19, borderWidth: 2, borderColor: PRIMARY + '40' }}
-            />
-          ) : (
-            <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: PRIMARY + '20', alignItems: 'center', justifyContent: 'center' }}>
-              <Ionicons name="person" size={18} color={PRIMARY} />
-            </View>
-          )}
-        </Pressable>
+        {/* Profile avatar + Post button */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Pressable onPress={() => router.push('/profile' as any)}>
+            {profile?.avatar ? (
+              <Image
+                source={{ uri: profile.avatar }}
+                style={{ width: 38, height: 38, borderRadius: 19, borderWidth: 2, borderColor: PRIMARY + '40' }}
+              />
+            ) : (
+              <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: PRIMARY + '20', alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="person" size={18} color={PRIMARY} />
+              </View>
+            )}
+          </Pressable>
+          <Pressable onPress={() => router.push('/create' as any)} style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: PRIMARY + '20', alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name="add-circle-outline" size={18} color={PRIMARY} />
+          </Pressable>
+        </View>
 
         <View style={styles.headerActions}>
           {/* AI Repair Assistant */}
