@@ -6618,22 +6618,18 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
         viewerCount: 0,
       };
 
-      // Write to Firestore (non-blocking if it fails — push notification still fires)
-      try {
-        const firestore = getFirestore();
-        // End any existing live session for this teacher first
-        const existing = await firestore.collection("teacher_live_sessions")
-          .where("teacherId", "==", teacherId)
-          .where("isLive", "==", true)
-          .get();
-        for (const doc of existing.docs) {
-          await doc.ref.update({ isLive: false, endedAt: Date.now() });
-        }
-        await firestore.collection("teacher_live_sessions").doc(sessionId).set(sessionData);
-        console.log(`[Live] Firestore session saved: ${sessionId}`);
-      } catch (firestoreErr: any) {
-        console.error("[Live] Firestore error (continuing):", firestoreErr?.message || firestoreErr);
+      // Write to Firestore (BLOCKING — fail if this fails)
+      const firestore = getFirestore();
+      // End any existing live session for this teacher first
+      const existing = await firestore.collection("teacher_live_sessions")
+        .where("teacherId", "==", teacherId)
+        .where("isLive", "==", true)
+        .get();
+      for (const doc of existing.docs) {
+        await doc.ref.update({ isLive: false, endedAt: Date.now() });
       }
+      await firestore.collection("teacher_live_sessions").doc(sessionId).set(sessionData);
+      console.log(`[Live] Firestore session saved: ${sessionId}`);
 
       // Send push notification (non-blocking)
       try {
@@ -6647,14 +6643,14 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
           data: { type: 'teacher_live', sessionId, link, platform },
         }, teacherId);
       } catch (notifyErr: any) {
-        console.error("[Live] Notify error (continuing):", notifyErr?.message || notifyErr);
+        console.error("[Live] Notify error (non-blocking):", notifyErr?.message || notifyErr);
       }
 
       console.log(`[Live] ${teacherName} went live: ${finalTitle}`);
       return res.json({ success: true, session: sessionData });
     } catch (error: any) {
       console.error("[Live] Go live error:", error?.message || error);
-      return res.status(500).json({ success: false, message: error?.message || "Failed to go live" });
+      return res.status(500).json({ success: false, message: error?.message || "Failed to save live session" });
     }
   });
 
