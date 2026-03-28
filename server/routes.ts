@@ -6,7 +6,7 @@ import OpenAI from "openai";
 import { notifyAllUsers, notifyNewPost, notifyUser } from "./push-notifications";
 import { profiles, conversations, messages, posts, jobs, reels, products, orders, subscriptionSettings, courses, courseChapters, courseVideos, courseEnrollments, dubbedVideos, ads, liveChatMessages, liveClasses, courseNotices, sessions, payments, teacherPayouts, appSettings, videoProgress, livePolls, livePollVotes, emailCampaigns, otpTokens, adminNotifications, repairBookings, protectionPlans, protectionClaims } from "@shared/schema";
 import { sendWelcomeEmail } from "./lib/sendEmail";
-import { eq, or, and, desc, gt, lt, sql, ne, isNotNull } from "drizzle-orm";
+import { eq, or, and, desc, gt, gte, lt, sql, ne, isNotNull } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import multer from "multer";
 import * as fs from "fs";
