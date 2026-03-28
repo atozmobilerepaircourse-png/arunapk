@@ -80,6 +80,10 @@ function NativeTabLayout() {
           <Icon sf={{ default: "person.2", selected: "person.2.fill" }} />
           <Label>Directory</Label>
         </NativeTabs.Trigger>
+        <NativeTabs.Trigger name="marketplace">
+          <Icon sf={{ default: "bag", selected: "bag.fill" }} />
+          <Label>Shop</Label>
+        </NativeTabs.Trigger>
         <NativeTabs.Trigger name="tech-market">
           <Icon sf={{ default: "tag", selected: "tag.fill" }} />
           <Label>Buy & Sell</Label>
@@ -93,7 +97,6 @@ function NativeTabLayout() {
           <Label>Suppliers</Label>
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="customer-home" hidden />
-        <NativeTabs.Trigger name="marketplace" hidden />
         <NativeTabs.Trigger name="orders" hidden />
         <NativeTabs.Trigger name="jobs" hidden />
         <NativeTabs.Trigger name="technician-jobs" hidden />
