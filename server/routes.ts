@@ -1782,15 +1782,20 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
   app.get("/api/profiles", async (_req, res) => {
     try {
       const allProfiles = await db.select().from(profiles);
-      const parsed = allProfiles.map(p => {
+      const parsed = await Promise.all(allProfiles.map(async (p) => {
         let skillsArray = [];
         try {
           skillsArray = p.skills ? JSON.parse(p.skills) : [];
         } catch (e) {
           skillsArray = [];
         }
-        return { ...p, skills: skillsArray };
-      });
+        let productCount = 0;
+        if (p.role === 'supplier') {
+          const countResult = await db.select({ count: sql<number>`cast(count(*) as integer)` }).from(products).where(eq(products.userId, p.id));
+          productCount = countResult[0]?.count || 0;
+        }
+        return { ...p, skills: skillsArray, productCount };
+      }));
       return res.json(parsed);
     } catch (error) {
       console.error("[Profile] List error:", error);
