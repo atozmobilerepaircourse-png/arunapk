@@ -4,7 +4,7 @@ import { getFirestore, getAdminAuth, getStorage } from "./firebase-admin";
 import { db } from "./db";
 import OpenAI from "openai";
 import { notifyAllUsers, notifyNewPost, notifyUser } from "./push-notifications";
-import { profiles, conversations, messages, posts, jobs, reels, products, orders, subscriptionSettings, courses, courseChapters, courseVideos, courseEnrollments, dubbedVideos, ads, liveChatMessages, liveClasses, courseNotices, sessions, payments, teacherPayouts, appSettings, videoProgress, livePolls, livePollVotes, emailCampaigns, otpTokens, adminNotifications, repairBookings, protectionPlans, protectionClaims } from "@shared/schema";
+import { profiles, conversations, messages, posts, jobs, reels, products, orders, subscriptionSettings, courses, courseChapters, courseVideos, courseEnrollments, dubbedVideos, ads, liveChatMessages, liveClasses, liveSessions, courseNotices, sessions, payments, teacherPayouts, appSettings, videoProgress, livePolls, livePollVotes, emailCampaigns, otpTokens, adminNotifications, repairBookings, protectionPlans, protectionClaims } from "@shared/schema";
 import { sendWelcomeEmail } from "./lib/sendEmail";
 import { eq, or, and, desc, gt, gte, lt, sql, ne, isNotNull } from "drizzle-orm";
 import { randomUUID } from "crypto";
@@ -6568,27 +6568,12 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
   // ========== Teacher Live Sessions ==========
   app.get("/api/teacher/live-sessions", async (req, res) => {
     try {
-      try {
-        const firestore = getFirestore();
-        const snapshot = await firestore.collection("teacher_live_sessions")
-          .where("isLive", "==", true)
-          .get();
-        const sessions = snapshot.docs
-          .map(doc => {
-            const data = doc.data();
-            // Don't prepend domain - return URLs as-is from database
-            // Frontend will handle relative URLs properly
-            return { id: doc.id, ...data };
-          })
-          .sort((a: any, b: any) => (b.startedAt || 0) - (a.startedAt || 0));
-        return res.json({ success: true, sessions });
-      } catch (firebaseError: any) {
-        console.warn("[Live] Firestore error (falling back to empty):", firebaseError?.message);
-        // Firestore might not be configured - return empty sessions list
-        return res.json({ success: true, sessions: [] });
-      }
+      const sessions = await db.select().from(liveSessions)
+        .where(eq(liveSessions.isLive, 1))
+        .orderBy(desc(liveSessions.startedAt));
+      return res.json({ success: true, sessions });
     } catch (error: any) {
-      console.error("[Live] Unexpected error:", error?.message || error);
+      console.error("[Live] Fetch sessions error:", error?.message || error);
       return res.status(500).json({ success: false, sessions: [], message: error?.message });
     }
   });
@@ -6602,8 +6587,15 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
 
       const finalTitle = (title || "Live Session").trim();
       const sessionId = randomUUID();
+      const now = Date.now();
 
-      const sessionData = {
+      // End any existing live session for this teacher first
+      await db.update(liveSessions)
+        .set({ isLive: 0, endedAt: now })
+        .where(and(eq(liveSessions.teacherId, teacherId), eq(liveSessions.isLive, 1)));
+
+      // Create new live session in database
+      const newSession = await db.insert(liveSessions).values({
         id: sessionId,
         teacherId,
         teacherName: teacherName || "",
@@ -6613,23 +6605,12 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
         platform: platform || "other",
         link,
         thumbnailUrl: thumbnailUrl || "",
-        isLive: true,
-        startedAt: Date.now(),
+        isLive: 1,
+        startedAt: now,
         viewerCount: 0,
-      };
+      }).returning();
 
-      // Write to Firestore (BLOCKING — fail if this fails)
-      const firestore = getFirestore();
-      // End any existing live session for this teacher first
-      const existing = await firestore.collection("teacher_live_sessions")
-        .where("teacherId", "==", teacherId)
-        .where("isLive", "==", true)
-        .get();
-      for (const doc of existing.docs) {
-        await doc.ref.update({ isLive: false, endedAt: Date.now() });
-      }
-      await firestore.collection("teacher_live_sessions").doc(sessionId).set(sessionData);
-      console.log(`[Live] Firestore session saved: ${sessionId}`);
+      console.log(`[Live] Session saved to DB: ${sessionId}`);
 
       // Send push notification (non-blocking)
       try {
@@ -6647,7 +6628,7 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
       }
 
       console.log(`[Live] ${teacherName} went live: ${finalTitle}`);
-      return res.json({ success: true, session: sessionData });
+      return res.json({ success: true, session: newSession?.[0] });
     } catch (error: any) {
       console.error("[Live] Go live error:", error?.message || error);
       return res.status(500).json({ success: false, message: error?.message || "Failed to save live session" });
@@ -6659,24 +6640,15 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
       const { teacherId, sessionId } = req.body;
       if (!teacherId) return res.status(400).json({ success: false, message: "teacherId required" });
       
-      try {
-        const firestore = getFirestore();
-        if (sessionId) {
-          await firestore.collection("teacher_live_sessions").doc(sessionId).update({
-            isLive: false, endedAt: Date.now()
-          });
-        } else {
-          const existing = await firestore.collection("teacher_live_sessions")
-            .where("teacherId", "==", teacherId)
-            .where("isLive", "==", true)
-            .get();
-          for (const doc of existing.docs) {
-            await doc.ref.update({ isLive: false, endedAt: Date.now() });
-          }
-        }
-      } catch (firestoreErr: any) {
-        console.warn("[Live] Firestore warning (continuing):", firestoreErr?.message);
-        // Continue even if Firestore fails - the session still ended logically
+      const now = Date.now();
+      if (sessionId) {
+        await db.update(liveSessions)
+          .set({ isLive: 0, endedAt: now })
+          .where(eq(liveSessions.id, sessionId));
+      } else {
+        await db.update(liveSessions)
+          .set({ isLive: 0, endedAt: now })
+          .where(and(eq(liveSessions.teacherId, teacherId), eq(liveSessions.isLive, 1)));
       }
       
       return res.json({ success: true });

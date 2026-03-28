@@ -321,6 +321,22 @@ export const liveClasses = pgTable("live_classes", {
   createdAt: bigint("created_at", { mode: "number" }).notNull().default(sql`EXTRACT(EPOCH FROM NOW()) * 1000`),
 });
 
+export const liveSessions = pgTable("live_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  teacherId: text("teacher_id").notNull(),
+  teacherName: text("teacher_name").default(""),
+  teacherAvatar: text("teacher_avatar").default(""),
+  title: text("title").notNull(),
+  description: text("description").default(""),
+  platform: text("platform").notNull().default("other"),
+  link: text("link").notNull(),
+  thumbnailUrl: text("thumbnail_url").default(""),
+  isLive: integer("is_live").notNull().default(1),
+  startedAt: bigint("started_at", { mode: "number" }).notNull().default(sql`EXTRACT(EPOCH FROM NOW()) * 1000`),
+  endedAt: bigint("ended_at", { mode: "number" }).default(0),
+  viewerCount: integer("viewer_count").default(0),
+});
+
 export const livePolls = pgTable("live_polls", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   classId: text("class_id").notNull(),
@@ -503,6 +519,7 @@ export type DbDubbedVideo = typeof dubbedVideos.$inferSelect;
 export type DbAd = typeof ads.$inferSelect;
 export type DbLiveChatMessage = typeof liveChatMessages.$inferSelect;
 export type DbLiveClass = typeof liveClasses.$inferSelect;
+export type DbLiveSession = typeof liveSessions.$inferSelect;
 export type DbCourseNotice = typeof courseNotices.$inferSelect;
 export type DbPayment = typeof payments.$inferSelect;
 export type DbTeacherPayout = typeof teacherPayouts.$inferSelect;
