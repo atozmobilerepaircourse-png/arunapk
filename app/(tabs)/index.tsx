@@ -48,10 +48,11 @@ interface LiveSession {
 }
 
 // ─── Filter type ─────────────────────────────────────────────────────────────
-type FilterKey = PostCategory | 'all' | 'technician' | 'customer' | 'teacher' | 'supplier' | 'live';
+type FilterKey = PostCategory | 'all' | 'technician' | 'customer' | 'teacher' | 'supplier' | 'live' | 'sell';
 
 const FILTERS: { key: FilterKey; label: string; icon: keyof typeof Ionicons.glyphMap; color?: string }[] = [
   { key: 'all',        label: 'All Posts',        icon: 'layers-outline' },
+  { key: 'sell',       label: 'Buy & Sell',       icon: 'pricetag-outline', color: '#FF6B2C' },
   { key: 'technician', label: 'Technician Posts',  icon: 'construct-outline', color: GREEN },
   { key: 'customer',   label: 'Customer Posts',    icon: 'person-outline',    color: AMBER },
   { key: 'live',       label: 'Live',              icon: 'radio',             color: RED },
