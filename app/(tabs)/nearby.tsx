@@ -450,17 +450,18 @@ export default function NearbyScreen() {
             reviewCount: parseInt(s.ratingCount) || 0,
             image: s.shopThumbnail || s.bannerImage || 'https://via.placeholder.com/80?text=Shop',
             address: [s.city, s.state].filter(Boolean).join(', ') || 'Location not available',
-            distance: distance || undefined,
+            distance: distance !== undefined ? distance : undefined,
             isOpen: true,
           };
         });
         setSupplierShops(shops);
       } catch (e) {
         console.log('Error fetching shops:', e);
+        setSupplierShops([]);
       }
     };
     fetchShops();
-  }, [location]);
+  }, []);
 
   // Filter shops by distance and search
   const filteredShops = useMemo(() => {
