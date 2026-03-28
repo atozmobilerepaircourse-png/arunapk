@@ -422,6 +422,7 @@ export default function NearbyScreen() {
     <View style={[styles.container, { paddingTop: topPad }]}>
       {tab === 'shops' ? (
         <FlatList
+          key="shops-list"
           data={filteredShops}
           keyExtractor={item => item.id}
           renderItem={({ item }) => <ShopCard shop={item} />}
@@ -433,6 +434,7 @@ export default function NearbyScreen() {
         />
       ) : (
         <FlatList
+          key="products-list"
           data={filteredProducts}
           keyExtractor={item => item.id}
           numColumns={2}
