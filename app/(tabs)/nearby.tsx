@@ -360,8 +360,8 @@ export default function NearbyScreen() {
     return products.sort((a, b) => a.distance - b.distance);
   }, [selectedDistance, search]);
 
-  return (
-    <View style={[styles.container, { paddingTop: topPad }]}>
+  const renderHeader = () => (
+    <View>
       {/* Header */}
       <View style={styles.header}>
         {/* Search Bar */}
@@ -380,7 +380,9 @@ export default function NearbyScreen() {
         <View style={styles.locationRow}>
           <Ionicons name="location" size={14} color={PRIMARY} />
           <Text style={styles.locationText}>Hyderabad 📍</Text>
-          <Text style={styles.countText}>{filteredShops.length} shops near you (within {selectedDistance} km)</Text>
+          <Text style={styles.countText}>
+            {tab === 'shops' ? filteredShops.length : filteredProducts.length} results within {selectedDistance} km
+          </Text>
         </View>
       </View>
 
@@ -403,26 +405,33 @@ export default function NearbyScreen() {
 
       {/* Distance Slider */}
       <DistanceSlider sliderValue={sliderValue} onDistanceChange={handleDistanceChange} />
+    </View>
+  );
 
-      {/* Content */}
-      {tab === 'shops' && (
+  const renderEmptyComponent = () => (
+    <View style={styles.emptyState}>
+      <Ionicons name="alert-circle-outline" size={48} color={GRAY} />
+      <Text style={styles.emptyText}>
+        No {tab === 'shops' ? 'shops' : 'products'} within {selectedDistance} km
+      </Text>
+      <Text style={styles.emptySubText}>Try increasing distance</Text>
+    </View>
+  );
+
+  return (
+    <View style={[styles.container, { paddingTop: topPad }]}>
+      {tab === 'shops' ? (
         <FlatList
           data={filteredShops}
           keyExtractor={item => item.id}
           renderItem={({ item }) => <ShopCard shop={item} />}
           contentContainerStyle={styles.listContent}
-          ListEmptyComponent={
-            <View style={styles.emptyState}>
-              <Ionicons name="alert-circle-outline" size={48} color={GRAY} />
-              <Text style={styles.emptyText}>No results within {selectedDistance} km</Text>
-              <Text style={styles.emptySubText}>Try increasing distance</Text>
-            </View>
-          }
+          ListHeaderComponent={renderHeader}
+          ListEmptyComponent={renderEmptyComponent}
+          scrollEnabled={true}
           showsVerticalScrollIndicator={false}
         />
-      )}
-
-      {tab === 'products' && (
+      ) : (
         <FlatList
           data={filteredProducts}
           keyExtractor={item => item.id}
@@ -430,13 +439,9 @@ export default function NearbyScreen() {
           columnWrapperStyle={styles.productGrid}
           renderItem={({ item }) => <ProductCard product={item} />}
           contentContainerStyle={styles.listContent}
-          ListEmptyComponent={
-            <View style={styles.emptyState}>
-              <Ionicons name="alert-circle-outline" size={48} color={GRAY} />
-              <Text style={styles.emptyText}>No products within {selectedDistance} km</Text>
-              <Text style={styles.emptySubText}>Try increasing distance</Text>
-            </View>
-          }
+          ListHeaderComponent={renderHeader}
+          ListEmptyComponent={renderEmptyComponent}
+          scrollEnabled={true}
           showsVerticalScrollIndicator={false}
         />
       )}
