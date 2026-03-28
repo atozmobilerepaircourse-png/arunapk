@@ -26,13 +26,6 @@ import { FloatingUploadBanner } from "@/components/FloatingUploadBanner";
 
 SplashScreen.preventAutoHideAsync();
 
-// Fix EXIF image orientation on web
-if (typeof window !== 'undefined') {
-  const style = document.createElement('style');
-  style.innerHTML = `img { image-orientation: from-image; }`;
-  document.head.appendChild(style);
-}
-
 function SecuredApp() {
   const { profile, isOnboarded } = useApp();
   const userId = (isOnboarded && profile?.id) ? profile.id : null;
