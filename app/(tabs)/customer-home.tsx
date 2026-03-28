@@ -209,7 +209,7 @@ export default function CustomerHomeScreen() {
       </View>
       <View style={styles.servicesGrid}>
         {SERVICES.map(s => (
-          <Pressable key={s.id} style={styles.serviceCard} onPress={() => go('/select-brand')}>
+          <Pressable key={s.id} style={styles.serviceCard}>
             <View style={[styles.serviceIcon, { backgroundColor: s.bg }]}>
               <Ionicons name={s.icon as any} size={22} color={s.color} />
             </View>
