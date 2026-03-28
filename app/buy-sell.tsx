@@ -83,7 +83,13 @@ const SELL_CATEGORIES = [
 function parseSellPost(text: string): { title: string; price: string; condition: string; description: string; sellCategory: string } | null {
   try {
     const lines = text.split('\n');
-    const data: any = {};
+    const data: any = {
+      title: '',
+      price: '',
+      condition: '',
+      description: '',
+      sellCategory: 'other',
+    };
     for (const line of lines) {
       if (line.startsWith('SELL_TITLE:')) data.title = line.replace('SELL_TITLE:', '').trim();
       else if (line.startsWith('SELL_PRICE:')) data.price = line.replace('SELL_PRICE:', '').trim();
@@ -91,7 +97,7 @@ function parseSellPost(text: string): { title: string; price: string; condition:
       else if (line.startsWith('SELL_DESC:')) data.description = line.replace('SELL_DESC:', '').trim();
       else if (line.startsWith('SELL_CATEGORY:')) data.sellCategory = line.replace('SELL_CATEGORY:', '').trim();
     }
-    if (data.title) return { ...data, sellCategory: data.sellCategory || 'other' };
+    if (data.title) return data;
     return null;
   } catch { return null; }
 }
