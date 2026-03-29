@@ -193,20 +193,20 @@ function UserDetailCard({ user, onBlock, onVerify, onDelete, blockingId, verifyi
         </View>
       </TouchableOpacity>
 
-      {/* Delete button - absolutely positioned */}
-      <Pressable
+      {/* Delete button - separate TouchableOpacity */}
+      <TouchableOpacity
         onPress={handleDeletePress}
-        style={({ pressed }) => ({
+        activeOpacity={0.6}
+        style={{
           position: 'absolute',
           right: 8,
-          top: '50%',
-          marginTop: -12,
+          top: 12,
           padding: 8,
-          opacity: pressed ? 0.5 : 1,
-        } as any)}
+          zIndex: 10,
+        }}
       >
         <Ionicons name="trash-outline" size={16} color="#FF3B30" />
-      </Pressable>
+      </TouchableOpacity>
 
       {expanded && (
         <View style={ss.userCardExpanded}>
