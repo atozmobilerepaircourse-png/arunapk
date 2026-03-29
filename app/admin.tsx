@@ -209,22 +209,21 @@ function UserDetailCard({ user, onBlock, onVerify, onDelete, blockingId, verifyi
         {/* Delete button - RIGHT SIDE */}
         <TouchableOpacity 
           onPress={() => {
-            console.log('DELETE PRESSED:', user.id, user.name);
+            console.log('DELETE PRESSED FOR USER:', user.id, user.name);
             handleDeletePress(null);
           }}
           activeOpacity={0.6}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           style={{
-            padding: 8,
-            marginRight: -8,
-            backgroundColor: '#FF3B3015',
-            borderRadius: 8,
+            padding: 12,
             justifyContent: 'center',
             alignItems: 'center',
-            minWidth: 44,
-            minHeight: 44
+            zIndex: 999,
+            width: 50,
+            height: 50
           }}
         >
-          <Ionicons name="trash-outline" size={16} color="#FF3B30" />
+          <Ionicons name="trash-outline" size={18} color="#FF3B30" />
         </TouchableOpacity>
       </View>
 
@@ -1062,11 +1061,21 @@ export default function AdminScreen() {
 
   const handleDeleteUser = (userId: string, userName: string) => {
     console.log('⚠️ [HANDLE DELETE] Alert about to show for:', { userId, userName });
-    Alert.alert('Delete User', `Permanently delete ${userName}? This cannot be undone.`,
+    const message = `Permanently delete ${userName}? This cannot be undone.`;
+    
+    // On web, use confirm dialog as fallback for Alert.alert
+    if (typeof window !== 'undefined' && window.confirm(message)) {
+      console.log('✅ [DELETE] Web confirm - executing delete');
+      executeDeleteUser(userId, userName);
+      return;
+    }
+    
+    // On native, use Alert.alert
+    Alert.alert('Delete User', message,
       [
         { text: 'Cancel', style: 'cancel', onPress: () => console.log('❌ [DELETE] Cancelled') },
         { text: 'Delete', style: 'destructive', onPress: () => {
-          console.log('✅ [DELETE] Confirmed, executing delete');
+          console.log('✅ [DELETE] Native alert confirmed - executing delete');
           executeDeleteUser(userId, userName);
         }},
       ]
