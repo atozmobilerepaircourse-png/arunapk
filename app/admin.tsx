@@ -884,37 +884,55 @@ export default function AdminScreen() {
 
   // ── Action handlers ──
   const handleDeletePost = (postId: string, userName: string) => {
-    Alert.alert('Delete Post', `Delete post by ${userName}? This cannot be undone.`, [
+    const message = `Delete post by ${userName}? This cannot be undone.`;
+    
+    // On web, use confirm dialog
+    if (typeof window !== 'undefined') {
+      if (window.confirm(message)) {
+        deletePostWeb(postId, userName);
+      }
+      return;
+    }
+    
+    // On native, use Alert.alert
+    Alert.alert('Delete Post', message, [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: async () => {
-        try {
-          const url = new URL(`/api/posts/${postId}`, 'https://repair-backendarun-iaz6jex5fa-el.a.run.app');
-          url.searchParams.set('userId', profile?.id || '');
-          const res = await fetch(url.toString(), { method: 'DELETE' });
-          
-          const data = await res.json().catch(() => ({}));
-          
-          // Check for authorization errors
-          if (res.status === 401) {
-            Alert.alert('Authentication Error', 'Your session has expired. Please log in again.');
-            return;
-          }
-          if (res.status === 403) {
-            Alert.alert('Permission Denied', 'You cannot delete this post. Only the post owner or admin can delete it.');
-            return;
-          }
-          
-          if (res.ok || data.success) {
-            await refreshData();
-            Alert.alert('Deleted', 'Post removed successfully.');
-          } else {
-            Alert.alert('Error', data.message || 'Failed to delete post');
-          }
-        } catch (e: any) {
-          Alert.alert('Error', e.message || 'Failed to delete post');
-        }
-      }},
+      { text: 'Delete', style: 'destructive', onPress: () => deletePostWeb(postId, userName) }
     ]);
+  };
+  
+  const deletePostWeb = async (postId: string, userName: string) => {
+    try {
+      const url = new URL(`/api/posts/${postId}`, 'https://repair-backendarun-iaz6jex5fa-el.a.run.app');
+      url.searchParams.set('userId', profile?.id || '');
+      const res = await fetch(url.toString(), { method: 'DELETE' });
+      
+      const data = await res.json().catch(() => ({}));
+      
+      // Check for authorization errors
+      if (res.status === 401) {
+        Alert.alert('Authentication Error', 'Your session has expired. Please log in again.');
+        return;
+      }
+      if (res.status === 403) {
+        Alert.alert('Permission Denied', 'You cannot delete this post. Only the post owner or admin can delete it.');
+        return;
+      }
+      
+      if (res.ok || data.success) {
+        await new Promise(r => setTimeout(r, 500));
+        await refreshData();
+        if (typeof window !== 'undefined') {
+          window.alert('Post removed successfully.');
+        } else {
+          Alert.alert('Deleted', 'Post removed successfully.');
+        }
+      } else {
+        Alert.alert('Error', data.message || 'Failed to delete post');
+      }
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Failed to delete post');
+    }
   };
 
   const executeBlockUser = async (userId: string, userName: string, block: boolean) => {
@@ -2190,11 +2208,23 @@ export default function AdminScreen() {
               <Text style={{ color: C.text, fontSize: 14, fontFamily: 'Inter_600SemiBold' }}>{item.userName}</Text>
               <Text style={{ color: C.textTertiary, fontSize: 11, marginTop: 1 }}>{timeAgo(item.createdAt)}</Text>
             </View>
-            <Pressable hitSlop={12} onPress={() => handleDeletePost(item.id, item.userName)}
+            <TouchableOpacity 
+              onPress={() => handleDeletePost(item.id, item.userName)}
+              activeOpacity={0.6}
               style={{ backgroundColor: '#FF3B3015', padding: 8, borderRadius: 8 }}>
               <Ionicons name="trash-outline" size={16} color="#FF3B30" />
-            </Pressable>
+            </TouchableOpacity>
           </View>
+          
+          {/* Post Image */}
+          {item.images && Array.isArray(item.images) && item.images.length > 0 && (
+            <Image
+              source={{ uri: item.images[0] }}
+              style={{ width: '100%', height: 180, borderRadius: 8, marginTop: 8, backgroundColor: C.border }}
+              contentFit="cover"
+            />
+          )}
+          
           <Text style={{ color: C.textSecondary, fontSize: 13, fontFamily: 'Inter_400Regular', marginTop: 8, lineHeight: 18 }} numberOfLines={3}>{item.text}</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: C.border }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
@@ -2354,9 +2384,9 @@ export default function AdminScreen() {
             <SectionCard key={p.id} style={{ marginBottom: 10 }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
                 {/* Product Image */}
-                {p.image && (
+                {p.images && Array.isArray(p.images) && p.images.length > 0 && (
                   <Image
-                    source={{ uri: p.image }}
+                    source={{ uri: p.images[0] }}
                     style={{ width: 70, height: 70, borderRadius: 8, backgroundColor: C.border }}
                     contentFit="cover"
                   />
