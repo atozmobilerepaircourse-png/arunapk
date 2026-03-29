@@ -2204,13 +2204,28 @@ export default function AdminScreen() {
       renderItem={({ item }) => {
         // Ensure images is an array
         let images: string[] = [];
+        console.log('[Admin Posts Debug]', {
+          userId: item.id,
+          userName: item.userName,
+          imagesType: typeof item.images,
+          imagesValue: item.images,
+          imagesIsArray: Array.isArray(item.images),
+        });
+        
         if (Array.isArray(item.images)) {
           images = item.images.filter(img => typeof img === 'string' && img.length > 0);
         } else if (typeof item.images === 'string' && item.images.length > 0) {
           try {
-            images = JSON.parse(item.images);
-          } catch { }
+            const parsed = JSON.parse(item.images);
+            if (Array.isArray(parsed)) {
+              images = parsed.filter(img => typeof img === 'string' && img.length > 0);
+            }
+          } catch (e) {
+            console.warn('[Admin Posts] Failed to parse images:', e);
+          }
         }
+        
+        console.log('[Admin Posts Debug] Final images array:', { count: images.length, images });
         
         return (
           <SectionCard style={{ marginBottom: 10 }}>
