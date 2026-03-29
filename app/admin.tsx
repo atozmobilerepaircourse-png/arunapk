@@ -207,56 +207,25 @@ function UserDetailCard({ user, onBlock, onVerify, onDelete, blockingId, verifyi
         </TouchableOpacity>
 
         {/* Delete button - RIGHT SIDE */}
-        {typeof window !== 'undefined' ? (
-          <div 
-            onClick={(e) => {
-              console.log('=== DIV CLICK FIRED ===');
-              console.log('Event type:', e.type);
-              console.log('Event target:', e.target);
-              console.log('User ID:', user.id);
-              console.log('User Name:', user.name);
-              e.preventDefault();
-              e.stopPropagation();
-              console.log('Calling handleDeletePress...');
-              handleDeletePress(e);
-              console.log('handleDeletePress finished');
-            }}
-            style={{ 
-              paddingTop: 4, 
-              paddingRight: 4,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              touchAction: 'none',
-              backgroundColor: '#FF3B3015',
-              borderRadius: 8,
-              padding: 8,
-              userSelect: 'none'
-            } as any}
-          >
-            <Ionicons name="trash-outline" size={16} color="#FF3B30" />
-          </div>
-        ) : (
-          <TouchableOpacity 
-            onPress={(e) => {
-              console.log('=== TOUCHABLE OPACITY PRESSED ===');
-              console.log('User ID:', user.id);
-              console.log('User Name:', user.name);
-              handleDeletePress(e);
-            }}
-            activeOpacity={0.6}
-            style={{
-              paddingTop: 4,
-              paddingRight: 4,
-              backgroundColor: '#FF3B3015',
-              borderRadius: 8,
-              padding: 8
-            }}
-          >
-            <Ionicons name="trash-outline" size={16} color="#FF3B30" />
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity 
+          onPress={() => {
+            console.log('DELETE PRESSED:', user.id, user.name);
+            handleDeletePress(null);
+          }}
+          activeOpacity={0.6}
+          style={{
+            padding: 8,
+            marginRight: -8,
+            backgroundColor: '#FF3B3015',
+            borderRadius: 8,
+            justifyContent: 'center',
+            alignItems: 'center',
+            minWidth: 44,
+            minHeight: 44
+          }}
+        >
+          <Ionicons name="trash-outline" size={16} color="#FF3B30" />
+        </TouchableOpacity>
       </View>
 
       {expanded && (
