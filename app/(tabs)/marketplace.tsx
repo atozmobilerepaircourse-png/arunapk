@@ -250,6 +250,9 @@ function DistanceBar({
 export default function MarketplaceScreen() {
   const insets = useSafeAreaInsets();
   const { allProfiles, startConversation, profile } = useApp();
+  const isTechnician = profile?.role === 'technician';
+  const isCustomer = profile?.role === 'customer';
+  
   const [tab, setTab] = useState<'shops' | 'products'>('shops');
   const [search, setSearch] = useState('');
   const [selectedDistance, setSelectedDistance] = useState<number | 'ALL'>('ALL');
@@ -289,15 +292,18 @@ export default function MarketplaceScreen() {
     })();
   }, []);
 
-  // Fetch shops (suppliers + shopkeepers)
+  // Fetch shops (suppliers for technicians, shopkeepers for customers)
   const fetchShops = useCallback(async () => {
     try {
       const res = await apiRequest('GET', '/api/profiles');
       const data = await res.json();
       const profiles = Array.isArray(data) ? data : (data.profiles || []);
 
+      // Technicians see suppliers, customers see shopkeepers
+      const targetRole = isTechnician ? 'supplier' : 'shopkeeper';
+
       const mapped: ShopItem[] = profiles
-        .filter((u: any) => (u.role === 'supplier' || u.role === 'shopkeeper') && !u.blocked_at)
+        .filter((u: any) => u.role === targetRole && !u.blocked_at)
         .map((s: any) => {
           let distance: number | undefined;
           if (location && s.latitude && s.longitude) {
@@ -328,17 +334,16 @@ export default function MarketplaceScreen() {
       setLoadingShops(false);
       setRefreshing(false);
     }
-  }, [location]);
+  }, [location, isTechnician]);
 
-  // Fetch products (suppliers + shopkeepers)
+  // Fetch products (suppliers for technicians, shopkeepers for customers)
   const fetchProducts = useCallback(async () => {
     try {
-      const [r1, r2] = await Promise.all([
-        apiRequest('GET', '/api/products?role=supplier'),
-        apiRequest('GET', '/api/products?role=shopkeeper'),
-      ]);
-      const [p1, p2] = await Promise.all([r1.json(), r2.json()]);
-      const all = [...(Array.isArray(p1) ? p1 : []), ...(Array.isArray(p2) ? p2 : [])];
+      // Technicians see supplier products, customers see shopkeeper products
+      const targetRole = isTechnician ? 'supplier' : 'shopkeeper';
+      const res = await apiRequest('GET', `/api/products?role=${targetRole}`);
+      const data = await res.json();
+      const all = Array.isArray(data) ? data : [];
 
       const mapped: ProductItem[] = all.map((p: any) => {
         const seller = allProfiles.find((prof: any) => prof.id === p.userId);
@@ -368,7 +373,7 @@ export default function MarketplaceScreen() {
     } finally {
       setLoadingProducts(false);
     }
-  }, [location, allProfiles]);
+  }, [location, allProfiles, isTechnician]);
 
   useEffect(() => { fetchShops(); }, [fetchShops]);
   useEffect(() => { fetchProducts(); }, [fetchProducts]);
@@ -426,7 +431,7 @@ export default function MarketplaceScreen() {
 
         <View style={styles.locationRow}>
           <Ionicons name="storefront" size={14} color={PRIMARY} />
-          <Text style={styles.locationText}>Supplier & Shopkeeper</Text>
+          <Text style={styles.locationText}>{isTechnician ? 'Suppliers' : 'Shopkeepers'}</Text>
           <Text style={styles.countText}>
             {selectedDistance === 'ALL'
               ? `${tab === 'shops' ? filteredShops.length + ' shops' : filteredProducts.length + ' products'} across India`
