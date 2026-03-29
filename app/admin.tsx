@@ -153,7 +153,7 @@ function UserDetailCard({ user, onBlock, onVerify, onDelete, blockingId, verifyi
   const ROLES_LIST: UserRole[] = ['admin', 'technician', 'teacher', 'supplier', 'shopkeeper', 'customer', 'job_provider'];
 
   return (
-    <View style={[ss.userCard, isBlocked && { borderColor: '#FF3B30', borderWidth: 1.5 }, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
+    <View style={[ss.userCard, isBlocked && { borderColor: '#FF3B30', borderWidth: 1.5 }, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', position: 'relative' }]}>
       <TouchableOpacity activeOpacity={0.7} onPress={() => { 
         console.log('📋 [USER CARD] Toggling expand for:', user.name, '| was expanded:', expanded);
         setShowRolePicker(false); 
@@ -184,23 +184,23 @@ function UserDetailCard({ user, onBlock, onVerify, onDelete, blockingId, verifyi
         </View>
       </TouchableOpacity>
 
-      {/* Delete button */}
-      <Pressable
+      {/* Delete button - ensure it's clickable on web */}
+      <TouchableOpacity
         onPress={() => {
           console.log('🗑️ [DELETE BUTTON] Pressed for:', user.id, user.name);
           onDelete(user.id, user.name);
         }}
-        style={({ pressed }) => ({
-          padding: 8,
-          marginLeft: 4,
+        activeOpacity={0.6}
+        style={{
+          padding: 12,
+          marginLeft: 8,
           justifyContent: 'center',
           alignItems: 'center',
-          opacity: pressed ? 0.6 : 1,
-        })}
-        hitSlop={12}
+          zIndex: 999,
+        }}
       >
         <Ionicons name="trash-outline" size={16} color="#FF3B30" />
-      </Pressable>
+      </TouchableOpacity>
 
       {expanded && (
         <View style={ss.userCardExpanded}>
