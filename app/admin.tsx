@@ -166,47 +166,48 @@ function UserDetailCard({ user, onBlock, onVerify, onDelete, blockingId, verifyi
   };
 
   return (
-    <View style={[ss.userCard, isBlocked && { borderColor: '#FF3B30', borderWidth: 1.5 }, { position: 'relative' }]}>
-      <TouchableOpacity activeOpacity={0.7} onPress={handleCardPress}>
-        <View style={ss.userCardTop}>
-          {profile?.avatar
-            ? <Image source={{ uri: profile.avatar }} style={[ss.userAvatarImg, isBlocked && { opacity: 0.5 }]} contentFit="cover" />
-            : <View style={[ss.userAvatar, { backgroundColor: roleColor + '20' }, isBlocked && { opacity: 0.5 }]}>
-              <Text style={[ss.userAvatarText, { color: roleColor }]}>{getInitials(user.name)}</Text>
-            </View>}
-          <View style={ss.userCardInfo}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Text style={ss.userName} numberOfLines={1}>{user.name}</Text>
-              {isVerified && <Ionicons name="checkmark-circle" size={14} color="#34C759" />}
-              {isBlocked && <View style={{ backgroundColor: '#FF3B3020', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4 }}>
-                <Text style={{ fontSize: 9, color: '#FF3B30', fontFamily: 'Inter_700Bold' }}>BLOCKED</Text>
+    <View style={[ss.userCard, isBlocked && { borderColor: '#FF3B30', borderWidth: 1.5 }]}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <TouchableOpacity activeOpacity={0.7} onPress={handleCardPress} style={{ flex: 1 }}>
+          <View style={ss.userCardTop}>
+            {profile?.avatar
+              ? <Image source={{ uri: profile.avatar }} style={[ss.userAvatarImg, isBlocked && { opacity: 0.5 }]} contentFit="cover" />
+              : <View style={[ss.userAvatar, { backgroundColor: roleColor + '20' }, isBlocked && { opacity: 0.5 }]}>
+                <Text style={[ss.userAvatarText, { color: roleColor }]}>{getInitials(user.name)}</Text>
               </View>}
-            </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
-              <View style={[ss.roleBadge, { backgroundColor: roleColor + '20' }]}>
-                <Text style={[ss.roleBadgeText, { color: roleColor }]}>{ROLE_LABELS[user.role as UserRole] || user.role}</Text>
+            <View style={ss.userCardInfo}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={ss.userName} numberOfLines={1}>{user.name}</Text>
+                {isVerified && <Ionicons name="checkmark-circle" size={14} color="#34C759" />}
+                {isBlocked && <View style={{ backgroundColor: '#FF3B3020', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4 }}>
+                  <Text style={{ fontSize: 9, color: '#FF3B30', fontFamily: 'Inter_700Bold' }}>BLOCKED</Text>
+                </View>}
               </View>
-              {user.city ? <Text style={ss.userCity}>{user.city}</Text> : null}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                <View style={[ss.roleBadge, { backgroundColor: roleColor + '20' }]}>
+                  <Text style={[ss.roleBadgeText, { color: roleColor }]}>{ROLE_LABELS[user.role as UserRole] || user.role}</Text>
+                </View>
+                {user.city ? <Text style={ss.userCity}>{user.city}</Text> : null}
+              </View>
             </View>
+            <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={16} color={C.textTertiary} />
           </View>
-          <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={16} color={C.textTertiary} />
-        </View>
-      </TouchableOpacity>
+        </TouchableOpacity>
 
-      {/* Delete button - separate TouchableOpacity */}
-      <TouchableOpacity
-        onPress={handleDeletePress}
-        activeOpacity={0.6}
-        style={{
-          position: 'absolute',
-          right: 8,
-          top: 12,
-          padding: 8,
-          zIndex: 10,
-        }}
-      >
-        <Ionicons name="trash-outline" size={16} color="#FF3B30" />
-      </TouchableOpacity>
+        {/* Delete button - RIGHT SIDE */}
+        <View style={{ paddingTop: 4, paddingRight: 4 }}>
+          <TouchableOpacity
+            onPress={() => {
+              console.log('BUTTON CLICKED FOR:', user.name);
+              handleDeletePress(null);
+            }}
+            activeOpacity={0.6}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons name="trash-outline" size={16} color="#FF3B30" />
+          </TouchableOpacity>
+        </View>
+      </View>
 
       {expanded && (
         <View style={ss.userCardExpanded}>
