@@ -6,7 +6,7 @@ import OpenAI from "openai";
 import { notifyAllUsers, notifyNewPost, notifyUser } from "./push-notifications";
 import { profiles, conversations, messages, posts, jobs, reels, products, orders, subscriptionSettings, courses, courseChapters, courseVideos, courseEnrollments, dubbedVideos, ads, liveChatMessages, liveClasses, liveSessions, courseNotices, sessions, payments, teacherPayouts, appSettings, videoProgress, livePolls, livePollVotes, emailCampaigns, otpTokens, adminNotifications, repairBookings, protectionPlans, protectionClaims } from "@shared/schema";
 import { sendWelcomeEmail } from "./lib/sendEmail";
-import { eq, or, and, desc, gt, gte, lt, sql, ne, isNotNull } from "drizzle-orm";
+import { eq, or, and, desc, gt, gte, lt, sql, ne, isNotNull, isNull } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import multer from "multer";
 import * as fs from "fs";
@@ -1781,7 +1781,7 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
 
   app.get("/api/profiles", async (_req, res) => {
     try {
-      const allProfiles = await db.select().from(profiles);
+      const allProfiles = await db.select().from(profiles).where(isNull(profiles.deleted_at));
       const parsed = await Promise.all(allProfiles.map(async (p) => {
         let skillsArray = [];
         try {
