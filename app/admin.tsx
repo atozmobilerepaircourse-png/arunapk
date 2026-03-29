@@ -184,27 +184,23 @@ function UserDetailCard({ user, onBlock, onVerify, onDelete, blockingId, verifyi
         </View>
       </TouchableOpacity>
 
-      {/* Delete button - View with onClick for web + onPress for native */}
-      <View
-        onTouchEnd={() => {
-          console.log('🗑️ [DELETE BUTTON] TouchEnd for:', user.id, user.name);
+      {/* Delete button */}
+      <Pressable
+        onPress={() => {
+          console.log('🗑️ [DELETE BUTTON] Pressed for:', user.id, user.name);
           onDelete(user.id, user.name);
         }}
-        onClick={() => {
-          console.log('🗑️ [DELETE BUTTON] Click for:', user.id, user.name);
-          onDelete(user.id, user.name);
-        }}
-        style={{
+        style={({ pressed }) => ({
           padding: 8,
+          marginLeft: 4,
           justifyContent: 'center',
           alignItems: 'center',
-          zIndex: 10,
-          cursor: 'pointer',
-          borderRadius: 4
-        } as any}
+          opacity: pressed ? 0.6 : 1,
+        })}
+        hitSlop={12}
       >
         <Ionicons name="trash-outline" size={16} color="#FF3B30" />
-      </View>
+      </Pressable>
 
       {expanded && (
         <View style={ss.userCardExpanded}>
