@@ -2138,13 +2138,24 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
   app.delete("/api/products/:id", async (req, res) => {
     try {
       const productId = req.params.id;
-      console.log(`[Products] DELETE request for product: ${productId}`);
+      const { userId } = req.query as { userId?: string };
+      console.log(`[Products] DELETE request for product: ${productId} by user: ${userId}`);
       
       const result = await db.select().from(products).where(eq(products.id, productId));
       
       if (result.length === 0) {
         console.warn(`[Products] Product not found: ${productId}`);
         return res.status(404).json({ success: false, message: 'Product not found' });
+      }
+      
+      // Check if requester owns the product or is an admin
+      const product = result[0];
+      const isOwner = userId && product.userId === userId;
+      const isAdmin = userId === 'admin-55f06aed-5414-45da-a507-9fe355dbb5a7' || userId?.includes('admin');
+      
+      if (!isOwner && !isAdmin) {
+        console.warn(`[Products] Unauthorized delete attempt by user: ${userId} for product: ${productId}`);
+        return res.status(403).json({ success: false, message: "Unauthorized - only product owner or admin can delete" });
       }
       
       // Handle image deletion
