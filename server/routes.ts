@@ -3,7 +3,7 @@ import { createServer, type Server } from "node:http";
 import { getFirestore, getAdminAuth, getStorage } from "./firebase-admin";
 import { db } from "./db";
 import OpenAI from "openai";
-import { notifyAllUsers, notifyNewPost, notifyUser } from "./push-notifications";
+import { notifyAllUsers, notifyNewPost, notifyUser, notifyLiveChat } from "./push-notifications";
 import { profiles, conversations, messages, posts, jobs, reels, products, orders, subscriptionSettings, courses, courseChapters, courseVideos, courseEnrollments, dubbedVideos, ads, liveChatMessages, liveClasses, liveSessions, courseNotices, sessions, payments, teacherPayouts, appSettings, videoProgress, livePolls, livePollVotes, emailCampaigns, otpTokens, adminNotifications, repairBookings, protectionPlans, protectionClaims } from "@shared/schema";
 import { sendWelcomeEmail } from "./lib/sendEmail";
 import { eq, or, and, desc, gt, gte, lt, sql, ne, isNotNull, isNull } from "drizzle-orm";
@@ -6643,6 +6643,9 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
       }
 
       await db.insert(liveChatMessages).values(msgData);
+
+      // Notify all users about the live chat message
+      notifyLiveChat(msgData.senderName, msgData.message, senderId).catch(() => {});
 
       res.json({ success: true, message: msgData });
     } catch (error) {

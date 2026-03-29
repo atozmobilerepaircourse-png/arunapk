@@ -92,3 +92,12 @@ export async function notifyNewPost(postText: string, authorName: string, author
     data: { type: 'new_post' },
   }, authorId);
 }
+
+export async function notifyLiveChat(senderName: string, messageText: string, senderId: string): Promise<void> {
+  const preview = messageText.length > 60 ? messageText.slice(0, 60) + '...' : messageText;
+  await notifyAllUsers({
+    title: `💬 ${senderName} in Live Chat`,
+    body: preview || 'Sent a message',
+    data: { type: 'live_chat_message' },
+  }, senderId);
+}
