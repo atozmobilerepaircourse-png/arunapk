@@ -2598,6 +2598,15 @@ export default function AdminScreen() {
                 })}
               </View>
             )}
+            
+            {/* Info message */}
+            <View style={{ marginTop: 12, padding: 10, backgroundColor: PRIMARY + '15', borderRadius: 8, borderLeftWidth: 3, borderLeftColor: PRIMARY }}>
+              <Text style={{ fontSize: 12, color: PRIMARY, fontFamily: 'Inter_600SemiBold', marginBottom: 4 }}>ℹ️ How Push Tokens Work</Text>
+              <Text style={{ fontSize: 11, color: C.textSecondary, lineHeight: 16 }}>
+                Push tokens are automatically registered when users open the app on iPhone or Android. Tokens do NOT register on web browsers.{'\n\n'}
+                <Text style={{ fontFamily: 'Inter_600SemiBold' }}>To test:</Text> Install the app on a real device or emulator, log in, and return to this screen.
+              </Text>
+            </View>
           </>
         ) : (
           <Pressable onPress={fetchPushStats}>
