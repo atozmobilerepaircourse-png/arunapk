@@ -2201,29 +2201,40 @@ export default function AdminScreen() {
           <Text style={{ color: C.textTertiary, fontSize: 14, marginTop: 8 }}>No posts yet</Text>
         </View>
       }
-      renderItem={({ item }) => (
-        <SectionCard style={{ marginBottom: 10 }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <View style={{ flex: 1, marginRight: 10 }}>
-              <Text style={{ color: C.text, fontSize: 14, fontFamily: 'Inter_600SemiBold' }}>{item.userName}</Text>
-              <Text style={{ color: C.textTertiary, fontSize: 11, marginTop: 1 }}>{timeAgo(item.createdAt)}</Text>
+      renderItem={({ item }) => {
+        // Ensure images is an array
+        let images: string[] = [];
+        if (Array.isArray(item.images)) {
+          images = item.images.filter(img => typeof img === 'string' && img.length > 0);
+        } else if (typeof item.images === 'string' && item.images.length > 0) {
+          try {
+            images = JSON.parse(item.images);
+          } catch { }
+        }
+        
+        return (
+          <SectionCard style={{ marginBottom: 10 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <View style={{ flex: 1, marginRight: 10 }}>
+                <Text style={{ color: C.text, fontSize: 14, fontFamily: 'Inter_600SemiBold' }}>{item.userName}</Text>
+                <Text style={{ color: C.textTertiary, fontSize: 11, marginTop: 1 }}>{timeAgo(item.createdAt)}</Text>
+              </View>
+              <TouchableOpacity 
+                onPress={() => handleDeletePost(item.id, item.userName)}
+                activeOpacity={0.6}
+                style={{ backgroundColor: '#FF3B3015', padding: 8, borderRadius: 8 }}>
+                <Ionicons name="trash-outline" size={16} color="#FF3B30" />
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity 
-              onPress={() => handleDeletePost(item.id, item.userName)}
-              activeOpacity={0.6}
-              style={{ backgroundColor: '#FF3B3015', padding: 8, borderRadius: 8 }}>
-              <Ionicons name="trash-outline" size={16} color="#FF3B30" />
-            </TouchableOpacity>
-          </View>
-          
-          {/* Post Image */}
-          {item.images && Array.isArray(item.images) && item.images.length > 0 && (
-            <Image
-              source={{ uri: item.images[0] }}
-              style={{ width: '100%', height: 180, borderRadius: 8, marginTop: 8, backgroundColor: C.border }}
-              contentFit="cover"
-            />
-          )}
+            
+            {/* Post Image */}
+            {images.length > 0 && (
+              <Image
+                source={{ uri: images[0] }}
+                style={{ width: '100%', height: 180, borderRadius: 8, marginTop: 8, backgroundColor: C.border }}
+                contentFit="cover"
+              />
+            )}
           
           <Text style={{ color: C.textSecondary, fontSize: 13, fontFamily: 'Inter_400Regular', marginTop: 8, lineHeight: 18 }} numberOfLines={3}>{item.text}</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: C.border }}>
@@ -2240,7 +2251,8 @@ export default function AdminScreen() {
             </View>
           </View>
         </SectionCard>
-      )}
+        );
+      }}
     />
   );
 
