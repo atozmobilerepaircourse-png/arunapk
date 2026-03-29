@@ -530,7 +530,34 @@ export default function AdminScreen() {
 
   const deleteListing = async (id: string) => {
     console.log('[Delete] deleteListing called with id:', id);
-    Alert.alert('Delete Listing', 'Remove this listing permanently?', [
+    const message = 'Remove this listing permanently?';
+    
+    // On web, use confirm dialog
+    if (typeof window !== 'undefined') {
+      if (window.confirm(message)) {
+        console.log('[Delete] Delete confirmed for product:', id);
+        try {
+          const res = await apiRequest('DELETE', `/api/admin/products/${id}`);
+          const data = await res.json();
+          console.log('[Delete] Response:', { status: res.status, data });
+          if (data.success || res.status === 404) {
+            console.log('[Delete] Success! Refreshing products list');
+            await new Promise(r => setTimeout(r, 500));
+            await fetchAllProducts();
+            window.alert('Listing deleted successfully');
+          } else {
+            Alert.alert('Error', data.message || 'Failed to delete');
+          }
+        } catch (e) {
+          console.error('[Delete] Error:', e);
+          Alert.alert('Error', 'Failed to delete listing');
+        }
+      }
+      return;
+    }
+    
+    // On native, use Alert.alert
+    Alert.alert('Delete Listing', message, [
       { text: 'Cancel', style: 'cancel', onPress: () => console.log('[Delete] Cancelled') },
       { text: 'Delete', style: 'destructive', onPress: async () => {
           console.log('[Delete] Delete confirmed for product:', id);
@@ -540,6 +567,7 @@ export default function AdminScreen() {
             console.log('[Delete] Response:', { status: res.status, data });
             if (data.success || res.status === 404) {
               console.log('[Delete] Success! Refreshing products list');
+              await new Promise(r => setTimeout(r, 500));
               await fetchAllProducts();
               Alert.alert('Success', 'Listing deleted');
             } else {
@@ -2324,18 +2352,32 @@ export default function AdminScreen() {
         ) : (
           filteredListings.map((p: any) => (
             <SectionCard key={p.id} style={{ marginBottom: 10 }}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <View style={{ flex: 1, marginRight: 10 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+                {/* Product Image */}
+                {p.image && (
+                  <Image
+                    source={{ uri: p.image }}
+                    style={{ width: 70, height: 70, borderRadius: 8, backgroundColor: C.border }}
+                    contentFit="cover"
+                  />
+                )}
+                
+                {/* Product Info */}
+                <View style={{ flex: 1 }}>
                   <Text style={{ fontSize: 14, fontFamily: 'Inter_600SemiBold', color: C.text }}>{p.name || p.title || 'Unnamed'}</Text>
                   {p.description ? <Text style={{ fontSize: 12, color: C.textSecondary, marginTop: 2 }} numberOfLines={2}>{p.description}</Text> : null}
                   <Text style={{ fontSize: 12, color: PRIMARY, fontFamily: 'Inter_600SemiBold', marginTop: 4 }}>
                     {p.price ? `₹${p.price}` : 'No price'}
                   </Text>
                 </View>
-                <Pressable onPress={() => deleteListing(p.id)}
+                
+                {/* Delete Button */}
+                <TouchableOpacity 
+                  onPress={() => deleteListing(p.id)}
+                  activeOpacity={0.6}
                   style={{ backgroundColor: '#FF3B3015', padding: 8, borderRadius: 8 }}>
                   <Ionicons name="trash-outline" size={16} color="#FF3B30" />
-                </Pressable>
+                </TouchableOpacity>
               </View>
             </SectionCard>
           ))
