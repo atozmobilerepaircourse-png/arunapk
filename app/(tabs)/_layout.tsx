@@ -51,10 +51,6 @@ function NativeTabLayout() {
           <Icon sf={{ default: "wrench.adjustable", selected: "wrench.adjustable.fill" }} />
           <Label>Ask for Repair</Label>
         </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="nearby">
-          <Icon sf={{ default: "location", selected: "location.fill" }} />
-          <Label>Nearby</Label>
-        </NativeTabs.Trigger>
         <NativeTabs.Trigger name="marketplace">
           <Icon sf={{ default: "bag", selected: "bag.fill" }} />
           <Label>Shop</Label>
@@ -64,7 +60,7 @@ function NativeTabLayout() {
         <NativeTabs.Trigger name="jobs" hidden />
         <NativeTabs.Trigger name="content" hidden />
         <NativeTabs.Trigger name="products" hidden />
-        <NativeTabs.Trigger name="marketplace" hidden />
+        <NativeTabs.Trigger name="nearby" hidden />
         <NativeTabs.Trigger name="create" hidden />
         <NativeTabs.Trigger name="profile" hidden />
         <NativeTabs.Trigger name="tech-market" hidden />
