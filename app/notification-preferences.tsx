@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Switch, ScrollView, Platform, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Switch, ScrollView, Platform, Pressable, ActivityIndicator, FlatList, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import Colors from '@/constants/colors';
-import { apiRequest } from '@/lib/query-client';
+import { apiRequest, getApiUrl } from '@/lib/query-client';
 import { useApp } from '@/lib/context';
 
 const C = Colors.light;
+const PRIMARY = '#FF6B2C';
 
 export default function NotificationPreferencesScreen() {
   const insets = useSafeAreaInsets();
@@ -19,6 +20,8 @@ export default function NotificationPreferencesScreen() {
     system: true,
   });
   const [saving, setSaving] = useState(false);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [loadingNotifs, setLoadingNotifs] = useState(false);
 
   useEffect(() => {
     if (user?.notificationPrefs) {
@@ -29,6 +32,29 @@ export default function NotificationPreferencesScreen() {
       }
     }
   }, [user]);
+
+  useEffect(() => {
+    if (user?.id) {
+      fetchNotifications();
+    }
+  }, [user]);
+
+  const fetchNotifications = async () => {
+    if (!user?.id) return;
+    setLoadingNotifs(true);
+    try {
+      const baseUrl = getApiUrl();
+      const res = await fetch(`${baseUrl}/api/notifications/history?userId=${user.id}`);
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setNotifications(data);
+      }
+    } catch (e) {
+      console.error('[Notifications] Fetch error:', e);
+    } finally {
+      setLoadingNotifs(false);
+    }
+  };
 
   const toggleSwitch = async (key: keyof typeof prefs) => {
     const newPrefs = { ...prefs, [key]: !prefs[key] };
@@ -41,7 +67,6 @@ export default function NotificationPreferencesScreen() {
       });
     } catch (error) {
       console.error('Failed to update prefs', error);
-      // Revert on error
       setPrefs(prefs);
     } finally {
       setSaving(false);
@@ -51,7 +76,7 @@ export default function NotificationPreferencesScreen() {
   const renderItem = (key: keyof typeof prefs, title: string, description: string, icon: keyof typeof Ionicons.glyphMap) => (
     <View style={styles.item}>
       <View style={styles.itemIcon}>
-        <Ionicons name={icon} size={22} color={C.primary} />
+        <Ionicons name={icon} size={22} color={PRIMARY} />
       </View>
       <View style={styles.itemContent}>
         <Text style={styles.itemTitle}>{title}</Text>
@@ -60,11 +85,25 @@ export default function NotificationPreferencesScreen() {
       <Switch
         value={prefs[key]}
         onValueChange={() => toggleSwitch(key)}
-        trackColor={{ false: '#3A3A3C', true: C.primary }}
+        trackColor={{ false: '#3A3A3C', true: PRIMARY }}
         thumbColor={Platform.OS === 'ios' ? '#FFFFFF' : prefs[key] ? '#FFFFFF' : '#AEAEB2'}
       />
     </View>
   );
+
+  const formatTime = (ms: number) => {
+    const now = Date.now();
+    const diff = now - ms;
+    const mins = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+    
+    if (mins < 1) return 'Just now';
+    if (mins < 60) return `${mins}m ago`;
+    if (hours < 24) return `${hours}h ago`;
+    if (days < 7) return `${days}d ago`;
+    return new Date(ms).toLocaleDateString();
+  };
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -77,16 +116,61 @@ export default function NotificationPreferencesScreen() {
       </View>
 
       <ScrollView style={styles.content}>
+        {/* Preferences Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Transactional</Text>
-          {renderItem('orders', 'Order Updates', 'Receive alerts about your purchases and sales', 'cart-outline')}
-          {renderItem('messages', 'Messages', 'Get notified when you receive a new message', 'chatbubble-outline')}
+          <Text style={styles.sectionTitle}>Preferences</Text>
+          <View style={styles.subsection}>
+            <Text style={styles.subsectionTitle}>Transactional</Text>
+            {renderItem('orders', 'Order Updates', 'Receive alerts about your purchases and sales', 'cart-outline')}
+            {renderItem('messages', 'Messages', 'Get notified when you receive a new message', 'chatbubble-outline')}
+          </View>
+
+          <View style={styles.subsection}>
+            <Text style={styles.subsectionTitle}>Updates</Text>
+            {renderItem('marketing', 'Promotions', 'Special offers, discounts and news', 'megaphone-outline')}
+            {renderItem('system', 'System Alerts', 'Security alerts and app updates', 'shield-checkmark-outline')}
+          </View>
         </View>
 
+        {/* Notification History Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Updates</Text>
-          {renderItem('marketing', 'Promotions', 'Special offers, discounts and news', 'megaphone-outline')}
-          {renderItem('system', 'System Alerts', 'Security alerts and app updates', 'shield-checkmark-outline')}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <Text style={styles.sectionTitle}>Recent Notifications</Text>
+            {loadingNotifs && <ActivityIndicator size="small" color={PRIMARY} />}
+          </View>
+          
+          {notifications.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="notifications-off-outline" size={40} color={C.textTertiary} />
+              <Text style={{ color: C.textTertiary, fontSize: 14, marginTop: 8 }}>No notifications yet</Text>
+            </View>
+          ) : (
+            <FlatList
+              scrollEnabled={false}
+              data={notifications}
+              keyExtractor={item => item.id}
+              renderItem={({ item }) => (
+                <View style={[styles.notificationCard, item.read ? { opacity: 0.6 } : {}]}>
+                  {item.image && (
+                    <Image 
+                      source={{ uri: item.image }} 
+                      style={styles.notificationImage} 
+                    />
+                  )}
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.notificationTitle}>{item.title || item.type}</Text>
+                    {item.body && (
+                      <Text style={styles.notificationBody} numberOfLines={2}>{item.body}</Text>
+                    )}
+                    <Text style={styles.notificationTime}>{formatTime(item.createdAt)}</Text>
+                  </View>
+                  {!item.read && (
+                    <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: PRIMARY, marginLeft: 8 }} />
+                  )}
+                </View>
+              )}
+            />
+          )}
         </View>
         
         {saving && (
@@ -127,10 +211,21 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: 32,
   },
+  subsection: {
+    marginBottom: 20,
+  },
+  subsectionTitle: {
+    fontSize: 12,
+    fontFamily: 'Inter_600SemiBold',
+    color: C.textTertiary,
+    textTransform: 'uppercase',
+    marginBottom: 12,
+    letterSpacing: 0.8,
+  },
   sectionTitle: {
     fontSize: 14,
     fontFamily: 'Inter_700Bold',
-    color: C.primary,
+    color: PRIMARY,
     textTransform: 'uppercase',
     marginBottom: 16,
     marginLeft: 4,
@@ -140,21 +235,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: C.surface,
-    padding: 20,
-    borderRadius: 24,
-    marginBottom: 16,
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: C.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
   },
   itemIcon: {
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: C.primaryMuted,
+    backgroundColor: PRIMARY + '15',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -164,20 +255,58 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   itemTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontFamily: 'Inter_600SemiBold',
     color: C.text,
     marginBottom: 2,
   },
   itemDescription: {
-    fontSize: 13,
+    fontSize: 12,
     color: C.textSecondary,
   },
   savingText: {
     textAlign: 'center',
-    color: C.primary,
+    color: PRIMARY,
     fontSize: 12,
     marginTop: -16,
     marginBottom: 32,
-  }
+  },
+  emptyState: {
+    alignItems: 'center',
+    padding: 32,
+    backgroundColor: C.surface,
+    borderRadius: 16,
+  },
+  notificationCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: C.surface,
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: C.border,
+  },
+  notificationImage: {
+    width: 50,
+    height: 50,
+    borderRadius: 8,
+    marginRight: 12,
+    backgroundColor: C.border,
+  },
+  notificationTitle: {
+    fontSize: 13,
+    fontFamily: 'Inter_600SemiBold',
+    color: C.text,
+    marginBottom: 2,
+  },
+  notificationBody: {
+    fontSize: 12,
+    color: C.textSecondary,
+    marginBottom: 4,
+  },
+  notificationTime: {
+    fontSize: 11,
+    color: C.textTertiary,
+  },
 });

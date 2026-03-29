@@ -436,6 +436,9 @@ export const adminNotifications = pgTable("admin_notifications", {
   userName: text("user_name").notNull().default(""),
   phone: text("phone").notNull().default(""),
   reason: text("reason").notNull().default(""),
+  title: text("title").default(""), // Push notification title
+  body: text("body").default(""), // Push notification body
+  image: text("image").default(""), // Push notification image URL
   read: integer("read").notNull().default(0),
   createdAt: bigint("created_at", { mode: "number" }).notNull().default(sql`EXTRACT(EPOCH FROM NOW()) * 1000`),
 });

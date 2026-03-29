@@ -1912,6 +1912,38 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
     }
   });
 
+  // Get user's notification history
+  app.get("/api/notifications/history", async (req, res) => {
+    try {
+      const userId = req.headers.authorization?.split(' ')[1] || req.query.userId as string;
+      if (!userId) return res.status(401).json({ success: false, message: "User ID required" });
+      
+      const notifications = await db
+        .select()
+        .from(adminNotifications)
+        .where(eq(adminNotifications.userId, userId))
+        .orderBy(desc(adminNotifications.createdAt))
+        .limit(50);
+      
+      return res.json(notifications);
+    } catch (error) {
+      console.error("[Notifications] History fetch error:", error);
+      return res.status(500).json({ success: false, message: "Failed to fetch notifications" });
+    }
+  });
+
+  // Mark notification as read
+  app.patch("/api/notifications/:id/read", async (req, res) => {
+    try {
+      const { id } = req.params;
+      await db.update(adminNotifications).set({ read: 1 }).where(eq(adminNotifications.id, id));
+      return res.json({ success: true });
+    } catch (error) {
+      console.error("[Notifications] Mark read error:", error);
+      return res.status(500).json({ success: false });
+    }
+  });
+
   // In-memory live chat presence store: userId -> { name, role, avatar, lastSeen }
   const liveChatPresence = new Map<string, { name: string; role: string; avatar: string; lastSeen: number }>();
   const LIVE_CHAT_PRESENCE_TTL = 45 * 1000; // 45 seconds
@@ -6212,10 +6244,43 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
       const { phone, title, body, image, bigPicture } = req.body;
       if (phone !== '8179142535') return res.status(403).json({ success: false, message: "Admin only" });
       if (!title || !body) return res.status(400).json({ success: false, message: "Title and body required" });
+      
+      // Get all users to send notifications
+      const allUsers = await db.select().from(profiles).where(ne(profiles.pushToken, ''));
+      
+      // Send push notifications
       const msg: any = { title, body, data: { type: 'admin_broadcast' } };
       if (image) msg.image = image;
       if (bigPicture) msg.bigPicture = bigPicture;
       const count = await notifyAllUsers(msg);
+      
+      // Save notification records for each user
+      try {
+        const notifRecords = allUsers.map(user => ({
+          userId: user.id,
+          userName: user.name || 'User',
+          phone: user.phone || '',
+          type: 'admin_broadcast',
+          reason: 'Admin notification',
+          title: title,
+          body: body,
+          image: image || '',
+          read: 0,
+          createdAt: Date.now(),
+        }));
+        
+        for (const record of notifRecords) {
+          try {
+            await db.insert(adminNotifications).values(record as any);
+          } catch (e) {
+            // Ignore individual insert errors
+            console.warn('[Notifications] Failed to save record for user:', record.userId);
+          }
+        }
+      } catch (e) {
+        console.warn('[Notifications] Failed to save notification records:', e);
+      }
+      
       res.json({ success: true, sent: count });
     } catch (error) {
       console.error("[Admin] Notify all error:", error);
