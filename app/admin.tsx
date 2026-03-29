@@ -900,7 +900,9 @@ export default function AdminScreen() {
       console.log('Block response:', data);
       if (data.success) {
         Alert.alert('Success', `${userName} has been ${block ? 'blocked' : 'unblocked'}.`);
+        await new Promise(r => setTimeout(r, 500));
         await refreshData();
+        console.log('✅ User list refreshed after block operation');
       } else { 
         Alert.alert('Error', data.message || 'Failed to block user'); 
       }
@@ -1004,7 +1006,9 @@ export default function AdminScreen() {
       if (data.success) {
         console.log('✅ [PERM DELETE] Success');
         Alert.alert('Success', `${userName} has been permanently deleted from database.`);
-        fetchDeletedUsers();
+        await new Promise(r => setTimeout(r, 500));
+        await fetchDeletedUsers();
+        console.log('✅ Deleted users list refreshed');
       } else {
         Alert.alert('Error', data.message || 'Failed to permanently delete user');
       }
@@ -1027,7 +1031,10 @@ export default function AdminScreen() {
       if (data.success) {
         console.log('✅ [RESTORE] Success');
         Alert.alert('Success', `${userName} has been restored.`);
-        fetchDeletedUsers();
+        await new Promise(r => setTimeout(r, 500));
+        await fetchDeletedUsers();
+        await refreshData();
+        console.log('✅ User restored and lists refreshed');
       } else {
         Alert.alert('Error', data.message || 'Failed to restore user');
       }
@@ -1050,7 +1057,10 @@ export default function AdminScreen() {
       if (data.success) {
         console.log('✅ [UNBLOCK] Success');
         Alert.alert('Success', `${userName} has been unblocked.`);
-        fetchBlockedUsersData();
+        await new Promise(r => setTimeout(r, 500));
+        await fetchBlockedUsersData();
+        await refreshData();
+        console.log('✅ User unblocked and lists refreshed');
       } else {
         Alert.alert('Error', data.message || 'Failed to unblock user');
       }
