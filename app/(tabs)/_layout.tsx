@@ -55,6 +55,10 @@ function NativeTabLayout() {
           <Icon sf={{ default: "location", selected: "location.fill" }} />
           <Label>Nearby</Label>
         </NativeTabs.Trigger>
+        <NativeTabs.Trigger name="marketplace">
+          <Icon sf={{ default: "bag", selected: "bag.fill" }} />
+          <Label>Shop</Label>
+        </NativeTabs.Trigger>
         <NativeTabs.Trigger name="support" hidden />
         <NativeTabs.Trigger name="index" hidden />
         <NativeTabs.Trigger name="jobs" hidden />
