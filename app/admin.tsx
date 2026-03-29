@@ -194,18 +194,25 @@ function UserDetailCard({ user, onBlock, onVerify, onDelete, blockingId, verifyi
           </View>
         </TouchableOpacity>
 
-        {/* Delete button - separate from parent */}
-        <Pressable
-          onPress={handleDeletePress}
-          style={({ pressed }) => ({
-            padding: 12,
+        {/* Delete button - using button element for web */}
+        <button
+          onClick={handleDeletePress}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            padding: '12px',
+            cursor: 'pointer',
+            display: 'flex',
             justifyContent: 'center',
             alignItems: 'center',
-            opacity: pressed ? 0.5 : 1,
-          })}
+            zIndex: 10,
+          } as any}
+          onMouseDown={(e) => {
+            e.stopPropagation();
+          }}
         >
           <Ionicons name="trash-outline" size={16} color="#FF3B30" />
-        </Pressable>
+        </button>
       </View>
 
       {expanded && (
