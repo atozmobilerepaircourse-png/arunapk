@@ -1624,24 +1624,42 @@ export default function AdminScreen() {
                 onBlock={handleBlockUser} onVerify={executeVerifyUser} onDelete={handleDeleteUser} blockingId={blockingUserId} verifyingId={verifyingUserId} deletingId={deletingUserId} />
               {/* Custom action buttons for deleted users */}
               <View style={{ flexDirection: 'row', gap: 10, marginTop: 8, paddingHorizontal: 12 }}>
-                <Pressable 
-                  onPress={() => Alert.alert('Restore User', `Restore ${item.name}?`, [
-                    { text: 'Cancel', style: 'cancel' },
-                    { text: 'Restore', onPress: () => executeRestoreUser(item.id, item.name) }
-                  ])}
+                <TouchableOpacity 
+                  onPress={() => {
+                    if (typeof window !== 'undefined') {
+                      if (window.confirm(`Restore ${item.name}?`)) {
+                        executeRestoreUser(item.id, item.name);
+                      }
+                    } else {
+                      Alert.alert('Restore User', `Restore ${item.name}?`, [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Restore', onPress: () => executeRestoreUser(item.id, item.name) }
+                      ]);
+                    }
+                  }}
+                  activeOpacity={0.7}
                   style={{ flex: 1, backgroundColor: '#34C759', paddingVertical: 10, borderRadius: 8, alignItems: 'center' }}
                 >
                   <Text style={{ color: 'white', fontFamily: 'Inter_600SemiBold', fontSize: 14 }}>Restore</Text>
-                </Pressable>
-                <Pressable 
-                  onPress={() => Alert.alert('Permanently Delete', `Permanently delete ${item.name} from database?`, [
-                    { text: 'Cancel', style: 'cancel' },
-                    { text: 'Delete', style: 'destructive', onPress: () => executePermanentlyDeleteUser(item.id, item.name) }
-                  ])}
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  onPress={() => {
+                    if (typeof window !== 'undefined') {
+                      if (window.confirm(`Permanently delete ${item.name} from database? This cannot be undone.`)) {
+                        executePermanentlyDeleteUser(item.id, item.name);
+                      }
+                    } else {
+                      Alert.alert('Permanently Delete', `Permanently delete ${item.name} from database?`, [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Delete', style: 'destructive', onPress: () => executePermanentlyDeleteUser(item.id, item.name) }
+                      ]);
+                    }
+                  }}
+                  activeOpacity={0.7}
                   style={{ flex: 1, backgroundColor: '#FF3B30', paddingVertical: 10, borderRadius: 8, alignItems: 'center' }}
                 >
                   <Text style={{ color: 'white', fontFamily: 'Inter_600SemiBold', fontSize: 14 }}>Delete Forever</Text>
-                </Pressable>
+                </TouchableOpacity>
               </View>
             </View>
           )}
