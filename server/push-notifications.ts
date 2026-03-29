@@ -10,6 +10,9 @@ export interface PushMessage {
   data?: Record<string, any>;
   sound?: 'default' | null;
   badge?: number;
+  bigPicture?: string; // Android: image URL
+  largeIcon?: string; // Android: small icon
+  image?: string; // iOS: image URL
 }
 
 async function sendExpoPushNotifications(tokens: string[], message: PushMessage): Promise<void> {
@@ -19,14 +22,20 @@ async function sendExpoPushNotifications(tokens: string[], message: PushMessage)
   const chunkSize = 100;
   for (let i = 0; i < validTokens.length; i += chunkSize) {
     const chunk = validTokens.slice(i, i + chunkSize);
-    const messages = chunk.map(token => ({
-      to: token,
-      title: message.title,
-      body: message.body,
-      data: message.data || {},
-      sound: message.sound ?? 'default',
-      badge: message.badge ?? 1,
-    }));
+    const messages = chunk.map(token => {
+      const msg: any = {
+        to: token,
+        title: message.title,
+        body: message.body,
+        data: message.data || {},
+        sound: message.sound ?? 'default',
+        badge: message.badge ?? 1,
+      };
+      if (message.image) msg.image = message.image; // iOS
+      if (message.bigPicture) msg.bigPicture = message.bigPicture; // Android
+      if (message.largeIcon) msg.largeIcon = message.largeIcon; // Android
+      return msg;
+    });
     try {
       const res = await fetch(EXPO_PUSH_URL, {
         method: 'POST',

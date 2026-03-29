@@ -6209,10 +6209,13 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
 
   app.post("/api/admin/notify-all", async (req, res) => {
     try {
-      const { phone, title, body } = req.body;
+      const { phone, title, body, image, bigPicture } = req.body;
       if (phone !== '8179142535') return res.status(403).json({ success: false, message: "Admin only" });
       if (!title || !body) return res.status(400).json({ success: false, message: "Title and body required" });
-      const count = await notifyAllUsers({ title, body, data: { type: 'admin_broadcast' } });
+      const msg: any = { title, body, data: { type: 'admin_broadcast' } };
+      if (image) msg.image = image;
+      if (bigPicture) msg.bigPicture = bigPicture;
+      const count = await notifyAllUsers(msg);
       res.json({ success: true, sent: count });
     } catch (error) {
       console.error("[Admin] Notify all error:", error);
@@ -6222,7 +6225,7 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
 
   app.post("/api/admin/notify-role", async (req, res) => {
     try {
-      const { phone, title, body, role } = req.body;
+      const { phone, title, body, role, image, bigPicture } = req.body;
       if (phone !== '8179142535') return res.status(403).json({ success: false, message: "Admin only" });
       if (!title || !body) return res.status(400).json({ success: false, message: "Title and body required" });
       const validRoles = ['technician', 'teacher', 'supplier', 'job_provider', 'customer'];
@@ -6246,10 +6249,15 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
       let sent = 0;
       for (let i = 0; i < tokens.length; i += chunkSize) {
         const chunk = tokens.slice(i, i + chunkSize);
-        const messages = chunk.map(token => ({
-          to: token, title, body, data: { type: 'admin_broadcast', role: role || 'all' },
-          sound: 'default', badge: 1,
-        }));
+        const messages = chunk.map(token => {
+          const msg: any = {
+            to: token, title, body, data: { type: 'admin_broadcast', role: role || 'all' },
+            sound: 'default', badge: 1,
+          };
+          if (image) msg.image = image;
+          if (bigPicture) msg.bigPicture = bigPicture;
+          return msg;
+        });
         try {
           await fetch(EXPO_PUSH_URL, {
             method: 'POST',

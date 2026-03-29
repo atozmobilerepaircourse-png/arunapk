@@ -359,6 +359,7 @@ export default function AdminScreen() {
   // Notifications
   const [notifTitle, setNotifTitle] = useState('');
   const [notifBody, setNotifBody] = useState('');
+  const [notifImage, setNotifImage] = useState('');
   const [notifSending, setNotifSending] = useState(false);
   const [notifResult, setNotifResult] = useState<string | null>(null);
   const [pushStats, setPushStats] = useState<{ total: number; withToken: number; byRole?: Record<string, number> } | null>(null);
@@ -1241,15 +1242,19 @@ export default function AdminScreen() {
       const endpoint = notifTargetRole === 'all' ? '/api/admin/notify-all' : '/api/admin/notify-role';
       const payload: any = { phone: ADMIN_PHONE, title: notifTitle.trim(), body: notifBody.trim() };
       if (notifTargetRole !== 'all') payload.role = notifTargetRole;
+      if (notifImage.trim()) {
+        payload.image = notifImage.trim();
+        payload.bigPicture = notifImage.trim(); // Android
+      }
       const res = await fetch(`${baseUrl}${endpoint}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       const data = await res.json();
       if (data.success) {
         setNotifResult(`✅ Sent to ${data.sent} device${data.sent !== 1 ? 's' : ''}`);
-        setNotifTitle(''); setNotifBody('');
+        setNotifTitle(''); setNotifBody(''); setNotifImage('');
       } else { setNotifResult(`❌ Failed: ${data.message || 'Unknown error'}`); }
     } catch { setNotifResult('❌ Network error'); }
     finally { setNotifSending(false); }
-  }, [notifTitle, notifBody, notifTargetRole]);
+  }, [notifTitle, notifBody, notifImage, notifTargetRole]);
 
   const sendSMS = useCallback(async () => {
     if (!smsBody.trim()) { Alert.alert('Error', 'Please enter a message.'); return; }
@@ -2562,6 +2567,7 @@ export default function AdminScreen() {
         </ScrollView>
         <InputField label="Title" value={notifTitle} onChangeText={setNotifTitle} placeholder="e.g. New Feature Available!" />
         <InputField label="Message" value={notifBody} onChangeText={setNotifBody} placeholder="Type your notification message..." multiline />
+        <InputField label="Image URL (Optional)" value={notifImage} onChangeText={setNotifImage} placeholder="e.g. https://example.com/image.png" />
         {notifResult && (
           <View style={{ backgroundColor: notifResult.startsWith('✅') ? '#34C75920' : '#FF3B3020', borderRadius: 8, padding: 10, marginBottom: 12 }}>
             <Text style={{ fontSize: 13, color: notifResult.startsWith('✅') ? '#34C759' : '#FF3B30', fontFamily: 'Inter_500Medium' }}>{notifResult}</Text>
