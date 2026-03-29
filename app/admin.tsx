@@ -184,22 +184,22 @@ function UserDetailCard({ user, onBlock, onVerify, onDelete, blockingId, verifyi
         </View>
       </TouchableOpacity>
 
-      {/* Delete button - Pressable works on web and native */}
-      <Pressable
+      {/* Delete button - TouchableOpacity for better web compatibility */}
+      <TouchableOpacity
         onPress={() => {
           console.log('🗑️ [DELETE BUTTON] Pressed for:', user.id, user.name);
           onDelete(user.id, user.name);
         }}
-        style={({ pressed }) => ({
+        activeOpacity={0.6}
+        style={{
           padding: 8,
-          opacity: pressed ? 0.6 : 1,
           justifyContent: 'center',
-          alignItems: 'center'
-        })}
-        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          alignItems: 'center',
+          zIndex: 10
+        }}
       >
         <Ionicons name="trash-outline" size={16} color="#FF3B30" />
-      </Pressable>
+      </TouchableOpacity>
 
       {expanded && (
         <View style={ss.userCardExpanded}>
