@@ -837,11 +837,23 @@ export default function AdminScreen() {
           const url = new URL(`/api/posts/${postId}`, 'https://repair-backendarun-iaz6jex5fa-el.a.run.app');
           url.searchParams.set('userId', profile?.id || '');
           const res = await fetch(url.toString(), { method: 'DELETE' });
-          if (res.ok) {
+          
+          const data = await res.json().catch(() => ({}));
+          
+          // Check for authorization errors
+          if (res.status === 401) {
+            Alert.alert('Authentication Error', 'Your session has expired. Please log in again.');
+            return;
+          }
+          if (res.status === 403) {
+            Alert.alert('Permission Denied', 'You cannot delete this post. Only the post owner or admin can delete it.');
+            return;
+          }
+          
+          if (res.ok || data.success) {
             await refreshData();
             Alert.alert('Deleted', 'Post removed successfully.');
           } else {
-            const data = await res.json().catch(() => ({}));
             Alert.alert('Error', data.message || 'Failed to delete post');
           }
         } catch (e: any) {
@@ -942,6 +954,16 @@ export default function AdminScreen() {
       
       const data = await res.json();
       console.log('📋 [DELETE] Response body:', data);
+      
+      // Check for authorization errors
+      if (res.status === 401) {
+        Alert.alert('Authentication Error', 'Your session has expired. Please log in again.');
+        return;
+      }
+      if (res.status === 403) {
+        Alert.alert('Permission Denied', 'You do not have permission to delete users. Only admins can delete users.');
+        return;
+      }
       
       if (data.success) {
         console.log('✅ [DELETE] User deletion successful!');
