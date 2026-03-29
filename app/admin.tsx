@@ -4,6 +4,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -360,6 +361,8 @@ export default function AdminScreen() {
   const [notifTitle, setNotifTitle] = useState('');
   const [notifBody, setNotifBody] = useState('');
   const [notifImage, setNotifImage] = useState('');
+  const [notifImagePreview, setNotifImagePreview] = useState<string | null>(null);
+  const [notifImageUploading, setNotifImageUploading] = useState(false);
   const [notifSending, setNotifSending] = useState(false);
   const [notifResult, setNotifResult] = useState<string | null>(null);
   const [pushStats, setPushStats] = useState<{ total: number; withToken: number; byRole?: Record<string, number> } | null>(null);
@@ -1233,6 +1236,58 @@ export default function AdminScreen() {
     } catch { Alert.alert('Error', 'Failed to save link'); }
   };
 
+  const pickNotificationImage = useCallback(async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [16, 9],
+        quality: 0.8,
+      });
+      
+      if (!result.canceled && result.assets?.[0]) {
+        const asset = result.assets[0];
+        setNotifImagePreview(asset.uri);
+        
+        // Upload the image
+        setNotifImageUploading(true);
+        try {
+          const baseUrl = getApiUrl();
+          const uploadUrl = new URL('/api/upload', baseUrl).toString();
+          const formData = new FormData();
+          
+          if (Platform.OS === 'web') {
+            // Web: fetch from URI
+            const response = await fetch(asset.uri);
+            const blob = await response.blob();
+            formData.append('image', blob, 'notification.jpg');
+          } else {
+            // Native: use URIResponse with proper filename
+            formData.append('image', { uri: asset.uri, type: 'image/jpeg', name: 'notification.jpg' } as any);
+          }
+          
+          const res = await fetch(uploadUrl, { method: 'POST', body: formData });
+          const data = await res.json();
+          if (data.url) {
+            setNotifImage(data.url);
+            Alert.alert('Success', 'Image uploaded successfully');
+          } else {
+            Alert.alert('Error', 'Failed to get image URL from server');
+            setNotifImagePreview(null);
+          }
+        } catch (e) {
+          console.error('[Admin] Image upload error:', e);
+          Alert.alert('Error', 'Failed to upload image');
+          setNotifImagePreview(null);
+        } finally {
+          setNotifImageUploading(false);
+        }
+      }
+    } catch (e) {
+      console.error('[Admin] Image picker error:', e);
+    }
+  }, []);
+
   const sendNotificationToAll = useCallback(async () => {
     if (!notifTitle.trim() || !notifBody.trim()) { Alert.alert('Error', 'Please enter title and message.'); return; }
     setNotifSending(true);
@@ -1250,7 +1305,7 @@ export default function AdminScreen() {
       const data = await res.json();
       if (data.success) {
         setNotifResult(`✅ Sent to ${data.sent} device${data.sent !== 1 ? 's' : ''}`);
-        setNotifTitle(''); setNotifBody(''); setNotifImage('');
+        setNotifTitle(''); setNotifBody(''); setNotifImage(''); setNotifImagePreview(null);
       } else { setNotifResult(`❌ Failed: ${data.message || 'Unknown error'}`); }
     } catch { setNotifResult('❌ Network error'); }
     finally { setNotifSending(false); }
@@ -2567,7 +2622,40 @@ export default function AdminScreen() {
         </ScrollView>
         <InputField label="Title" value={notifTitle} onChangeText={setNotifTitle} placeholder="e.g. New Feature Available!" />
         <InputField label="Message" value={notifBody} onChangeText={setNotifBody} placeholder="Type your notification message..." multiline />
-        <InputField label="Image URL (Optional)" value={notifImage} onChangeText={setNotifImage} placeholder="e.g. https://example.com/image.png" />
+        
+        {/* Image Upload Section */}
+        <View style={{ marginTop: 12 }}>
+          <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: C.textSecondary, marginBottom: 8 }}>Notification Image (Optional)</Text>
+          <TouchableOpacity 
+            onPress={pickNotificationImage}
+            disabled={notifImageUploading}
+            activeOpacity={0.7}
+            style={{ backgroundColor: C.surfaceElevated, borderRadius: 8, padding: 12, borderWidth: 1, borderColor: C.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+            {notifImageUploading ? (
+              <>
+                <ActivityIndicator size="small" color={PRIMARY} />
+                <Text style={{ fontSize: 13, color: PRIMARY, fontFamily: 'Inter_600SemiBold' }}>Uploading...</Text>
+              </>
+            ) : (
+              <>
+                <Ionicons name={notifImage ? "checkmark-done-outline" : "cloud-upload-outline"} size={18} color={notifImage ? '#34C759' : PRIMARY} />
+                <Text style={{ fontSize: 13, color: notifImage ? '#34C759' : PRIMARY, fontFamily: 'Inter_600SemiBold' }}>{notifImage ? 'Image Ready' : 'Pick Image'}</Text>
+              </>
+            )}
+          </TouchableOpacity>
+          
+          {/* Image Preview */}
+          {notifImagePreview && (
+            <View style={{ marginTop: 10, borderRadius: 8, overflow: 'hidden', backgroundColor: C.border }}>
+              <Image source={{ uri: notifImagePreview }} style={{ width: '100%', height: 150, backgroundColor: C.border }} contentFit="cover" />
+              <TouchableOpacity 
+                onPress={() => { setNotifImage(''); setNotifImagePreview(null); }}
+                style={{ position: 'absolute', top: 8, right: 8, backgroundColor: '#FF3B30', borderRadius: 20, padding: 6 }}>
+                <Ionicons name="close" size={16} color="#FFF" />
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
         {notifResult && (
           <View style={{ backgroundColor: notifResult.startsWith('✅') ? '#34C75920' : '#FF3B3020', borderRadius: 8, padding: 10, marginBottom: 12 }}>
             <Text style={{ fontSize: 13, color: notifResult.startsWith('✅') ? '#34C759' : '#FF3B30', fontFamily: 'Inter_500Medium' }}>{notifResult}</Text>
