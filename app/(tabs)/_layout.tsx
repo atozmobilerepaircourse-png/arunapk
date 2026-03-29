@@ -239,12 +239,12 @@ function ClassicTabLayout() {
           ),
         }}
       />
-      {/* --- Tab 3 (customer): Nearby | Tab 3 (others): Suppliers --- */}
+      {/* --- Tab 3 (technician only): Suppliers --- */}
       <Tabs.Screen
         name="nearby"
         options={{
-          title: isCustomer ? "Nearby" : "Suppliers",
-          href: (isCustomer || isTechnician) ? '/nearby' : null,
+          title: "Suppliers",
+          href: isTechnician ? '/nearby' : null,
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? "storefront" : "storefront-outline"} size={22} color={color} />
           ),
