@@ -333,7 +333,7 @@ export default function SupplierProductsScreen() {
           console.log('[Delete] Confirmed for:', product.id);
           try {
             setLoadingId(product.id);
-            const res = await apiRequest('DELETE', `/api/products/${product.id}`);
+            const res = await apiRequest('DELETE', `/api/products/${product.id}?userId=${profile?.id}`);
             const data = await res.json();
             console.log('[Delete] Response:', data);
             

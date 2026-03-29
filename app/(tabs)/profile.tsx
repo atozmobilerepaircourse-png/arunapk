@@ -635,10 +635,17 @@ export default function ProfileScreen() {
     const doDelete = async () => {
       try {
         setDeletingId(postId);
-        const baseUrl = getApiUrl();
-        await fetch(`${baseUrl}/api/posts/${postId}`, { method: 'DELETE' });
-        if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        await refreshData();
+        const res = await apiRequest('DELETE', `/api/posts/${postId}?userId=${profile?.id}`);
+        const data = await res.json();
+        console.log('[Profile] Delete listing response:', { status: res.status, data });
+        
+        if (data.success || res.status === 404) {
+          if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          Alert.alert('Success', 'Listing deleted successfully');
+          await refreshData();
+        } else {
+          Alert.alert('Error', data.message || 'Could not delete listing. Please try again.');
+        }
       } catch (e) {
         console.error('[Profile] Delete listing error:', e);
         Alert.alert('Error', 'Could not delete listing. Please try again.');
