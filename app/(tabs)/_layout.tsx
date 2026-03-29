@@ -301,7 +301,7 @@ function ClassicTabLayout() {
         name="marketplace"
         options={{
           title: "Shop",
-          href: !isCustomer && !isTechnician && !isTeacher && !isSupplier && !isShopkeeper && navigationMode === 'default' ? '/marketplace' : null,
+          href: (isTechnician || (!isCustomer && !isTeacher && !isSupplier && !isShopkeeper)) && navigationMode === 'default' ? '/marketplace' : null,
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? "bag" : "bag-outline"} size={22} color={color} />
           ),
