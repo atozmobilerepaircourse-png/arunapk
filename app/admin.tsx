@@ -1742,9 +1742,38 @@ export default function AdminScreen() {
             return (
               <SectionCard key={b.id} style={{ marginBottom: 10 }}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
-                  <Text style={{ fontFamily: 'Inter_600SemiBold', color: C.text, fontSize: 15 }}>{b.customerName || 'Customer'}</Text>
-                  <View style={{ backgroundColor: statusColor + '20', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12 }}>
-                    <Text style={{ fontSize: 11, fontFamily: 'Inter_600SemiBold', color: statusColor, textTransform: 'capitalize' }}>{b.status}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontFamily: 'Inter_600SemiBold', color: C.text, fontSize: 15 }}>{b.customerName || 'Customer'}</Text>
+                    <View style={{ backgroundColor: statusColor + '20', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12, alignSelf: 'flex-start', marginTop: 4 }}>
+                      <Text style={{ fontSize: 11, fontFamily: 'Inter_600SemiBold', color: statusColor, textTransform: 'capitalize' }}>{b.status}</Text>
+                    </View>
+                  </View>
+                  <View
+                    onClick={() => {
+                      Alert.alert('Delete Booking', `Delete booking for ${b.customerName}? This cannot be undone.`, [
+                        { text: 'Cancel', style: 'cancel' },
+                        { 
+                          text: 'Delete', 
+                          style: 'destructive', 
+                          onPress: async () => {
+                            try {
+                              const res = await apiRequest('DELETE', `/api/repair-bookings/${b.id}`);
+                              if (res.ok) {
+                                await fetchRepairBookings();
+                                Alert.alert('Success', 'Booking deleted successfully');
+                              } else {
+                                Alert.alert('Error', 'Failed to delete booking');
+                              }
+                            } catch (e) {
+                              Alert.alert('Error', 'Failed to delete booking');
+                            }
+                          }
+                        }
+                      ]);
+                    }}
+                    style={{ backgroundColor: '#FF3B3015', padding: 8, borderRadius: 8, cursor: 'pointer' } as any}
+                  >
+                    <Ionicons name="trash-outline" size={16} color="#FF3B30" />
                   </View>
                 </View>
                 <Text style={{ color: C.textSecondary, fontSize: 13, fontFamily: 'Inter_400Regular' }}>{b.deviceType} — {b.issue}</Text>
@@ -2066,11 +2095,42 @@ export default function AdminScreen() {
       ) : (
         jobs.map((job: any) => (
           <SectionCard key={job.id} style={{ marginBottom: 10 }}>
-            <Text style={{ fontFamily: 'Inter_600SemiBold', color: C.text, fontSize: 15 }}>{job.title}</Text>
-            {job.description ? <Text style={{ color: C.textSecondary, fontSize: 13, fontFamily: 'Inter_400Regular', marginTop: 4 }}>{job.description}</Text> : null}
-            <Text style={{ color: C.textTertiary, fontSize: 12, fontFamily: 'Inter_400Regular', marginTop: 6 }}>
-              {job.location ? `${job.location} · ` : ''}{job.createdAt ? new Date(job.createdAt).toLocaleDateString('en-IN') : ''}
-            </Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <View style={{ flex: 1, marginRight: 10 }}>
+                <Text style={{ fontFamily: 'Inter_600SemiBold', color: C.text, fontSize: 15 }}>{job.title}</Text>
+                {job.description ? <Text style={{ color: C.textSecondary, fontSize: 13, fontFamily: 'Inter_400Regular', marginTop: 4 }}>{job.description}</Text> : null}
+                <Text style={{ color: C.textTertiary, fontSize: 12, fontFamily: 'Inter_400Regular', marginTop: 6 }}>
+                  {job.location ? `${job.location} · ` : ''}{job.createdAt ? new Date(job.createdAt).toLocaleDateString('en-IN') : ''}
+                </Text>
+              </View>
+              <View
+                onClick={() => {
+                  Alert.alert('Delete Job', `Delete job "${job.title}"? This cannot be undone.`, [
+                    { text: 'Cancel', style: 'cancel' },
+                    { 
+                      text: 'Delete', 
+                      style: 'destructive', 
+                      onPress: async () => {
+                        try {
+                          const res = await apiRequest('DELETE', `/api/jobs/${job.id}`);
+                          if (res.ok) {
+                            await refreshData();
+                            Alert.alert('Success', 'Job deleted successfully');
+                          } else {
+                            Alert.alert('Error', 'Failed to delete job');
+                          }
+                        } catch (e) {
+                          Alert.alert('Error', 'Failed to delete job');
+                        }
+                      }
+                    }
+                  ]);
+                }}
+                style={{ backgroundColor: '#FF3B3015', padding: 8, borderRadius: 8, cursor: 'pointer' } as any}
+              >
+                <Ionicons name="trash-outline" size={16} color="#FF3B30" />
+              </View>
+            </View>
           </SectionCard>
         ))
       )}
