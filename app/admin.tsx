@@ -890,26 +890,37 @@ export default function AdminScreen() {
   };
 
   const executeBlockUser = async (userId: string, userName: string, block: boolean) => {
+    console.log('=== EXECUTE BLOCK USER ===');
+    console.log('UserId:', userId, 'UserName:', userName, 'Block:', block);
     setBlockingUserId(userId);
     try {
       console.log(`🚫 ${block ? 'Blocking' : 'Unblocking'} user:`, userId);
+      console.log('Making API request...');
       const res = await apiRequest('POST', '/api/admin/block-user', { userId, blocked: block });
       console.log('Block response status:', res.status);
+      console.log('Block response OK:', res.ok);
       if (!res.ok) throw new Error(`API error: ${res.status}`);
       const data = await res.json();
-      console.log('Block response:', data);
+      console.log('Block response data:', data);
       if (data.success) {
-        Alert.alert('Success', `${userName} has been ${block ? 'blocked' : 'unblocked'}.`);
+        console.log('✅ Block successful');
+        if (typeof window !== 'undefined') {
+          window.alert(`${userName} has been ${block ? 'blocked' : 'unblocked'}.`);
+        } else {
+          Alert.alert('Success', `${userName} has been ${block ? 'blocked' : 'unblocked'}.`);
+        }
         await new Promise(r => setTimeout(r, 500));
         await refreshData();
         console.log('✅ User list refreshed after block operation');
       } else { 
+        console.error('❌ Block failed:', data.message);
         Alert.alert('Error', data.message || 'Failed to block user'); 
       }
     } catch (e: any) { 
-      console.error('Block error:', e);
+      console.error('❌ Block exception:', e.message, e.stack);
       Alert.alert('Error', e.message || 'Failed to block user. Check your connection.'); 
     } finally {
+      console.log('Setting blockingUserId to null');
       setBlockingUserId(null);
     }
   };
@@ -997,51 +1008,76 @@ export default function AdminScreen() {
 
   // Permanently delete a user from deleted users tab
   const executePermanentlyDeleteUser = async (userId: string, userName: string) => {
+    console.log('=== EXECUTE PERMANENTLY DELETE USER ===');
+    console.log('UserId:', userId, 'UserName:', userName);
     setDeletingUserId(userId);
     try {
-      console.log('🗑️ [PERM DELETE] Permanently deleting:', { userId, userName });
+      console.log('🗑️ Making API request to permanently delete...');
       const res = await apiRequest('POST', '/api/admin/permanently-delete-user', { userId });
+      console.log('API response status:', res.status, 'OK:', res.ok);
       const data = await res.json();
+      console.log('API response:', data);
       
       if (data.success) {
-        console.log('✅ [PERM DELETE] Success');
-        Alert.alert('Success', `${userName} has been permanently deleted from database.`);
+        console.log('✅ Permanent delete successful');
+        if (typeof window !== 'undefined') {
+          window.alert(`${userName} has been permanently deleted from database.`);
+        } else {
+          Alert.alert('Success', `${userName} has been permanently deleted from database.`);
+        }
+        console.log('Waiting 500ms before refreshing deleted users list...');
         await new Promise(r => setTimeout(r, 500));
+        console.log('Fetching deleted users...');
         await fetchDeletedUsers();
         console.log('✅ Deleted users list refreshed');
       } else {
+        console.error('❌ Server returned success: false', data.message);
         Alert.alert('Error', data.message || 'Failed to permanently delete user');
       }
     } catch (e: any) {
-      console.error('❌ [PERM DELETE] Error:', e.message);
+      console.error('❌ Exception caught:', e.message, e.stack);
       Alert.alert('Error', e.message || 'Network error');
     } finally {
+      console.log('Setting deletingUserId to null');
       setDeletingUserId(null);
     }
   };
 
   // Restore a deleted user
   const executeRestoreUser = async (userId: string, userName: string) => {
+    console.log('=== EXECUTE RESTORE USER ===');
+    console.log('UserId:', userId, 'UserName:', userName);
     setDeletingUserId(userId);
     try {
-      console.log('↩️ [RESTORE] Restoring user:', { userId, userName });
+      console.log('↩️ Making API request to restore user...');
       const res = await apiRequest('POST', '/api/admin/restore-user', { userId });
+      console.log('API response status:', res.status, 'OK:', res.ok);
       const data = await res.json();
+      console.log('API response:', data);
       
       if (data.success) {
-        console.log('✅ [RESTORE] Success');
-        Alert.alert('Success', `${userName} has been restored.`);
+        console.log('✅ Restore successful');
+        if (typeof window !== 'undefined') {
+          window.alert(`${userName} has been restored.`);
+        } else {
+          Alert.alert('Success', `${userName} has been restored.`);
+        }
+        console.log('Waiting 500ms before refreshing lists...');
         await new Promise(r => setTimeout(r, 500));
+        console.log('Fetching deleted users...');
         await fetchDeletedUsers();
+        console.log('Refreshing main data...');
         await refreshData();
         console.log('✅ User restored and lists refreshed');
       } else {
+        console.error('❌ Server returned success: false', data.message);
         Alert.alert('Error', data.message || 'Failed to restore user');
       }
     } catch (e: any) {
-      console.error('❌ [RESTORE] Error:', e.message);
+      console.error('❌ Exception caught:', e.message, e.stack);
       Alert.alert('Error', e.message || 'Network error');
     } finally {
+      console.log('Setting deletingUserId to null');
       setDeletingUserId(null);
     }
   };
