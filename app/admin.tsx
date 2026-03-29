@@ -969,10 +969,13 @@ export default function AdminScreen() {
       }
       
       if (data?.success) {
-        console.log('✅ DELETE SUCCESSFUL - Calling refreshData()');
+        console.log('✅ DELETE SUCCESSFUL');
         Alert.alert('Success', `${userName} has been permanently deleted.`);
+        console.log('Refreshing data from server...');
+        // Force refetch from server with a small delay to ensure backend is updated
+        await new Promise(r => setTimeout(r, 500));
         await refreshData();
-        console.log('✅ Data refreshed');
+        console.log('✅ Data refreshed successfully');
       } else {
         console.error('❌ Server returned success: false', data?.message);
         Alert.alert('Deletion Failed', data?.message || 'Failed to delete user from database');
