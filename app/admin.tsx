@@ -159,10 +159,22 @@ function UserDetailCard({ user, onBlock, onVerify, onDelete, blockingId, verifyi
   };
 
   const handleDeletePress = (e: any) => {
-    console.log('🗑️ [DELETE BUTTON] Pressed for:', user.id, user.name);
-    // Stop event from propagating to parent
-    e?.stopPropagation?.();
-    onDelete(user.id, user.name);
+    console.log('=== DELETE HANDLER CALLED ===');
+    console.log('Event:', e);
+    console.log('User ID:', user.id);
+    console.log('User Name:', user.name);
+    console.log('onDelete function exists:', typeof onDelete);
+    try {
+      if (e?.stopPropagation) {
+        e.stopPropagation();
+        console.log('✓ Event propagation stopped');
+      }
+      console.log('Calling onDelete with:', user.id, user.name);
+      onDelete(user.id, user.name);
+      console.log('✓ onDelete called successfully');
+    } catch (err) {
+      console.error('❌ Error in handleDeletePress:', err);
+    }
   };
 
   return (
@@ -197,9 +209,17 @@ function UserDetailCard({ user, onBlock, onVerify, onDelete, blockingId, verifyi
         {/* Delete button - RIGHT SIDE */}
         {typeof window !== 'undefined' ? (
           <div 
-            onClick={() => {
-              console.log('DELETE ICON CLICKED FOR:', user.id, user.name);
-              handleDeletePress(null);
+            onClick={(e) => {
+              console.log('=== DIV CLICK FIRED ===');
+              console.log('Event type:', e.type);
+              console.log('Event target:', e.target);
+              console.log('User ID:', user.id);
+              console.log('User Name:', user.name);
+              e.preventDefault();
+              e.stopPropagation();
+              console.log('Calling handleDeletePress...');
+              handleDeletePress(e);
+              console.log('handleDeletePress finished');
             }}
             style={{ 
               paddingTop: 4, 
@@ -208,20 +228,30 @@ function UserDetailCard({ user, onBlock, onVerify, onDelete, blockingId, verifyi
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              touchAction: 'none'
-            }}
+              touchAction: 'none',
+              backgroundColor: '#FF3B3015',
+              borderRadius: 8,
+              padding: 8,
+              userSelect: 'none'
+            } as any}
           >
             <Ionicons name="trash-outline" size={16} color="#FF3B30" />
           </div>
         ) : (
           <TouchableOpacity 
-            onPress={() => {
-              console.log('DELETE ICON CLICKED FOR:', user.id, user.name);
-              handleDeletePress(null);
+            onPress={(e) => {
+              console.log('=== TOUCHABLE OPACITY PRESSED ===');
+              console.log('User ID:', user.id);
+              console.log('User Name:', user.name);
+              handleDeletePress(e);
             }}
+            activeOpacity={0.6}
             style={{
               paddingTop: 4,
-              paddingRight: 4
+              paddingRight: 4,
+              backgroundColor: '#FF3B3015',
+              borderRadius: 8,
+              padding: 8
             }}
           >
             <Ionicons name="trash-outline" size={16} color="#FF3B30" />
@@ -934,53 +964,60 @@ export default function AdminScreen() {
   };
 
   const executeDeleteUser = async (userId: string, userName: string) => {
+    console.log('=== EXECUTE DELETE USER CALLED ===');
+    console.log('userId:', userId, 'userName:', userName);
     setDeletingUserId(userId);
     try {
-      console.log('🗑️ [DELETE] Starting delete for user:', { userId, userName });
+      console.log('✓ deletingUserId state updated');
+      console.log('Making API request to /api/admin/delete-user...');
       
-      // Make the delete request using apiRequest (handles session token automatically)
       const res = await apiRequest('POST', '/api/admin/delete-user', { userId });
       
-      console.log('📡 [DELETE] Response received:', {
-        status: res.status,
-        ok: res.ok,
-        statusText: res.statusText
-      });
+      console.log('✓ API Response received:');
+      console.log('  Status:', res.status);
+      console.log('  OK:', res.ok);
+      console.log('  StatusText:', res.statusText);
       
-      const data = await res.json();
-      console.log('📋 [DELETE] Response body:', data);
+      let data;
+      try {
+        data = await res.json();
+        console.log('✓ Response JSON parsed:', data);
+      } catch (parseErr) {
+        console.error('❌ Failed to parse JSON:', parseErr);
+        throw parseErr;
+      }
       
-      // Check for authorization errors
       if (res.status === 401) {
+        console.error('❌ 401 Unauthorized');
         Alert.alert('Authentication Error', 'Your session has expired. Please log in again.');
         setDeletingUserId(null);
         return;
       }
       if (res.status === 403) {
+        console.error('❌ 403 Forbidden');
         Alert.alert('Permission Denied', 'You do not have permission to delete users. Only admins can delete users.');
         setDeletingUserId(null);
         return;
       }
       
-      if (data.success) {
-        console.log('✅ [DELETE] User deletion successful!');
+      if (data?.success) {
+        console.log('✅ DELETE SUCCESSFUL - Calling refreshData()');
         Alert.alert('Success', `${userName} has been permanently deleted.`);
-        
-        // Refresh data to remove user from list
-        console.log('🔄 [DELETE] Refreshing user list...');
         await refreshData();
-        console.log('✅ [DELETE] User list refreshed');
+        console.log('✅ Data refreshed');
       } else {
-        console.error('❌ [DELETE] Server returned success: false', { message: data.message });
-        Alert.alert('Deletion Failed', data.message || 'Failed to delete user from database');
+        console.error('❌ Server returned success: false', data?.message);
+        Alert.alert('Deletion Failed', data?.message || 'Failed to delete user from database');
       }
     } catch (e: any) {
-      console.error('❌ [DELETE] Exception thrown:', {
+      console.error('❌ EXCEPTION CAUGHT:', {
+        name: e.name,
         message: e.message,
         stack: e.stack
       });
       Alert.alert('Deletion Error', e.message || 'Network error. Please try again.');
     } finally {
+      console.log('Setting deletingUserId to null');
       setDeletingUserId(null);
     }
   };
