@@ -195,19 +195,38 @@ function UserDetailCard({ user, onBlock, onVerify, onDelete, blockingId, verifyi
         </TouchableOpacity>
 
         {/* Delete button - RIGHT SIDE */}
-        <View 
-          onClick={() => {
-            console.log('DELETE ICON CLICKED FOR:', user.id, user.name);
-            handleDeletePress(null);
-          }}
-          style={{ 
-            paddingTop: 4, 
-            paddingRight: 4,
-            cursor: 'pointer'
-          } as any}
-        >
-          <Ionicons name="trash-outline" size={16} color="#FF3B30" />
-        </View>
+        {typeof window !== 'undefined' ? (
+          <div 
+            onClick={() => {
+              console.log('DELETE ICON CLICKED FOR:', user.id, user.name);
+              handleDeletePress(null);
+            }}
+            style={{ 
+              paddingTop: 4, 
+              paddingRight: 4,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              touchAction: 'none'
+            }}
+          >
+            <Ionicons name="trash-outline" size={16} color="#FF3B30" />
+          </div>
+        ) : (
+          <TouchableOpacity 
+            onPress={() => {
+              console.log('DELETE ICON CLICKED FOR:', user.id, user.name);
+              handleDeletePress(null);
+            }}
+            style={{
+              paddingTop: 4,
+              paddingRight: 4
+            }}
+          >
+            <Ionicons name="trash-outline" size={16} color="#FF3B30" />
+          </TouchableOpacity>
+        )}
       </View>
 
       {expanded && (
