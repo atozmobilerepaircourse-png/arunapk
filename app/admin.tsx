@@ -910,40 +910,7 @@ export default function AdminScreen() {
     try {
       console.log('🗑️ [DELETE] Starting delete for user:', { userId, userName });
       
-      // Get session token with detailed logging
-      const legacyToken = await AsyncStorage.getItem('mobi_session_token');
-      const newToken = await AsyncStorage.getItem('mobi_session_token_v2');
-      const webToken = typeof window !== 'undefined' ? window.localStorage?.getItem('mobi_session_token_v2') : null;
-      const sessionToken = newToken || webToken || legacyToken;
-      
-      console.log('🔑 [DELETE] Session token check:', {
-        hasLegacyToken: !!legacyToken,
-        hasNewToken: !!newToken,
-        hasWebToken: !!webToken,
-        finalToken: sessionToken ? `${sessionToken.substring(0, 20)}...` : 'MISSING',
-        platform: typeof window !== 'undefined' ? 'web' : 'native'
-      });
-      
-      // Log all available localStorage keys
-      if (typeof window !== 'undefined' && window.localStorage) {
-        const keys = Object.keys(window.localStorage);
-        console.log('🔑 [DELETE] Available localStorage keys:', keys);
-        keys.forEach(k => {
-          const val = window.localStorage.getItem(k);
-          console.log(`  ${k}: ${val ? `${val.substring(0, 20)}...` : 'empty'}`);
-        });
-      }
-      
-      if (!sessionToken) {
-        console.error('❌ [DELETE] No session token found');
-        Alert.alert('Authentication Error', 'Your session has expired. Please log in again. Try logging out and logging back in.');
-        setDeletingUserId(null);
-        return;
-      }
-      
-      console.log('✓ [DELETE] Session token found, making POST request to /api/admin/delete-user');
-      
-      // Make the delete request
+      // Make the delete request using apiRequest (handles session token automatically)
       const res = await apiRequest('POST', '/api/admin/delete-user', { userId });
       
       console.log('📡 [DELETE] Response received:', {
@@ -958,10 +925,12 @@ export default function AdminScreen() {
       // Check for authorization errors
       if (res.status === 401) {
         Alert.alert('Authentication Error', 'Your session has expired. Please log in again.');
+        setDeletingUserId(null);
         return;
       }
       if (res.status === 403) {
         Alert.alert('Permission Denied', 'You do not have permission to delete users. Only admins can delete users.');
+        setDeletingUserId(null);
         return;
       }
       
@@ -980,10 +949,9 @@ export default function AdminScreen() {
     } catch (e: any) {
       console.error('❌ [DELETE] Exception thrown:', {
         message: e.message,
-        stack: e.stack,
-        fullError: e
+        stack: e.stack
       });
-      Alert.alert('Deletion Error', e.message || 'Network error. Please check your connection and try again.');
+      Alert.alert('Deletion Error', e.message || 'Network error. Please try again.');
     } finally {
       setDeletingUserId(null);
     }
