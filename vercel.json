@@ -1,21 +1,21 @@
 {
-  "version": 2,
-  "builds": [
+  "buildCommand": "npx expo export -p web",
+  "outputDirectory": "dist",
+  "headers": [
     {
-      "src": "api/index.ts",
-      "use": "@vercel/node",
-      "config": {
-        "maxLambdaSize": "50mb"
-      }
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=3600, s-maxage=3600"
+        }
+      ]
     }
   ],
-  "routes": [
+  "rewrites": [
     {
-      "src": "/(.*)",
-      "dest": "/api/index.ts"
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
-  ],
-  "env": {
-    "NODE_ENV": "production"
-  }
+  ]
 }
