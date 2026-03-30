@@ -5,7 +5,7 @@ import { db } from "./db";
 import OpenAI from "openai";
 import { notifyAllUsers, notifyNewPost, notifyUser, notifyLiveChat } from "./push-notifications";
 import { profiles, conversations, messages, posts, jobs, reels, products, orders, subscriptionSettings, courses, courseChapters, courseVideos, courseEnrollments, dubbedVideos, ads, liveChatMessages, liveClasses, liveSessions, courseNotices, sessions, payments, teacherPayouts, appSettings, videoProgress, livePolls, livePollVotes, emailCampaigns, otpTokens, adminNotifications, repairBookings, protectionPlans, protectionClaims } from "@shared/schema";
-import { sendWelcomeEmail } from "./lib/sendEmail";
+import { sendWelcomeEmail, sendOTPEmail } from "./lib/sendEmail";
 import { eq, or, and, desc, gt, gte, lt, sql, ne, isNotNull, isNull } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import multer from "multer";
@@ -774,19 +774,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ========== OTP routes ==========
   app.post("/api/otp/send", async (req, res) => {
     try {
-      const { phone } = req.body;
-      if (!phone || typeof phone !== "string" || phone.length < 10) {
-        return res.status(400).json({ success: false, message: "Valid phone number is required" });
+      const { phone, email } = req.body;
+      
+      // Validate input - either phone or email required
+      if (!phone && !email) {
+        return res.status(400).json({ success: false, message: "Phone number or email is required" });
       }
 
-      const cleanPhone = phone.replace(/\D/g, "");
+      const identifier = phone || email;
+      const isEmail = !!email;
 
-      // CRITICAL: Rate limiting - max 1 OTP per phone per 60 seconds
-      console.log(`[OTP] Request from ${cleanPhone} - checking rate limit`);
-      const rateCheck = checkOtpRateLimit(cleanPhone);
+      // CRITICAL: Rate limiting - max 1 OTP per identifier per 60 seconds
+      console.log(`[OTP] Request from ${identifier} (${isEmail ? 'email' : 'phone'}) - checking rate limit`);
+      const rateCheck = checkOtpRateLimit(identifier);
       if (!rateCheck.allowed) {
         const secondsLeft = Math.ceil(rateCheck.retryAfterMs / 1000);
-        console.warn(`[OTP] Rate limit exceeded for ${cleanPhone}: ${secondsLeft}s remaining`);
+        console.warn(`[OTP] Rate limit exceeded for ${identifier}: ${secondsLeft}s remaining`);
         return res.status(429).json({
           success: false,
           message: `Too many OTP requests. Please wait ${secondsLeft} seconds before trying again.`,
@@ -794,59 +797,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      console.log(`[OTP] Rate limit passed for ${cleanPhone} - proceeding with OTP generation`);
+      console.log(`[OTP] Rate limit passed for ${identifier} - proceeding with OTP generation`);
 
       const otp = generateOTP();
       const expiresAt = Date.now() + 5 * 60 * 1000;
 
-      await db.delete(otpTokens).where(eq(otpTokens.phone, cleanPhone));
-      await db.insert(otpTokens).values({ phone: cleanPhone, otp, expiresAt });
+      // Delete old OTP for this identifier
+      if (isEmail) {
+        await db.delete(otpTokens).where(eq(otpTokens.email, email));
+        await db.insert(otpTokens).values({ email, otp, expiresAt });
+      } else {
+        const cleanPhone = phone.replace(/\D/g, "");
+        if (cleanPhone.length < 10) {
+          return res.status(400).json({ success: false, message: "Valid phone number is required (at least 10 digits)" });
+        }
+        await db.delete(otpTokens).where(eq(otpTokens.phone, cleanPhone));
+        await db.insert(otpTokens).values({ phone: cleanPhone, otp, expiresAt });
+      }
 
-      console.log(`[OTP] GENERATED OTP for ${cleanPhone}: ${otp} (5 min expiry)`);
+      console.log(`[OTP] GENERATED OTP for ${identifier}: ${otp} (5 min expiry)`);
 
-      // Send SMS via Fast2SMS - SINGLE CALL ONLY
-      const fast2smsKey = process.env.FAST2SMS_API_KEY;
-      let smsSent = false;
-      let smsError = '';
+      let sentSuccess = false;
+      let sentError = '';
 
-      if (fast2smsKey) {
-        try {
-          const smsMessage = `Your MOBI verification code is ${otp}. Valid for 5 minutes. Do not share.`;
-          const apiUrl = `https://www.fast2sms.com/dev/bulkV2?authorization=${fast2smsKey}&message=${encodeURIComponent(smsMessage)}&route=q&numbers=${cleanPhone}&flash=0`;
-          
-          console.log(`[OTP-SMS] Sending to ${cleanPhone} via Fast2SMS (single call)`);
-          
-          const smsRes = await fetch(apiUrl, {
-            method: 'GET',
-            headers: { 'cache-control': 'no-cache' },
-          });
-          const smsData = await smsRes.json() as any;
-          
-          if (smsData.return === true) {
-            smsSent = true;
-            console.log(`[OTP-SMS] SUCCESS: OTP delivered to ${cleanPhone}`);
-          } else {
-            const rawMsg = smsData.message;
-            smsError = Array.isArray(rawMsg) ? rawMsg.join(' ') : (rawMsg || JSON.stringify(smsData));
-            console.warn(`[OTP-SMS] FAILED for ${cleanPhone}: ${smsError}`);
-          }
-        } catch (smsErr: any) {
-          smsError = smsErr?.message || 'SMS send failed';
-          console.error(`[OTP-SMS] NETWORK ERROR for ${cleanPhone}: ${smsError}`);
+      if (isEmail) {
+        // Send via email
+        console.log(`[OTP-EMAIL] Sending OTP to ${email}`);
+        sentSuccess = await sendOTPEmail(email, otp);
+        if (!sentSuccess) {
+          sentError = 'Email service unavailable';
         }
       } else {
-        console.error('[OTP-SMS] FAST2SMS_API_KEY not configured');
-        smsError = 'SMS provider not configured';
+        // Send via SMS
+        const cleanPhone = phone.replace(/\D/g, "");
+        const fast2smsKey = process.env.FAST2SMS_API_KEY;
+        
+        if (fast2smsKey) {
+          try {
+            const smsMessage = `Your MOBI verification code is ${otp}. Valid for 5 minutes. Do not share.`;
+            const apiUrl = `https://www.fast2sms.com/dev/bulkV2?authorization=${fast2smsKey}&message=${encodeURIComponent(smsMessage)}&route=q&numbers=${cleanPhone}&flash=0`;
+            
+            console.log(`[OTP-SMS] Sending to ${cleanPhone} via Fast2SMS (single call)`);
+            
+            const smsRes = await fetch(apiUrl, {
+              method: 'GET',
+              headers: { 'cache-control': 'no-cache' },
+            });
+            const smsData = await smsRes.json() as any;
+            
+            if (smsData.return === true) {
+              sentSuccess = true;
+              console.log(`[OTP-SMS] SUCCESS: OTP delivered to ${cleanPhone}`);
+            } else {
+              const rawMsg = smsData.message;
+              sentError = Array.isArray(rawMsg) ? rawMsg.join(' ') : (rawMsg || JSON.stringify(smsData));
+              console.warn(`[OTP-SMS] FAILED for ${cleanPhone}: ${sentError}`);
+            }
+          } catch (smsErr: any) {
+            sentError = smsErr?.message || 'SMS send failed';
+            console.error(`[OTP-SMS] NETWORK ERROR for ${cleanPhone}: ${sentError}`);
+          }
+        } else {
+          console.error('[OTP-SMS] FAST2SMS_API_KEY not configured');
+          sentError = 'SMS provider not configured';
+        }
       }
 
       // Log final result
-      console.log(`[OTP] COMPLETE for ${cleanPhone}: smsSent=${smsSent}, error='${smsError}'`);
+      console.log(`[OTP] COMPLETE for ${identifier}: sent=${sentSuccess}, error='${sentError}'`);
       
       return res.json({
         success: true,
-        smsSent,
-        message: smsSent ? `OTP sent to ${cleanPhone}` : `OTP generated but SMS failed: ${smsError}`,
-        otp: smsSent ? undefined : otp, // Show OTP in response when SMS fails (so user can login)
+        sent: sentSuccess,
+        message: sentSuccess ? `OTP sent to ${identifier}` : `OTP generated but delivery failed: ${sentError}`,
+        otp: sentSuccess ? undefined : otp, // Show OTP in response when delivery fails (for testing)
       });
     } catch (error: any) {
       console.error("[OTP] Send error:", error?.message || error, error?.stack?.split('\n').slice(0,3).join(' '));
@@ -970,7 +994,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (!isSuperAdminBypass) {
         // Normal OTP verification - check database
-        const storedRows = await db.select().from(otpTokens).where(eq(otpTokens.phone, lookupKey));
+        let storedRows;
+        if (isEmailVerification) {
+          storedRows = await db.select().from(otpTokens).where(eq(otpTokens.email, cleanEmail));
+        } else {
+          storedRows = await db.select().from(otpTokens).where(eq(otpTokens.phone, cleanPhone));
+        }
         const stored = storedRows[0];
 
         if (!stored) {
@@ -978,7 +1007,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         if (Date.now() > stored.expiresAt) {
-          await db.delete(otpTokens).where(eq(otpTokens.phone, lookupKey));
+          if (isEmailVerification) {
+            await db.delete(otpTokens).where(eq(otpTokens.email, cleanEmail));
+          } else {
+            await db.delete(otpTokens).where(eq(otpTokens.phone, cleanPhone));
+          }
           return res.status(400).json({ success: false, message: "OTP has expired. Please request a new one." });
         }
 
@@ -986,7 +1019,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(400).json({ success: false, message: "Invalid OTP. Please try again." });
         }
 
-        await db.delete(otpTokens).where(eq(otpTokens.phone, lookupKey));
+        if (isEmailVerification) {
+          await db.delete(otpTokens).where(eq(otpTokens.email, cleanEmail));
+        } else {
+          await db.delete(otpTokens).where(eq(otpTokens.phone, cleanPhone));
+        }
       } else {
         // Admin/test bypass - skip all OTP checks
         console.log(`[OTP] Admin/test bypass accepted for ${isEmailVerification ? cleanEmail : cleanPhone}`);

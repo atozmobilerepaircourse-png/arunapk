@@ -416,7 +416,8 @@ export const sessions = pgTable("sessions", {
 
 export const otpTokens = pgTable("otp_tokens", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  phone: text("phone").notNull().unique(),
+  phone: text("phone"),
+  email: text("email"),
   otp: text("otp").notNull(),
   expiresAt: bigint("expires_at", { mode: "number" }).notNull(),
   createdAt: bigint("created_at", { mode: "number" }).notNull().default(sql`EXTRACT(EPOCH FROM NOW()) * 1000`),

@@ -76,6 +76,8 @@ export default function OnboardingScreen() {
   // Flow state
   const [screen, setScreen] = useState<Screen>('welcome');
   const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
+  const [otpMethod, setOtpMethod] = useState<'phone' | 'email'>('phone'); // Phone or Email OTP
   const [otpCode, setOtpCode] = useState('');
   const [otpSending, setOtpSending] = useState(false);
   const [otpVerifying, setOtpVerifying] = useState(false);
@@ -157,92 +159,116 @@ export default function OnboardingScreen() {
     if (screen === 'location' && !locationGot) captureLocation();
   }, [screen]);
 
-  const sendOtp = async (phoneNumber: string) => {
-    const digits = phoneNumber.replace(/\D/g, '').replace(/^91/, '');
-    if (digits.length !== 10) {
-      const errorMsg = 'Please enter a valid 10-digit mobile number.';
-      console.warn('[AutoLogin] Validation error:', errorMsg, 'Phone:', phoneNumber, 'Digits:', digits);
-      Alert.alert('Invalid Number', errorMsg);
-      return;
-    }
+  const sendOtp = async (phoneOrEmail: string, method: 'phone' | 'email' = 'phone') => {
+    setOtpError('');
     
     // Prevent double-send
     if (otpSendInProgress) {
-      console.warn('[AutoLogin] Request already in progress');
+      console.warn('[OTP] Request already in progress');
       return;
     }
 
-    console.log('[AutoLogin] Auto-logging in with phone:', digits);
-    setOtpSendInProgress(true);
-    setOtpSending(true);
-    setOtpError('');
-
-    try {
-      const deviceId = await getDeviceId();
-      console.log('[AutoLogin] Device ID:', deviceId);
-
-      // Call auto-login endpoint with timeout (15 seconds)
-      console.log('[AutoLogin] Making API request to /api/auth/auto-login');
-      
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Login request timeout. Please check your internet connection.')), 15000)
-      );
-      
-      const res = await Promise.race([
-        apiRequest('POST', '/api/auth/auto-login', { phone: digits, deviceId }),
-        timeoutPromise
-      ]) as any;
-
-      console.log('[AutoLogin] Got response:', res.status);
-      const data = await res.json();
-      console.log('[AutoLogin] Response data:', { success: data.success, isNewUser: data.isNewUser, hasProfile: !!data.profile });
-
-      if (!data.success) {
-        const errorMsg = data.message || 'Login failed';
-        console.error('[AutoLogin] Failed:', errorMsg);
-        setOtpError(errorMsg);
-        Alert.alert('Login Error', errorMsg);
+    if (method === 'phone') {
+      // Phone OTP
+      const digits = phoneOrEmail.replace(/\D/g, '').replace(/^91/, '');
+      if (digits.length !== 10) {
+        const errorMsg = 'Please enter a valid 10-digit mobile number.';
+        console.warn('[OTP] Validation error:', errorMsg, 'Phone:', phoneOrEmail, 'Digits:', digits);
+        Alert.alert('Invalid Number', errorMsg);
         return;
       }
+      
+      console.log('[OTP-Phone] Auto-logging in with phone:', digits);
+      setOtpSendInProgress(true);
+      setOtpSending(true);
 
-      console.log('[AutoLogin] ✓ Auto-login successful');
-      if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      try {
+        const deviceId = await getDeviceId();
+        console.log('[OTP-Phone] Device ID:', deviceId);
 
-      // If existing user, log them in immediately
-      if (!data.isNewUser && data.profile) {
-        console.log('[AutoLogin] Existing user, logging in...');
-        const p = {
-          ...data.profile,
-          skills: Array.isArray(data.profile.skills)
-            ? data.profile.skills
-            : (() => { try { return JSON.parse(data.profile.skills || '[]'); } catch { return []; } })()
-        };
-        try {
-          await loginWithProfile(p, data.sessionToken || '');
-          console.log('[AutoLogin] loginWithProfile completed, navigating to:', getRoleRoute(p));
-          router.replace(getRoleRoute(p) as any);
-        } catch (loginErr: any) {
-          console.error('[AutoLogin] loginWithProfile failed:', loginErr?.message);
-          Alert.alert('Login Error', 'Failed to complete login. Please try again.');
-          setOtpError(loginErr?.message || 'Login error');
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Login request timeout. Please check your internet connection.')), 15000)
+        );
+        
+        const res = await Promise.race([
+          apiRequest('POST', '/api/auth/auto-login', { phone: digits, deviceId }),
+          timeoutPromise
+        ]) as any;
+
+        const data = await res.json();
+        console.log('[OTP-Phone] Response data:', { success: data.success, isNewUser: data.isNewUser, hasProfile: !!data.profile });
+
+        if (!data.success) {
+          const errorMsg = data.message || 'Login failed';
+          console.error('[OTP-Phone] Failed:', errorMsg);
+          setOtpError(errorMsg);
+          Alert.alert('Login Error', errorMsg);
+          return;
         }
+
+        console.log('[OTP-Phone] ✓ OTP sent successfully');
+        if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        setOtpSent(true);
+        setOtpResendTimer(60);
+        setOtpAttempts(0);
+        setPhone(digits);
+        setScreen('otp');
+      } catch (e: any) {
+        const errorMsg = e?.message || 'Unable to send OTP. Please try again.';
+        console.error('[OTP-Phone] Error:', errorMsg, e);
+        setOtpError(errorMsg);
+        Alert.alert('Connection Error', errorMsg);
+      } finally {
+        setOtpSending(false);
+        setOtpSendInProgress(false);
+      }
+    } else {
+      // Email OTP
+      const emailTrimmed = phoneOrEmail.trim().toLowerCase();
+      if (!emailTrimmed || !emailTrimmed.includes('@')) {
+        Alert.alert('Invalid Email', 'Please enter a valid email address.');
         return;
       }
+      
+      console.log('[OTP-Email] Sending OTP to email:', emailTrimmed);
+      setOtpSendInProgress(true);
+      setOtpSending(true);
 
-      // New user: go to details screen
-      console.log('[AutoLogin] New user, going to details screen');
-      setSessionToken(data.sessionToken || '');
-      setIsNewUser(true);
-      setPhone(digits);
-      setScreen('details');
-    } catch (e: any) {
-      const errorMsg = e?.message || 'Unable to connect to server. Please try again.';
-      console.error('[AutoLogin] Error:', errorMsg, e);
-      setOtpError(errorMsg);
-      Alert.alert('Connection Error', errorMsg);
-    } finally {
-      setOtpSending(false);
-      setOtpSendInProgress(false);
+      try {
+        const baseUrl = getApiUrl();
+        const res = await fetch(`${baseUrl}/api/otp/send`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: emailTrimmed }),
+        });
+
+        const data = await res.json() as any;
+        console.log('[OTP-Email] Response:', { success: data.success, sent: data.sent, message: data.message });
+
+        if (!data.success && !data.sent) {
+          const errorMsg = data.message || 'Failed to send OTP';
+          console.error('[OTP-Email] Failed:', errorMsg);
+          setOtpError(errorMsg);
+          Alert.alert('Error', errorMsg);
+          return;
+        }
+
+        console.log('[OTP-Email] ✓ OTP sent to email');
+        if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        setOtpSent(true);
+        setOtpResendTimer(60);
+        setOtpAttempts(0);
+        setEmail(emailTrimmed);
+        setScreen('otp');
+      } catch (e: any) {
+        const errorMsg = e?.message || 'Unable to send email. Please try again.';
+        console.error('[OTP-Email] Error:', errorMsg, e);
+        setOtpError(errorMsg);
+        Alert.alert('Connection Error', errorMsg);
+      } finally {
+        setOtpSending(false);
+        setOtpSendInProgress(false);
+      }
     }
   };
 
@@ -259,40 +285,64 @@ export default function OnboardingScreen() {
     setOtpError('');
     
     try {
-      console.log('[OTP] Verifying code:', code);
+      console.log('[OTP] Verifying code:', code, 'method:', otpMethod);
       let verifyResult: any = null;
       
-      // PRIMARY: Try Firebase if not using fallback
-      if (!usingFallback) {
-        try {
-          console.log('[OTP] PRIMARY: Verifying with Firebase');
-          const { verifyFirebaseOTP } = await import('@/lib/firebase-phone-auth');
-          const fbResult = await verifyFirebaseOTP(code);
-          
-          if (fbResult.success) {
-            console.log('[OTP] ✓ Firebase verification successful');
-            verifyResult = { success: true, isNewUser: true };
-          } else {
-            console.warn('[OTP] Firebase verification failed, trying fallback');
-          }
-        } catch (e) {
-          console.warn('[OTP] Firebase verification error, trying fallback');
-        }
-      }
-      
-      // FALLBACK: Verify via backend
-      if (!verifyResult) {
-        console.log('[OTP] FALLBACK: Verifying via backend');
-        const { verifyFallbackOTP } = await import('@/lib/firebase-phone-auth');
-        const result = await verifyFallbackOTP(phone, code);
+      if (otpMethod === 'email') {
+        // Email OTP: Use backend verification
+        console.log('[OTP-Email] Verifying email OTP');
+        const baseUrl = getApiUrl();
+        const res = await fetch(`${baseUrl}/api/otp/verify`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, otp: code, deviceId: await getDeviceId() }),
+        });
         
-        if (!result.success) {
-          console.error('[OTP] Verification failed:', result.error);
-          setOtpError(result.error);
-          Alert.alert('Verification Failed', result.error);
+        const data = await res.json() as any;
+        console.log('[OTP-Email] Verify response:', { success: data.success, isNewUser: data.isNewUser });
+        
+        if (!data.success) {
+          console.error('[OTP-Email] Verification failed:', data.message);
+          setOtpError(data.message || 'Invalid OTP');
+          Alert.alert('Verification Failed', data.message || 'Invalid OTP. Please try again.');
           return;
         }
-        verifyResult = result.data;
+        
+        verifyResult = data;
+      } else {
+        // Phone OTP: Try Firebase first, then fallback
+        // PRIMARY: Try Firebase if not using fallback
+        if (!usingFallback) {
+          try {
+            console.log('[OTP-Phone] PRIMARY: Verifying with Firebase');
+            const { verifyFirebaseOTP } = await import('@/lib/firebase-phone-auth');
+            const fbResult = await verifyFirebaseOTP(code);
+            
+            if (fbResult.success) {
+              console.log('[OTP-Phone] ✓ Firebase verification successful');
+              verifyResult = { success: true, isNewUser: true };
+            } else {
+              console.warn('[OTP-Phone] Firebase verification failed, trying fallback');
+            }
+          } catch (e) {
+            console.warn('[OTP-Phone] Firebase verification error, trying fallback');
+          }
+        }
+        
+        // FALLBACK: Verify via backend
+        if (!verifyResult) {
+          console.log('[OTP-Phone] FALLBACK: Verifying via backend');
+          const { verifyFallbackOTP } = await import('@/lib/firebase-phone-auth');
+          const result = await verifyFallbackOTP(phone, code);
+          
+          if (!result.success) {
+            console.error('[OTP-Phone] Verification failed:', result.error);
+            setOtpError(result.error);
+            Alert.alert('Verification Failed', result.error);
+            return;
+          }
+          verifyResult = result.data;
+        }
       }
       
       console.log('[OTP] ✓ Verification successful');
