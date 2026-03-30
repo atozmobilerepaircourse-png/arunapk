@@ -212,7 +212,7 @@ export default function OnboardingScreen() {
         // Auto-login: directly use the returned sessionToken and profile
         if (data.sessionToken && data.profile) {
           console.log('[OTP-Phone] Using sessionToken:', data.sessionToken.substring(0, 8) + '...');
-          loginWithProfile(data.sessionToken, data.profile);
+          loginWithProfile(data.profile, data.sessionToken);
         } else {
           // Fallback: show OTP screen if no sessionToken
           setOtpSent(true);
