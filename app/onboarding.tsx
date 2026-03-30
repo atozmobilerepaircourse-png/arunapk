@@ -245,7 +245,7 @@ export default function OnboardingScreen() {
         const data = await res.json() as any;
         console.log('[OTP-Email] Response:', { success: data.success, sent: data.sent, message: data.message });
 
-        if (!data.success && !data.sent) {
+        if (!data.sent) {
           const errorMsg = data.message || 'Failed to send OTP';
           console.error('[OTP-Email] Failed:', errorMsg);
           setOtpError(errorMsg);
