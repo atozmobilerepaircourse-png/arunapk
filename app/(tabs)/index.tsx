@@ -289,6 +289,7 @@ export default function FeedScreen() {
   const [liveUrl, setLiveUrl]           = useState('');
   const [schematicsUrl, setSchematicsUrl] = useState('');
   const [webToolsUrl, setWebToolsUrl]   = useState('');
+  const [learnLink, setLearnLink]       = useState('');
 
   // ── Live sessions state ──
   const [liveSessions, setLiveSessions]       = useState<LiveSession[]>([]);
@@ -335,6 +336,7 @@ export default function FeedScreen() {
         if (data.live_url)       setLiveUrl(data.live_url);
         if (data.schematics_url) setSchematicsUrl(data.schematics_url);
         if (data.web_tools_url)  setWebToolsUrl(data.web_tools_url);
+        if (data.learn_link)     setLearnLink(data.learn_link);
       })
       .catch(() => {});
   }, []);
@@ -499,6 +501,15 @@ export default function FeedScreen() {
               </Pressable>
             );
           })}
+          {!!learnLink && (
+            <Pressable
+              style={[styles.filterChip, { backgroundColor: '#8B5CF6', borderColor: '#8B5CF6' }]}
+              onPress={() => openLink(learnLink, 'Learn')}
+            >
+              <Ionicons name="book-outline" size={13} color="#FFF" />
+              <Text style={[styles.filterText, { color: '#FFF' }]}>Learn</Text>
+            </Pressable>
+          )}
         </ScrollView>
       </View>
 

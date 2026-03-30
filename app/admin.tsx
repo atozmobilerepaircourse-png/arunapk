@@ -329,6 +329,8 @@ export default function AdminScreen() {
   const [schematicsUrl, setSchematicsUrl] = useState('');
   const [webToolsUrl, setWebToolsUrl] = useState('');
   const [whatsappSupportUrl, setWhatsappSupportUrl] = useState('');
+  const [uploadVideoLink, setUploadVideoLink] = useState('');
+  const [learnLink, setLearnLink] = useState('');
   const [linksLoading, setLinksLoading] = useState(false);
 
   // User management
@@ -662,6 +664,8 @@ export default function AdminScreen() {
       setSchematicsUrl(data.schematics_url || '');
       setWebToolsUrl(data.web_tools_url || '');
       setWhatsappSupportUrl(data.whatsapp_support_link || '');
+      setUploadVideoLink(data.upload_video_link || '');
+      setLearnLink(data.learn_link || '');
     } catch (err) { console.warn('links:', err); }
     finally { setLinksLoading(false); }
   }, []);
@@ -2515,6 +2519,8 @@ export default function AdminScreen() {
           { key: 'schematics_url', label: 'Schematics Link', desc: 'Opens when users tap the Schematics button.', value: schematicsUrl, setter: setSchematicsUrl, color: '#FFD60A', icon: 'document-text-outline' as any, placeholder: 'https://...' },
           { key: 'web_tools_url', label: 'Web Tools Link', desc: 'Opens when users tap the Tools button.', value: webToolsUrl, setter: setWebToolsUrl, color: '#5E8BFF', icon: 'globe-outline' as any, placeholder: 'https://example.com/tools' },
           { key: 'whatsapp_support_link', label: 'WhatsApp Support', desc: 'Opens WhatsApp when users tap Contact Us.', value: whatsappSupportUrl, setter: setWhatsappSupportUrl, color: '#25D366', icon: 'logo-whatsapp' as any, placeholder: 'https://wa.link/...' },
+          { key: 'upload_video_link', label: 'Upload Videos Link', desc: 'Opens when teachers tap "Upload Videos" in the Teaching section.', value: uploadVideoLink, setter: setUploadVideoLink, color: '#FF6B35', icon: 'cloud-upload-outline' as any, placeholder: 'https://drive.google.com/...' },
+          { key: 'learn_link', label: 'Learn Link', desc: 'Opens when students tap the "Learn" button on the home page.', value: learnLink, setter: setLearnLink, color: '#8B5CF6', icon: 'book-outline' as any, placeholder: 'https://youtube.com/playlist/...' },
         ].map(link => (
           <SectionCard key={link.key} style={{ marginBottom: 14, borderLeftWidth: 4, borderLeftColor: link.color }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 }}>

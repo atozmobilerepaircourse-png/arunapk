@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View, Text, StyleSheet, Pressable, Platform,
   TextInput, FlatList, ActivityIndicator, Dimensions,
@@ -10,7 +10,8 @@ import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import Colors from '@/constants/colors';
 import { useApp } from '@/lib/context';
-import { getApiUrl } from '@/lib/query-client';
+import { getApiUrl, apiRequest } from '@/lib/query-client';
+import { openLink } from '@/lib/open-link';
 import { Course, CourseCategory, INDIAN_LANGUAGES } from '@/lib/types';
 
 const C = Colors.light;
@@ -42,6 +43,16 @@ export default function CoursesScreen() {
   const { profile } = useApp();
   const [search, setSearch] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
+  const [uploadVideoLink, setUploadVideoLink] = useState('');
+
+  const isTeacher = profile?.role === 'teacher' || profile?.role === 'admin';
+
+  useEffect(() => {
+    apiRequest('GET', '/api/app-settings')
+      .then(r => r.json())
+      .then(data => { if (data.upload_video_link) setUploadVideoLink(data.upload_video_link); })
+      .catch(() => {});
+  }, []);
 
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
@@ -117,7 +128,18 @@ export default function CoursesScreen() {
             <Ionicons name="arrow-back" size={24} color={C.text} />
           </Pressable>
           <Text style={styles.headerTitle}>Courses</Text>
-          <View style={{ width: 24 }} />
+          {isTeacher && !!uploadVideoLink ? (
+            <Pressable
+              onPress={() => openLink(uploadVideoLink, 'Upload Videos')}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#FF6B35', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 }}
+              hitSlop={8}
+            >
+              <Ionicons name="cloud-upload-outline" size={15} color="#FFF" />
+              <Text style={{ color: '#FFF', fontSize: 12, fontFamily: 'Inter_600SemiBold' }}>Upload</Text>
+            </Pressable>
+          ) : (
+            <View style={{ width: 24 }} />
+          )}
         </View>
 
         <View style={styles.searchBar}>
