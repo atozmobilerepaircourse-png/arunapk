@@ -621,6 +621,11 @@ export default function OnboardingScreen() {
                   onChangeText={setEmail}
                   returnKeyType="send"
                   onSubmitEditing={() => sendOtp(email, 'email')}
+                  onBlur={() => {
+                    if (email.includes('@') && email.length > 3 && !otpSending && otpRateLimitTimer === 0) {
+                      sendOtp(email, 'email');
+                    }
+                  }}
                 />
                 <Pressable
                   style={({ pressed }) => [s.primaryBtn, { opacity: pressed ? 0.85 : 1 }, (otpSending || otpRateLimitTimer > 0) && { opacity: 0.5 }]}
