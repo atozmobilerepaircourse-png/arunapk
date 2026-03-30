@@ -65,6 +65,7 @@ function NativeTabLayout() {
         <NativeTabs.Trigger name="profile" hidden />
         <NativeTabs.Trigger name="tech-market" hidden />
         <NativeTabs.Trigger name="nearby-shops" hidden />
+        <NativeTabs.Trigger name="learn" hidden />
       </NativeTabs>
     );
   }
@@ -81,7 +82,7 @@ function NativeTabLayout() {
           <Label>Directory</Label>
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="learn">
-          <Icon sf={{ default: "book", selected: "book.fill" }} />
+          <Icon sf={{ default: "sparkles", selected: "sparkles" }} />
           <Label>Learn</Label>
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="marketplace">
@@ -107,6 +108,7 @@ function NativeTabLayout() {
         <NativeTabs.Trigger name="content" hidden={true} />
         <NativeTabs.Trigger name="products" hidden={true} />
         <NativeTabs.Trigger name="nearby-shops" hidden />
+        <NativeTabs.Trigger name="learn" hidden={false} />
       </NativeTabs>
     );
   }
@@ -144,6 +146,7 @@ function NativeTabLayout() {
       {/* content/products/marketplace are already shown as roleTab above — keep hidden here */}
       <NativeTabs.Trigger name="content" hidden={true} />
       <NativeTabs.Trigger name="products" hidden={true} />
+      <NativeTabs.Trigger name="learn" hidden={true} />
       <NativeTabs.Trigger name="marketplace" hidden={true} />
     </NativeTabs>
   );

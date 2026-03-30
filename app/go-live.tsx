@@ -355,9 +355,7 @@ export default function GoLiveScreen() {
           <Ionicons name="arrow-back" size={24} color="#000" />
         </Pressable>
         <Text style={styles.headerTitle}>{activeSession ? 'You are LIVE' : 'Go Live'}</Text>
-        <Pressable style={styles.uploadHeaderBtn} onPress={openUploadLink}>
-          <Ionicons name="cloud-upload-outline" size={18} color="#FF6B35" />
-        </Pressable>
+        <View style={{ width: 24 }} />
       </View>
 
       <ScrollView
@@ -645,10 +643,6 @@ const styles = StyleSheet.create({
   backBtn: {
     width: 40, height: 40, borderRadius: 20,
     backgroundColor: '#F2F2F2', alignItems: 'center', justifyContent: 'center',
-  },
-  uploadHeaderBtn: {
-    width: 40, height: 40, borderRadius: 20,
-    backgroundColor: '#FF6B3515', alignItems: 'center', justifyContent: 'center',
   },
   headerTitle: { fontSize: 18, fontFamily: 'Inter_700Bold', color: '#000' },
   centerContent: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
