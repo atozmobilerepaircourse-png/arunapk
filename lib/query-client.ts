@@ -7,9 +7,16 @@ const CLOUD_RUN_BACKEND = "https://repair-backendarun-iaz6jex5fa-el.a.run.app";
 const SESSION_KEY = "mobi_session_token_v2";
 
 export function getApiUrl(): string {
-  // ALWAYS use Cloud Run backend - ignore any Replit dev domains
+  // On web, use environment variable if available
+  if (typeof window !== 'undefined' && process.env.EXPO_PUBLIC_DOMAIN) {
+    const envUrl = process.env.EXPO_PUBLIC_DOMAIN;
+    const url = envUrl.endsWith('/') ? envUrl.slice(0, -1) : envUrl;
+    console.log('[getApiUrl] Web using env:', url);
+    return url;
+  }
+  // Mobile/fallback - use Cloud Run backend
   const url = CLOUD_RUN_BACKEND;
-  console.log('[getApiUrl] Returning:', url);
+  console.log('[getApiUrl] Using Cloud Run:', url);
   return url;
 }
 
