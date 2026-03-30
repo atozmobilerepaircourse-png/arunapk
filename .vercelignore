@@ -13,3 +13,4 @@ constants
 assets
 patches
 .expo
+# Vercel rebuild trigger
