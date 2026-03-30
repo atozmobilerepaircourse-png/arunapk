@@ -206,13 +206,21 @@ export default function OnboardingScreen() {
           return;
         }
 
-        console.log('[OTP-Phone] ✓ OTP sent successfully');
+        console.log('[OTP-Phone] ✓ Auto-login successful! Logging in directly...');
         if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        setOtpSent(true);
-        setOtpResendTimer(60);
-        setOtpAttempts(0);
-        setPhone(digits);
-        setScreen('otp');
+        
+        // Auto-login: directly use the returned sessionToken and profile
+        if (data.sessionToken && data.profile) {
+          console.log('[OTP-Phone] Using sessionToken:', data.sessionToken.substring(0, 8) + '...');
+          loginWithProfile(data.sessionToken, data.profile);
+        } else {
+          // Fallback: show OTP screen if no sessionToken
+          setOtpSent(true);
+          setOtpResendTimer(60);
+          setOtpAttempts(0);
+          setPhone(digits);
+          setScreen('otp');
+        }
       } catch (e: any) {
         const errorMsg = e?.message || 'Unable to send OTP. Please try again.';
         console.error('[OTP-Phone] Error:', errorMsg, e);
