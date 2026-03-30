@@ -28,7 +28,7 @@ export async function sendOTPEmail(userEmail: string, otp: string) {
     });
 
     if (error) {
-      console.error("[Email] OTP send error:", error);
+      console.error("[Email] OTP send error:", JSON.stringify(error));
       return false;
     } else {
       console.log("[Email] OTP sent to:", userEmail, "ID:", data?.id);
@@ -65,7 +65,7 @@ export async function sendWelcomeEmail(userEmail: string, userName: string) {
     });
 
     if (error) {
-      console.error("[Email] Resend error:", error);
+      console.error("[Email] Resend error:", JSON.stringify(error));
     } else {
       console.log("[Email] Welcome email sent to:", userEmail, "ID:", data?.id);
     }
