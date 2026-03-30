@@ -82,7 +82,7 @@ function NativeTabLayout() {
           <Label>Directory</Label>
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="learn">
-          <Icon sf={{ default: "book.fasce", selected: "book.fasce.fill" }} />
+          <Icon sf={{ default: "books.vertical", selected: "books.vertical.fill" }} />
           <Label>Learn</Label>
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="marketplace">
