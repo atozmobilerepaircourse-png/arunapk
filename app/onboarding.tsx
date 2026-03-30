@@ -381,49 +381,6 @@ export default function OnboardingScreen() {
     }
   };
 
-  const startGoogleSignIn = async () => {
-    try {
-      const clientToken = Crypto.randomUUID();
-      const baseUrl = getApiUrl();
-      if (Platform.OS === 'web') {
-        const returnUrl = window.location.origin + '/onboarding';
-        await apiRequest('POST', '/api/auth/google/set-return-url', { token: clientToken, returnUrl });
-        const urlRes = await apiRequest('POST', '/api/auth/google/get-login-url', { token: clientToken });
-        const urlData = await urlRes.json();
-        if (!urlData.success || !urlData.url) {
-          Alert.alert('Google Sign-In Unavailable', 'Please use phone number to sign in.');
-          return;
-        }
-        window.location.href = urlData.url;
-        return;
-      }
-      await apiRequest('POST', '/api/auth/google/set-return-url', { token: clientToken, returnUrl: `${baseUrl}/api/auth/google/done` });
-      const urlRes = await apiRequest('POST', '/api/auth/google/get-login-url', { token: clientToken });
-      const urlData = await urlRes.json();
-      if (!urlData.success || !urlData.url) {
-        Alert.alert('Google Sign-In Unavailable', 'Please use phone number to sign in.');
-        return;
-      }
-      pendingGoogleTokenRef.current = clientToken;
-      await WebBrowser.openBrowserAsync(urlData.url);
-      const tok = pendingGoogleTokenRef.current;
-      pendingGoogleTokenRef.current = null;
-      if (tok) {
-        try {
-          const exchRes = await apiRequest('POST', '/api/auth/google/exchange', { token: tok });
-          const exchData = await exchRes.json();
-          if (exchData.success && exchData.email) {
-            setGoogleEmail(exchData.email);
-            setGoogleSignedIn(true);
-            if (exchData.name) setUserName(exchData.name);
-            setScreen('google-phone');
-          }
-        } catch {}
-      }
-    } catch {
-      Alert.alert('Error', 'Could not start Google sign-in. Please use phone number instead.');
-    }
-  };
 
   const handleGooglePhoneSubmit = async () => {
     const digits = phone.replace(/\D/g, '');
@@ -686,15 +643,6 @@ export default function OnboardingScreen() {
               </>
             )}
 
-            <View style={s.dividerRow}>
-              <View style={s.dividerLine} />
-              <Text style={s.dividerText}>or continue with</Text>
-              <View style={s.dividerLine} />
-            </View>
-            <Pressable style={({ pressed }) => [s.googleBtn, { opacity: pressed ? 0.9 : 1 }]} onPress={startGoogleSignIn}>
-              <Ionicons name="logo-google" size={20} color="#374151" />
-              <Text style={s.googleBtnText}>Continue with Google</Text>
-            </Pressable>
           </View>
           <Text style={s.termsText}>
             By continuing, you agree to our{' '}
@@ -1170,13 +1118,8 @@ const s = StyleSheet.create({
   // Buttons
   primaryBtn: { backgroundColor: '#2563EB', borderRadius: 14, paddingVertical: 15, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8, shadowColor: '#2563EB', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 8, elevation: 4 },
   primaryBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
-  googleBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 14, paddingVertical: 14, backgroundColor: '#FFFFFF', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
-  googleBtnText: { fontSize: 15, fontWeight: '600', color: '#374151' },
   outlineBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 14, paddingVertical: 14 },
   outlineBtnText: { fontSize: 15, fontWeight: '600', color: '#3B82F6' },
-  dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  dividerLine: { flex: 1, height: 1, backgroundColor: '#E5E7EB' },
-  dividerText: { fontSize: 12, color: '#9CA3AF', fontWeight: '500', textTransform: 'uppercase', letterSpacing: 0.8 },
   termsText: { fontSize: 11, color: '#9CA3AF', textAlign: 'center', marginTop: 16, lineHeight: 16 },
   termsLink: { color: '#6B7280', textDecorationLine: 'underline' },
   // Form screens
