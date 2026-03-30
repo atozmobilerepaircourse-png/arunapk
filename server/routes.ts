@@ -5459,6 +5459,45 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
     }
   });
 
+  app.get('/api/admin/links', async (_req, res) => {
+    try {
+      const links = await db.select().from(appSettings).where(
+        sql`key IN ('upload_video_link', 'learn_link', 'whatsapp_support_link', 'email_support_link')`
+      );
+      const result: Record<string, string> = {};
+      links.forEach(s => { result[s.key] = s.value; });
+      return res.json(result);
+    } catch (err) {
+      console.error('[Admin Links] Get error:', err);
+      return res.status(500).json({ error: 'Failed to fetch links' });
+    }
+  });
+
+  app.put('/api/admin/links', async (req, res) => {
+    try {
+      const { upload_video_link, learn_link, whatsapp_support_link, email_support_link } = req.body;
+      
+      const saveSetting = async (key: string, value: string) => {
+        const now = Date.now();
+        await db.execute(sql`
+          INSERT INTO app_settings (id, key, value, updated_at)
+          VALUES (gen_random_uuid(), ${key}, ${value}, ${now})
+          ON CONFLICT (key) DO UPDATE SET value = ${value}, updated_at = ${now}
+        `);
+      };
+      
+      if (upload_video_link !== undefined) await saveSetting('upload_video_link', String(upload_video_link));
+      if (learn_link !== undefined) await saveSetting('learn_link', String(learn_link));
+      if (whatsapp_support_link !== undefined) await saveSetting('whatsapp_support_link', String(whatsapp_support_link));
+      if (email_support_link !== undefined) await saveSetting('email_support_link', String(email_support_link));
+      
+      return res.json({ success: true });
+    } catch (err) {
+      console.error('[Admin Links] Update error:', err);
+      return res.status(500).json({ success: false, message: 'Failed to update links' });
+    }
+  });
+
   app.get('/api/app-settings', async (_req, res) => {
     try {
       const settings = await db.select().from(appSettings);
