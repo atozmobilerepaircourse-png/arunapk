@@ -1,11 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, TextInput, Pressable, StyleSheet, ScrollView,
-  ActivityIndicator, Platform, TouchableOpacity,
+  ActivityIndicator, Platform, TouchableOpacity, Alert,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as WebBrowser from 'expo-web-browser';
 import { useApp } from '@/lib/context';
 import { apiRequest, getApiUrl } from '@/lib/query-client';
 import * as ImagePicker from 'expo-image-picker';
@@ -71,6 +72,22 @@ export default function GoLiveScreen() {
       setLoadingSession(false);
     }
   }, [profile?.id]);
+
+  const openUploadLink = useCallback(async () => {
+    try {
+      const res = await apiRequest('GET', '/api/admin/links');
+      const data = await res.json();
+      const uploadLink = data?.upload_video_link;
+      if (uploadLink) {
+        await WebBrowser.openBrowserAsync(uploadLink);
+      } else {
+        Alert.alert('Upload Link Not Set', 'The upload link has not been configured yet.');
+      }
+    } catch (e) {
+      console.error('[Upload] Error:', e);
+      Alert.alert('Error', 'Unable to open upload link');
+    }
+  }, []);
 
   const fetchMySession = async () => {
     try {
@@ -338,7 +355,9 @@ export default function GoLiveScreen() {
           <Ionicons name="arrow-back" size={24} color="#000" />
         </Pressable>
         <Text style={styles.headerTitle}>{activeSession ? 'You are LIVE' : 'Go Live'}</Text>
-        <View style={{ width: 40 }} />
+        <Pressable style={styles.uploadHeaderBtn} onPress={openUploadLink}>
+          <Ionicons name="cloud-upload-outline" size={18} color="#FF6B35" />
+        </Pressable>
       </View>
 
       <ScrollView
@@ -626,6 +645,10 @@ const styles = StyleSheet.create({
   backBtn: {
     width: 40, height: 40, borderRadius: 20,
     backgroundColor: '#F2F2F2', alignItems: 'center', justifyContent: 'center',
+  },
+  uploadHeaderBtn: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: '#FF6B3515', alignItems: 'center', justifyContent: 'center',
   },
   headerTitle: { fontSize: 18, fontFamily: 'Inter_700Bold', color: '#000' },
   centerContent: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
