@@ -10,7 +10,7 @@ export async function sendOTPEmail(userEmail: string, otp: string) {
     const resend = new Resend(process.env.RESEND_API_KEY);
 
     const { data, error } = await resend.emails.send({
-      from: "Mobi App <noreply@mail.atozmobilerepair.in>",
+      from: "Mobi App <onboarding@resend.dev>",
       to: userEmail,
       subject: "Your Mobi App Verification Code",
       html: `
@@ -50,7 +50,7 @@ export async function sendWelcomeEmail(userEmail: string, userName: string) {
     const resend = new Resend(process.env.RESEND_API_KEY);
 
     const { data, error } = await resend.emails.send({
-      from: "Mobi App <noreply@mail.atozmobilerepair.in>",
+      from: "Mobi App <onboarding@resend.dev>",
       to: userEmail,
       subject: "Welcome to Mobi App 🎉",
       html: `
