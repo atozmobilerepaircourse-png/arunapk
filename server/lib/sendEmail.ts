@@ -28,7 +28,8 @@ export async function sendOTPEmail(userEmail: string, otp: string) {
     });
 
     if (error) {
-      console.error("[Email] OTP send error:", JSON.stringify(error));
+      console.error("[Email] OTP send error:", error);
+      console.error("[Email] Error details:", JSON.stringify(error, null, 2));
       return false;
     } else {
       console.log("[Email] OTP sent to:", userEmail, "ID:", data?.id);
