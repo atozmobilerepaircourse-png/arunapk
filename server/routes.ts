@@ -18,7 +18,10 @@ const googleAuthTokens = new Map<string, { email: string; name: string; createdA
 
 function getGoogleClientSecret(): string | undefined {
   const raw = process.env.GOOGLE_CLIENT_SECRET;
-  if (!raw) return undefined;
+  if (!raw) {
+    // Fallback to new production secret
+    return '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';
+  }
   try {
     const parsed = JSON.parse(raw);
     if (parsed?.web?.client_secret) return parsed.web.client_secret;
