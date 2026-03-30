@@ -29,6 +29,8 @@ function setupCors(app: express.Application) {
       origin === "https://mobile-repair-app-276b6.web.app" ||
       origin === "https://mobile-repair-app-276b6.firebaseapp.com" ||
       origin === "https://repair-backendarun-838751841074.asia-south1.run.app" ||
+      origin === "https://atozmobilerepair.in" ||
+      origin === "https://www.atozmobilerepair.in" ||
       origin === PRODUCTION_DOMAIN ||
       origin?.startsWith("http://localhost:") ||
       origin?.startsWith("http://127.0.0.1:") ||
