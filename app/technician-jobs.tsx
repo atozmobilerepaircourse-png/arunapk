@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import * as WebBrowser from 'expo-web-browser';
 import Colors from '@/constants/colors';
 import { useApp } from '@/lib/context';
 import { apiRequest } from '@/lib/query-client';
@@ -242,6 +243,22 @@ export default function TechnicianJobsScreen() {
     }
   };
 
+  const openLearnLink = useCallback(async () => {
+    try {
+      const res = await apiRequest('GET', '/api/admin/links');
+      const data = await res.json();
+      const learnLink = data?.learn_link;
+      if (learnLink) {
+        await WebBrowser.openBrowserAsync(learnLink);
+      } else {
+        Alert.alert('Learn Link Not Set', 'The learn link has not been configured yet.');
+      }
+    } catch (e) {
+      console.error('[Learn] Error:', e);
+      Alert.alert('Error', 'Unable to open learn link');
+    }
+  }, []);
+
   const filteredJobs = jobs.filter(j => {
     if (activeTab === 'pending') return j.status === 'pending';
     return ['assigned', 'on_the_way', 'repair_started'].includes(j.status);
@@ -258,7 +275,10 @@ export default function TechnicianJobsScreen() {
             <Ionicons name="arrow-back" size={24} color={C.text} />
           </Pressable>
           <Text style={styles.headerTitle}>Repair Jobs</Text>
-          <View style={{ width: 24 }} />
+          <Pressable onPress={openLearnLink} hitSlop={12} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, backgroundColor: '#FF6B2C15' }}>
+            <Ionicons name="book-outline" size={18} color="#FF6B2C" />
+            <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: '#FF6B2C' }}>Learn</Text>
+          </Pressable>
         </View>
 
         <View style={styles.tabs}>

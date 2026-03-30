@@ -1,12 +1,13 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, Pressable, Platform,
-  FlatList, ActivityIndicator, Dimensions, RefreshControl,
+  FlatList, ActivityIndicator, Dimensions, RefreshControl, Alert,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import { useApp } from '@/lib/context';
 import { apiRequest, getApiUrl } from '@/lib/query-client';
 import { UserProfile, Course } from '@/lib/types';
@@ -70,6 +71,22 @@ export default function TeacherStoreScreen() {
     const convoId = await startConversation(teacher.id, teacher.name, teacher.role);
     if (convoId) router.push({ pathname: '/chat/[id]', params: { id: convoId } });
   };
+
+  const openUploadLink = useCallback(async () => {
+    try {
+      const res = await apiRequest('GET', '/api/admin/links');
+      const data = await res.json();
+      const uploadLink = data?.upload_video_link;
+      if (uploadLink) {
+        await WebBrowser.openBrowserAsync(uploadLink);
+      } else {
+        Alert.alert('Upload Link Not Set', 'The upload link has not been configured yet.');
+      }
+    } catch (e) {
+      console.error('[Upload] Error:', e);
+      Alert.alert('Error', 'Unable to open upload link');
+    }
+  }, []);
 
   const totalStudents = useMemo(() => {
     return courses.reduce((sum, c) => sum + (c.enrollmentCount || 0), 0);
@@ -148,7 +165,12 @@ export default function TeacherStoreScreen() {
           </View>
         </View>
 
-        {!isMe && (
+        {isMe ? (
+          <Pressable style={s.uploadBtn} onPress={() => openUploadLink()}>
+            <Ionicons name="cloud-upload-outline" size={16} color="#fff" />
+            <Text style={s.uploadBtnText}>Upload Videos</Text>
+          </Pressable>
+        ) : (
           <View style={s.actionRow}>
             <Pressable
               style={[s.actionBtn, following && s.actionBtnFollowing]}
@@ -295,6 +317,12 @@ const s = StyleSheet.create({
     backgroundColor: ORANGE, borderRadius: 12, height: 44,
   },
   messageBtnText: { fontSize: 14, fontWeight: '600' as const, color: '#fff' },
+
+  uploadBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    backgroundColor: ORANGE, borderRadius: 12, height: 44, marginBottom: 20, width: '100%',
+  },
+  uploadBtnText: { fontSize: 14, fontWeight: '600' as const, color: '#fff' },
 
   sectionTitle: {
     fontSize: 18, fontWeight: '700' as const, color: '#222',
