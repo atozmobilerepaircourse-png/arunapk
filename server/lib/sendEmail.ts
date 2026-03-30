@@ -6,6 +6,9 @@ export async function sendOTPEmail(userEmail: string, otp: string) {
     return false;
   }
 
+  console.log("[Email] RESEND_API_KEY present, length:", process.env.RESEND_API_KEY.length);
+  console.log("[Email] API Key starts with:", process.env.RESEND_API_KEY.substring(0, 10));
+
   try {
     const resend = new Resend(process.env.RESEND_API_KEY);
 
