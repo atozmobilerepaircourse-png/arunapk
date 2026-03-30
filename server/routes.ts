@@ -1198,10 +1198,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!token) return res.status(400).json({ success: false, message: "Token required" });
       
       // Production Google OAuth credentials
-      const clientId = '456751858632-brh0ir7j9v2ks5kk6antp6q757kmhaus.apps.googleusercontent.com';
+      const clientId = '838751841074-9ah00lmrlmaux8kri83qmtthgo94cd.apps.googleusercontent.com';
       const redirectUri = "https://repair-backendarun-iaz6jex5fa-el.a.run.app/api/auth/google/callback";
       
-      console.log("[Google Auth] Using clientId: 456751858632-...");
+      console.log("[Google Auth] Using clientId: 838751841074-...");
       
       const stateObj = { token };
       const stateStr = Buffer.from(JSON.stringify(stateObj)).toString('base64');
@@ -1281,11 +1281,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Production Google OAuth credentials
-      const clientId = '456751858632-brh0ir7j9v2ks5kk6antp6q757kmhaus.apps.googleusercontent.com';
-      const clientSecret = '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';
+      const clientId = '838751841074-9ah00lmrlmaux8kri83qmtthgo94cd.apps.googleusercontent.com';
+      const clientSecret = getGoogleClientSecret();
       const redirectUri = "https://repair-backendarun-iaz6jex5fa-el.a.run.app/api/auth/google/callback";
 
-      console.log("[Google Auth] Callback: clientId: 456751858632-...");
+      console.log("[Google Auth] Callback: clientId: 838751841074-...");
       console.log("[Google Auth] Callback: clientSecret length: 35");
       console.log("[Google Auth] Callback: redirectUri:", redirectUri);
 
@@ -1477,7 +1477,7 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
         return res.status(400).json({ success: false, message: "No authorization code" });
       }
 
-      const clientId = '456751858632-brh0ir7j9v2ks5kk6antp6q757kmhaus.apps.googleusercontent.com';
+      const clientId = '838751841074-9ah00lmrlmaux8kri83qmtthgo94cd.apps.googleusercontent.com';
       const clientSecret = getGoogleClientSecret();
 
       if (!clientSecret) {
