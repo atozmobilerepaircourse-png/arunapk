@@ -81,13 +81,13 @@ function NativeTabLayout() {
           <Icon sf={{ default: "person.2", selected: "person.2.fill" }} />
           <Label>Directory</Label>
         </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="learn">
-          <Icon sf={{ default: "sparkles", selected: "sparkles" }} />
-          <Label>Learn</Label>
-        </NativeTabs.Trigger>
         <NativeTabs.Trigger name="marketplace">
           <Icon sf={{ default: "bag", selected: "bag.fill" }} />
           <Label>Shop</Label>
+        </NativeTabs.Trigger>
+        <NativeTabs.Trigger name="learn">
+          <Icon sf={{ default: "book.circle", selected: "book.circle.fill" }} />
+          <Label>Learn</Label>
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="tech-market">
           <Icon sf={{ default: "tag", selected: "tag.fill" }} />
