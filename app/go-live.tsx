@@ -389,9 +389,14 @@ export default function GoLiveScreen() {
           // ── Active session card ─────────────────────────────────────────
           <View>
             <View style={styles.activeBanner}>
-              <View style={styles.liveRow}>
-                <View style={styles.liveDotRed} />
-                <Text style={styles.liveLabel}>LIVE NOW</Text>
+              <View style={styles.liveRowWithUpload}>
+                <View style={styles.liveRow}>
+                  <View style={styles.liveDotRed} />
+                  <Text style={styles.liveLabel}>LIVE NOW</Text>
+                </View>
+                <Pressable style={styles.smallUploadBtn} onPress={openUploadLink}>
+                  <Ionicons name="cloud-upload-outline" size={14} color="#FF6B35" />
+                </Pressable>
               </View>
               <Text style={styles.activeTitle} numberOfLines={2}>{activeSession.title}</Text>
               <Text style={styles.activeSubtext}>
@@ -721,6 +726,8 @@ const styles = StyleSheet.create({
     borderWidth: 1.5, borderColor: '#FFCECE',
   },
   liveRow: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 10 },
+  liveRowWithUpload: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
+  smallUploadBtn: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#FF6B3515', alignItems: 'center', justifyContent: 'center' },
   liveLabel: { fontSize: 11, fontFamily: 'Inter_700Bold', color: RED, letterSpacing: 1.5 },
   activeTitle: { fontSize: 20, fontFamily: 'Inter_700Bold', color: '#000', lineHeight: 26, marginBottom: 6 },
   activeSubtext: { fontSize: 13, color: '#666', lineHeight: 18 },
