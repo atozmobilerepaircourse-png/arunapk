@@ -592,33 +592,87 @@ export default function OnboardingScreen() {
           <Text style={s.welcomeTitle}>Welcome to Mobile{'\n'}Technician Community</Text>
           <Text style={s.welcomeSubtitle}>Network, Learn & Grow with technicians across India.</Text>
           <View style={s.welcomeActions}>
-            <View style={s.phoneInputRow}>
-              <View style={s.countryCode}><Text style={s.countryCodeText}>+91</Text></View>
-              <TextInput
-                style={s.phoneInput}
-                placeholder="Enter mobile number"
-                placeholderTextColor="#9CA3AF"
-                keyboardType="phone-pad"
-                maxLength={10}
-                value={phone}
-                onChangeText={setPhone}
-                returnKeyType="send"
-                onSubmitEditing={() => sendOtp(phone)}
-              />
+            {/* Method Toggle */}
+            <View style={{ flexDirection: 'row', backgroundColor: '#F3F4F6', borderRadius: 8, padding: 4, marginBottom: 16 }}>
+              <Pressable
+                style={[{ flex: 1, paddingVertical: 10, borderRadius: 6, alignItems: 'center' }, otpMethod === 'email' && { backgroundColor: '#FFF', borderWidth: 1.5, borderColor: '#FF6B35' }]}
+                onPress={() => { setOtpMethod('email'); setOtpError(''); }}
+              >
+                <Text style={[{ fontSize: 13, fontFamily: 'Inter_600SemiBold', color: '#6B7280' }, otpMethod === 'email' && { color: '#FF6B35' }]}>📧 Email</Text>
+              </Pressable>
+              <Pressable
+                style={[{ flex: 1, paddingVertical: 10, borderRadius: 6, alignItems: 'center' }, otpMethod === 'phone' && { backgroundColor: '#FFF', borderWidth: 1.5, borderColor: '#FF6B35' }]}
+                onPress={() => { setOtpMethod('phone'); setOtpError(''); }}
+              >
+                <Text style={[{ fontSize: 13, fontFamily: 'Inter_600SemiBold', color: '#6B7280' }, otpMethod === 'phone' && { color: '#FF6B35' }]}>📱 Phone</Text>
+              </Pressable>
             </View>
-            <Pressable
-              style={({ pressed }) => [s.primaryBtn, { opacity: pressed ? 0.85 : 1 }, (otpSending || otpRateLimitTimer > 0) && { opacity: 0.5 }]}
-              onPress={() => sendOtp(phone)}
-              disabled={otpSending || otpRateLimitTimer > 0 || phone.replace(/\D/g, '').length < 10}
-            >
-              {otpSending ? (
-                <ActivityIndicator color="#FFF" />
-              ) : otpRateLimitTimer > 0 ? (
-                <Text style={s.primaryBtnText}>Resend in {otpRateLimitTimer}s</Text>
-              ) : (
-                <Text style={s.primaryBtnText}>Get OTP</Text>
-              )}
-            </Pressable>
+
+            {/* Email Input */}
+            {otpMethod === 'email' && (
+              <>
+                <TextInput
+                  style={[s.phoneInput, { marginBottom: 0, paddingHorizontal: 12 }]}
+                  placeholder="Enter your email"
+                  placeholderTextColor="#9CA3AF"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  value={email}
+                  onChangeText={setEmail}
+                  returnKeyType="send"
+                  onSubmitEditing={() => sendOtp(email, 'email')}
+                />
+                <Pressable
+                  style={({ pressed }) => [s.primaryBtn, { opacity: pressed ? 0.85 : 1 }, (otpSending || otpRateLimitTimer > 0) && { opacity: 0.5 }]}
+                  onPress={() => sendOtp(email, 'email')}
+                  disabled={otpSending || otpRateLimitTimer > 0 || !email.includes('@')}
+                >
+                  {otpSending ? (
+                    <ActivityIndicator color="#FFF" />
+                  ) : otpRateLimitTimer > 0 ? (
+                    <Text style={s.primaryBtnText}>Resend in {otpRateLimitTimer}s</Text>
+                  ) : (
+                    <Text style={s.primaryBtnText}>Get OTP via Email</Text>
+                  )}
+                </Pressable>
+                {otpError && <Text style={{ color: '#EF4444', fontSize: 12, marginTop: 8, textAlign: 'center' }}>{otpError}</Text>}
+              </>
+            )}
+
+            {/* Phone Input */}
+            {otpMethod === 'phone' && (
+              <>
+                <View style={s.phoneInputRow}>
+                  <View style={s.countryCode}><Text style={s.countryCodeText}>+91</Text></View>
+                  <TextInput
+                    style={s.phoneInput}
+                    placeholder="Enter mobile number"
+                    placeholderTextColor="#9CA3AF"
+                    keyboardType="phone-pad"
+                    maxLength={10}
+                    value={phone}
+                    onChangeText={setPhone}
+                    returnKeyType="send"
+                    onSubmitEditing={() => sendOtp(phone, 'phone')}
+                  />
+                </View>
+                <Pressable
+                  style={({ pressed }) => [s.primaryBtn, { opacity: pressed ? 0.85 : 1 }, (otpSending || otpRateLimitTimer > 0) && { opacity: 0.5 }]}
+                  onPress={() => sendOtp(phone, 'phone')}
+                  disabled={otpSending || otpRateLimitTimer > 0 || phone.replace(/\D/g, '').length < 10}
+                >
+                  {otpSending ? (
+                    <ActivityIndicator color="#FFF" />
+                  ) : otpRateLimitTimer > 0 ? (
+                    <Text style={s.primaryBtnText}>Resend in {otpRateLimitTimer}s</Text>
+                  ) : (
+                    <Text style={s.primaryBtnText}>Get OTP via SMS</Text>
+                  )}
+                </Pressable>
+                {otpError && <Text style={{ color: '#EF4444', fontSize: 12, marginTop: 8, textAlign: 'center' }}>{otpError}</Text>}
+              </>
+            )}
+
             <View style={s.dividerRow}>
               <View style={s.dividerLine} />
               <Text style={s.dividerText}>or continue with</Text>
