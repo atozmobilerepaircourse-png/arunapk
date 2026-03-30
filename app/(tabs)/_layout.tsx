@@ -108,7 +108,6 @@ function NativeTabLayout() {
         <NativeTabs.Trigger name="content" hidden={true} />
         <NativeTabs.Trigger name="products" hidden={true} />
         <NativeTabs.Trigger name="nearby-shops" hidden />
-        <NativeTabs.Trigger name="learn" hidden={false} />
       </NativeTabs>
     );
   }
