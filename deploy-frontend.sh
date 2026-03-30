@@ -12,7 +12,7 @@ cp node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/
 find node_modules/@expo-google-fonts/inter -name "*.ttf" -exec cp {} dist/_expo/static/fonts/ \;
 
 echo "[3/3] Deploying to Firebase Hosting..."
-FIREBASE_TOKEN="1//0gjWvqy7d1vsvCgYIARAAGBASNwF-L9IrWs2R1Nk0J1LKUbZilceGWYpWuRZWB-hnC_DceRRqeOx5dOgdteTB8isfPlQkidUMVIg" \
+FIREBASE_TOKEN="1//0gFYMZa6TVjjwCgYIARAAGBASNwF-L9Irs9dY5IbdoPd2YUGlfVDfJY8apEuuRsx8Vx56lPk9EFgRx67jPl5OpsStf1W1Bxwy1_o" \
   ./node_modules/.bin/firebase deploy --only hosting --project arunmobi-app --non-interactive
 
 echo ""

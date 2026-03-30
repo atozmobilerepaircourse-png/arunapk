@@ -3,7 +3,6 @@
     "rules": "firestore.rules"
   },
   "hosting": {
-    "site": "mobile-repair-app-276b6",
     "public": "dist",
     "ignore": [
       "firebase.json",
