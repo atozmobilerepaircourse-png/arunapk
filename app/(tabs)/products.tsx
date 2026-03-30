@@ -443,7 +443,7 @@ export default function SupplierProductsScreen() {
       
       // Ensure absolute URL for local fallback URLs
       if (imageUrl && !imageUrl.startsWith('http')) {
-        imageUrl = `https://repair-backend-3siuld7gbq-el.a.run.app${imageUrl}`;
+        imageUrl = `https://repair-backendarun-iaz6jex5fa-el.a.run.app${imageUrl}`;
         console.log('[Thumbnail] Converted to absolute URL:', imageUrl);
       }
       

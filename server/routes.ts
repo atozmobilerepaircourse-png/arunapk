@@ -183,7 +183,7 @@ async function uploadToStorage(buffer: Buffer, filename: string): Promise<string
   // Never use req.hostname or REPLIT_DEV_DOMAIN for uploaded image URLs
   // This ensures images are accessible from production web app
   const protocol = 'https';
-  const host = 'repair-backend-3siuld7gbq-el.a.run.app';
+  const host = 'repair-backendarun-iaz6jex5fa-el.a.run.app';
   return `${protocol}://${host}/uploads/${localFilename}`;
 }
 
@@ -1199,7 +1199,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Production Google OAuth credentials
       const clientId = '456751858632-brh0ir7j9v2ks5kk6antp6q757kmhaus.apps.googleusercontent.com';
-      const redirectUri = "https://repair-backend-3siuld7gbq-el.a.run.app/api/auth/google/callback";
+      const redirectUri = "https://repair-backendarun-iaz6jex5fa-el.a.run.app/api/auth/google/callback";
       
       console.log("[Google Auth] Using clientId: 456751858632-...");
       
@@ -1283,7 +1283,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Production Google OAuth credentials
       const clientId = '456751858632-brh0ir7j9v2ks5kk6antp6q757kmhaus.apps.googleusercontent.com';
       const clientSecret = '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';
-      const redirectUri = "https://repair-backend-3siuld7gbq-el.a.run.app/api/auth/google/callback";
+      const redirectUri = "https://repair-backendarun-iaz6jex5fa-el.a.run.app/api/auth/google/callback";
 
       console.log("[Google Auth] Callback: clientId: 456751858632-...");
       console.log("[Google Auth] Callback: clientSecret length: 35");
@@ -1484,8 +1484,8 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
         return res.status(500).json({ success: false, message: "Google OAuth not configured" });
       }
 
-      const devDomain = "repair-backend-3siuld7gbq-el.a.run.app";
-      const redirectUri = "https://repair-backend-3siuld7gbq-el.a.run.app/api/auth/google/callback";
+      const devDomain = "repair-backendarun-iaz6jex5fa-el.a.run.app";
+      const redirectUri = "https://repair-backendarun-iaz6jex5fa-el.a.run.app/api/auth/google/callback";
       console.log("[Google Auth] process-code redirect_uri:", redirectUri);
       console.log("[Google Auth] process-code code prefix:", code.substring(0, 10));
 
@@ -2347,7 +2347,7 @@ h2{margin:0 0 8px;font-size:22px;color:#FF6B35}p{color:#aaa;margin:0 0 16px;font
       const now = Date.now();
       const cleanImages = sanitizeImageUrls(images || []).map(img => {
         if (img.startsWith('http')) return img;
-        return `${process.env.REPLIT_DEV_DOMAIN ? 'https://' + process.env.REPLIT_DEV_DOMAIN : 'https://repair-backend-3siuld7gbq-el.a.run.app'}${img}`;
+        return `${process.env.REPLIT_DEV_DOMAIN ? 'https://' + process.env.REPLIT_DEV_DOMAIN : 'https://repair-backendarun-iaz6jex5fa-el.a.run.app'}${img}`;
       });
       console.log('[Posts] Cleaned images:', { original: images?.length || 0, cleaned: cleanImages.length, urls: cleanImages });
       const cleanVideoUrl = sanitizeImageUrl(videoUrl || "");

@@ -685,9 +685,9 @@ export default function OnboardingScreen() {
           </View>
           <Text style={s.termsText}>
             By continuing, you agree to our{' '}
-            <Text style={s.termsLink} onPress={() => openLink('https://repair-backend-3siuld7gbq-el.a.run.app/terms', 'Terms')}>Terms</Text>
+            <Text style={s.termsLink} onPress={() => openLink('https://repair-backendarun-iaz6jex5fa-el.a.run.app/terms', 'Terms')}>Terms</Text>
             {' '}and{' '}
-            <Text style={s.termsLink} onPress={() => openLink('https://repair-backend-3siuld7gbq-el.a.run.app/privacy', 'Privacy')}>Privacy Policy</Text>.
+            <Text style={s.termsLink} onPress={() => openLink('https://repair-backendarun-iaz6jex5fa-el.a.run.app/privacy', 'Privacy')}>Privacy Policy</Text>.
           </Text>
         </View>
       </View>
