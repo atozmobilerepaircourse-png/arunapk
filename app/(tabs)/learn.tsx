@@ -67,7 +67,7 @@ export default function LearnScreen() {
         <View style={styles.header}>
           <View style={styles.headerTop}>
             <Ionicons name="book" size={48} color="#8B5CF6" />
-            <Text style={styles.orgCode}>Wcpdlu</Text>
+            <Text style={styles.orgCode}>Org Code: Wcpdlu</Text>
           </View>
           <Text style={styles.title}>Learn & Grow</Text>
           <Text style={styles.subtitle}>Access exclusive repair tutorials and courses</Text>

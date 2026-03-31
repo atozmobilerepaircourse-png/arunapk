@@ -266,7 +266,7 @@ export default function LiveContentScreen() {
         <View style={styles.titleRow}>
           <LiveDotPulse />
           <Text style={styles.screenTitle}>Live Sessions</Text>
-          <Text style={styles.orgCode}>Wcpdlu</Text>
+          <Text style={styles.orgCode}>Org Code: Wcpdlu</Text>
         </View>
         {isTeacher && (
           <Pressable onPress={() => router.push('/go-live' as any)} style={styles.broadcastBtn}>
