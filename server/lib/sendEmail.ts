@@ -6,13 +6,19 @@ export interface EmailResult {
 
 export async function sendOTPEmail(userEmail: string, otp: string): Promise<EmailResult> {
   const apiKey = process.env.SENDGRID_API_KEY;
+  
+  console.log("[Email] DEBUG - Checking API key:");
+  console.log("[Email] KEY EXISTS:", !!apiKey);
+  console.log("[Email] KEY VALUE STARTS WITH:", apiKey?.substring(0, 10) || "UNDEFINED");
+  console.log("[Email] FULL KEY:", apiKey || "NO KEY FOUND");
+  
   if (!apiKey) {
     const msg = "SENDGRID_API_KEY not configured in environment variables";
     console.error("[Email] " + msg);
     return { success: false, error: msg, details: "API key missing from Cloud Run/Replit env vars" };
   }
 
-  const fromEmail = process.env.SENDGRID_FROM_EMAIL || "support@mobi.app";
+  const fromEmail = process.env.SENDGRID_FROM_EMAIL || "arun173753@gmail.com";
   console.log("[Email] Configuration check:");
   console.log("  - API Key length:", apiKey.length);
   console.log("  - From email:", fromEmail);
