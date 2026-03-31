@@ -452,6 +452,11 @@ export default function GoLiveScreen() {
                 <Text style={styles.watchBtnText}>Watch My Stream</Text>
               </TouchableOpacity>
 
+              <TouchableOpacity style={styles.uploadActionBtn} onPress={openUploadLink} activeOpacity={0.7}>
+                <Ionicons name="cloud-upload" size={18} color="#FFF" />
+                <Text style={styles.uploadActionBtnText}>Upload Video</Text>
+              </TouchableOpacity>
+
               <TouchableOpacity style={styles.endBtn} onPress={handleEndLive} activeOpacity={0.7}>
                 <Ionicons name="stop-circle" size={16} color={RED} />
                 <Text style={styles.endBtnText}>End Session</Text>
@@ -811,4 +816,9 @@ const styles = StyleSheet.create({
     borderWidth: 1.5, borderColor: '#FFCECE',
   },
   endBtnText: { color: RED, fontSize: 15, fontFamily: 'Inter_600SemiBold' },
+  uploadActionBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    backgroundColor: '#FF6B35', borderRadius: 14, paddingVertical: 14,
+  },
+  uploadActionBtnText: { color: '#FFF', fontSize: 15, fontFamily: 'Inter_600SemiBold' },
 });
