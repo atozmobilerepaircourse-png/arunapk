@@ -21,18 +21,33 @@ export async function sendOTPEmail(userEmail: string, otp: string): Promise<Emai
   try {
     console.log("[Email] Sending OTP email via SendGrid...");
     
-    const emailContent = `
-      <div style="font-family: Arial, sans-serif; padding: 20px; color: #333; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #FF6B35; text-align: center;">Verification Code</h2>
-        <p>Your Mobi App verification code is:</p>
-        <div style="background: #f5f5f5; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0;">
-          <h1 style="letter-spacing: 8px; color: #FF6B35; margin: 0; font-family: monospace;">${otp}</h1>
-        </div>
-        <p>This code is valid for <strong>5 minutes</strong>. Do not share this code with anyone.</p>
-        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
-        <p style="font-size: 12px; color: #888;">If you didn't request this code, please ignore this email.</p>
-      </div>
-    `;
+    const emailContent = `Your OTP is: ${otp}. Valid for 5 minutes. Do not share this code.`;
+
+    console.log("[Email] Request details:");
+    console.log("  - Endpoint: https://api.sendgrid.com/v3/mail/send");
+    console.log("  - From:", fromEmail);
+    console.log("  - To:", userEmail);
+    console.log("  - API Key starts with:", apiKey.substring(0, 10) + "...");
+
+    const payload = {
+      personalizations: [
+        {
+          to: [{ email: userEmail }],
+        },
+      ],
+      from: {
+        email: fromEmail,
+      },
+      subject: "Your Mobi App Verification Code",
+      content: [
+        {
+          type: "text/plain",
+          value: emailContent,
+        },
+      ],
+    };
+
+    console.log("[Email] Payload:", JSON.stringify(payload, null, 2));
 
     const response = await fetch("https://api.sendgrid.com/v3/mail/send", {
       method: "POST",
@@ -40,44 +55,25 @@ export async function sendOTPEmail(userEmail: string, otp: string): Promise<Emai
         "Content-Type": "application/json",
         "Authorization": `Bearer ${apiKey}`,
       },
-      body: JSON.stringify({
-        personalizations: [
-          {
-            to: [{ email: userEmail }],
-            subject: "Your Mobi App Verification Code",
-          },
-        ],
-        from: {
-          email: fromEmail,
-          name: "Mobi App",
-        },
-        content: [
-          {
-            type: "text/html",
-            value: emailContent,
-          },
-        ],
-      }),
+      body: JSON.stringify(payload),
     });
 
+    console.log("[Email] Response status:", response.status);
+
     if (!response.ok) {
-      const data = await response.json() as any;
-      console.error("[Email] SendGrid API returned error:");
-      console.error("  - Status:", response.status);
-      console.error("  - Response:", JSON.stringify(data, null, 2));
-      
-      let errorMessage = data?.message || `HTTP ${response.status}`;
-      let details = "";
-      
-      if (response.status === 401) {
-        details = "API key is invalid or expired - verify SENDGRID_API_KEY in Cloud Run environment variables";
-      } else if (response.status === 400) {
-        details = `Invalid request - check from email '${fromEmail}' or recipient email '${userEmail}'`;
-      } else {
-        details = JSON.stringify(data);
+      let errorData;
+      try {
+        errorData = await response.json();
+      } catch (e) {
+        errorData = await response.text();
       }
       
-      return { success: false, error: errorMessage, details };
+      console.error("[Email] SendGrid API error:");
+      console.error("  - Status:", response.status);
+      console.error("  - Body:", JSON.stringify(errorData, null, 2));
+      
+      const errorMsg = typeof errorData === 'object' ? (errorData.errors?.[0]?.message || errorData.message) : errorData;
+      return { success: false, error: `SendGrid error: ${errorMsg || response.statusText}`, details: JSON.stringify(errorData) };
     }
 
     console.log("[Email] ✓ OTP sent successfully via SendGrid:");
