@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as WebBrowser from 'expo-web-browser';
 import { useApp } from '@/lib/context';
 import { apiRequest, getApiUrl } from '@/lib/query-client';
+import { openLink } from '@/lib/open-link';
 import * as ImagePicker from 'expo-image-picker';
 
 const RED  = '#EF4444';
@@ -79,7 +80,7 @@ export default function GoLiveScreen() {
       const data = await res.json();
       const uploadLink = data?.upload_video_link;
       if (uploadLink) {
-        await WebBrowser.openBrowserAsync(uploadLink);
+        openLink(uploadLink, 'Upload Video');
       } else {
         Alert.alert('Upload Link Not Set', 'The upload link has not been configured yet.');
       }

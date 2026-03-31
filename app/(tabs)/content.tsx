@@ -13,7 +13,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useApp } from '@/lib/context';
 import { apiRequest } from '@/lib/query-client';
-import * as WebBrowser from 'expo-web-browser';
+import { openLink } from '@/lib/open-link';
 
 const BG   = '#F9FAFB';
 const CARD = '#FFFFFF';
@@ -295,7 +295,7 @@ export default function LiveContentScreen() {
                   const data = await res.json();
                   const uploadLink = data?.upload_video_link;
                   if (uploadLink) {
-                    await WebBrowser.openBrowserAsync(uploadLink);
+                    openLink(uploadLink, 'Upload Video');
                   }
                 } catch (e) {
                   console.error('[Upload] Error:', e);
