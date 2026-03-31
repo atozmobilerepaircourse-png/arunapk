@@ -273,7 +273,7 @@ function ClassicTabLayout() {
           title: isCustomer ? "Ask for Repair" : "Orders",
           href: isCustomer ? '/orders' : null,
           tabBarIcon: ({ focused }) => (
-            <Ionicons name={focused ? "list" : "list-outline"} size={20} color={focused ? "#8B5CF6" : "#999"} />
+            <Ionicons name={focused ? "help-circle" : "help-circle-outline"} size={20} color={focused ? "#8B5CF6" : "#999"} />
           ),
         }}
       />
