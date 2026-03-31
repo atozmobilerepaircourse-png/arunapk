@@ -10,37 +10,26 @@ export async function initializeRecaptcha(phone: string): Promise<void> {
 
 export async function sendFirebaseOTP(phone: string): Promise<{ success: boolean; verifierId?: string; error?: string }> {
   try {
-    // Use Firebase's native signInWithPhoneNumber() - works on mobile (Expo)
-    // Firebase sends OTP via SMS directly
+    // For Expo/mobile, use the fallback OTP service that sends via Fast2SMS
+    // Backend receives OTP and will eventually integrate with Firebase Admin SMS
     const digits = phone.replace(/\D/g, '').slice(-10);
     if (!digits || digits.length !== 10) {
       return { success: false, error: 'Invalid phone number' };
     }
 
     const fullPhone = `+91${digits}`;
-    
-    try {
-      const { getFirebaseAuth } = await import('@/lib/firebase');
-      const { signInWithPhoneNumber } = await import('firebase/auth');
-      
-      const auth = getFirebaseAuth();
-      if (!auth) {
-        throw new Error('Firebase not initialized');
-      }
+    console.log('[Firebase OTP] Requesting OTP for', fullPhone);
 
-      console.log('[Firebase OTP] Sending via Firebase signInWithPhoneNumber:', fullPhone);
-      
-      // On mobile (Expo/React Native), Firebase handles SMS directly
-      // No RecaptchaVerifier needed on native platforms
-      const confirmationResult = await signInWithPhoneNumber(auth, fullPhone);
-      window.firebaseConfirmationResult = confirmationResult; // Store for verification
-      
-      console.log('[Firebase OTP] SMS sent successfully via Firebase');
+    // Use fallback OTP service (sends via Fast2SMS currently)
+    // This ensures OTP is actually delivered to the phone
+    const result = await sendFallbackOTP(fullPhone);
+    
+    if (result.success && result.smsSent) {
+      console.log('[Firebase OTP] OTP sent successfully via SMS service');
       return { success: true };
-    } catch (firebaseErr: any) {
-      console.error('[Firebase OTP] Firebase error:', firebaseErr?.message);
-      return { success: false, error: firebaseErr?.message || 'Firebase SMS failed' };
     }
+
+    return { success: false, error: result.error || 'Failed to send OTP' };
   } catch (e: any) {
     console.error('[Firebase OTP] Send error:', e);
     return { success: false, error: e?.message || 'Network error' };
