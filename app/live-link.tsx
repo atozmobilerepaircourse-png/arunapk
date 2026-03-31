@@ -74,7 +74,7 @@ export default function LiveLinkScreen() {
             }}
             allow="camera; microphone; accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
-            sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-presentation allow-modals allow-top-navigation-by-user-activation"
+            sandbox="allow-same-origin allow-scripts allow-forms allow-presentation allow-modals"
           />
         </View>
       </View>
@@ -140,20 +140,27 @@ export default function LiveLinkScreen() {
         domStorageEnabled
         mediaPlaybackRequiresUserAction={false}
         onShouldStartLoadWithRequest={(request) => {
-          // Only allow loading the original link and same-domain requests
+          // Allow loading from same domain, prevent external navigation
           const requestUrl = request.url;
-          const isOriginalLink = requestUrl.startsWith(link);
           
-          // Allow navigation within the same domain
+          // Always allow initial link
+          if (requestUrl === link) return true;
+          
+          // Allow same-domain requests (images, scripts, styles, etc)
           try {
             const originalDomain = new URL(link).hostname;
             const requestDomain = new URL(requestUrl).hostname;
-            const isSameDomain = originalDomain === requestDomain;
             
-            return isOriginalLink || isSameDomain;
-          } catch (e) {
-            return isOriginalLink;
-          }
+            if (originalDomain === requestDomain) {
+              return true;
+            }
+          } catch (e) {}
+          
+          // Allow data URLs (images embedded as base64)
+          if (requestUrl.startsWith('data:')) return true;
+          
+          // Block external navigation
+          return false;
         }}
       />
     </View>
