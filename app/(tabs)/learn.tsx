@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, Alert, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import * as WebBrowser from 'expo-web-browser';
 import { apiRequest } from '@/lib/query-client';
 import Colors from '@/constants/colors';
 
@@ -29,13 +29,12 @@ export default function LearnScreen() {
     }
   };
 
-  const openLearnLink = async () => {
+  const openLearnLink = () => {
     if (learnLink) {
-      try {
-        await WebBrowser.openBrowserAsync(learnLink);
-      } catch (e) {
-        Alert.alert('Error', 'Unable to open learn link');
-      }
+      router.push({
+        pathname: '/live-link',
+        params: { link: learnLink, title: 'Learning Platform' },
+      } as any);
     }
   };
 

@@ -7,9 +7,6 @@ export function openLink(url: string, title?: string) {
     Linking.openURL(url).catch(() => {});
     return;
   }
-  if (Platform.OS === 'web') {
-    window.open(url, '_blank');
-    return;
-  }
-  router.push({ pathname: '/webview', params: { url, title: title || '' } });
+  // Open all HTTP/HTTPS links inside the app using the live-link screen
+  router.push({ pathname: '/live-link', params: { link: url, title: title || 'View Content' } });
 }
