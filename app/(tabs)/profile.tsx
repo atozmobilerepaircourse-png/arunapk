@@ -1049,6 +1049,14 @@ export default function ProfileScreen() {
           <Text style={styles.sectionTitle}>Settings</Text>
           <Pressable
             style={styles.supportRow}
+            onPress={() => router.push('/my-posts' as any)}
+          >
+            <Ionicons name="document-outline" size={20} color="#8B5CF6" />
+            <Text style={styles.detailText}>My Posts</Text>
+            <Ionicons name="chevron-forward" size={16} color={T.muted} style={{ marginLeft: 'auto' }} />
+          </Pressable>
+          <Pressable
+            style={[styles.supportRow, { marginTop: 8 }]}
             onPress={() => router.push('/(tabs)/jobs' as any)}
           >
             <Ionicons name="briefcase-outline" size={20} color="#5E8BFF" />
