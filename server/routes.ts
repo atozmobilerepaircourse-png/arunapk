@@ -314,6 +314,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use((req, res, next) => {
     const origin = req.headers.origin || '';
     const allowedOrigins = [
+      'https://arunmobi-app.web.app',
+      'https://arunmobi-app.firebaseapp.com',
       'https://mobile-repair-app-276b6.web.app',
       'https://mobile-repair-app-276b6.firebaseapp.com',
       'http://localhost:8081',
