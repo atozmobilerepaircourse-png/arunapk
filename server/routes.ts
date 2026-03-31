@@ -828,9 +828,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (isEmail) {
         // Send via email
         console.log(`[OTP-EMAIL] Sending OTP to ${email}`);
-        sentSuccess = await sendOTPEmail(email, otp);
+        const emailResult = await sendOTPEmail(email, otp);
+        sentSuccess = emailResult.success;
         if (!sentSuccess) {
-          sentError = 'Email service unavailable';
+          sentError = emailResult.error || 'Email service unavailable';
+          if (emailResult.details) {
+            sentError += ` (${emailResult.details})`;
+          }
+          console.error(`[OTP-EMAIL] Detailed error for ${email}:`, emailResult);
         }
       } else {
         // Send via SMS

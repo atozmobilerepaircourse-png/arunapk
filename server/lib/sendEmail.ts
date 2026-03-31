@@ -1,19 +1,30 @@
 import { Resend } from "resend";
 
-export async function sendOTPEmail(userEmail: string, otp: string) {
+export interface EmailResult {
+  success: boolean;
+  error?: string;
+  details?: string;
+}
+
+export async function sendOTPEmail(userEmail: string, otp: string): Promise<EmailResult> {
   if (!process.env.RESEND_API_KEY) {
-    console.log("[Email] RESEND_API_KEY not set, skipping OTP email to:", userEmail);
-    return false;
+    const msg = "RESEND_API_KEY not configured in environment variables";
+    console.error("[Email] " + msg);
+    return { success: false, error: msg, details: "API key missing from Cloud Run/Replit env vars" };
   }
 
-  console.log("[Email] RESEND_API_KEY present, length:", process.env.RESEND_API_KEY.length);
-  console.log("[Email] API Key starts with:", process.env.RESEND_API_KEY.substring(0, 10));
+  const fromEmail = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
+  console.log("[Email] Configuration check:");
+  console.log("  - API Key length:", process.env.RESEND_API_KEY.length);
+  console.log("  - From email:", fromEmail);
+  console.log("  - To email:", userEmail);
 
   try {
     const resend = new Resend(process.env.RESEND_API_KEY);
 
+    console.log("[Email] Sending OTP email via Resend...");
     const { data, error } = await resend.emails.send({
-      from: "onboarding@resend.dev",
+      from: fromEmail,
       to: userEmail,
       subject: "Your Mobi App Verification Code",
       html: `
@@ -31,30 +42,65 @@ export async function sendOTPEmail(userEmail: string, otp: string) {
     });
 
     if (error) {
-      console.error("[Email] OTP send error:", error);
-      console.error("[Email] Error details:", JSON.stringify(error, null, 2));
-      return false;
-    } else {
-      console.log("[Email] OTP sent to:", userEmail, "ID:", data?.id);
-      return true;
+      console.error("[Email] Resend API returned error:");
+      console.error("  - Error type:", error.message);
+      console.error("  - Full error object:", JSON.stringify(error, null, 2));
+      
+      let errorMessage = error.message || "Unknown error from Resend";
+      let details = "";
+      
+      // Parse specific Resend errors
+      if (error.message.includes("unauthorized")) {
+        details = "API key is invalid or expired - verify RESEND_API_KEY in Cloud Run environment variables";
+      } else if (error.message.includes("from") || error.message.includes("invalid_from_address")) {
+        details = `From email '${fromEmail}' is not verified in Resend dashboard. Add verified domain or use onboarding@resend.dev if in free tier`;
+      } else if (error.message.includes("Invalid email") || error.message.includes("invalid_email")) {
+        details = `Recipient email '${userEmail}' is invalid`;
+      } else {
+        details = JSON.stringify(error);
+      }
+      
+      return { success: false, error: errorMessage, details };
     }
-  } catch (err) {
-    console.error("[Email] OTP send unexpected error:", err);
-    return false;
+
+    if (!data?.id) {
+      console.error("[Email] Resend returned success but no email ID");
+      return { success: false, error: "No email ID returned from Resend", details: JSON.stringify(data) };
+    }
+
+    console.log("[Email] ✓ OTP sent successfully:");
+    console.log("  - To:", userEmail);
+    console.log("  - Email ID:", data.id);
+    console.log("  - From:", fromEmail);
+    
+    return { success: true };
+  } catch (err: any) {
+    console.error("[Email] Unexpected error during email send:");
+    console.error("  - Error message:", err.message);
+    console.error("  - Stack:", err.stack);
+    
+    return {
+      success: false,
+      error: err.message || "Unexpected error",
+      details: `Exception: ${err.toString()}`
+    };
   }
 }
 
-export async function sendWelcomeEmail(userEmail: string, userName: string) {
+export async function sendWelcomeEmail(userEmail: string, userName: string): Promise<EmailResult> {
   if (!process.env.RESEND_API_KEY) {
-    console.log("[Email] RESEND_API_KEY not set, skipping welcome email to:", userEmail);
-    return;
+    console.error("[Email] RESEND_API_KEY not set, cannot send welcome email to:", userEmail);
+    return { success: false, error: "Email service not configured", details: "RESEND_API_KEY missing" };
   }
+
+  const fromEmail = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
 
   try {
     const resend = new Resend(process.env.RESEND_API_KEY);
 
+    console.log("[Email] Sending welcome email to:", userEmail);
     const { data, error } = await resend.emails.send({
-      from: "Mobi App <onboarding@resend.dev>",
+      from: `Mobi App <${fromEmail}>`,
       to: userEmail,
       subject: "Welcome to Mobi App 🎉",
       html: `
@@ -69,11 +115,19 @@ export async function sendWelcomeEmail(userEmail: string, userName: string) {
     });
 
     if (error) {
-      console.error("[Email] Resend error:", JSON.stringify(error));
-    } else {
-      console.log("[Email] Welcome email sent to:", userEmail, "ID:", data?.id);
+      console.error("[Email] Welcome email error:", JSON.stringify(error));
+      return { success: false, error: error.message || "Failed to send welcome email", details: JSON.stringify(error) };
     }
-  } catch (err) {
-    console.error("[Email] Unexpected error:", err);
+
+    if (!data?.id) {
+      console.error("[Email] Welcome email: no ID returned");
+      return { success: false, error: "No email ID returned", details: JSON.stringify(data) };
+    }
+
+    console.log("[Email] ✓ Welcome email sent to:", userEmail, "ID:", data.id);
+    return { success: true };
+  } catch (err: any) {
+    console.error("[Email] Unexpected error sending welcome email:", err);
+    return { success: false, error: err.message || "Unexpected error", details: err.toString() };
   }
 }
