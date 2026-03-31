@@ -10,8 +10,8 @@ export async function initializeRecaptcha(phone: string): Promise<void> {
 
 export async function sendFirebaseOTP(phone: string): Promise<{ success: boolean; verifierId?: string; error?: string }> {
   try {
-    // Phone OTP via backend (email fallback)
-    // Generate OTP via backend and send via configured email service
+    // Firebase SMS OTP via backend
+    // Generates 6-digit OTP and sends via SMS (not auto-login)
     const digits = phone.replace(/\D/g, '').slice(-10);
     if (!digits || digits.length !== 10) {
       return { success: false, error: 'Invalid phone number' };
@@ -21,31 +21,33 @@ export async function sendFirebaseOTP(phone: string): Promise<{ success: boolean
     const data = await res.json();
 
     if (data.success) {
-      currentSessionToken = data.sessionToken || null;
-      console.log('[Firebase OTP] Phone OTP sent successfully');
+      console.log('[Firebase SMS OTP] OTP sent to phone');
       return { success: true };
     }
 
     return { success: false, error: data.message || 'Failed to send OTP' };
   } catch (e: any) {
+    console.error('[Firebase SMS OTP] Send error:', e);
     return { success: false, error: e?.message || 'Network error' };
   }
 }
 
-export async function verifyFirebaseOTP(code: string): Promise<{ success: boolean; error?: string; sessionToken?: string }> {
+export async function verifyFirebaseOTP(code: string): Promise<{ success: boolean; error?: string; verified?: boolean }> {
   try {
+    // Verify OTP - NO AUTO-LOGIN, just verification
+    // Frontend will handle login flow separately
     const res = await apiRequest('POST', '/api/firebase-otp/verify-phone', { otp: code });
     const data = await res.json();
 
-    if (data.success) {
-      currentSessionToken = data.sessionToken || null;
-      console.log('[Firebase OTP] Phone OTP verified successfully');
-      return { success: true, sessionToken: data.sessionToken };
+    if (data.success && data.verified) {
+      console.log('[Firebase SMS OTP] OTP verified successfully');
+      return { success: true, verified: true };
     }
 
-    return { success: false, error: data.message || 'Invalid OTP' };
+    return { success: false, error: data.message || 'Invalid OTP', verified: false };
   } catch (e: any) {
-    return { success: false, error: e?.message || 'Network error' };
+    console.error('[Firebase SMS OTP] Verify error:', e);
+    return { success: false, error: e?.message || 'Network error', verified: false };
   }
 }
 
