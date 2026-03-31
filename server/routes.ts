@@ -310,9 +310,12 @@ function checkOtpRateLimit(phone: string): { allowed: boolean; retryAfterMs: num
 
 async function sendOTPSMS(phone: string, otp: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const fast2smsKey = process.env.FAST2SMS_API_KEY;
-    if (!fast2smsKey) {
-      console.error('[OTP-SMS] FAST2SMS_API_KEY not configured');
+    const twilioAccountSid = process.env.TWILIO_ACCOUNT_SID;
+    const twilioAuthToken = process.env.TWILIO_AUTH_TOKEN;
+    const twilioPhoneNumber = process.env.TWILIO_PHONE_NUMBER;
+
+    if (!twilioAccountSid || !twilioAuthToken || !twilioPhoneNumber) {
+      console.error('[OTP-SMS] Twilio credentials not configured');
       return { success: false, error: 'SMS service not configured' };
     }
 
@@ -322,34 +325,37 @@ async function sendOTPSMS(phone: string, otp: string): Promise<{ success: boolea
       return { success: false, error: 'Invalid phone number format' };
     }
 
-    // Format for Fast2SMS: prepend country code
-    const formattedPhone = `91${cleanPhone}`;
+    // Format for Twilio: prepend country code
+    const formattedPhone = `+91${cleanPhone}`;
     const message = `Your OTP is ${otp}. Do not share this code with anyone.`;
 
-    console.log(`[OTP-SMS] Sending to ${formattedPhone} via Fast2SMS`);
+    console.log(`[OTP-SMS] Sending to ${formattedPhone} via Twilio`);
 
-    const response = await fetch('https://www.fast2sms.com/dev/bulkV2', {
+    // Twilio API endpoint
+    const url = `https://api.twilio.com/2010-04-01/Accounts/${twilioAccountSid}/Messages.json`;
+
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
-        'authorization': fast2smsKey,
+        'Authorization': 'Basic ' + Buffer.from(`${twilioAccountSid}:${twilioAuthToken}`).toString('base64'),
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: new URLSearchParams({
-        numbers: formattedPhone,
-        message: message,
-        sender_id: 'MOBI',
+        From: twilioPhoneNumber,
+        To: formattedPhone,
+        Body: message,
       }).toString(),
     });
 
     const data = await response.json() as any;
 
-    if (data.return === true) {
-      console.log(`[OTP-SMS] Successfully sent to ${formattedPhone}`);
+    if (response.ok && data.sid) {
+      console.log(`[OTP-SMS] Successfully sent to ${formattedPhone}, SID: ${data.sid}`);
       return { success: true };
     } else {
       const errorMsg = data.message || data.error || 'Unknown error';
       console.error(`[OTP-SMS] Failed for ${formattedPhone}: ${errorMsg}`);
-      return { success: false, error: `Fast2SMS error: ${errorMsg}` };
+      return { success: false, error: `Twilio error: ${errorMsg}` };
     }
   } catch (error: any) {
     console.error('[OTP-SMS] Network error:', error?.message);
