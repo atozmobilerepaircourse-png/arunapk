@@ -838,12 +838,36 @@ export default function BuySellScreen({ isEmbedded }: { isEmbedded?: boolean } =
 
       {/* Location bar — OLX style */}
       <View style={styles.locationBar}>
-        <View style={styles.locationBarLeft}>
+        <Pressable
+          style={styles.locationBarLeft}
+          onPress={async () => {
+            try {
+              const location = await getCurrentLocation();
+              if (location) {
+                setUserLocation(location.latitude, location.longitude);
+              }
+            } catch (err) {
+              console.error('Error getting location:', err);
+            }
+          }}
+          hitSlop={8}
+        >
           <Ionicons name="location" size={16} color={DK.primary} />
           <Text style={styles.locationBarText} numberOfLines={1}>
             {userLocationLabel || 'Set your location'}
           </Text>
-        </View>
+        </Pressable>
+        {(profile?.role === 'customer' || profile?.role === 'technician') && (
+          <Pressable
+            style={styles.locationBarSellBtn}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              router.push('/sell-item' as any);
+            }}
+          >
+            <Ionicons name="add" size={18} color="#FFF" />
+          </Pressable>
+        )}
       </View>
 
       {/* Distance Slider */}
@@ -890,23 +914,9 @@ export default function BuySellScreen({ isEmbedded }: { isEmbedded?: boolean } =
             <Ionicons name="arrow-back" size={24} color={DK.text} />
           </Pressable>
           <Text style={styles.headerTitle} numberOfLines={1}>Buy & Sell</Text>
-          <View style={{ flexDirection: 'row', gap: 12 }}>
-            {(profile?.role === 'customer' || profile?.role === 'technician') && (
-              <Pressable
-                style={styles.headerSellBtn}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                  router.push('/sell-item' as any);
-                }}
-              >
-                <Ionicons name="add" size={20} color="#FFF" />
-                <Text style={styles.headerSellBtnText}>Sell</Text>
-              </Pressable>
-            )}
-            <Pressable onPress={() => router.push('/chats' as any)}>
-              <Ionicons name="chatbubbles-outline" size={24} color={DK.text} />
-            </Pressable>
-          </View>
+          <Pressable onPress={() => router.push('/chats' as any)}>
+            <Ionicons name="chatbubbles-outline" size={24} color={DK.text} />
+          </Pressable>
         </View>
       )}
 
@@ -970,13 +980,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20, paddingBottom: 8, gap: 12,
   },
   headerTitle: { color: DK.text, fontSize: 24, fontWeight: '800' as const, flex: 1 },
-  headerSellBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: DK.primary, paddingHorizontal: 16, paddingVertical: 10,
-    borderRadius: 20, elevation: 2,
-    shadowColor: DK.primary, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4,
-  },
-  headerSellBtnText: { color: '#FFF', fontSize: 13, fontWeight: '700' as const },
   searchContainer: { paddingHorizontal: 16, marginBottom: 10 },
   searchBox: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8F8F8',
@@ -988,10 +991,15 @@ const styles = StyleSheet.create({
   // Location bar
   locationBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    marginBottom: 10, gap: 8,
+    marginBottom: 10, gap: 10, paddingHorizontal: 16,
   },
   locationBarLeft: { flexDirection: 'row', alignItems: 'center', gap: 4, flex: 1 },
   locationBarText: { color: DK.text, fontSize: 13, fontWeight: '600', flex: 1 },
+  locationBarSellBtn: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: DK.primary, alignItems: 'center', justifyContent: 'center',
+    elevation: 2, shadowColor: DK.primary, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4,
+  },
   sortPill: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     paddingHorizontal: 12, paddingVertical: 6,
