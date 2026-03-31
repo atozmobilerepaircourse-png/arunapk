@@ -8,16 +8,6 @@ export function openLink(url: string, title?: string) {
     return;
   }
   
-  // On web, use direct navigation to /live-link with URL parameters
-  if (typeof window !== 'undefined' && Platform.OS === 'web') {
-    const params = new URLSearchParams({
-      link: url,
-      title: title || 'View Content'
-    });
-    window.location.href = `/live-link?${params.toString()}`;
-    return;
-  }
-  
-  // On mobile, use router.push
+  // Always use router.push for consistent in-app navigation
   router.push({ pathname: '/live-link', params: { link: url, title: title || 'View Content' } });
 }
