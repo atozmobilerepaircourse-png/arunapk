@@ -14,12 +14,12 @@ import * as Speech from 'expo-speech';
 import { fetch } from 'expo/fetch';
 import { getApiUrl } from '@/lib/query-client';
 
-const BG      = '#0D0D14';
-const CARD    = '#16161F';
-const SURFACE = '#1E1E2E';
-const BORDER  = '#2A2A3E';
-const TEXT    = '#F3F4F6';
-const MUTED   = '#9CA3AF';
+const BG      = '#FFFFFF';
+const CARD    = '#F9FAFB';
+const SURFACE = '#F3F4F6';
+const BORDER  = '#E5E7EB';
+const TEXT    = '#111827';
+const MUTED   = '#6B7280';
 const ACCENT  = '#FF6B2C';
 const BLUE    = '#3B82F6';
 const PURPLE  = '#8B5CF6';
