@@ -64,9 +64,10 @@ export default function LiveLinkScreen() {
   const isWeb = typeof window !== 'undefined';
 
   if (isWeb) {
+    const isDesktop = typeof window !== 'undefined' && window.innerWidth > 800;
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
-        <View style={styles.header}>
+        <View style={[styles.header, isDesktop && styles.headerDesktop]}>
           <Pressable style={styles.backBtn} onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={24} color="#000" />
           </Pressable>
@@ -75,14 +76,15 @@ export default function LiveLinkScreen() {
             <Ionicons name="open-outline" size={20} color={RED} />
           </Pressable>
         </View>
-        <View style={{ flex: 1 }}>
+        <View style={[styles.contentWrapper, isDesktop && styles.contentWrapperDesktop]}>
           <iframe
             src={link}
             style={{
               width: '100%',
               height: '100%',
               border: 'none',
-              borderRadius: 0,
+              borderRadius: isDesktop ? '8px' : 0,
+              boxShadow: isDesktop ? '0 2px 8px rgba(0,0,0,0.1)' : 'none',
             }}
             allow="camera; microphone; accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
@@ -180,7 +182,7 @@ export default function LiveLinkScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFF' },
+  container: { flex: 1, backgroundColor: '#F5F5F5' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -189,6 +191,19 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#F0F0F0',
+    backgroundColor: '#FFF',
+  },
+  headerDesktop: {
+    paddingHorizontal: 40,
+    paddingVertical: 16,
+  },
+  contentWrapper: { flex: 1 },
+  contentWrapperDesktop: {
+    maxWidth: 1200,
+    alignSelf: 'center',
+    width: '100%',
+    paddingHorizontal: 20,
+    paddingVertical: 20,
   },
   backBtn: {
     width: 40,
