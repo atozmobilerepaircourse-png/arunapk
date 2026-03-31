@@ -322,7 +322,7 @@ function ClassicTabLayout() {
         name="profile"
         options={{
           title: "Profile",
-          href: (isCustomer || isTechnician) ? undefined : null,
+          href: null,
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? "person" : "person-outline"} size={22} color={color} />
           ),
