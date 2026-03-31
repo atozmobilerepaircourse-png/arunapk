@@ -6487,13 +6487,58 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
 
   app.post("/api/admin/send-sms", async (req, res) => {
     try {
-      const { phone, message, role } = req.body;
-      if (phone !== '8179142535') return res.status(403).json({ success: false, message: "Admin only" });
-      if (!message?.trim()) return res.status(400).json({ success: false, message: "Message required" });
+      const { phone, message } = req.body;
+      const adminPhone = phone?.replace(/\D/g, '');
+      
+      // Only allow admin phone number (8179142535)
+      if (adminPhone !== '8179142535') {
+        return res.status(403).json({ success: false, message: "Admin only" });
+      }
+      
+      if (!message?.trim()) {
+        return res.status(400).json({ success: false, message: "Message required" });
+      }
 
-      return res.status(501).json({ success: false, message: "SMS broadcast removed - Firebase OTP only. Use Firebase Cloud Messaging for broadcasts." });
+      const bulkBlasterApiKey = process.env.BULKBLASTER_API_KEY;
+      if (!bulkBlasterApiKey) {
+        console.error('[Admin-SMS] BulkBlaster API key not configured');
+        return res.status(500).json({ success: false, message: "SMS service not configured" });
+      }
+
+      console.log(`[Admin-SMS] Sending SMS to admin: ${adminPhone}`);
+      
+      // Send SMS via BulkBlaster
+      // BulkBlaster expects a 4-8 digit OTP code
+      // Extract digits from message or generate a test code
+      const otpCode = message.replace(/\D/g, '').substring(0, 8) || '123456';
+      
+      const response = await fetch("https://bulkblaster-global-otp-290441563653.asia-south1.run.app/send-otp", {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          apiKey: bulkBlasterApiKey,
+          phone: adminPhone,
+          dialCode: "91",
+          otp: otpCode
+        }),
+      });
+
+      const data = await response.json() as any;
+      console.log(`[Admin-SMS] BulkBlaster response:`, data);
+
+      if (!response.ok || (data.success !== true && data.status !== 'success')) {
+        const errorMsg = data.message || data.error || 'Failed to send SMS';
+        console.error(`[Admin-SMS] Failed:`, errorMsg);
+        return res.status(500).json({ success: false, message: errorMsg });
+      }
+
+      console.log(`[Admin-SMS] ✓ SMS sent successfully`);
+      return res.json({ 
+        success: true, 
+        message: `SMS sent to admin: ${adminPhone}`,
+      });
     } catch (error: any) {
-      console.error("[Admin] send-sms error:", error);
+      console.error("[Admin-SMS] error:", error);
       return res.status(500).json({ success: false, message: error.message || "Failed to send SMS" });
     }
   });
