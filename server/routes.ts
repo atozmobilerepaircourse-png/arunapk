@@ -310,10 +310,10 @@ function checkOtpRateLimit(phone: string): { allowed: boolean; retryAfterMs: num
 
 async function sendOTPSMS(phone: string, otp: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const bulkBlasterApiKey = process.env.BULKBLASTER_API_KEY;
+    const apiHomeKey = process.env.API_HOME_API_KEY;
 
-    if (!bulkBlasterApiKey) {
-      console.error('[OTP-SMS] BulkBlaster API key not configured');
+    if (!apiHomeKey) {
+      console.error('[OTP-SMS] API Home key not configured');
       return { success: false, error: 'SMS service not configured' };
     }
 
@@ -323,26 +323,25 @@ async function sendOTPSMS(phone: string, otp: string): Promise<{ success: boolea
       return { success: false, error: 'Invalid phone number format' };
     }
 
-    console.log(`[OTP-SMS] Sending OTP to ${cleanPhone} via BulkBlaster`);
+    console.log(`[OTP-SMS] Sending OTP to ${cleanPhone} via API Home`);
 
-    // BulkBlaster API endpoint
-    const response = await fetch("https://bulkblaster-global-otp-290441563653.asia-south1.run.app/send-otp", {
-      method: 'POST',
+    // API Home endpoint: https://apihome.in/panel/api/bulksms/?key=KEY&mobile=MOBILE&otp=OTP
+    const url = new URL('https://apihome.in/panel/api/bulksms/');
+    url.searchParams.append('key', apiHomeKey);
+    url.searchParams.append('mobile', cleanPhone);
+    url.searchParams.append('otp', otp);
+
+    const response = await fetch(url.toString(), {
+      method: 'GET',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        apiKey: bulkBlasterApiKey,
-        phone: cleanPhone,
-        dialCode: "91",
-        otp: otp
-      }),
     });
 
     const data = await response.json() as any;
-    console.log(`[OTP-SMS] BulkBlaster response:`, data);
+    console.log(`[OTP-SMS] API Home response:`, data);
 
-    if (response.ok && (data.success === true || data.status === 'success')) {
+    if (response.ok && (data.success === true || data.status === 'success' || data.status === 1)) {
       console.log(`[OTP-SMS] ✓ Successfully sent to ${cleanPhone}`);
       return { success: true };
     } else {
@@ -6499,34 +6498,33 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
         return res.status(400).json({ success: false, message: "Message required" });
       }
 
-      const bulkBlasterApiKey = process.env.BULKBLASTER_API_KEY;
-      if (!bulkBlasterApiKey) {
-        console.error('[Admin-SMS] BulkBlaster API key not configured');
+      const apiHomeKey = process.env.API_HOME_API_KEY;
+      if (!apiHomeKey) {
+        console.error('[Admin-SMS] API Home key not configured');
         return res.status(500).json({ success: false, message: "SMS service not configured" });
       }
 
       console.log(`[Admin-SMS] Sending SMS to admin: ${adminPhone}`);
       
-      // Send SMS via BulkBlaster
-      // BulkBlaster expects a 4-8 digit OTP code
+      // Send SMS via API Home
       // Extract digits from message or generate a test code
       const otpCode = message.replace(/\D/g, '').substring(0, 8) || '123456';
       
-      const response = await fetch("https://bulkblaster-global-otp-290441563653.asia-south1.run.app/send-otp", {
-        method: 'POST',
+      // API Home endpoint: https://apihome.in/panel/api/bulksms/?key=KEY&mobile=MOBILE&otp=OTP
+      const url = new URL('https://apihome.in/panel/api/bulksms/');
+      url.searchParams.append('key', apiHomeKey);
+      url.searchParams.append('mobile', adminPhone);
+      url.searchParams.append('otp', otpCode);
+
+      const response = await fetch(url.toString(), {
+        method: 'GET',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          apiKey: bulkBlasterApiKey,
-          phone: adminPhone,
-          dialCode: "91",
-          otp: otpCode
-        }),
       });
 
       const data = await response.json() as any;
-      console.log(`[Admin-SMS] BulkBlaster response:`, data);
+      console.log(`[Admin-SMS] API Home response:`, data);
 
-      if (!response.ok || (data.success !== true && data.status !== 'success')) {
+      if (!response.ok || (data.success !== true && data.status !== 'success' && data.status !== 1)) {
         const errorMsg = data.message || data.error || 'Failed to send SMS';
         console.error(`[Admin-SMS] Failed:`, errorMsg);
         return res.status(500).json({ success: false, message: errorMsg });
