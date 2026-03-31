@@ -308,6 +308,55 @@ function checkOtpRateLimit(phone: string): { allowed: boolean; retryAfterMs: num
   return { allowed: true, retryAfterMs: 0 };
 }
 
+async function sendOTPSMS(phone: string, otp: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const fast2smsKey = process.env.FAST2SMS_API_KEY;
+    if (!fast2smsKey) {
+      console.error('[OTP-SMS] FAST2SMS_API_KEY not configured');
+      return { success: false, error: 'SMS service not configured' };
+    }
+
+    // Clean phone number - remove all non-digits
+    const cleanPhone = phone.replace(/\D/g, '');
+    if (cleanPhone.length !== 10) {
+      return { success: false, error: 'Invalid phone number format' };
+    }
+
+    // Format for Fast2SMS: prepend country code
+    const formattedPhone = `91${cleanPhone}`;
+    const message = `Your OTP is ${otp}. Do not share this code with anyone.`;
+
+    console.log(`[OTP-SMS] Sending to ${formattedPhone} via Fast2SMS`);
+
+    const response = await fetch('https://www.fast2sms.com/dev/bulkV2', {
+      method: 'POST',
+      headers: {
+        'authorization': fast2smsKey,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        numbers: formattedPhone,
+        message: message,
+        sender_id: 'MOBI',
+      }).toString(),
+    });
+
+    const data = await response.json() as any;
+
+    if (data.return === true) {
+      console.log(`[OTP-SMS] Successfully sent to ${formattedPhone}`);
+      return { success: true };
+    } else {
+      const errorMsg = data.message || data.error || 'Unknown error';
+      console.error(`[OTP-SMS] Failed for ${formattedPhone}: ${errorMsg}`);
+      return { success: false, error: `Fast2SMS error: ${errorMsg}` };
+    }
+  } catch (error: any) {
+    console.error('[OTP-SMS] Network error:', error?.message);
+    return { success: false, error: `Network error: ${error?.message || 'Unknown'}` };
+  }
+}
+
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // ─── CORS Configuration ───
@@ -952,11 +1001,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.error(`[OTP-EMAIL] Detailed error for ${email}:`, emailResult);
         }
       } else {
-        // Send via SMS using Firebase Admin SDK
-        // Frontend will handle the actual SMS delivery via Firebase client SDK
-        // Backend just stores OTP for verification
-        sentSuccess = true;
-        console.log(`[OTP-SMS] OTP stored for ${cleanPhone} - Firebase will send SMS on frontend`);
+        // Send via SMS using Fast2SMS
+        console.log(`[OTP-SMS] Sending OTP via Fast2SMS to ${phone}`);
+        const smsResult = await sendOTPSMS(phone, otp);
+        sentSuccess = smsResult.success;
+        if (!sentSuccess) {
+          sentError = smsResult.error || 'SMS service unavailable';
+          console.error(`[OTP-SMS] Error sending to ${phone}:`, smsResult);
+        } else {
+          console.log(`[OTP-SMS] Successfully sent to ${phone}`);
+        }
       }
 
       // Log final result
@@ -965,8 +1019,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.json({
         success: true,
         sent: sentSuccess,
+        smsSent: sentSuccess && !isEmail,
         message: sentSuccess ? `OTP sent to ${identifier}` : `OTP generated but delivery failed: ${sentError}`,
-        otp: sentSuccess ? undefined : otp, // Show OTP in response when delivery fails (for testing)
+        otp: otp, // Return OTP in response for dev/testing (frontend can decide what to do)
       });
     } catch (error: any) {
       console.error("[OTP] Send error:", error?.message || error, error?.stack?.split('\n').slice(0,3).join(' '));
