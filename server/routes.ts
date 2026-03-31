@@ -959,9 +959,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (fast2smsKey) {
           try {
             const smsMessage = `Your MOBI verification code is ${otp}. Valid for 5 minutes. Do not share.`;
-            const apiUrl = `https://www.fast2sms.com/dev/bulkV2?authorization=${fast2smsKey}&message=${encodeURIComponent(smsMessage)}&route=q&numbers=${cleanPhone}&flash=0`;
+            // Fast2SMS expects: 10-digit for India (no country code), or full number with country code
+            const phoneForSMS = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
+            const apiUrl = `https://www.fast2sms.com/dev/bulkV2?authorization=${fast2smsKey}&message=${encodeURIComponent(smsMessage)}&route=q&numbers=${phoneForSMS}&flash=0`;
             
-            console.log(`[OTP-SMS] Sending to ${cleanPhone} via Fast2SMS (single call)`);
+            console.log(`[OTP-SMS] Sending to ${phoneForSMS} via Fast2SMS`);
+            console.log(`[OTP-SMS] Message: "${smsMessage}"`);
             
             const smsRes = await fetch(apiUrl, {
               method: 'GET',
@@ -969,13 +972,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
             });
             const smsData = await smsRes.json() as any;
             
+            console.log(`[OTP-SMS] Fast2SMS Response:`, JSON.stringify(smsData));
+            
             if (smsData.return === true) {
               sentSuccess = true;
-              console.log(`[OTP-SMS] SUCCESS: OTP delivered to ${cleanPhone}`);
+              console.log(`[OTP-SMS] SUCCESS: OTP delivered to ${phoneForSMS}`);
             } else {
               const rawMsg = smsData.message;
               sentError = Array.isArray(rawMsg) ? rawMsg.join(' ') : (rawMsg || JSON.stringify(smsData));
-              console.warn(`[OTP-SMS] FAILED for ${cleanPhone}: ${sentError}`);
+              console.warn(`[OTP-SMS] FAILED for ${phoneForSMS}: ${sentError}`);
             }
           } catch (smsErr: any) {
             sentError = smsErr?.message || 'SMS send failed';
