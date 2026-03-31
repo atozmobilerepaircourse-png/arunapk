@@ -199,8 +199,8 @@ function ClassicTabLayout() {
         options={{
           title: "Home",
           href: isCustomer ? '/customer-home' : null,
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? "home" : "home-outline"} size={24} color={color} />
+          tabBarIcon: ({ focused }) => (
+            <Ionicons name={focused ? "home" : "home-outline"} size={20} color={focused ? "#4F46E5" : "#999"} />
           ),
         }}
       />
@@ -220,11 +220,11 @@ function ClassicTabLayout() {
         options={{
           title: isCustomer ? "Find Nearby" : "Directory",
           href: '/directory',
-          tabBarIcon: ({ color, focused }) => (
+          tabBarIcon: ({ focused }) => (
             <Ionicons
               name={isCustomer ? (focused ? "construct" : "construct-outline") : (focused ? "people" : "people-outline")}
-              size={24}
-              color={color}
+              size={20}
+              color={isCustomer ? (focused ? "#F59E0B" : "#999") : (focused ? "#4F46E5" : "#999")}
             />
           ),
         }}
@@ -235,8 +235,8 @@ function ClassicTabLayout() {
         options={{
           title: "Buy & Sell",
           href: isCustomer ? '/buy-sell' : null,
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? "pricetag" : "pricetag-outline"} size={22} color={color} />
+          tabBarIcon: ({ focused }) => (
+            <Ionicons name={focused ? "pricetag" : "pricetag-outline"} size={20} color={focused ? "#EF4444" : "#999"} />
           ),
         }}
       />
@@ -272,8 +272,8 @@ function ClassicTabLayout() {
         options={{
           title: isCustomer ? "Ask for Repair" : "Orders",
           href: isCustomer ? '/orders' : null,
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? "list" : "list-outline"} size={22} color={color} />
+          tabBarIcon: ({ focused }) => (
+            <Ionicons name={focused ? "list" : "list-outline"} size={20} color={focused ? "#8B5CF6" : "#999"} />
           ),
         }}
       />
@@ -302,9 +302,13 @@ function ClassicTabLayout() {
         options={{
           title: "Shop",
           href: (isCustomer || isTechnician) && navigationMode === 'default' ? '/marketplace' : null,
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? "bag" : "bag-outline"} size={22} color={color} />
-          ),
+          tabBarIcon: ({ focused }) => {
+            let iconColor = "#999";
+            if (focused) {
+              iconColor = isCustomer ? "#F97316" : "#4F46E5"; // Orange for customer, indigo for technician
+            }
+            return <Ionicons name={focused ? "bag" : "bag-outline"} size={20} color={iconColor} />;
+          },
         }}
       />
       {/* --- Tab 5: Buy & Sell (technician) or Profile (other non-customer roles) --- */}
