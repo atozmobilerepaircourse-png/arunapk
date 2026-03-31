@@ -9,6 +9,21 @@ const RED = '#EF4444';
 
 const INJECTED_JS = `
   (function() {
+    // Force desktop viewport
+    let meta = document.querySelector('meta[name="viewport"]');
+    if (meta) {
+      meta.setAttribute('content', 'width=1024, initial-scale=1, maximum-scale=1, user-scalable=yes');
+    } else {
+      meta = document.createElement('meta');
+      meta.name = 'viewport';
+      meta.content = 'width=1024, initial-scale=1, maximum-scale=1, user-scalable=yes';
+      document.head.appendChild(meta);
+    }
+    
+    // Force desktop user agent styling
+    document.documentElement.style.zoom = '1';
+    document.body.style.zoom = '1';
+    
     // Prevent all navigation within WebView
     document.addEventListener('click', function(e) {
       let target = e.target;
