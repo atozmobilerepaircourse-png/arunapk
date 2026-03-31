@@ -461,6 +461,33 @@ export default function GoLiveScreen() {
         ) : (
           // ── Setup form ─────────────────────────────────────────────────
           <>
+            {/* Action buttons row */}
+            <View style={styles.actionButtonsRow}>
+              <Pressable
+                style={styles.startLiveBtn}
+                onPress={() => setMode('link')}
+              >
+                <Ionicons name="radio" size={18} color="#FFF" />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.startLiveBtnText}>Start Live Stream</Text>
+                  <Text style={styles.startLiveBtnSub}>Share your session</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#FFF" />
+              </Pressable>
+
+              <Pressable
+                style={styles.uploadBtn}
+                onPress={openUploadLink}
+              >
+                <Ionicons name="cloud-upload" size={18} color="#FFF" />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.uploadBtnText}>Upload Video</Text>
+                  <Text style={styles.uploadBtnSub}>Upload resources</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#FFF" />
+              </Pressable>
+            </View>
+
             {/* Mode selector */}
             <View style={styles.modeRow}>
               <Pressable
@@ -666,6 +693,23 @@ const styles = StyleSheet.create({
     backgroundColor: '#10B981', borderRadius: 14, padding: 14, marginBottom: 16,
   },
   bannerText: { flex: 1, color: '#FFF', fontSize: 14, fontFamily: 'Inter_500Medium' },
+
+  // Action buttons row
+  actionButtonsRow: { gap: 12, marginBottom: 24 },
+  startLiveBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: RED, borderRadius: 16, paddingVertical: 16, paddingHorizontal: 14,
+    shadowColor: RED, shadowOpacity: 0.3, shadowRadius: 10, elevation: 5,
+  },
+  startLiveBtnText: { fontSize: 16, fontFamily: 'Inter_700Bold', color: '#FFF' },
+  startLiveBtnSub: { fontSize: 12, color: 'rgba(255,255,255,0.8)', marginTop: 2 },
+  uploadBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: '#FF6B35', borderRadius: 16, paddingVertical: 16, paddingHorizontal: 14,
+    shadowColor: '#FF6B35', shadowOpacity: 0.3, shadowRadius: 10, elevation: 5,
+  },
+  uploadBtnText: { fontSize: 16, fontFamily: 'Inter_700Bold', color: '#FFF' },
+  uploadBtnSub: { fontSize: 12, color: 'rgba(255,255,255,0.8)', marginTop: 2 },
 
   // Mode tabs
   modeRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
