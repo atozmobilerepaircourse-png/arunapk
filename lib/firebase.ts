@@ -8,12 +8,12 @@ let firebaseAvailable = false;
 function getFirebaseConfig() {
   if (typeof process === 'undefined') return null;
   const config = {
-    apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
-    authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
-    projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
-    storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET || 'mobile-repair-app-276b6.appspot.com',
-    appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
-    messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+    apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY || 'AIzaSyA7CUdQI_9laZFKx9dWpMOHjElqC5dBXEQ',
+    authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN || 'arunmobi-app.firebaseapp.com',
+    projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID || 'arunmobi-app',
+    storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET || 'arunmobi-app.firebasestorage.app',
+    appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID || '1:219048810068:web:f380d7d12053498bb4ffc1',
+    messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || '219048810068',
   };
   // Only log if all config exists
   if (config.apiKey && config.authDomain && config.projectId) {

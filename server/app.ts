@@ -27,8 +27,8 @@ function setupCors(app: express.Application) {
     // Permissive in development, restrictive in production if needed
     const isAllowed =
       !origin || // Allow no-origin requests (mobile apps may not send origin)
-      origin === "https://mobile-repair-app-276b6.web.app" ||
-      origin === "https://mobile-repair-app-276b6.firebaseapp.com" ||
+      origin === "https://arunmobi-app.web.app" ||
+      origin === "https://arunmobi-app.firebaseapp.com" ||
       origin === "https://repair-backendarun-838751841074.asia-south1.run.app" ||
       origin === "https://atozmobilerepair.in" ||
       origin === "https://www.atozmobilerepair.in" ||
