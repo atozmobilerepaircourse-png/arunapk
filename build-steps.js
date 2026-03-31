@@ -168,6 +168,7 @@ console.log('server_dist/index.js is now fully bundled (26MB) with all npm packa
             'GCP_SA_KEY',
             'OPENAI_API_KEY',
             'RESEND_API_KEY',
+            'MAILERSEND_API_KEY',
             'RAZORPAY_KEY_ID',
             'RAZORPAY_KEY_SECRET',
           ];
