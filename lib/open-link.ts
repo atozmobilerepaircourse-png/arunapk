@@ -7,6 +7,17 @@ export function openLink(url: string, title?: string) {
     Linking.openURL(url).catch(() => {});
     return;
   }
-  // Open all HTTP/HTTPS links inside the app using the live-link screen
+  
+  // On web, use direct navigation to /live-link with URL parameters
+  if (typeof window !== 'undefined' && Platform.OS === 'web') {
+    const params = new URLSearchParams({
+      link: url,
+      title: title || 'View Content'
+    });
+    window.location.href = `/live-link?${params.toString()}`;
+    return;
+  }
+  
+  // On mobile, use router.push
   router.push({ pathname: '/live-link', params: { link: url, title: title || 'View Content' } });
 }

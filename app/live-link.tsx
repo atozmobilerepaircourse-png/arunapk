@@ -28,7 +28,19 @@ const INJECTED_JS = `
 
 export default function LiveLinkScreen() {
   const insets = useSafeAreaInsets();
-  const { link, title } = useLocalSearchParams<{ link: string; title: string }>();
+  const routeParams = useLocalSearchParams<{ link: string; title: string }>();
+  
+  // Get link and title from route params or URL query params
+  let link = routeParams.link;
+  let title = routeParams.title;
+  
+  // On web, also check URL query params
+  if (typeof window !== 'undefined') {
+    const params = new URLSearchParams(window.location.search);
+    link = link || params.get('link') || '';
+    title = title || params.get('title') || 'View Content';
+  }
+  
   const [loading, setLoading] = useState(true);
 
   if (!link) {
