@@ -41,7 +41,6 @@ export default function MyPostsScreen() {
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
 
-  // Filter posts to show only current user's posts
   const myPosts = useMemo(() => {
     if (!profile?.id) return [];
     return posts
@@ -84,80 +83,80 @@ export default function MyPostsScreen() {
     }
   };
 
-  const renderPost = ({ item }: { item: any }) => (
-    <View style={styles.postCard}>
-      <View style={styles.postHeader}>
-        {item.userAvatar ? (
-          <Image
-            source={{ uri: getImageUri(item.userAvatar) }}
-            style={styles.avatar}
-            contentFit="cover"
-          />
-        ) : (
-          <View style={[styles.avatar, styles.avatarPlaceholder]}>
-            <Text style={styles.avatarText}>
-              {item.userName?.charAt(0).toUpperCase() || 'U'}
-            </Text>
+  const renderPost = ({ item }: { item: any }) => {
+    if (!item) return null;
+    
+    return (
+      <View style={styles.postCard}>
+        {/* Header */}
+        <View style={styles.postHeader}>
+          {item.userAvatar ? (
+            <Image
+              source={{ uri: getImageUri(item.userAvatar) }}
+              style={styles.avatar}
+              contentFit="cover"
+            />
+          ) : (
+            <View style={[styles.avatar, styles.avatarPlaceholder]}>
+              <Text style={styles.avatarText}>
+                {item.userName?.charAt(0).toUpperCase() || 'U'}
+              </Text>
+            </View>
+          )}
+          <View style={{ flex: 1 }}>
+            <Text style={styles.userName}>{item.userName}</Text>
+            <Text style={styles.timestamp}>{formatTime(item.createdAt)}</Text>
+          </View>
+          <Pressable
+            onPress={() => handleDeletePost(item.id)}
+            disabled={deletingId === item.id}
+            style={styles.deleteBtn}
+          >
+            {deletingId === item.id ? (
+              <ActivityIndicator size="small" color="#EF4444" />
+            ) : (
+              <Ionicons name="trash-outline" size={18} color="#EF4444" />
+            )}
+          </Pressable>
+        </View>
+
+        {/* Text */}
+        <Text style={styles.postText}>{item.text}</Text>
+
+        {/* Images */}
+        {item.images && item.images.length > 0 && (
+          <View style={styles.imagesContainer}>
+            {item.images.slice(0, 3).map((img: string, idx: number) => (
+              <View key={idx} style={styles.imageWrapper}>
+                <Image
+                  source={{ uri: getImageUri(img) }}
+                  style={styles.postImage}
+                  contentFit="cover"
+                />
+                {idx === 2 && item.images.length > 3 && (
+                  <View style={styles.moreOverlay}>
+                    <Text style={styles.moreText}>+{item.images.length - 3}</Text>
+                  </View>
+                )}
+              </View>
+            ))}
           </View>
         )}
-        <View style={{ flex: 1 }}>
-          <Text style={styles.userName}>{item.userName}</Text>
-          <Text style={styles.timestamp}>{formatTime(item.createdAt)}</Text>
-        </View>
-        <Pressable
-          onPress={() => handleDeletePost(item.id)}
-          disabled={deletingId === item.id}
-          style={styles.deleteBtn}
-        >
-          {deletingId === item.id ? (
-            <ActivityIndicator size="small" color="#EF4444" />
-          ) : (
-            <Ionicons name="trash-outline" size={18} color="#EF4444" />
-          )}
-        </Pressable>
-      </View>
 
-      <Text style={styles.postText}>{item.text}</Text>
-
-      {item.images && item.images.length > 0 && (
-        <View style={styles.imagesContainer}>
-          {item.images.slice(0, 3).map((img, idx) => (
-            <View key={idx} style={styles.imageWrapper}>
-              <Image
-                source={{ uri: getImageUri(img) }}
-                style={styles.postImage}
-                contentFit="cover"
-              />
-              {idx === 2 && item.images!.length > 3 && (
-                <View style={styles.moreOverlay}>
-                  <Text style={styles.moreText}>+{item.images!.length - 3}</Text>
-                </View>
-              )}
-            </View>
-          ))}
+        {/* Engagement */}
+        <View style={styles.engagementBar}>
+          <View style={styles.engagementItem}>
+            <Ionicons name="heart" size={16} color="#EF4444" />
+            <Text style={styles.engagementText}>{item.likes?.length || 0}</Text>
+          </View>
+          <View style={styles.engagementItem}>
+            <Ionicons name="chatbubble" size={16} color="#4F46E5" />
+            <Text style={styles.engagementText}>{item.comments?.length || 0}</Text>
+          </View>
         </View>
-      )}
-
-      <View style={styles.engagementBar}>
-        <View style={styles.engagementItem}>
-          <Ionicons name="heart" size={16} color="#EF4444" />
-          <Text style={styles.engagementText}>{item.likes?.length || 0}</Text>
-        </View>
-        <View style={styles.engagementItem}>
-          <Ionicons name="chatbubble" size={16} color="#4F46E5" />
-          <Text style={styles.engagementText}>{item.comments?.length || 0}</Text>
-        </View>
-      </View>
-    </View>
-  );
-
-  if (loading && posts.length === 0) {
-    return (
-      <View style={[styles.container, { paddingTop: topPad }]}>
-        <ActivityIndicator size="large" color={C.primary} />
       </View>
     );
-  }
+  };
 
   return (
     <View style={[styles.container, { paddingTop: topPad }]}>
@@ -210,7 +209,7 @@ const styles = StyleSheet.create({
     color: C.text,
   },
   listContent: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     paddingTop: 12,
     paddingBottom: 32,
   },
