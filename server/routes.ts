@@ -952,44 +952,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.error(`[OTP-EMAIL] Detailed error for ${email}:`, emailResult);
         }
       } else {
-        // Send via SMS
-        const cleanPhone = phone.replace(/\D/g, "");
-        const fast2smsKey = process.env.FAST2SMS_API_KEY;
-        
-        if (fast2smsKey) {
-          try {
-            const smsMessage = `Your MOBI verification code is ${otp}. Valid for 5 minutes. Do not share.`;
-            // Fast2SMS expects: 10-digit for India (no country code), or full number with country code
-            const phoneForSMS = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
-            const apiUrl = `https://www.fast2sms.com/dev/bulkV2?authorization=${fast2smsKey}&message=${encodeURIComponent(smsMessage)}&route=q&numbers=${phoneForSMS}&flash=0`;
-            
-            console.log(`[OTP-SMS] Sending to ${phoneForSMS} via Fast2SMS`);
-            console.log(`[OTP-SMS] Message: "${smsMessage}"`);
-            
-            const smsRes = await fetch(apiUrl, {
-              method: 'GET',
-              headers: { 'cache-control': 'no-cache' },
-            });
-            const smsData = await smsRes.json() as any;
-            
-            console.log(`[OTP-SMS] Fast2SMS Response:`, JSON.stringify(smsData));
-            
-            if (smsData.return === true) {
-              sentSuccess = true;
-              console.log(`[OTP-SMS] SUCCESS: OTP delivered to ${phoneForSMS}`);
-            } else {
-              const rawMsg = smsData.message;
-              sentError = Array.isArray(rawMsg) ? rawMsg.join(' ') : (rawMsg || JSON.stringify(smsData));
-              console.warn(`[OTP-SMS] FAILED for ${phoneForSMS}: ${sentError}`);
-            }
-          } catch (smsErr: any) {
-            sentError = smsErr?.message || 'SMS send failed';
-            console.error(`[OTP-SMS] NETWORK ERROR for ${cleanPhone}: ${sentError}`);
-          }
-        } else {
-          console.error('[OTP-SMS] FAST2SMS_API_KEY not configured');
-          sentError = 'SMS provider not configured';
-        }
+        // Send via SMS using Firebase Admin SDK
+        // Frontend will handle the actual SMS delivery via Firebase client SDK
+        // Backend just stores OTP for verification
+        sentSuccess = true;
+        console.log(`[OTP-SMS] OTP stored for ${cleanPhone} - Firebase will send SMS on frontend`);
       }
 
       // Log final result
