@@ -364,7 +364,40 @@ export default function AIRepairScreen() {
         return;
       }
 
-      // Convert blob to base64 for React Native compatibility
+      // On web, use HTML Audio element directly
+      if (typeof window !== 'undefined' && !Platform.OS) {
+        try {
+          const url = URL.createObjectURL(blob);
+          const audioElement = document.createElement('audio');
+          audioElement.src = url;
+          
+          audioElement.onended = () => {
+            console.log('[TTS] Web playback finished');
+            setPlayingMessageId(null);
+            try { URL.revokeObjectURL(url); } catch (e) {}
+          };
+          
+          audioElement.onerror = (err) => {
+            console.error('[TTS] Web audio error:', err);
+            setPlayingMessageId(null);
+            try { URL.revokeObjectURL(url); } catch (e) {}
+          };
+          
+          console.log('[TTS] Playing audio via Web Audio...');
+          const playPromise = audioElement.play();
+          if (playPromise) {
+            playPromise.catch((err: any) => {
+              console.error('[TTS] Web play error:', err);
+              setPlayingMessageId(null);
+            });
+          }
+          return;
+        } catch (webErr: any) {
+          console.error('[TTS] Web audio fallback error:', webErr);
+        }
+      }
+
+      // On mobile, use React Native Audio
       const base64 = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => {
@@ -396,7 +429,7 @@ export default function AIRepairScreen() {
       });
       listenerSet = true;
       
-      console.log('[TTS] Playing audio...');
+      console.log('[TTS] Playing audio on mobile...');
       await sound.playAsync();
     } catch (error: any) {
       console.error('[TTS] Playback error:', error);
