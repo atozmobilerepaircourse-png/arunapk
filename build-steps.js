@@ -162,6 +162,7 @@ console.log('server_dist/index.js is now fully bundled (26MB) with all npm packa
             'NEON_DATABASE_URL',
             'GOOGLE_CLIENT_SECRET',
             'FAST2SMS_API_KEY',
+            'BULKBLASTER_API_KEY',
             'BUNNY_STREAM_API_KEY',
             'BUNNY_STREAM_LIBRARY_ID',
             'BUNNY_STORAGE_API_KEY',

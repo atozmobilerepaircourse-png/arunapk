@@ -310,12 +310,10 @@ function checkOtpRateLimit(phone: string): { allowed: boolean; retryAfterMs: num
 
 async function sendOTPSMS(phone: string, otp: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const twilioAccountSid = process.env.TWILIO_ACCOUNT_SID;
-    const twilioAuthToken = process.env.TWILIO_AUTH_TOKEN;
-    const twilioPhoneNumber = process.env.TWILIO_PHONE_NUMBER;
+    const bulkBlasterApiKey = process.env.BULKBLASTER_API_KEY;
 
-    if (!twilioAccountSid || !twilioAuthToken || !twilioPhoneNumber) {
-      console.error('[OTP-SMS] Twilio credentials not configured');
+    if (!bulkBlasterApiKey) {
+      console.error('[OTP-SMS] BulkBlaster API key not configured');
       return { success: false, error: 'SMS service not configured' };
     }
 
@@ -325,43 +323,40 @@ async function sendOTPSMS(phone: string, otp: string): Promise<{ success: boolea
       return { success: false, error: 'Invalid phone number format' };
     }
 
-    // Format for Twilio: prepend country code
-    const formattedPhone = `+91${cleanPhone}`;
-    const message = `Your OTP is ${otp}. Do not share this code with anyone.`;
+    console.log(`[OTP-SMS] Sending OTP to ${cleanPhone} via BulkBlaster`);
 
-    console.log(`[OTP-SMS] Sending to ${formattedPhone} via Twilio`);
-
-    // Twilio API endpoint
-    const url = `https://api.twilio.com/2010-04-01/Accounts/${twilioAccountSid}/Messages.json`;
-
-    const response = await fetch(url, {
+    // BulkBlaster API endpoint
+    const response = await fetch("https://bulkblaster-global-otp-290441563653.asia-south1.run.app/send-otp", {
       method: 'POST',
       headers: {
-        'Authorization': 'Basic ' + Buffer.from(`${twilioAccountSid}:${twilioAuthToken}`).toString('base64'),
-        'Content-Type': 'application/x-www-form-urlencoded',
+        'Content-Type': 'application/json',
       },
-      body: new URLSearchParams({
-        From: twilioPhoneNumber,
-        To: formattedPhone,
-        Body: message,
-      }).toString(),
+      body: JSON.stringify({
+        apiKey: bulkBlasterApiKey,
+        phone: cleanPhone,
+        dialCode: "91",
+        otp: otp
+      }),
     });
 
     const data = await response.json() as any;
+    console.log(`[OTP-SMS] BulkBlaster response:`, data);
 
-    if (response.ok && data.sid) {
-      console.log(`[OTP-SMS] Successfully sent to ${formattedPhone}, SID: ${data.sid}`);
+    if (response.ok && (data.success === true || data.status === 'success')) {
+      console.log(`[OTP-SMS] ✓ Successfully sent to ${cleanPhone}`);
       return { success: true };
     } else {
       const errorMsg = data.message || data.error || 'Unknown error';
-      console.error(`[OTP-SMS] Failed for ${formattedPhone}: ${errorMsg}`);
-      return { success: false, error: `Twilio error: ${errorMsg}` };
+      console.error(`[OTP-SMS] Failed for ${cleanPhone}: ${errorMsg}`);
+      return { success: false, error: `SMS delivery failed: ${errorMsg}` };
     }
   } catch (error: any) {
     console.error('[OTP-SMS] Network error:', error?.message);
     return { success: false, error: `Network error: ${error?.message || 'Unknown'}` };
   }
 }
+
+// Previous Twilio version - replaced with BulkBlaster above
 
 
 export async function registerRoutes(app: Express): Promise<Server> {
