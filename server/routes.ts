@@ -290,8 +290,8 @@ function generateOTP(): string {
 
 // Rate limiting: track OTP requests per phone number
 const otpRateLimitMap = new Map<string, { count: number; windowStart: number }>();
-const OTP_RATE_LIMIT = 1; // CRITICAL: Allow only 1 OTP per 60 seconds (was 3, causing repeated SMS)
-const OTP_RATE_WINDOW_MS = 60 * 1000; // 60 seconds rate window
+const OTP_RATE_LIMIT = 5; // Allow 5 OTPs per 10 seconds for testing
+const OTP_RATE_WINDOW_MS = 10 * 1000; // 10 seconds rate window for testing
 
 function checkOtpRateLimit(phone: string): { allowed: boolean; retryAfterMs: number } {
   const now = Date.now();
