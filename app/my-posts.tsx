@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View, Text, FlatList, Pressable, ActivityIndicator, Alert, Platform,
   RefreshControl, StyleSheet,
@@ -10,23 +10,9 @@ import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import Colors from '@/constants/colors';
 import { useApp } from '@/lib/context';
-import { apiRequest, getApiUrl } from '@/lib/query-client';
+import { getApiUrl, apiRequest } from '@/lib/query-client';
 
 const C = Colors.light;
-
-interface Post {
-  id: string;
-  userId: string;
-  userName: string;
-  userRole: string;
-  userAvatar?: string;
-  text: string;
-  images?: string[];
-  likes: string[];
-  comments: Array<{ id: string; userId: string; text: string; userName: string; createdAt: number }>;
-  createdAt: number;
-  category?: string;
-}
 
 function getImageUri(img: string): string {
   if (img.startsWith('/')) return `${getApiUrl()}${img}`;
@@ -49,71 +35,56 @@ function formatTime(timestamp: number): string {
 
 export default function MyPostsScreen() {
   const insets = useSafeAreaInsets();
-  const { profile } = useApp();
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const { profile, posts, refreshData } = useApp();
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
 
-  const loadPosts = useCallback(async () => {
-    if (!profile?.id) return;
-    try {
-      const res = await apiRequest('GET', `/api/posts?userId=${profile.id}`);
-      const data = await res.json();
-      if (data.success && Array.isArray(data.posts)) {
-        setPosts(data.posts.sort((a: Post, b: Post) => b.createdAt - a.createdAt));
-      }
-    } catch (error) {
-      console.error('Error loading posts:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [profile?.id]);
-
-  useEffect(() => {
-    loadPosts();
-  }, [loadPosts]);
+  // Filter posts to show only current user's posts
+  const myPosts = useMemo(() => {
+    if (!profile?.id) return [];
+    return posts
+      .filter(p => p.userId === profile.id)
+      .sort((a, b) => b.createdAt - a.createdAt);
+  }, [posts, profile?.id]);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadPosts();
+    await refreshData();
     setRefreshing(false);
   };
 
   const handleDeletePost = (postId: string) => {
-    Alert.alert(
-      'Delete Post',
-      'Are you sure you want to delete this post?',
-      [
+    const doDelete = async () => {
+      try {
+        setDeletingId(postId);
+        const res = await apiRequest('DELETE', `/api/posts/${postId}`);
+        const data = await res.json();
+        if (data.success || res.status === 404) {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          await refreshData();
+        } else {
+          Alert.alert('Error', data.message || 'Failed to delete post');
+        }
+      } catch (error) {
+        Alert.alert('Error', 'Failed to delete post');
+      } finally {
+        setDeletingId(null);
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      if (window.confirm('Are you sure you want to delete this post?')) doDelete();
+    } else {
+      Alert.alert('Delete Post', 'Are you sure you want to delete this post?', [
         { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              setDeletingId(postId);
-              const res = await apiRequest('DELETE', `/api/posts/${postId}`);
-              const data = await res.json();
-              if (data.success) {
-                setPosts(posts.filter(p => p.id !== postId));
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-              } else {
-                Alert.alert('Error', data.message || 'Failed to delete post');
-              }
-            } catch (error) {
-              Alert.alert('Error', 'Failed to delete post');
-            } finally {
-              setDeletingId(null);
-            }
-          },
-        },
-      ]
-    );
+        { text: 'Delete', style: 'destructive', onPress: doDelete },
+      ]);
+    }
   };
 
-  const renderPost = ({ item }: { item: Post }) => (
+  const renderPost = ({ item }: { item: any }) => (
     <View style={styles.postCard}>
       <View style={styles.postHeader}>
         {item.userAvatar ? (
@@ -198,7 +169,7 @@ export default function MyPostsScreen() {
         <View style={{ width: 24 }} />
       </View>
 
-      {posts.length === 0 ? (
+      {myPosts.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Ionicons name="document-outline" size={48} color={C.textTertiary} />
           <Text style={styles.emptyText}>No posts yet</Text>
@@ -206,11 +177,11 @@ export default function MyPostsScreen() {
         </View>
       ) : (
         <FlatList
-          data={posts}
+          data={myPosts}
           renderItem={renderPost}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
-          scrollEnabled={posts.length > 0}
+          scrollEnabled={myPosts.length > 0}
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         />
