@@ -557,8 +557,7 @@ export default function OnboardingScreen() {
                     maxLength={10}
                     value={phone}
                     onChangeText={setPhone}
-                    returnKeyType="send"
-                    onSubmitEditing={() => sendOtp(phone, 'phone')}
+                    returnKeyType="done"
                   />
                 </View>
                 <Pressable
