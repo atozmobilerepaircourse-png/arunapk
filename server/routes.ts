@@ -341,11 +341,11 @@ async function sendOTPSMS(phone: string, otp: string): Promise<{ success: boolea
     const data = await response.json() as any;
     console.log(`[OTP-SMS] API Home response:`, data);
 
-    if (response.ok && (data.success === true || data.status === 'success' || data.status === 1)) {
+    if (response.ok && (data.success === true || data.status === 'success' || data.status === 1 || data.status === 'Sent')) {
       console.log(`[OTP-SMS] ✓ Successfully sent to ${cleanPhone}`);
       return { success: true };
     } else {
-      const errorMsg = data.message || data.error || 'Unknown error';
+      const errorMsg = data.remark || data.message || data.error || 'Unknown error';
       console.error(`[OTP-SMS] Failed for ${cleanPhone}: ${errorMsg}`);
       return { success: false, error: `SMS delivery failed: ${errorMsg}` };
     }
@@ -6524,8 +6524,8 @@ Respond ONLY with a valid JSON array (no markdown, no code blocks):
       const data = await response.json() as any;
       console.log(`[Admin-SMS] API Home response:`, data);
 
-      if (!response.ok || (data.success !== true && data.status !== 'success' && data.status !== 1)) {
-        const errorMsg = data.message || data.error || 'Failed to send SMS';
+      if (!response.ok || (data.success !== true && data.status !== 'success' && data.status !== 1 && data.status !== 'Sent')) {
+        const errorMsg = data.remark || data.message || data.error || 'Failed to send SMS';
         console.error(`[Admin-SMS] Failed:`, errorMsg);
         return res.status(500).json({ success: false, message: errorMsg });
       }
