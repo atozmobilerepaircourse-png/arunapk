@@ -10,64 +10,45 @@ export async function initializeRecaptcha(phone: string): Promise<void> {
 
 export async function sendFirebaseOTP(phone: string): Promise<{ success: boolean; verifierId?: string; error?: string }> {
   try {
-    // Use Firebase's native signInWithPhoneNumber() for SMS
-    // Works on Expo/React Native without RecaptchaVerifier
+    // Use backend OTP system that works reliably
+    // Backend stores OTP and returns it in dev mode for testing
     const digits = phone.replace(/\D/g, '').slice(-10);
     if (!digits || digits.length !== 10) {
       return { success: false, error: 'Invalid phone number' };
     }
 
     const fullPhone = `+91${digits}`;
-    console.log('[Firebase OTP] Sending OTP via Firebase to', fullPhone);
+    console.log('[Firebase OTP] Requesting OTP for', fullPhone);
 
-    try {
-      const { getFirebaseAuth } = await import('@/lib/firebase');
-      const { signInWithPhoneNumber } = await import('firebase/auth');
-
-      const auth = getFirebaseAuth();
-      if (!auth) {
-        throw new Error('Firebase not initialized');
-      }
-
-      // On React Native/Expo, signInWithPhoneNumber sends SMS directly
-      // No RecaptchaVerifier needed on mobile
-      const confirmationResult = await signInWithPhoneNumber(auth, fullPhone);
-      
-      // Store confirmation result globally for verification step
-      if (typeof window !== 'undefined') {
-        (window as any).firebaseConfirmationResult = confirmationResult;
-      }
-
-      console.log('[Firebase OTP] SMS sent successfully via Firebase');
-      return { success: true };
-    } catch (firebaseErr: any) {
-      console.error('[Firebase OTP] Firebase error:', firebaseErr?.message);
-      throw firebaseErr;
+    // Call backend OTP service
+    const result = await sendFallbackOTP(fullPhone);
+    
+    if (result.success) {
+      console.log('[Firebase OTP] OTP sent successfully');
+      console.log('[Firebase OTP] Dev OTP:', result.otp); // Show in console for testing
+      return { success: true, error: result.otp ? `Dev: ${result.otp}` : undefined };
     }
+
+    return { success: false, error: result.error || 'Failed to send OTP' };
   } catch (e: any) {
-    console.error('[Firebase OTP] Send error:', e?.message);
-    return { success: false, error: e?.message || 'Failed to send OTP via Firebase' };
+    console.error('[Firebase OTP] Send error:', e);
+    return { success: false, error: e?.message || 'Network error' };
   }
 }
 
 export async function verifyFirebaseOTP(code: string): Promise<{ success: boolean; error?: string; verified?: boolean }> {
   try {
-    // Use Firebase's confirmation result to verify OTP
-    const confirmationResult = (typeof window !== 'undefined' && (window as any).firebaseConfirmationResult);
+    // Verify OTP using backend - NO AUTO-LOGIN, just verification
+    console.log('[Firebase OTP] Verifying code:', code);
     
-    if (!confirmationResult) {
-      return { success: false, error: 'OTP not requested yet', verified: false };
+    const result = await verifyFallbackOTP('', code); // Phone not needed for verification
+    
+    if (result.success) {
+      console.log('[Firebase OTP] OTP verified successfully');
+      return { success: true, verified: true };
     }
 
-    try {
-      // Verify using Firebase confirmation result
-      const userCredential = await confirmationResult.confirm(code);
-      console.log('[Firebase OTP] Verified successfully via Firebase');
-      return { success: true, verified: true };
-    } catch (firebaseErr: any) {
-      console.error('[Firebase OTP] Firebase verification error:', firebaseErr?.message);
-      return { success: false, error: firebaseErr?.message || 'Invalid OTP', verified: false };
-    }
+    return { success: false, error: result.error || 'Invalid OTP', verified: false };
   } catch (e: any) {
     console.error('[Firebase OTP] Verify error:', e);
     return { success: false, error: e?.message || 'Network error', verified: false };
