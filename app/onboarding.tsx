@@ -169,7 +169,7 @@ export default function OnboardingScreen() {
     }
 
     if (method === 'phone') {
-      // Phone OTP
+      // Phone OTP - Send SMS via backend
       const digits = phoneOrEmail.replace(/\D/g, '').replace(/^91/, '');
       if (digits.length !== 10) {
         const errorMsg = 'Please enter a valid 10-digit mobile number.';
@@ -178,49 +178,36 @@ export default function OnboardingScreen() {
         return;
       }
       
-      console.log('[OTP-Phone] Auto-logging in with phone:', digits);
+      console.log('[OTP-Phone] Sending SMS OTP to phone:', digits);
       setOtpSendInProgress(true);
       setOtpSending(true);
 
       try {
-        const deviceId = await getDeviceId();
-        console.log('[OTP-Phone] Device ID:', deviceId);
+        const baseUrl = getApiUrl();
+        const res = await fetch(`${baseUrl}/api/otp/send`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone: digits }),
+        });
 
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Login request timeout. Please check your internet connection.')), 15000)
-        );
-        
-        const res = await Promise.race([
-          apiRequest('POST', '/api/auth/auto-login', { phone: digits, deviceId }),
-          timeoutPromise
-        ]) as any;
+        const data = await res.json() as any;
+        console.log('[OTP-Phone] Response:', { success: data.success, sent: data.sent, smsSent: data.smsSent, message: data.message });
 
-        const data = await res.json();
-        console.log('[OTP-Phone] Response data:', { success: data.success, isNewUser: data.isNewUser, hasProfile: !!data.profile });
-
-        if (!data.success) {
-          const errorMsg = data.message || 'Login failed';
+        if (!data.sent && !data.smsSent) {
+          const errorMsg = data.message || 'Failed to send OTP';
           console.error('[OTP-Phone] Failed:', errorMsg);
           setOtpError(errorMsg);
-          Alert.alert('Login Error', errorMsg);
+          Alert.alert('Error', errorMsg);
           return;
         }
 
-        console.log('[OTP-Phone] ✓ Auto-login successful! Logging in directly...');
+        console.log('[OTP-Phone] ✓ SMS OTP sent');
         if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        
-        // Auto-login: directly use the returned sessionToken and profile
-        if (data.sessionToken && data.profile) {
-          console.log('[OTP-Phone] Using sessionToken:', data.sessionToken.substring(0, 8) + '...');
-          loginWithProfile(data.profile, data.sessionToken);
-        } else {
-          // Fallback: show OTP screen if no sessionToken
-          setOtpSent(true);
-          setOtpResendTimer(60);
-          setOtpAttempts(0);
-          setPhone(digits);
-          setScreen('otp');
-        }
+        setOtpSent(true);
+        setOtpResendTimer(60);
+        setOtpAttempts(0);
+        setPhone(digits);
+        setScreen('otp');
       } catch (e: any) {
         const errorMsg = e?.message || 'Unable to send OTP. Please try again.';
         console.error('[OTP-Phone] Error:', errorMsg, e);
@@ -557,59 +544,7 @@ export default function OnboardingScreen() {
           <Text style={s.welcomeTitle}>Welcome to Mobile{'\n'}Technician Community</Text>
           <Text style={s.welcomeSubtitle}>Network, Learn & Grow with technicians across India.</Text>
           <View style={s.welcomeActions}>
-            {/* Method Toggle */}
-            <View style={{ flexDirection: 'row', backgroundColor: '#F3F4F6', borderRadius: 8, padding: 4, marginBottom: 16 }}>
-              <Pressable
-                style={[{ flex: 1, paddingVertical: 10, borderRadius: 6, alignItems: 'center' }, otpMethod === 'email' && { backgroundColor: '#FFF', borderWidth: 1.5, borderColor: '#FF6B35' }]}
-                onPress={() => { setOtpMethod('email'); setOtpError(''); }}
-              >
-                <Text style={[{ fontSize: 13, fontFamily: 'Inter_600SemiBold', color: '#6B7280' }, otpMethod === 'email' && { color: '#FF6B35' }]}>📧 Email</Text>
-              </Pressable>
-              <Pressable
-                style={[{ flex: 1, paddingVertical: 10, borderRadius: 6, alignItems: 'center' }, otpMethod === 'phone' && { backgroundColor: '#FFF', borderWidth: 1.5, borderColor: '#FF6B35' }]}
-                onPress={() => { setOtpMethod('phone'); setOtpError(''); }}
-              >
-                <Text style={[{ fontSize: 13, fontFamily: 'Inter_600SemiBold', color: '#6B7280' }, otpMethod === 'phone' && { color: '#FF6B35' }]}>📱 Phone</Text>
-              </Pressable>
-            </View>
-
-            {/* Email Input */}
-            {otpMethod === 'email' && (
-              <>
-                <TextInput
-                  style={[s.phoneInput, { marginBottom: 0, paddingHorizontal: 12 }]}
-                  placeholder="Enter your email"
-                  placeholderTextColor="#9CA3AF"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  value={email}
-                  onChangeText={setEmail}
-                  returnKeyType="send"
-                  onSubmitEditing={() => sendOtp(email, 'email')}
-                  onBlur={() => {
-                    if (email.includes('@') && email.length > 3 && !otpSending && otpRateLimitTimer === 0) {
-                      sendOtp(email, 'email');
-                    }
-                  }}
-                />
-                <Pressable
-                  style={({ pressed }) => [s.primaryBtn, { opacity: pressed ? 0.85 : 1 }, (otpSending || otpRateLimitTimer > 0) && { opacity: 0.5 }]}
-                  onPress={() => sendOtp(email, 'email')}
-                  disabled={otpSending || otpRateLimitTimer > 0 || !email.includes('@')}
-                >
-                  {otpSending ? (
-                    <ActivityIndicator color="#FFF" />
-                  ) : otpRateLimitTimer > 0 ? (
-                    <Text style={s.primaryBtnText}>Resend in {otpRateLimitTimer}s</Text>
-                  ) : (
-                    <Text style={s.primaryBtnText}>Get OTP via Email</Text>
-                  )}
-                </Pressable>
-                {otpError && <Text style={{ color: '#EF4444', fontSize: 12, marginTop: 8, textAlign: 'center' }}>{otpError}</Text>}
-              </>
-            )}
-
-            {/* Phone Input */}
+            {/* Phone Input - Email OTP Hidden */}
             {otpMethod === 'phone' && (
               <>
                 <View style={s.phoneInputRow}>
