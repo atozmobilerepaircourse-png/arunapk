@@ -266,6 +266,7 @@ export default function LiveContentScreen() {
         <View style={styles.titleRow}>
           <LiveDotPulse />
           <Text style={styles.screenTitle}>Live Sessions</Text>
+          <Text style={styles.orgCode}>Wcpdlu</Text>
         </View>
         {isTeacher && (
           <Pressable onPress={() => router.push('/go-live' as any)} style={styles.broadcastBtn}>
@@ -347,6 +348,7 @@ const styles = StyleSheet.create({
   },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   screenTitle: { fontSize: 22, fontFamily: 'Inter_700Bold', color: TEXT },
+  orgCode: { fontSize: 13, fontFamily: 'Inter_700Bold', color: RED, marginLeft: 'auto' },
   broadcastBtn: {
     width: 38,
     height: 38,

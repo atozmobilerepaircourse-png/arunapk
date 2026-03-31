@@ -65,7 +65,10 @@ export default function LearnScreen() {
     <View style={[styles.container, { paddingTop: insets.top, paddingHorizontal: 20 }]}>
       <View style={styles.content}>
         <View style={styles.header}>
-          <Ionicons name="book" size={48} color="#8B5CF6" />
+          <View style={styles.headerTop}>
+            <Ionicons name="book" size={48} color="#8B5CF6" />
+            <Text style={styles.orgCode}>Wcpdlu</Text>
+          </View>
           <Text style={styles.title}>Learn & Grow</Text>
           <Text style={styles.subtitle}>Access exclusive repair tutorials and courses</Text>
         </View>
@@ -95,6 +98,8 @@ const styles = StyleSheet.create({
   retryBtnText: { color: '#FFF', fontFamily: 'Inter_600SemiBold' },
 
   header: { alignItems: 'center', gap: 12 },
+  headerTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, width: '100%' },
+  orgCode: { fontSize: 13, fontFamily: 'Inter_700Bold', color: '#EF4444', marginLeft: 'auto' },
   title: { fontSize: 28, fontFamily: 'Inter_700Bold', color: C.text },
   subtitle: { fontSize: 16, color: C.textSecondary, textAlign: 'center' },
 
