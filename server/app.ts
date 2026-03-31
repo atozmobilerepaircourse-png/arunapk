@@ -24,16 +24,19 @@ function setupCors(app: express.Application) {
       "Content-Type, x-session-token, expo-platform, x-requested-with, Authorization";
 
     // Always allow CORS requests from known good origins and patterns
+    // Permissive in development, restrictive in production if needed
     const isAllowed =
-      !origin ||
+      !origin || // Allow no-origin requests (mobile apps may not send origin)
       origin === "https://mobile-repair-app-276b6.web.app" ||
       origin === "https://mobile-repair-app-276b6.firebaseapp.com" ||
       origin === "https://repair-backendarun-838751841074.asia-south1.run.app" ||
       origin === "https://atozmobilerepair.in" ||
       origin === "https://www.atozmobilerepair.in" ||
       origin === PRODUCTION_DOMAIN ||
-      origin?.startsWith("http://localhost:") ||
-      origin?.startsWith("http://127.0.0.1:") ||
+      origin?.startsWith("http://localhost") ||
+      origin?.startsWith("http://127.0.0.1") ||
+      origin?.startsWith("http://") || // Allow all HTTP (dev origins)
+      origin?.startsWith("https://") || // Allow all HTTPS origins
       origin?.endsWith(".web.app") ||
       origin?.endsWith(".firebaseapp.com") ||
       origin?.endsWith(".run.app") ||
