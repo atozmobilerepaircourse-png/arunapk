@@ -1,11 +1,30 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Pressable, StyleSheet, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, Pressable, StyleSheet, ActivityIndicator, Platform, Alert } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 
 const RED = '#EF4444';
+
+const INJECTED_JS = `
+  (function() {
+    // Prevent all navigation within WebView
+    document.addEventListener('click', function(e) {
+      let target = e.target;
+      while (target && target.tagName !== 'A') {
+        target = target.parentElement;
+      }
+      if (target && target.tagName === 'A') {
+        const href = target.getAttribute('href');
+        if (href && !href.startsWith('javascript:')) {
+          e.preventDefault();
+          window.ReactNativeWebView.postMessage(JSON.stringify({type: 'link', href: href}));
+        }
+      }
+    }, true);
+  })();
+`;
 
 export default function LiveLinkScreen() {
   const insets = useSafeAreaInsets();
@@ -55,6 +74,7 @@ export default function LiveLinkScreen() {
             }}
             allow="camera; microphone; accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
+            sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-presentation allow-modals allow-top-navigation-by-user-activation"
           />
         </View>
       </View>
@@ -62,6 +82,32 @@ export default function LiveLinkScreen() {
   }
 
   // Mobile: Use WebView
+  const handleWebViewMessage = (event: any) => {
+    try {
+      const data = JSON.parse(event.nativeEvent.data);
+      if (data.type === 'link') {
+        // User clicked a link - open it in browser or show dialog
+        Alert.alert(
+          'Open Link',
+          'This will open in your browser',
+          [
+            { text: 'Cancel', onPress: () => {} },
+            { 
+              text: 'Open', 
+              onPress: () => {
+                if (typeof window !== 'undefined') {
+                  window.open(data.href, '_blank');
+                }
+              }
+            }
+          ]
+        );
+      }
+    } catch (e) {
+      console.error('Error parsing WebView message:', e);
+    }
+  };
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
@@ -87,10 +133,28 @@ export default function LiveLinkScreen() {
             <ActivityIndicator size="large" color={RED} />
           </View>
         )}
+        injectedJavaScript={INJECTED_JS}
+        onMessage={handleWebViewMessage}
         allowsFullscreenVideo
         javaScriptEnabled
         domStorageEnabled
         mediaPlaybackRequiresUserAction={false}
+        onShouldStartLoadWithRequest={(request) => {
+          // Only allow loading the original link and same-domain requests
+          const requestUrl = request.url;
+          const isOriginalLink = requestUrl.startsWith(link);
+          
+          // Allow navigation within the same domain
+          try {
+            const originalDomain = new URL(link).hostname;
+            const requestDomain = new URL(requestUrl).hostname;
+            const isSameDomain = originalDomain === requestDomain;
+            
+            return isOriginalLink || isSameDomain;
+          } catch (e) {
+            return isOriginalLink;
+          }
+        }}
       />
     </View>
   );
