@@ -3,8 +3,6 @@ name: Build APK
 on:
   push:
     branches: [ main, master, develop ]
-  pull_request:
-    branches: [ main, master, develop ]
   workflow_dispatch:
 
 jobs:
@@ -20,46 +18,16 @@ jobs:
           node-version: '20'
           cache: 'npm'
       
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-      
       - name: Install dependencies
         run: npm install
       
-      - name: Generate native Android files
-        run: npx expo prebuild --clean --platform android --no-install
+      - name: Setup EAS CLI
+        run: npm install -g eas-cli
       
-      - name: Build APK
-        run: cd android && ./gradlew assembleRelease
-      
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: mobi-app-release
-          path: android/app/build/outputs/apk/release/app-release.apk
-          retention-days: 30
-      
-      - name: Create Release
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: actions/create-release@v1
+      - name: Build APK with EAS
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
-          draft: false
-          prerelease: false
+          EAS_TOKEN: ${{ secrets.EAS_TOKEN }}
+        run: eas build --platform android --profile preview --non-interactive
       
-      - name: Upload to Release
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: android/app/build/outputs/apk/release/app-release.apk
-          asset_name: mobi-app-release.apk
-          asset_content_type: application/vnd.android.package-archive
+      - name: Check build output
+        run: echo "APK build submitted! Check https://expo.dev for download link"
