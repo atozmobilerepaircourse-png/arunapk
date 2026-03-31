@@ -403,6 +403,27 @@ export default function GoLiveScreen() {
               </Text>
             </View>
 
+            {activeSession.link && (
+              <View style={styles.linkCard}>
+                <View style={styles.linkCardHeader}>
+                  <Ionicons name="link" size={16} color="#FFF" />
+                  <Text style={styles.linkCardLabel}>Live Session Link</Text>
+                </View>
+                <Text style={styles.linkCardUrl} numberOfLines={2}>{activeSession.link}</Text>
+                <Pressable 
+                  style={styles.linkCardBtn}
+                  onPress={() => {
+                    if (typeof window !== 'undefined') {
+                      window.open(activeSession.link, '_blank');
+                    }
+                  }}
+                >
+                  <Ionicons name="open-outline" size={16} color="#FFF" />
+                  <Text style={styles.linkCardBtnText}>Open Link</Text>
+                </Pressable>
+              </View>
+            )}
+
             {streamKeyInfo && (
               <View style={styles.rtmpCard}>
                 <Text style={styles.rtmpLabel}>Stream with OBS / Streamlabs</Text>
@@ -781,6 +802,20 @@ const styles = StyleSheet.create({
   liveLabel: { fontSize: 11, fontFamily: 'Inter_700Bold', color: RED, letterSpacing: 1.5 },
   activeTitle: { fontSize: 20, fontFamily: 'Inter_700Bold', color: '#000', lineHeight: 26, marginBottom: 6 },
   activeSubtext: { fontSize: 13, color: '#666', lineHeight: 18 },
+
+  // Link card
+  linkCard: {
+    backgroundColor: '#E0F2FE', borderRadius: 16, padding: 14, marginBottom: 18,
+    borderWidth: 1, borderColor: '#0EA5E9',
+  },
+  linkCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
+  linkCardLabel: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: '#0369A1', letterSpacing: 0.5 },
+  linkCardUrl: { fontSize: 12, fontFamily: 'Inter_400Regular', color: '#0C4A6E', lineHeight: 16, marginBottom: 10 },
+  linkCardBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    backgroundColor: '#0EA5E9', borderRadius: 10, paddingVertical: 10,
+  },
+  linkCardBtnText: { color: '#FFF', fontSize: 13, fontFamily: 'Inter_600SemiBold' },
 
   // RTMP card
   rtmpCard: {
