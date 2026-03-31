@@ -5,98 +5,52 @@ export interface EmailResult {
 }
 
 export async function sendOTPEmail(userEmail: string, otp: string): Promise<EmailResult> {
-  const apiKey = process.env.SENDGRID_API_KEY;
-  
-  console.log("[Email] DEBUG - Checking API key:");
-  console.log("[Email] KEY EXISTS:", !!apiKey);
-  console.log("[Email] KEY VALUE STARTS WITH:", apiKey?.substring(0, 10) || "UNDEFINED");
-  console.log("[Email] FULL KEY:", apiKey || "NO KEY FOUND");
-  
-  if (!apiKey) {
-    const msg = "SENDGRID_API_KEY not configured in environment variables";
-    console.error("[Email] " + msg);
-    return { success: false, error: msg, details: "API key missing from Cloud Run/Replit env vars" };
-  }
-
-  const fromEmail = process.env.SENDGRID_FROM_EMAIL || "arun173753@gmail.com";
-  console.log("[Email] Configuration check:");
-  console.log("  - API Key length:", apiKey.length);
-  console.log("  - From email:", fromEmail);
-  console.log("  - To email:", userEmail);
-
   try {
-    console.log("[Email] Sending OTP email via SendGrid...");
+    // Use simple HTTP request - MINIMAL approach
+    const apiKey = process.env.SENDGRID_API_KEY?.trim();
+    const fromEmail = (process.env.SENDGRID_FROM_EMAIL || "arun173753@gmail.com").trim();
     
-    const emailContent = `Your OTP is: ${otp}. Valid for 5 minutes. Do not share this code.`;
+    console.log("[Email] Sending OTP to:", userEmail);
+    console.log("[Email] From email:", fromEmail);
+    console.log("[Email] API Key configured:", !!apiKey);
+    
+    if (!apiKey) {
+      return { success: false, error: "SENDGRID_API_KEY not found" };
+    }
 
-    console.log("[Email] Request details:");
-    console.log("  - Endpoint: https://api.sendgrid.com/v3/mail/send");
-    console.log("  - From:", fromEmail);
-    console.log("  - To:", userEmail);
-    console.log("  - API Key starts with:", apiKey.substring(0, 10) + "...");
+    const emailContent = `Your OTP is: ${otp}. Valid for 5 minutes.`;
 
-    const payload = {
-      personalizations: [
-        {
-          to: [{ email: userEmail }],
-        },
-      ],
-      from: {
-        email: fromEmail,
-      },
-      subject: "Your Mobi App Verification Code",
-      content: [
-        {
-          type: "text/plain",
-          value: emailContent,
-        },
-      ],
-    };
-
-    console.log("[Email] Payload:", JSON.stringify(payload, null, 2));
-
+    // Direct SendGrid API call - SIMPLE format
     const response = await fetch("https://api.sendgrid.com/v3/mail/send", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`,
+        "Authorization": `Bearer ${apiKey.trim()}`,
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        personalizations: [{
+          to: [{ email: userEmail }],
+          subject: "Your OTP Code"
+        }],
+        from: { email: fromEmail },
+        content: [{ type: "text/plain", value: emailContent }]
+      })
     });
 
-    console.log("[Email] Response status:", response.status);
+    console.log("[Email] SendGrid response status:", response.status);
 
     if (!response.ok) {
-      let errorData;
-      try {
-        errorData = await response.json();
-      } catch (e) {
-        errorData = await response.text();
-      }
-      
-      console.error("[Email] SendGrid API error:");
-      console.error("  - Status:", response.status);
-      console.error("  - Body:", JSON.stringify(errorData, null, 2));
-      
-      const errorMsg = typeof errorData === 'object' ? (errorData.errors?.[0]?.message || errorData.message) : errorData;
-      return { success: false, error: `SendGrid error: ${errorMsg || response.statusText}`, details: JSON.stringify(errorData) };
+      const error = await response.json() as any;
+      console.error("[Email] SendGrid error:", JSON.stringify(error));
+      return { success: false, error: error.message || "Failed to send email" };
     }
 
-    console.log("[Email] ✓ OTP sent successfully via SendGrid:");
-    console.log("  - To:", userEmail);
-    console.log("  - From:", fromEmail);
-    
+    console.log("[Email] ✓ Email sent successfully to:", userEmail);
     return { success: true };
+
   } catch (err: any) {
-    console.error("[Email] Unexpected error during email send:");
-    console.error("  - Error message:", err.message);
-    console.error("  - Stack:", err.stack);
-    
-    return {
-      success: false,
-      error: err.message || "Unexpected error",
-      details: `Exception: ${err.toString()}`
-    };
+    console.error("[Email] Error:", err.message);
+    return { success: false, error: err.message };
   }
 }
 
