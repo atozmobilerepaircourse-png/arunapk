@@ -890,9 +890,23 @@ export default function BuySellScreen({ isEmbedded }: { isEmbedded?: boolean } =
             <Ionicons name="arrow-back" size={24} color={DK.text} />
           </Pressable>
           <Text style={styles.headerTitle} numberOfLines={1}>Buy & Sell</Text>
-          <Pressable onPress={() => router.push('/chats' as any)}>
-            <Ionicons name="chatbubbles-outline" size={24} color={DK.text} />
-          </Pressable>
+          <View style={{ flexDirection: 'row', gap: 12 }}>
+            {(profile?.role === 'customer' || profile?.role === 'technician') && (
+              <Pressable
+                style={styles.headerSellBtn}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  router.push('/sell-item' as any);
+                }}
+              >
+                <Ionicons name="add" size={20} color="#FFF" />
+                <Text style={styles.headerSellBtnText}>Sell</Text>
+              </Pressable>
+            )}
+            <Pressable onPress={() => router.push('/chats' as any)}>
+              <Ionicons name="chatbubbles-outline" size={24} color={DK.text} />
+            </Pressable>
+          </View>
         </View>
       )}
 
@@ -919,9 +933,6 @@ export default function BuySellScreen({ isEmbedded }: { isEmbedded?: boolean } =
         }
       />
 
-      {(profile?.role === 'customer' || profile?.role === 'technician') && (
-        <AnimatedSellButton isEmbedded={!!isEmbedded} />
-      )}
 
       {renderDetailModal()}
 
@@ -959,6 +970,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20, paddingBottom: 8, gap: 12,
   },
   headerTitle: { color: DK.text, fontSize: 24, fontWeight: '800' as const, flex: 1 },
+  headerSellBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: DK.primary, paddingHorizontal: 16, paddingVertical: 10,
+    borderRadius: 20, elevation: 2,
+    shadowColor: DK.primary, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4,
+  },
+  headerSellBtnText: { color: '#FFF', fontSize: 13, fontWeight: '700' as const },
   searchContainer: { paddingHorizontal: 16, marginBottom: 10 },
   searchBox: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8F8F8',
