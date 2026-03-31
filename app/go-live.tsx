@@ -413,9 +413,10 @@ export default function GoLiveScreen() {
                 <Pressable 
                   style={styles.linkCardBtn}
                   onPress={() => {
-                    if (typeof window !== 'undefined') {
-                      window.open(activeSession.link, '_blank');
-                    }
+                    router.push({
+                      pathname: '/live-link',
+                      params: { link: activeSession.link, title: activeSession.title },
+                    } as any);
                   }}
                 >
                   <Ionicons name="open-outline" size={16} color="#FFF" />

@@ -251,8 +251,8 @@ export default function LiveContentScreen() {
 
   const handleJoinLive = useCallback((session: LiveSession) => {
     router.push({
-      pathname: '/live-session',
-      params: { url: session.link, title: session.title, platform: session.platform, sessionId: session.id },
+      pathname: '/live-link',
+      params: { link: session.link, title: session.title },
     } as any);
   }, []);
 
