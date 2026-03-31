@@ -322,7 +322,7 @@ export default function AIRepairScreen() {
       console.log('[TTS] Playing text:', text.substring(0, 50) + '...');
 
       // On web, use browser's Web Speech API (free, instant, no API calls)
-      if (typeof window !== 'undefined' && !Platform.OS) {
+      if (typeof window !== 'undefined' && Platform.OS === 'web') {
         try {
           const utterance = new (window as any).SpeechSynthesisUtterance(text);
           utterance.rate = 1;
