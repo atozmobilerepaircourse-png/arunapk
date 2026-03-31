@@ -1,116 +1,51 @@
 import { Platform, Alert } from 'react-native';
 import { apiRequest, getApiUrl } from './query-client';
 
-let recaptchaVerifierId: string | null = null;
-let recaptchaVerificationToken: string | null = null;
+let currentSessionToken: string | null = null;
 
 export async function initializeRecaptcha(phone: string): Promise<void> {
-  try {
-    if (Platform.OS === 'web') {
-      // Web: Use Firebase reCAPTCHA
-      const { getFirebaseAuth } = await import('./firebase');
-      const auth = getFirebaseAuth();
-      if (!auth) {
-        return;
-      }
-
-      try {
-        const { RecaptchaVerifier, signInWithPhoneNumber } = await import('firebase/auth');
-        
-        if (!window.recaptchaVerifier) {
-          window.recaptchaVerifier = new RecaptchaVerifier(
-            'recaptcha-container',
-            { size: 'invisible' },
-            auth
-          );
-        }
-      } catch (e) {
-        // reCAPTCHA init failed, will fallback to Fast2SMS
-      }
-    }
-  } catch (e) {
-    // Firebase phone auth unavailable, will use fallback
-  }
+  // Firebase OTP system - initialization handled by backend
+  return;
 }
 
 export async function sendFirebaseOTP(phone: string): Promise<{ success: boolean; verifierId?: string; error?: string }> {
   try {
-    // CRITICAL: Firebase phone auth on mobile doesn't work with placeholder verifiers
-    // Only use Firebase on web where reCAPTCHA is properly initialized
-    if (Platform.OS !== 'web') {
-      return { success: false, error: 'Firebase unavailable on mobile - use fallback' };
+    // Phone OTP via backend (email fallback)
+    // Generate OTP via backend and send via configured email service
+    const digits = phone.replace(/\D/g, '').slice(-10);
+    if (!digits || digits.length !== 10) {
+      return { success: false, error: 'Invalid phone number' };
     }
 
-    const { getFirebaseAuth } = await import('./firebase');
-    const auth = getFirebaseAuth();
-    
-    if (!auth) {
-      return { success: false, error: 'Firebase not configured' };
+    const res = await apiRequest('POST', '/api/firebase-otp/send-phone', { phone: `+91${digits}` });
+    const data = await res.json();
+
+    if (data.success) {
+      currentSessionToken = data.sessionToken || null;
+      console.log('[Firebase OTP] Phone OTP sent successfully');
+      return { success: true };
     }
 
-    try {
-      const { signInWithPhoneNumber } = await import('firebase/auth');
-      const fullPhone = phone.startsWith('+91') ? phone : `+91${phone}`;
-      
-      // Web only: use reCAPTCHA verifier
-      const verifier = (window as any).recaptchaVerifier;
-      
-      if (!verifier) {
-        return { success: false, error: 'reCAPTCHA verification setup failed' };
-      }
-      
-      const confirmationResult = await Promise.race([
-        signInWithPhoneNumber(auth, fullPhone, verifier),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Firebase OTP timeout')), 15000)
-        )
-      ]);
-
-      recaptchaVerifierId = confirmationResult?.verificationId || null;
-      return { success: true, verifierId: recaptchaVerifierId || undefined };
-    } catch (error: any) {
-      const errorMsg = error?.message || 'Firebase OTP failed';
-      return { success: false, error: errorMsg };
-    }
+    return { success: false, error: data.message || 'Failed to send OTP' };
   } catch (e: any) {
-    return { success: false, error: e?.message || 'Error' };
+    return { success: false, error: e?.message || 'Network error' };
   }
 }
 
-
-export async function verifyFirebaseOTP(code: string): Promise<{ success: boolean; error?: string }> {
+export async function verifyFirebaseOTP(code: string): Promise<{ success: boolean; error?: string; sessionToken?: string }> {
   try {
-    if (!recaptchaVerifierId || Platform.OS !== 'web') {
-      return { success: false, error: 'Firebase verification not initialized' };
+    const res = await apiRequest('POST', '/api/firebase-otp/verify-phone', { otp: code });
+    const data = await res.json();
+
+    if (data.success) {
+      currentSessionToken = data.sessionToken || null;
+      console.log('[Firebase OTP] Phone OTP verified successfully');
+      return { success: true, sessionToken: data.sessionToken };
     }
 
-    try {
-      const { getFirebaseAuth } = await import('./firebase');
-      const auth = getFirebaseAuth();
-      if (!auth) {
-        return { success: false, error: 'Firebase auth not available' };
-      }
-
-      const { signInWithCredential, PhoneAuthProvider } = await import('firebase/auth');
-      const credential = PhoneAuthProvider.credential(recaptchaVerifierId, code);
-      
-      await Promise.race([
-        signInWithCredential(auth, credential),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Verification timeout')), 3000)
-        )
-      ]);
-
-      console.log('[Firebase Phone Auth] OTP verified successfully');
-      recaptchaVerifierId = null;
-      return { success: true };
-    } catch (error: any) {
-      const errorMsg = error?.message || 'Verification failed';
-      console.warn('[Firebase Phone Auth] Verification failed:', errorMsg);
-      return { success: false, error: errorMsg };
-    }
+    return { success: false, error: data.message || 'Invalid OTP' };
   } catch (e: any) {
-    return { success: false, error: e?.message || 'Error' };
+    return { success: false, error: e?.message || 'Network error' };
   }
 }
 

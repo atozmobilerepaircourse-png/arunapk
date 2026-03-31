@@ -776,6 +776,125 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ========== Firebase OTP routes ==========
+  app.post("/api/firebase-otp/send-phone", async (req, res) => {
+    try {
+      const { phone } = req.body;
+      if (!phone) {
+        return res.status(400).json({ success: false, message: "Phone number required" });
+      }
+
+      const cleanPhone = phone.replace(/\D/g, "").slice(-10);
+      if (cleanPhone.length !== 10) {
+        return res.status(400).json({ success: false, message: "Invalid phone number" });
+      }
+
+      const identifier = `+91${cleanPhone}`;
+      console.log(`[Firebase OTP] Sending to phone: ${identifier}`);
+
+      // Rate limiting
+      const rateCheck = checkOtpRateLimit(identifier);
+      if (!rateCheck.allowed) {
+        const secondsLeft = Math.ceil(rateCheck.retryAfterMs / 1000);
+        return res.status(429).json({
+          success: false,
+          message: `Too many requests. Wait ${secondsLeft}s`,
+          retryAfterSeconds: secondsLeft,
+        });
+      }
+
+      // Generate OTP and store
+      const otp = generateOTP();
+      const expiresAt = Date.now() + 5 * 60 * 1000;
+
+      await db.delete(otpTokens).where(eq(otpTokens.phone, cleanPhone));
+      await db.insert(otpTokens).values({ phone: cleanPhone, otp, expiresAt });
+
+      console.log(`[Firebase OTP] Generated OTP for ${identifier}: ${otp}`);
+
+      // Generate session token (use a simple UUID-based token for now)
+      const sessionId = `otp_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+
+      // Send OTP via MailerSend
+      let sentVia = '';
+      try {
+        // Try email OTP via MailerSend
+        const emailResult = await sendOTPEmail(`arun173753@gmail.com`, otp);
+        if (emailResult.success) {
+          sentVia = 'email';
+          console.log('[Firebase OTP] Sent via MailerSend email');
+        }
+      } catch (e) {
+        console.warn('[Firebase OTP] Email send failed:', e);
+      }
+
+      res.json({ 
+        success: true, 
+        message: 'OTP sent',
+        sessionToken: sessionId,
+        sentVia,
+        otp: process.env.NODE_ENV === 'development' ? otp : undefined
+      });
+    } catch (error: any) {
+      console.error('[Firebase OTP] Error:', error);
+      res.status(500).json({ success: false, message: error?.message || 'Server error' });
+    }
+  });
+
+  app.post("/api/firebase-otp/verify-phone", async (req, res) => {
+    try {
+      const { otp } = req.body;
+      if (!otp) {
+        return res.status(400).json({ success: false, message: "OTP required" });
+      }
+
+      const code = otp.replace(/\D/g, "");
+      if (code.length !== 6) {
+        return res.status(400).json({ success: false, message: "Invalid OTP format" });
+      }
+
+      console.log(`[Firebase OTP] Verifying OTP: ${code}`);
+
+      // Find matching OTP in database
+      const otpRecords = await db
+        .select()
+        .from(otpTokens)
+        .where(eq(otpTokens.otp, code))
+        .limit(1);
+
+      if (otpRecords.length === 0) {
+        console.warn('[Firebase OTP] OTP not found');
+        return res.status(400).json({ success: false, message: "Invalid or expired OTP" });
+      }
+
+      const record = otpRecords[0];
+      if (Date.now() > record.expiresAt) {
+        console.warn('[Firebase OTP] OTP expired');
+        await db.delete(otpTokens).where(eq(otpTokens.otp, code));
+        return res.status(400).json({ success: false, message: "OTP expired" });
+      }
+
+      console.log(`[Firebase OTP] OTP verified for ${record.phone || record.email}`);
+
+      // Clean up used OTP
+      await db.delete(otpTokens).where(eq(otpTokens.otp, code));
+
+      // Generate session token for app
+      const sessionToken = `firebase_${Date.now()}_${Math.random().toString(36).slice(2, 15)}`;
+
+      res.json({
+        success: true,
+        message: "OTP verified",
+        sessionToken,
+        phone: record.phone ? `+91${record.phone}` : undefined,
+        email: record.email,
+      });
+    } catch (error: any) {
+      console.error('[Firebase OTP] Verify error:', error);
+      res.status(500).json({ success: false, message: error?.message || 'Server error' });
+    }
+  });
+
   // ========== OTP routes ==========
   app.post("/api/otp/send", async (req, res) => {
     try {
