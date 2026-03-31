@@ -5,21 +5,21 @@ export interface EmailResult {
 }
 
 export async function sendOTPEmail(userEmail: string, otp: string): Promise<EmailResult> {
-  const apiKey = process.env.MAILERSEND_API_KEY;
+  const apiKey = process.env.SENDGRID_API_KEY;
   if (!apiKey) {
-    const msg = "MAILERSEND_API_KEY not configured in environment variables";
+    const msg = "SENDGRID_API_KEY not configured in environment variables";
     console.error("[Email] " + msg);
     return { success: false, error: msg, details: "API key missing from Cloud Run/Replit env vars" };
   }
 
-  const fromEmail = process.env.RESEND_FROM_EMAIL || "support@mail.atotmobilerepairs.in";
+  const fromEmail = process.env.SENDGRID_FROM_EMAIL || "support@mobi.app";
   console.log("[Email] Configuration check:");
   console.log("  - API Key length:", apiKey.length);
   console.log("  - From email:", fromEmail);
   console.log("  - To email:", userEmail);
 
   try {
-    console.log("[Email] Sending OTP email via MailerSend...");
+    console.log("[Email] Sending OTP email via SendGrid...");
     
     const emailContent = `
       <div style="font-family: Arial, sans-serif; padding: 20px; color: #333; max-width: 600px; margin: 0 auto;">
@@ -34,31 +34,35 @@ export async function sendOTPEmail(userEmail: string, otp: string): Promise<Emai
       </div>
     `;
 
-    const response = await fetch("https://api.mailersend.com/v1/email", {
+    const response = await fetch("https://api.sendgrid.com/v3/mail/send", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
+        personalizations: [
+          {
+            to: [{ email: userEmail }],
+            subject: "Your Mobi App Verification Code",
+          },
+        ],
         from: {
           email: fromEmail,
           name: "Mobi App",
         },
-        to: [
+        content: [
           {
-            email: userEmail,
+            type: "text/html",
+            value: emailContent,
           },
         ],
-        subject: "Your Mobi App Verification Code",
-        html: emailContent,
       }),
     });
 
-    const data = await response.json() as any;
-
     if (!response.ok) {
-      console.error("[Email] MailerSend API returned error:");
+      const data = await response.json() as any;
+      console.error("[Email] SendGrid API returned error:");
       console.error("  - Status:", response.status);
       console.error("  - Response:", JSON.stringify(data, null, 2));
       
@@ -66,8 +70,8 @@ export async function sendOTPEmail(userEmail: string, otp: string): Promise<Emai
       let details = "";
       
       if (response.status === 401) {
-        details = "API key is invalid or expired - verify MAILERSEND_API_KEY in Cloud Run environment variables";
-      } else if (response.status === 422) {
+        details = "API key is invalid or expired - verify SENDGRID_API_KEY in Cloud Run environment variables";
+      } else if (response.status === 400) {
         details = `Invalid request - check from email '${fromEmail}' or recipient email '${userEmail}'`;
       } else {
         details = JSON.stringify(data);
@@ -76,14 +80,8 @@ export async function sendOTPEmail(userEmail: string, otp: string): Promise<Emai
       return { success: false, error: errorMessage, details };
     }
 
-    if (!data?.id) {
-      console.error("[Email] MailerSend returned success but no email ID");
-      return { success: false, error: "No email ID returned from MailerSend", details: JSON.stringify(data) };
-    }
-
-    console.log("[Email] ✓ OTP sent successfully:");
+    console.log("[Email] ✓ OTP sent successfully via SendGrid:");
     console.log("  - To:", userEmail);
-    console.log("  - Email ID:", data.id);
     console.log("  - From:", fromEmail);
     
     return { success: true };
