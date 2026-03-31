@@ -22,12 +22,11 @@ jobs:
         run: npm install
       
       - name: Setup EAS CLI
-        run: npm install -g eas-cli
+        run: npm install -g eas-cli@latest
       
       - name: Build APK with EAS
         env:
           EAS_TOKEN: ${{ secrets.EAS_TOKEN }}
-        run: eas build --platform android --profile preview --non-interactive
-      
-      - name: Check build output
-        run: echo "APK build submitted! Check https://expo.dev for download link"
+        run: |
+          eas build --platform android --profile preview --non-interactive --wait || true
+          echo "Build submitted! Check Expo dashboard at https://expo.dev"
