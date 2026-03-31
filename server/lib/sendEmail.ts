@@ -6,50 +6,55 @@ export interface EmailResult {
 
 export async function sendOTPEmail(userEmail: string, otp: string): Promise<EmailResult> {
   try {
-    // Use simple HTTP request - MINIMAL approach
-    const apiKey = process.env.SENDGRID_API_KEY?.trim();
-    const fromEmail = (process.env.SENDGRID_FROM_EMAIL || "arun173753@gmail.com").trim();
+    const resendApiKey = process.env.RESEND_API_KEY;
+    const fromEmail = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
     
-    console.log("[Email] Sending OTP to:", userEmail);
-    console.log("[Email] From email:", fromEmail);
-    console.log("[Email] API Key configured:", !!apiKey);
+    console.log("[Email] Using Resend to send OTP");
+    console.log("[Email] To:", userEmail);
+    console.log("[Email] From:", fromEmail);
     
-    if (!apiKey) {
-      return { success: false, error: "SENDGRID_API_KEY not found" };
+    if (!resendApiKey) {
+      console.error("[Email] RESEND_API_KEY not configured");
+      return { success: false, error: "Email service not configured" };
     }
 
-    const emailContent = `Your OTP is: ${otp}. Valid for 5 minutes.`;
-
-    // Direct SendGrid API call - SIMPLE format
-    const response = await fetch("https://api.sendgrid.com/v3/mail/send", {
+    const response = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey.trim()}`,
+        "Authorization": `Bearer ${resendApiKey}`,
       },
       body: JSON.stringify({
-        personalizations: [{
-          to: [{ email: userEmail }],
-          subject: "Your OTP Code"
-        }],
-        from: { email: fromEmail },
-        content: [{ type: "text/plain", value: emailContent }]
-      })
+        from: fromEmail,
+        to: userEmail,
+        subject: "Your OTP Code",
+        html: `
+          <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px;">
+            <h2>Verification Code</h2>
+            <p>Your verification code is:</p>
+            <div style="background: #f5f5f5; padding: 20px; border-radius: 8px; text-align: center;">
+              <h1 style="letter-spacing: 8px; color: #FF6B35; font-family: monospace;">${otp}</h1>
+            </div>
+            <p>This code is valid for <strong>5 minutes</strong>. Do not share this code.</p>
+          </div>
+        `,
+      }),
     });
 
-    console.log("[Email] SendGrid response status:", response.status);
+    console.log("[Email] Resend response status:", response.status);
 
     if (!response.ok) {
       const error = await response.json() as any;
-      console.error("[Email] SendGrid error:", JSON.stringify(error));
+      console.error("[Email] Resend error:", JSON.stringify(error));
       return { success: false, error: error.message || "Failed to send email" };
     }
 
-    console.log("[Email] ✓ Email sent successfully to:", userEmail);
+    const data = await response.json() as any;
+    console.log("[Email] ✓ Email sent successfully, ID:", data.id);
     return { success: true };
 
   } catch (err: any) {
-    console.error("[Email] Error:", err.message);
+    console.error("[Email] Unexpected error:", err.message);
     return { success: false, error: err.message };
   }
 }
