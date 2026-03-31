@@ -359,6 +359,16 @@ function ClassicTabLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="learn"
+        options={{
+          title: "Learn",
+          href: isTechnician ? '/learn' : null,
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? "bulb" : "bulb-outline"} size={22} color={color} />
+          ),
+        }}
+      />
     </Tabs>
   );
 }
