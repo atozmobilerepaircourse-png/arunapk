@@ -13,6 +13,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useApp } from '@/lib/context';
 import { apiRequest } from '@/lib/query-client';
+import * as WebBrowser from 'expo-web-browser';
 
 const BG   = '#F9FAFB';
 const CARD = '#FFFFFF';
@@ -282,10 +283,26 @@ export default function LiveContentScreen() {
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           isTeacher ? (
-            <View style={{ paddingHorizontal: 16, marginBottom: 8 }}>
+            <View style={{ paddingHorizontal: 16, marginBottom: 8, gap: 10 }}>
               <Pressable style={styles.goLiveBtn} onPress={() => router.push('/go-live' as any)}>
                 <View style={styles.liveDotWhite} />
                 <Text style={styles.goLiveBtnText}>Start Live Stream</Text>
+                <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.7)" />
+              </Pressable>
+              <Pressable style={styles.uploadBtn} onPress={async () => {
+                try {
+                  const res = await apiRequest('GET', '/api/admin/links');
+                  const data = await res.json();
+                  const uploadLink = data?.upload_video_link;
+                  if (uploadLink) {
+                    await WebBrowser.openBrowserAsync(uploadLink);
+                  }
+                } catch (e) {
+                  console.error('[Upload] Error:', e);
+                }
+              }}>
+                <Ionicons name="cloud-upload" size={18} color="#FFF" />
+                <Text style={styles.uploadBtnText}>Upload Video</Text>
                 <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.7)" />
               </Pressable>
             </View>
@@ -353,6 +370,20 @@ const styles = StyleSheet.create({
   },
   liveDotWhite: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#FFF' },
   goLiveBtnText: { color: '#FFF', fontSize: 15, fontFamily: 'Inter_700Bold', flex: 1 },
+  uploadBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#FF6B35',
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    shadowColor: '#FF6B35',
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  uploadBtnText: { color: '#FFF', fontSize: 15, fontFamily: 'Inter_700Bold', flex: 1 },
   center: { paddingTop: 60, alignItems: 'center' },
   emptyWrap: { alignItems: 'center', paddingTop: 60, gap: 12, paddingHorizontal: 40 },
   emptyIcon: {
