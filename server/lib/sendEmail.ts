@@ -7,7 +7,7 @@ export interface EmailResult {
 export async function sendOTPEmail(userEmail: string, otp: string): Promise<EmailResult> {
   try {
     const resendApiKey = process.env.RESEND_API_KEY;
-    const fromEmail = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
+    const fromEmail = "onboarding@resend.dev";
     
     console.log("[Email] Using Resend to send OTP");
     console.log("[Email] To:", userEmail);
@@ -42,14 +42,21 @@ export async function sendOTPEmail(userEmail: string, otp: string): Promise<Emai
     });
 
     console.log("[Email] Resend response status:", response.status);
+    const responseText = await response.text();
+    console.log("[Email] Raw response:", responseText);
 
     if (!response.ok) {
-      const error = await response.json() as any;
-      console.error("[Email] Resend error:", JSON.stringify(error));
-      return { success: false, error: error.message || "Failed to send email" };
+      try {
+        const error = JSON.parse(responseText);
+        console.error("[Email] Resend error parsed:", JSON.stringify(error, null, 2));
+        return { success: false, error: error.message || responseText };
+      } catch (e) {
+        console.error("[Email] Could not parse error response:", responseText);
+        return { success: false, error: responseText };
+      }
     }
 
-    const data = await response.json() as any;
+    const data = JSON.parse(responseText);
     console.log("[Email] ✓ Email sent successfully, ID:", data.id);
     return { success: true };
 
