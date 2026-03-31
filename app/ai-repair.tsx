@@ -313,16 +313,23 @@ export default function AIRepairScreen() {
   // DEFINE PLAYVICE FIRST (before sendVoiceMessage which uses it)
   const playVoice = useCallback(async (messageId: string, text: string) => {
     try {
-      if (playingMessageId === messageId) {
-        setPlayingMessageId(null);
-        return;
-      }
-
-      setPlayingMessageId(messageId);
-      console.log('[TTS] Playing text:', text.substring(0, 50) + '...');
-
       // On web, use browser's Web Speech API (free, instant, no API calls)
       if (typeof window !== 'undefined' && Platform.OS === 'web') {
+        // If already playing this message, stop it
+        if (playingMessageId === messageId) {
+          console.log('[TTS] Stopping current speech...');
+          (window as any).speechSynthesis.cancel();
+          setPlayingMessageId(null);
+          return;
+        }
+
+        // Stop any currently playing speech before starting new one
+        console.log('[TTS] Cancelling previous speech...');
+        (window as any).speechSynthesis.cancel();
+        
+        setPlayingMessageId(messageId);
+        console.log('[TTS] Playing text:', text.substring(0, 50) + '...');
+
         try {
           const utterance = new (window as any).SpeechSynthesisUtterance(text);
           utterance.rate = 1;
@@ -331,16 +338,19 @@ export default function AIRepairScreen() {
           
           utterance.onend = () => {
             console.log('[TTS] Web Speech finished');
-            setPlayingMessageId(null);
+            if (playingMessageId === messageId) {
+              setPlayingMessageId(null);
+            }
           };
           
           utterance.onerror = (event: any) => {
             console.error('[TTS] Web Speech error:', event.error);
-            setPlayingMessageId(null);
+            if (playingMessageId === messageId) {
+              setPlayingMessageId(null);
+            }
           };
           
           console.log('[TTS] Using Web Speech API...');
-          (window as any).speechSynthesis.cancel(); // Stop any existing speech
           (window as any).speechSynthesis.speak(utterance);
           return;
         } catch (webErr: any) {
