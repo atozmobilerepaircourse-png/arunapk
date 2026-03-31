@@ -313,6 +313,45 @@ export default function AIRepairScreen() {
   // DEFINE PLAYVICE FIRST (before sendVoiceMessage which uses it)
   const playVoice = useCallback(async (messageId: string, text: string) => {
     try {
+      if (playingMessageId === messageId) {
+        setPlayingMessageId(null);
+        return;
+      }
+
+      setPlayingMessageId(messageId);
+      console.log('[TTS] Playing text:', text.substring(0, 50) + '...');
+
+      // On web, use browser's Web Speech API (free, instant, no API calls)
+      if (typeof window !== 'undefined' && !Platform.OS) {
+        try {
+          const utterance = new (window as any).SpeechSynthesisUtterance(text);
+          utterance.rate = 1;
+          utterance.pitch = 1;
+          utterance.volume = 1;
+          
+          utterance.onend = () => {
+            console.log('[TTS] Web Speech finished');
+            setPlayingMessageId(null);
+          };
+          
+          utterance.onerror = (event: any) => {
+            console.error('[TTS] Web Speech error:', event.error);
+            setPlayingMessageId(null);
+          };
+          
+          console.log('[TTS] Using Web Speech API...');
+          (window as any).speechSynthesis.cancel(); // Stop any existing speech
+          (window as any).speechSynthesis.speak(utterance);
+          return;
+        } catch (webErr: any) {
+          console.error('[TTS] Web Speech error:', webErr);
+          setPlayingMessageId(null);
+          Alert.alert('Voice Error', 'Speech synthesis not available on this browser');
+          return;
+        }
+      }
+
+      // On mobile, use React Native Audio with backend TTS
       // Stop current playback
       if (soundRef.current) {
         try {
@@ -328,13 +367,7 @@ export default function AIRepairScreen() {
         soundRef.current = null;
       }
 
-      if (playingMessageId === messageId) {
-        setPlayingMessageId(null);
-        return;
-      }
-
-      setPlayingMessageId(messageId);
-      console.log('[TTS] Requesting audio for:', text);
+      console.log('[TTS] Requesting audio from backend...');
 
       // Request audio from backend TTS endpoint
       const apiUrl = getApiUrl();
@@ -349,52 +382,18 @@ export default function AIRepairScreen() {
       if (!response.ok) {
         const errText = await response.text();
         console.error('[TTS] Error response:', errText);
-        Alert.alert('Error', 'Could not generate voice: ' + response.status);
         setPlayingMessageId(null);
+        Alert.alert('Voice Error', 'Could not generate voice');
         return;
       }
 
-      // Get blob as audio/mpeg
       const blob = await response.blob();
-      console.log('[TTS] Blob size:', blob.size, 'type:', blob.type);
+      console.log('[TTS] Blob size:', blob.size);
 
       if (blob.size === 0) {
-        Alert.alert('Error', 'Empty audio response');
         setPlayingMessageId(null);
+        Alert.alert('Voice Error', 'Empty audio response');
         return;
-      }
-
-      // On web, use HTML Audio element directly
-      if (typeof window !== 'undefined' && !Platform.OS) {
-        try {
-          const url = URL.createObjectURL(blob);
-          const audioElement = document.createElement('audio');
-          audioElement.src = url;
-          
-          audioElement.onended = () => {
-            console.log('[TTS] Web playback finished');
-            setPlayingMessageId(null);
-            try { URL.revokeObjectURL(url); } catch (e) {}
-          };
-          
-          audioElement.onerror = (err) => {
-            console.error('[TTS] Web audio error:', err);
-            setPlayingMessageId(null);
-            try { URL.revokeObjectURL(url); } catch (e) {}
-          };
-          
-          console.log('[TTS] Playing audio via Web Audio...');
-          const playPromise = audioElement.play();
-          if (playPromise) {
-            playPromise.catch((err: any) => {
-              console.error('[TTS] Web play error:', err);
-              setPlayingMessageId(null);
-            });
-          }
-          return;
-        } catch (webErr: any) {
-          console.error('[TTS] Web audio fallback error:', webErr);
-        }
       }
 
       // On mobile, use React Native Audio
@@ -410,26 +409,24 @@ export default function AIRepairScreen() {
       });
 
       const uri = `data:audio/mpeg;base64,${base64}`;
-      console.log('[TTS] Created base64 URI with length:', base64.length);
+      console.log('[TTS] Created base64 URI');
 
       const sound = new Audio.Sound();
       soundRef.current = sound;
       
-      console.log('[TTS] Loading audio...');
       await sound.loadAsync({ uri });
       
-      // Set listener BEFORE playing to ensure proper cleanup
       let listenerSet = false;
       sound.setOnPlaybackStatusUpdate((status: any) => {
         if (status.didJustFinish && listenerSet) {
-          console.log('[TTS] Playback finished');
+          console.log('[TTS] Mobile playback finished');
           setPlayingMessageId(null);
           listenerSet = false;
         }
       });
       listenerSet = true;
       
-      console.log('[TTS] Playing audio on mobile...');
+      console.log('[TTS] Playing audio...');
       await sound.playAsync();
     } catch (error: any) {
       console.error('[TTS] Playback error:', error);
