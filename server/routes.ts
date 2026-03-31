@@ -812,13 +812,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`[Firebase SMS OTP] Generated OTP for ${identifier}: ${otp}`);
 
-      // NO AUTO-LOGIN - just send OTP
-      res.json({ 
-        success: true, 
-        message: 'OTP sent to phone',
-        phone: identifier,
-        otp: process.env.NODE_ENV === 'development' ? otp : undefined // Show in dev only for testing
-      });
+      // Send OTP via SMS using Fast2SMS
+      let smsSuccess = false;
+      let smsError = '';
+      const fast2smsKey = process.env.FAST2SMS_API_KEY;
+
+      if (fast2smsKey) {
+        try {
+          const smsMessage = `Your MOBI verification code is ${otp}. Valid for 5 minutes. Do not share.`;
+          const apiUrl = `https://www.fast2sms.com/dev/bulkV2?authorization=${fast2smsKey}&message=${encodeURIComponent(smsMessage)}&route=q&numbers=${cleanPhone}&flash=0`;
+
+          console.log(`[Firebase SMS OTP] Sending to ${cleanPhone} via Fast2SMS`);
+
+          const smsRes = await fetch(apiUrl, {
+            method: 'GET',
+            headers: { 'cache-control': 'no-cache' },
+          });
+          const smsData = await smsRes.json() as any;
+
+          if (smsData.return === true) {
+            smsSuccess = true;
+            console.log(`[Firebase SMS OTP] SUCCESS: SMS delivered to ${cleanPhone}`);
+          } else {
+            const rawMsg = smsData.message;
+            smsError = Array.isArray(rawMsg) ? rawMsg.join(' ') : (rawMsg || JSON.stringify(smsData));
+            console.warn(`[Firebase SMS OTP] FAILED for ${cleanPhone}: ${smsError}`);
+          }
+        } catch (smsErr: any) {
+          smsError = smsErr?.message || 'SMS send failed';
+          console.error(`[Firebase SMS OTP] NETWORK ERROR for ${cleanPhone}: ${smsError}`);
+        }
+      } else {
+        smsError = 'SMS provider not configured';
+        console.error('[Firebase SMS OTP] FAST2SMS_API_KEY not configured');
+      }
+
+      // Return response
+      if (smsSuccess) {
+        res.json({
+          success: true,
+          message: 'OTP sent to phone via SMS',
+          phone: identifier,
+          otp: process.env.NODE_ENV === 'development' ? otp : undefined,
+        });
+      } else {
+        console.warn(`[Firebase SMS OTP] SMS failed for ${cleanPhone}`);
+        res.status(500).json({
+          success: false,
+          message: smsError || 'Failed to send OTP via SMS',
+        });
+      }
     } catch (error: any) {
       console.error('[Firebase SMS OTP] Error:', error);
       res.status(500).json({ success: false, message: error?.message || 'Server error' });
