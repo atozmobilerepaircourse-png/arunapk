@@ -162,9 +162,21 @@ export default function OnboardingScreen() {
   const sendOtp = async (phoneOrEmail: string, method: 'phone' | 'email' = 'phone') => {
     setOtpError('');
     
-    // Prevent double-send
+    // CRITICAL: Prevent double-send - check multiple conditions
     if (otpSendInProgress) {
-      console.warn('[OTP] Request already in progress');
+      console.warn('[OTP] Request already in progress - BLOCKED');
+      return;
+    }
+    
+    // Prevent if rate limit active
+    if (otpRateLimitTimer > 0) {
+      console.warn('[OTP] Rate limit active - BLOCKED');
+      return;
+    }
+    
+    // Prevent if already sent (within 60s)
+    if (otpSent && otpResendTimer > 0) {
+      console.warn('[OTP] Resend already in progress - BLOCKED');
       return;
     }
 
@@ -205,6 +217,7 @@ export default function OnboardingScreen() {
         if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         setOtpSent(true);
         setOtpResendTimer(60);
+        setOtpRateLimitTimer(60); // CRITICAL: Prevent duplicate sends for 60 seconds
         setOtpAttempts(0);
         setPhone(digits);
         setScreen('otp');
